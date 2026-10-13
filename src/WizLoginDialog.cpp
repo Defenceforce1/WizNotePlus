@@ -36,6 +36,7 @@
 #include "share/WizUI.h"
 #include "share/WizThreads.h"
 #include "share/WizGlobal.h"
+#include "share/WizLoginWindowRecovery.h"
 #include "sync/WizKMServer.h"
 #include "sync/WizAsyncApi.h"
 #include "sync/WizToken.h"
@@ -117,6 +118,13 @@ WizLoginDialog::WizLoginDialog(const QString &strLocale, const QList<WizLocalUse
     ui->label_logo->setMinimumHeight(WizSmartScaleUI(80));
 
     initTitleBar();
+
+#ifdef Q_OS_MAC
+    // Give the Dock/window list a useful name and restore a minimized login
+    // window on application activation, before the main window exists.
+    setWindowTitle(QStringLiteral("WizNotePlus"));
+    new WizLoginWindowRecovery(this);
+#endif
 
     m_lineEditUserName = ui->wgt_usercontainer->edit();
     m_lineEditPassword = ui->wgt_passwordcontainer->edit();
@@ -521,9 +529,9 @@ void WizLoginDialog::initTitleBar()
     hbox->insertStretch(1, 500);
     hbox->addWidget(m_btnSwitchServer);
     title->closeButton()->setVisible(false);
-    // FIXME: this does not work when launch QDialog with exec()
+    // Login has a fixed layout, but can be minimized and restored from the Dock.
     setZoomBtnEnabled(false);
-    setMinBtnEnabled(false);
+    setMinBtnEnabled(true);
 #else
     hbox->addWidget(m_btnSwitchServer);
     hbox->insertStretch(1, 500);

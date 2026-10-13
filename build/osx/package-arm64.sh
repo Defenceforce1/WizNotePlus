@@ -37,7 +37,7 @@ if [[ "$deploy_output" == *"ERROR:"* ]]; then
     exit 1
 fi
 test -f "$app/Contents/Frameworks/QtCore.framework/Versions/A/QtCore"
-lipo -verify_arch arm64 "$app/Contents/MacOS/WizNotePlus"
+lipo "$app/Contents/MacOS/WizNotePlus" -verify_arch arm64
 codesign --verify --deep --strict "$app"
 echo "Experimental ad-hoc signed bundle: $app"
 echo "Not Developer ID signed or notarized. Test with isolated data before real use."

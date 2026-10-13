@@ -21,7 +21,7 @@ for directory, _, names in os.walk(app):
             if file.read(4) not in magic:
                 continue
         seen.add(binary)
-        if subprocess.run(["lipo", "-verify_arch", "arm64", str(binary)], capture_output=True).returncode:
+        if subprocess.run(["lipo", str(binary), "-verify_arch", "arm64"], capture_output=True).returncode:
             failures.append(f"No arm64 slice: {binary.relative_to(app)}")
             continue
         listing = subprocess.check_output(["otool", "-L", "-arch", "arm64", str(binary)], text=True)

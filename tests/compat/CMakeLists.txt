@@ -13,3 +13,11 @@ if(QT_VERSION_MAJOR EQUAL 6)
     target_link_libraries(wiznote_compat_smoke PRIVATE Qt6::Core5Compat)
 endif()
 add_test(NAME wiznote_compat_smoke COMMAND wiznote_compat_smoke)
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+add_executable(wiznote_login_recovery_smoke login-window-recovery.cpp)
+target_include_directories(wiznote_login_recovery_smoke PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_login_recovery_smoke PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+add_test(NAME wiznote_login_recovery_smoke COMMAND wiznote_login_recovery_smoke)
+set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)

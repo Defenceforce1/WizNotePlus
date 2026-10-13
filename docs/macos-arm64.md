@@ -15,8 +15,19 @@ App Store builds, Intel builds and other platforms are not validated by this por
 - Isolated smoke suite passed: UTF-8/BOM, GB18030, UTF-8 output, timestamps,
   recursive locks, INI round-trip, SHA-256 known-answer and synthetic ZIP/ZIW.
   These are dependency/format smoke tests, not complete database/encryption tests.
-- Original user data was not read or migrated. Real GUI behavior and online
-  operations remain unverified; headless process startup is not a GUI test.
+- User confirmed the isolated experimental bundle opens the login window. Its
+  minimize/restore behavior failed; quitting and relaunching restores the window.
+- Added login-only application activation recovery, a named window and enabled
+  minimization. Offscreen regression covers restoration, nested modal dialogs,
+  closed/destroyed dialogs and the `QDialog::exec()` loop. This is not yet a manual
+  Dock restoration test. Native Cocoa testing from the sandbox failed before
+  opening a window (no screens available); that does not validate or invalidate
+  the fix on the user's desktop.
+- Original user data was not read or migrated. Authentication, editing, sync and
+  other real GUI behavior remain unverified.
+- First GitHub Actions run compiled and passed the data smoke suite, but failed
+  packaging at `lipo -verify_arch`. Place the input filename before that option to
+  support the runner's newer tool. A successful full CI rerun is still required.
 
 Packaging requires all deployed libraries and signature verification; only a
 bundle passing those checks may be handed off. Public release additionally needs
@@ -78,3 +89,7 @@ actually succeeds; it is not macOS 27 runtime certification.
 Licenses and remaining redistribution checks: [third-party-licenses.md](third-party-licenses.md).
 Qt's migration note explains persistent profile behavior:
 https://doc.qt.io/qt-6.8/qtwebengine-changes-qt6.html
+
+Qt's Cocoa backend explicitly propagates an active-state event when reopening
+from the Dock, even if the app was already active:
+https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoaapplicationdelegate.mm
