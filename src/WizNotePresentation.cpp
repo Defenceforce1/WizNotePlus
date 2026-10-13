@@ -84,6 +84,80 @@ QString mathBlockStyle()
 .wiz-editor-body.markdown-body blockquote .MathJax_Display { margin: 0.8em 0; }
 )CSS");
 }
+QString scientificMathStyle()
+{
+    // Adapted from the user's Scientific AMS Theorems stylesheet. Notebooks-only
+    // directives and its MathJax 3/4 script are intentionally not executed.
+    return QStringLiteral(R"CSS(/* WizNotePlus scientific math environments v1 */
+.wiz-editor-body.markdown-body {
+  --math-blue: #405bb0;
+  --math-blue-background: rgba(64,91,176,0.08);
+  --math-blue-border: #4b69c6;
+  --math-green: #287659;
+  --math-green-background: rgba(40,118,89,0.08);
+  --math-green-border: #33936f;
+  --math-orange: #a05a18;
+  --math-orange-background: rgba(160,90,24,0.08);
+  --math-orange-border: #c4782c;
+  --math-gray: #666666;
+  --math-gray-background: rgba(100,100,100,0.07);
+  --math-gray-border: #999999;
+  --math-environment-radius: 6px;
+  --math-environment-padding: 0.9em 1em;
+  --math-environment-margin: 1.2em 0;
+  counter-reset: theorem-counter definition-counter example-counter;
+}
+.wiz-editor-body.markdown-body :is(.theorem,.lemma,.proposition,.corollary,.definition,.example,.remark,.proof) {
+  display: block; box-sizing: border-box;
+  margin: var(--math-environment-margin);
+  padding: var(--math-environment-padding);
+  border-left: 4px solid var(--math-blue-border);
+  border-radius: var(--math-environment-radius);
+  background: var(--math-blue-background);
+  color: #263950; line-height: 1.65;
+  break-inside: avoid-page;
+}
+.wiz-editor-body.markdown-body :is(.theorem,.lemma,.proposition,.corollary) { counter-increment: theorem-counter; }
+.wiz-editor-body.markdown-body .definition {
+  counter-increment: definition-counter;
+  border-color: var(--math-green-border); background: var(--math-green-background);
+}
+.wiz-editor-body.markdown-body .example {
+  counter-increment: example-counter;
+  border-color: var(--math-orange-border); background: var(--math-orange-background);
+}
+.wiz-editor-body.markdown-body :is(.remark,.proof) {
+  border-left: 3px solid var(--math-gray-border); background: var(--math-gray-background);
+}
+.wiz-editor-body.markdown-body .proof { padding: 0.7em 0.9em; margin: 1em 0; background: transparent; }
+.wiz-editor-body.markdown-body :is(.theorem,.lemma,.proposition,.corollary,.definition,.example,.remark,.proof)::before {
+  display: block; font-weight: 700; color: var(--math-blue); margin-bottom: 0.45em;
+}
+.wiz-editor-body.markdown-body .theorem::before { content: "定理 " counter(theorem-counter) ". " attr(data-wiz-math-title); }
+.wiz-editor-body.markdown-body .lemma::before { content: "引理 " counter(theorem-counter) ". " attr(data-wiz-math-title); }
+.wiz-editor-body.markdown-body .proposition::before { content: "命题 " counter(theorem-counter) ". " attr(data-wiz-math-title); }
+.wiz-editor-body.markdown-body .corollary::before { content: "推论 " counter(theorem-counter) ". " attr(data-wiz-math-title); }
+.wiz-editor-body.markdown-body .definition::before {
+  content: "定义 " counter(definition-counter) ". " attr(data-wiz-math-title); color: var(--math-green);
+}
+.wiz-editor-body.markdown-body .example::before {
+  content: "例 " counter(example-counter) ". " attr(data-wiz-math-title); color: var(--math-orange);
+}
+.wiz-editor-body.markdown-body .remark::before { content: "注. " attr(data-wiz-math-title); color: var(--math-gray); }
+.wiz-editor-body.markdown-body .proof::before { content: "证明. " attr(data-wiz-math-title); color: #263950; font-style: italic; }
+.wiz-editor-body.markdown-body .proof::after { content: "□"; display: block; text-align: right; margin-top: 0.4em; line-height: 1; }
+.wiz-editor-body.markdown-body .wiz-math-source-heading { display: none; }
+.wiz-editor-body.markdown-body .wiz-math-block::before { content: attr(data-wiz-math-heading); }
+.wiz-editor-body.markdown-body :is(.theorem,.lemma,.proposition,.corollary,.definition,.example,.remark,.proof) > :first-child { margin-top: 0; }
+.wiz-editor-body.markdown-body :is(.theorem,.lemma,.proposition,.corollary,.definition,.example,.remark,.proof) > :last-child { margin-bottom: 0; }
+.wiz-editor-body.markdown-body .MathJax_Display { max-width: 100%; margin: 0.8em 0; }
+@media screen {
+  .wiz-editor-body.markdown-body .MathJax_Display { overflow-x: auto; overflow-y: hidden; padding: 0.25em 0 0.4em; }
+}
+.wiz-editor-body.markdown-body a[id] { scroll-margin-top: 2em; }
+.wiz-editor-body.markdown-body a { text-decoration-thickness: 0.07em; text-underline-offset: 0.14em; }
+)CSS");
+}
 void editStyle(QWidget* parent, QSettings* settings, const std::function<void(const Style&)>& preview)
 {
     const Style original = loadStyle(settings);
@@ -113,6 +187,15 @@ void editStyle(QWidget* parent, QSettings* settings, const std::function<void(co
     QObject::connect(math, &QPushButton::clicked, &dialog, [screen, enabled] {
         if (!screen->toPlainText().contains("/* WizNotePlus math-note blocks */"))
             screen->appendPlainText(mathBlockStyle());
+        enabled->setChecked(true);
+    });
+    auto* scientific = new QPushButton(QStringLiteral("插入分类数学样式（定理／定义／证明）"));
+    scientific->setObjectName("wiz-note-css-scientific-preset");
+    scientific->setToolTip(QStringLiteral("按类型设置颜色、边框和编号。追加到已有 CSS 后，点预览或保存才应用，不执行外部脚本。"));
+    box->addWidget(scientific);
+    QObject::connect(scientific, &QPushButton::clicked, &dialog, [screen, enabled] {
+        if (!screen->toPlainText().contains("/* WizNotePlus scientific math environments v1 */"))
+            screen->appendPlainText(scientificMathStyle());
         enabled->setChecked(true);
     });
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);

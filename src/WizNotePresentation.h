@@ -17,6 +17,7 @@ bool saveStyle(QSettings* settings, const Style& style, QString& error);
 QString styleSheet(const Style& style);
 QString jsonString(const QString& text);
 QString mathBlockStyle();
+QString scientificMathStyle();
 // A live preview callback affects rendering only. Cancel restores the old style.
 void editStyle(QWidget* parent, QSettings* settings,
                const std::function<void(const Style&)>& preview);

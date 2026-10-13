@@ -85,16 +85,23 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
     Style live;
     bool dialogVisited = false;
     bool presetVisited = false;
+    bool scientificPresetVisited = false;
     QTimer::singleShot(100, [&] {
         auto* dialog = QApplication::activeModalWidget();
         auto* field = dialog ? dialog->findChild<QPlainTextEdit*>("wiz-note-screen-css") : nullptr;
         auto* preview = dialog ? dialog->findChild<QPushButton*>("wiz-note-css-preview") : nullptr;
         auto* math = dialog ? dialog->findChild<QPushButton*>("wiz-note-css-math-preset") : nullptr;
+        auto* scientific = dialog ? dialog->findChild<QPushButton*>("wiz-note-css-scientific-preset") : nullptr;
         if (field && preview) { field->setPlainText("body { color:red; }"); preview->click(); dialogVisited = true; }
         if (field && math) {
             math->click(); math->click();
             presetVisited = field->toPlainText().startsWith("body { color:red; }")
                 && field->toPlainText().count("/* WizNotePlus math-note blocks */") == 1;
+        }
+        if (field && scientific) {
+            scientific->click(); scientific->click();
+            scientificPresetVisited = field->toPlainText().startsWith("body { color:red; }")
+                && field->toPlainText().count("/* WizNotePlus scientific math environments v1 */") == 1;
         }
         if (dialog) qobject_cast<QDialog*>(dialog)->reject();
     });
@@ -105,14 +112,41 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
     check(!styleSheet(loadStyle(&settings)).contains("retired-print-sentinel"), "retired print CSS is ignored");
     check(presetVisited && loadStyle(&settings).screen == custom.screen,
         "math block preset appends once and cancel never saves or replaces existing CSS");
+    check(scientificPresetVisited && loadStyle(&settings).screen == custom.screen,
+        "scientific preset appends once without replacing CSS or saving on cancel");
+    check(!scientificMathStyle().contains("@nb_") && !scientificMathStyle().contains("<script")
+        && !scientificMathStyle().contains("mjx-container"),
+        "scientific stylesheet excludes Notebooks directives and foreign MathJax configuration");
 
     Style math{mathBlockStyle(), true};
     check(saveStyle(&settings, math, error), "one global math-block stylesheet is saved locally");
     const QStringList sources{
         QString::fromUtf8("# 数学引用块测试\n\n> **定理 1（测试）**\n>\n> 对任意实数 $x$，有 $x^2 \\ge 0$。\n>\n> $$x^2 \\ge 0$$\n\n原来的 Markdown 引用块，不使用新语法。"),
-        QString::fromUtf8("# 第二篇 Markdown\n\n> **定义（测试）**\n>\n> 这篇也使用同一份 CSS，不逐篇设置。\n\n```cpp\nint answer = 42;\n```\n")
+        QString::fromUtf8("# 第二篇 Markdown\n\n> **定义（测试）**\n>\n> 这篇也使用同一份 CSS，不逐篇设置。\n\n```cpp\nint answer = 42;\n```\n"),
+        QString::fromUtf8("# 分类数学样式\n\n<div class=\"definition\"><p>称 $\\mathbb{R}$ 为实数集。</p></div>\n\n"
+            "<div class=\"theorem\"><p>对于 $x\\in\\mathbb{R}$，有 $x^2\\ge 0$。</p></div>\n\n"
+            "<div class=\"lemma\"><p>平方和亦非负。</p></div>\n\n"
+            "<div class=\"example\"><p>取 $x=2$，则 $x^2=4$。</p></div>\n\n"
+            "<div class=\"proof\"><p>由实数乘法的性质可得结论。</p></div>\n\n")
+        ,QString::fromUtf8("# 数学块与引用\n\n由定理 \\ref{thm:positive} 可知结论；再看 $\\ref{thm:positive}$。\n\n"
+            "> **定义（实数）** \\label{def:real}\n>\n> 实数集记为 $\\mathbb{R}$。\n\n"
+            "> **定理（非负性）** \\label{thm:positive}\n>\n> 对于实数 $x$，有 $x^2\\ge 0$。\n\n"
+            "> **引理** \\label{lem:sum}\n>\n> 平方和非负。\n\n"
+            "> **例**\n>\n> 取 $x=2$。\n\n"
+            "> **证明**\n>\n> 由实数的乘法性质可得结论。\n\n"
+            "> **定理 7（手写编号）** \\label{thm:manual}\n>\n> 此编号保持为 7。\n\n"
+            "> **推论** \\label{cor:next}\n>\n> 编号继续为 8。\n\n"
+            "<!-- -->\n\n> **定理相关问题**\n>\n> 普通引用块，不识别为环境。\n\n"
+            "```text\n\\ref{thm:positive}\n> **定理** \\label{code:untouched}\n```\n")
+        ,QString::fromUtf8("# 重复标签\n\n\\ref{thm:duplicate} 和 \\ref{unknown:label}\n\n"
+            "> **定理** \\label{thm:duplicate}\n>\n> 第一条。\n\n"
+            "> **定义** \\label{thm:duplicate}\n>\n> 第二条。\n\n")
     };
     for (int index = 0; index < sources.size(); ++index) {
+        if (index == 2) {
+            math.screen = scientificMathStyle();
+            check(saveStyle(&settings, math, error), "scientific CSS uses the same global setting");
+        }
         const QString resource = Utils::WizPathResolve::resourcesPath() + "files/wizeditor/";
         QString source = sources[index].toHtmlEscaped(); source.replace('\n', "<br>");
         const QString html = "<html><head><meta charset='utf-8'></head><body>" + source
@@ -135,6 +169,7 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         const bool ready = waitFor([&] { return evaluate(reader.page(), "!!window.FixtureReady").toBool(); });
         check(ready, "existing bundled Markdown reader completes offline");
         if (!ready) continue;
+        if (index < 2) {
         const auto style = evaluate(reader.page(),
             "(function(){var q=document.querySelector('blockquote'),t=q&&q.querySelector('strong');"
             "if(!q||!t)return {};var a=getComputedStyle(q),b=getComputedStyle(t);"
@@ -145,13 +180,69 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
             && style.value("markdownContainer").toBool()
             && style.value("title") == "rgb(36, 83, 135)" && style.value("titleDisplay") == "block",
             "common CSS styles ordinary Markdown quote block and bold title in both notes");
+        } else if (index == 2) {
+            const auto style = evaluate(reader.page(),
+                "(function(){var t=document.querySelector('.theorem'),d=document.querySelector('.definition'),"
+                "e=document.querySelector('.example'),p=document.querySelector('.proof'),l=document.querySelector('.lemma');"
+                "if(!t||!d||!e||!p||!l)return {};return {theorem:getComputedStyle(t).borderLeftColor,"
+                "definition:getComputedStyle(d).borderLeftColor,example:getComputedStyle(e).borderLeftColor,"
+                "width:getComputedStyle(t).borderLeftWidth,reset:getComputedStyle(document.body).counterReset,"
+                "shared:getComputedStyle(l).counterIncrement,qed:getComputedStyle(p,'::after').content,"
+                "title:getComputedStyle(t,'::before').content};})()").toMap();
+            qInfo() << "Scientific rendered CSS/structure" << style;
+            check(style.value("theorem") == "rgb(75, 105, 198)" && style.value("definition") == "rgb(51, 147, 111)"
+                && style.value("example") == "rgb(196, 120, 44)" && style.value("width") == "4px",
+                "scientific CSS renders distinct blue green orange environments in existing Markdown HTML");
+            check(style.value("shared").toString().contains("theorem-counter")
+                && style.value("reset").toString().contains("definition-counter")
+                && style.value("title").toString().contains("counter(theorem-counter)")
+                && style.value("qed").toString().contains(QString::fromUtf8("□")),
+                "scientific CSS defines shared theorem and independent definition counters plus proof end mark");
+        } else if (index == 3) {
+            const auto blocks = evaluate(reader.page(),
+                "Array.from(document.querySelectorAll('.wiz-math-block')).map(function(b){return {heading:b.getAttribute('data-wiz-math-heading'),"
+                "number:b.getAttribute('data-wiz-math-number'),id:b.id};})").toList();
+            qInfo() << "Scientific quote blocks" << blocks;
+            check(blocks.size() == 7 && blocks[0].toMap().value("number") == "1"
+                && blocks[1].toMap().value("number") == "1" && blocks[2].toMap().value("number") == "2"
+                && blocks[3].toMap().value("number") == "1" && blocks[4].toMap().value("number") == ""
+                && blocks[5].toMap().value("number") == "7" && blocks[6].toMap().value("number") == "8",
+                "read-only quote environments classify and number by type while retaining manual numbering");
+            check(evaluate(reader.page(),
+                "(function(){var links=Array.from(document.querySelectorAll('.wiz-math-reference'));return links.length===2"
+                "&&links.every(function(a){return a.textContent==='1'&&a.getAttribute('href')==='#wiz-math-thm:positive';})"
+                "&&!!document.getElementById('wiz-math-thm:positive')&&!document.querySelector('pre .wiz-math-reference');})()").toBool()
+                && evaluate(reader.page(), "WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()
+                    .contains("```text\n\\ref{thm:positive}\n> **定理** \\label{code:untouched}"),
+                "forward prose and standalone inline label references link to blocks without rewriting code");
+            check(evaluate(reader.page(),
+                "(function(){var url=location.href,a=document.querySelector('.wiz-math-reference'),e=new MouseEvent('click',{bubbles:true,cancelable:true});"
+                "a.dispatchEvent(e);return e.defaultPrevented&&location.href===url;})()").toBool(),
+                "block reference clicks scroll locally without forwarding a file URL to macOS");
+        } else {
+            check(evaluate(reader.page(),
+                "document.querySelectorAll('.wiz-math-block').length===2&&document.querySelectorAll('.wiz-math-reference').length===0"
+                "&&Array.from(document.querySelectorAll('.wiz-math-block')).every(function(b){return b.getAttribute('data-wiz-math-heading').indexOf('标签重复')>=0;})").toBool(),
+                "duplicate labels warn on both blocks and never create an ambiguous reference");
+        }
         const QString query = "WizEditor.getMarkdownSrc({unEscapeHtml:true})";
         const QString before = evaluate(reader.page(), query).toString();
+        const QString originalHtml = evaluate(reader.page(), "WizEditor.getContentHtml()").toString();
         evaluate(reader.page(), "WizApplyNoteStyle('')");
+        if (index == 3) check(evaluate(reader.page(), "document.querySelectorAll('.wiz-math-block,.wiz-math-reference,.wiz-math-source-heading').length").toInt() == 0,
+            "disabling scientific CSS restores unclassified quote headings and reference source");
         // Restore from the same global setting, not per-note content.
         evaluate(reader.page(), "WizApplyNoteStyle(" + jsonString(styleSheet(loadStyle(&settings))) + ")");
         check(!before.isEmpty() && before == evaluate(reader.page(), query).toString(),
             "applying/resetting common CSS leaves original Markdown source unchanged");
+        if (index == 3) check(before.contains("\\label{thm:positive}")
+            && originalHtml == evaluate(reader.page(), "WizEditor.getContentHtml()").toString()
+            && !originalHtml.contains("wiz-math-block") && !originalHtml.contains("data-wiz-math-heading"),
+            "label decoration is excluded from saved HTML and preserves original Markdown labels");
+        if (index == 3) check(evaluate(reader.page(),
+            "(function(){var html=WizReader.closeDocument()||'';return html.indexOf('wiz-math-block')<0"
+            "&&html.indexOf('data-wiz-math-heading')<0&&WizEditor.getMarkdownSrc({unEscapeHtml:true}).indexOf('\\\\label{thm:positive}')>=0;})()").toBool(),
+            "original reader close/save path excludes decoration and preserves label source");
         check(!evaluate(reader.page(), "WizEditor.getContentHtml()").toString().contains("WizNotePlus math-note blocks"),
             "math-block CSS is temporary and excluded from serialized note HTML");
         if (index == 0) check(evaluate(reader.page(), "window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().length:0").toInt() >= 2,
@@ -159,7 +250,8 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         const QString artifacts = qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
         if (!artifacts.isEmpty() && QDir().mkpath(artifacts)) {
             QEventLoop settle; QTimer::singleShot(150, &settle, &QEventLoop::quit); settle.exec();
-            reader.grab().save(QDir(artifacts).filePath(QString("v12-math-block-%1.png").arg(index)));
+            evaluate(reader.page(), "window.scrollTo(0,0)");
+            reader.grab().save(QDir(artifacts).filePath(QString("v14-math-block-%1.png").arg(index)));
         }
         reader.close();
     }

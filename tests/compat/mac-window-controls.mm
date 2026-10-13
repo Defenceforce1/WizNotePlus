@@ -601,6 +601,83 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return *unchanged;
         });
     }
+    if (!interactive) {
+        const auto ready = std::make_shared<bool>(false);
+        const auto markdown = std::make_shared<QString>();
+        const auto diagnostic = std::make_shared<QString>();
+        const auto readerRequested = std::make_shared<bool>(false);
+        addCheck("actual native Markdown note renders typed blocks and label reference", [&, ready, markdown, diagnostic, readerRequested] {
+            if (!*ready && !*queryPending && window.docView() && window.docView()->noteLoaded()) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript(
+                    "(function(){if(!document.body||!window.WizEditor||typeof WizEditor.getMarkdownSrc!=='function')return {};"
+                    "if(typeof WizApplyNoteStyle==='function')WizApplyNoteStyle();"
+                    "return {ok:document.querySelectorAll('.wiz-math-block').length===2&&document.querySelectorAll('.wiz-math-reference').length===1,"
+                    "bodyClass:document.body.className,css:!!window.WizNoteCss,blocks:Array.from(document.querySelectorAll('blockquote')).map(function(b){return b.textContent.slice(0,180);}),"
+                    "source:window.WizEditor?WizEditor.getMarkdownSrc({unEscapeHtml:true}):''};})()",
+                    [&, ready, markdown, diagnostic, readerRequested](const QVariant& value) {
+                        const auto result = value.toMap(); *ready = result.value("ok").toBool();
+                        const QString summary = result.value("bodyClass").toString() + QString::number(result.value("css").toBool());
+                        if (*diagnostic != summary) { qInfo() << "Native math readiness diagnostic" << result; *diagnostic = summary; }
+                        if (!*readerRequested && !result.value("source").toString().isEmpty()
+                            && result.value("bodyClass").toString().contains("wiz-editing")) {
+                            *readerRequested = true;
+                            QTimer::singleShot(0, &window, [&] {
+                                // A newly created Markdown note starts in source view.
+                                // Initialize the production type-aware reader only
+                                // after the asynchronous editor has actually started.
+                                window.docView()->setEditorMode(modeReader);
+                                window.docView()->web()->setEditorMode(modeReader);
+                                window.docView()->web()->enableEditor(false);
+                            });
+                        }
+                        if (*ready) *markdown = result.value("source").toString(); *queryPending = false;
+                    });
+            }
+            if (*ready) capture(&window, "v14-native-math-labels.png");
+            return *ready && markdown->contains("\\label{thm:native}");
+        }, [&] {
+            QString error;
+            WizNotePresentation::saveStyle(WizGlobal::settings(), {WizNotePresentation::scientificMathStyle(), true}, error);
+            const QString source = QStringLiteral("# 原生数学样式测试\n\n见定理 \\ref{thm:native}。\n\n"
+                "> **定理（测试）** \\label{thm:native}\n>\n> $x^2\\ge 0$。\n\n> **证明**\n>\n> 由实数性质可得。\n");
+            QString body = source.toHtmlEscaped(); body.replace('\n', "<br>");
+            WIZDOCUMENTDATA data;
+            if (manager.db().createDocumentAndInit("<html><body>" + body + "</body></html>", "", 0,
+                    QStringLiteral("原生数学样式.md"), "native-math.html", "/Window test/", "", data)) {
+                WIZDOCUMENTDATAEX note; note = data; window.viewDocument(note);
+            }
+        }, 20000);
+        const auto editing = std::make_shared<bool>(false);
+        const auto editDiagnostic = std::make_shared<QString>();
+        addCheck("native Markdown editing retains original labels and contains no preview decoration", [&, editing, markdown, editDiagnostic] {
+            if (!*editing && !*queryPending && window.docView()->isEditing()) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript(
+                    "({source:WizEditor.getMarkdownSrc({unEscapeHtml:true}),bodyClass:document.body.className,temporary:document.querySelectorAll('.wiz-math-block,.wiz-math-reference').length})",
+                    [=](const QVariant& value) {
+                        const auto result = value.toMap(); *editing = result.value("source").toString() == *markdown
+                            && result.value("temporary").toInt() == 0; *queryPending = false;
+                        const QString summary = result.value("bodyClass").toString() + QString::number(result.value("temporary").toInt());
+                        if (*editDiagnostic != summary) { qInfo() << "Native math editing diagnostic" << result; *editDiagnostic = summary; }
+                    });
+            }
+            return *editing;
+        }, [&] { window.docView()->setEditorMode(modeEditor); }, 15000);
+        const auto restored = std::make_shared<bool>(false);
+        addCheck("native Markdown preview restores numbering after edit mode with unchanged source", [&, restored, markdown] {
+            if (!*restored && !*queryPending && !window.docView()->isEditing()) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript(
+                    "({source:WizEditor.getMarkdownSrc({unEscapeHtml:true}),count:document.querySelectorAll('.wiz-math-block').length})",
+                    [=](const QVariant& value) {
+                        const auto result = value.toMap(); *restored = result.value("source").toString() == *markdown
+                            && result.value("count").toInt() == 2; *queryPending = false;
+                    });
+            }
+            return *restored;
+        }, [&] { window.docView()->setEditorMode(modeReader); }, 15000);
+    }
     addCheck("Qt native delegate is retained, not replaced by the legacy frameless proxy", [&] {
         return [native.delegate respondsToSelector:@selector(windowShouldClose:)]
             && ![NSStringFromClass([native.delegate class]) isEqualToString:@"NSWindowProxyDelegate"];

@@ -1,4 +1,66 @@
-# Note presentation CSS and search tokens (v12)
+# Note presentation CSS and mathematical environments (v14)
+
+V14 adds an optional Scientific math environments preset adapted from the user's
+Notebooks stylesheet: blue theorem/lemma/proposition/corollary blocks sharing one
+counter, independently numbered green definitions and orange examples, gray
+remarks/proofs and a proof-end square. No Notebooks-only directive or supplied
+JavaScript is executed. The original MathJax 2 engine and original PDF exporter
+are unchanged; modern `mjx-container` rules are adapted to `.MathJax_Display`.
+The light appearance is kept rather than applying incompatible system-dark colors.
+
+With the preset marker present, read-only Markdown quotes beginning with an isolated
+bold math heading are decorated transiently. Example: `> **定理（名称）**
+\label{thm:name}` followed by the ordinary quoted body. English headings work too.
+Adjacent math headings in one merged Markdown quote are separated in the rendered
+DOM only. Original node order and attributes are restored for serialization and
+on disabling/canceling CSS. The original public HTML/Markdown getters are guarded
+to exclude decoration; editing remains the original editor, not a new parser.
+
+Labels are unique per note, 1–128 ASCII letters/digits or `_ : . / -`.
+Prose `\ref{thm:name}` becomes a numbered local link; clicks are intercepted in
+the page to avoid the native external-file link forwarder. Duplicate labels warn
+and are not linked. Unknown labels are retained. A standalone inline math reference
+can be intercepted before the initial MathJax pass, but already-typeset references
+are not retroactively integrated into MathJax: prefer prose references without `$`.
+Compound formula references and `\eqref` retain original MathJax semantics. Block
+labels are not registered in the equation-label table. Cross-note references,
+Notebooks format-menu/autocomplete and the attachment's additional macros are not
+implemented. Use distinct block/equation label names.
+
+Handwritten headings such as `定理 7` retain that number and continue the following
+automatic integer sequence at 8. Dotted manual numbers are displayed verbatim but
+do not imply automatic section-aware numbering. The preset's CSS is editable;
+quote headings use program-resolved numbers so references agree with displayed
+titles, while pre-existing HTML environment classes can use the CSS counters.
+Changing numbering conventions in arbitrary custom CSS is not a new numbering API.
+
+V14 local build verification: all five CTest suites pass. The Cocoa CSS fixture
+passes 40 checks across five original-reader notes, including typed classes,
+merged-quote splitting, manual numbering, forward references, duplicate-label
+rejection, local click handling, HTML/Markdown/reader-close serialization guards
+and original source retention. The actual native main-window fixture passes 50
+checks, including a synthetic Markdown note, typed blocks/label link, entry to
+source editing and return to preview with identical Markdown, plus all existing
+search/native-control checks. The new-note fixture explicitly initializes the
+type-aware reader after asynchronous editor readiness and synchronizes both native
+mode holders; this is fixture setup, not a production mode-management change.
+
+Initial CSS tests exposed Markdown's merging of adjacent quoted paragraphs and
+temporary decoration in serialized HTML; transient splitting and serialization
+guards were implemented. A code-content assertion targeted the renderer's hidden
+measurement placeholder instead of the Markdown source; it was corrected to verify
+the unchanged complete code source and absence of generated links in code. Initial
+native tests entered source/reader modes before initialization or did not synchronize
+both mode holders; their failing logs are retained, not counted as passes. Complex
+new-style PDF pagination, physical typing and future macOS compatibility remain
+unverified; the original PDF function was not modified.
+
+The deployed Cocoa package repeats all 40 CSS and 50 native-main-window checks.
+Its 47 Mach-O files pass the arm64/dependency audit, and strict ad-hoc signature
+verification passes. Packaged typed-class/quote/formula screenshots were visually
+reviewed. This is not Developer ID signing, notarization or future macOS certification.
+
+## Historical v12 changes and verification
 
 V12 keeps the restored original PDF exporter unchanged. Selected tags/folder/attachment
 conditions now appear as removable tokens inside the search field. Text/caret and the
