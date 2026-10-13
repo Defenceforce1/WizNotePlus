@@ -152,14 +152,15 @@ void setupFullScreenMode(QMainWindow* mainWindow)
 {
     NSView *nsview = (NSView *) mainWindow->winId();
     NSWindow *nswindow = [nsview window];
-    [nswindow setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+    NSWindowCollectionBehavior behavior = [nswindow collectionBehavior];
+    behavior &= ~NSWindowCollectionBehaviorFullScreenAuxiliary;
+    [nswindow setCollectionBehavior:behavior | NSWindowCollectionBehaviorFullScreenPrimary];
 }
 
 void toggleFullScreenMode(QMainWindow* mainWindow)
 {
-    NSView *nsview = (NSView *) mainWindow->winId();
-    NSWindow *nswindow = [nsview window];
-    [nswindow toggleFullScreen:nil];
+    // Let Qt own the state transition, including restoring flags after exit.
+    mainWindow->setWindowState(mainWindow->windowState() ^ Qt::WindowFullScreen);
 }
 
 QString WizMacGetOSVersion()

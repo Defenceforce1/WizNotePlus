@@ -19,6 +19,7 @@
 #include <QPrinter>
 #include <QCheckBox>
 #include <QProgressDialog>
+#include <QScopedValueRollback>
 
 #ifdef Q_OS_MAC
 #include <Carbon/Carbon.h>
@@ -555,6 +556,7 @@ void WizMainWindow::moveEvent(QMoveEvent* ev)
 
 void WizMainWindow::on_actionExit_triggered()
 {
+    if (m_noteTransferBusy) return;
     //FIXME: 增加一个进度条，显示正在处理的收尾工作
     WizGetAnalyzer().logAction("MenuBarExit");
     //
@@ -3329,6 +3331,18 @@ void WizMainWindow::on_actionExportFile_triggered()
 }
 
 namespace {
+class NativeTransferProgress : public QProgressDialog {
+    bool finished = false;
+public:
+    using QProgressDialog::QProgressDialog;
+    void finish() { finished = true; close(); }
+protected:
+    void reject() override { if (finished) QProgressDialog::reject(); }
+    void closeEvent(QCloseEvent* event) override {
+        if (!finished) event->ignore();
+        else QProgressDialog::closeEvent(event);
+    }
+};
 class NativeSyncPause {
     WizKMSyncThread* full;
     WizKMSyncThread* quick;
@@ -3351,21 +3365,42 @@ public:
 
 void WizMainWindow::on_actionExportNativeNotes_triggered()
 {
+    exportSelectedNotes(false);
+}
+
+void WizMainWindow::on_actionExportPortableHtml_triggered()
+{
+    exportSelectedNotes(true);
+}
+
+void WizMainWindow::exportSelectedNotes(bool portable)
+{
+    if (m_noteTransferBusy) return;
+    QScopedValueRollback<bool> transferGuard(m_noteTransferBusy, true);
     CWizDocumentDataArray selected;
     m_documents->getSelectedDocuments(selected);
     const auto notes = WizNativeNotes::chooseNotes(this, m_dbMgr.db(), selected);
     if (notes.empty()) return;
-    QString path = QFileDialog::getSaveFileName(this, QStringLiteral("导出原始笔记包"),
-        "WizNotePlus-notes.wiznotes", QStringLiteral("原始笔记包 (*.wiznotes)"));
+    QString path = QFileDialog::getSaveFileName(this,
+        portable ? QStringLiteral("创建新的通用 HTML 文件夹（不要选择已有文件夹）") : QStringLiteral("导出原始笔记包"),
+        portable ? "WizNotePlus-HTML" : "WizNotePlus-notes.wiznotes",
+        portable ? QStringLiteral("新文件夹名称 (*)") : QStringLiteral("原始笔记包 (*.wiznotes)"));
     if (path.isEmpty()) return;
-    if (!path.endsWith(".wiznotes", Qt::CaseInsensitive)) path += ".wiznotes";
+    if (!portable && !path.endsWith(".wiznotes", Qt::CaseInsensitive)) path += ".wiznotes";
     NativeSyncPause pause(m_syncFull, m_syncQuick);
     if (!pause.ready()) {
         QMessageBox::information(this, QStringLiteral("请稍后重试"), QStringLiteral("同步正在进行，请等待同步结束后再导出。"));
         return;
     }
     // Flush buffers, then wait for the actual disk saver (callbacks only enqueue).
-    setEnabled(false);
+    // A modal busy dialog blocks editing without disabling the native main window.
+    // Disabling/re-enabling the top-level window can leave AppKit buttons stale.
+    NativeTransferProgress busy(QStringLiteral("正在保存并导出笔记，请稍候…"), QString(), 0, 0, this);
+    busy.setCancelButton(nullptr);
+    busy.setWindowModality(Qt::ApplicationModal);
+    busy.setMinimumDuration(0);
+    busy.setWindowFlag(Qt::WindowCloseButtonHint, false);
+    busy.show();
     if (m_docSaver) m_docSaver->clearTransferError();
     bool saved = true;
     processAllDocumentViews([&saved](WizDocumentView* view) {
@@ -3392,14 +3427,20 @@ void WizMainWindow::on_actionExportNativeNotes_triggered()
         qApp->processEvents(QEventLoop::AllEvents, 50);
     saved = saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
     if (!saved) {
-        setEnabled(true);
+        busy.finish();
         QMessageBox::warning(this, QStringLiteral("尚未导出"), QStringLiteral("笔记保存失败或超时。请先保存成功，再重试导出。"));
         return;
     }
     QString error;
-    const bool ok = WizNativeNotes::exportNotes(m_dbMgr.db(), notes, path, error);
-    setEnabled(true);
+    const bool ok = portable ? WizNativeNotes::exportPortableHtml(m_dbMgr.db(), notes, path, error)
+                             : WizNativeNotes::exportNotes(m_dbMgr.db(), notes, path, error);
+    busy.finish();
     if (!ok) QMessageBox::warning(this, QStringLiteral("导出未完成"), error);
+    else if (portable) QMessageBox::information(this, QStringLiteral("通用 HTML 导出完成"), QStringLiteral(
+        "已导出 %1 条笔记到：\n%2\n\n请将完整的 Notes 文件夹连同图片、资源和附件导入目标软件。\n"
+        "可先打开‘浏览笔记.html’查看正文和附件。\n"
+        "正文保留原始 HTML，不转换成 Markdown；标签、时间等另存元信息，目标软件不一定读取。\n"
+        "本模式只支持未加密笔记；实际导入效果请先用少量笔记测试。").arg(notes.size()).arg(path));
     else QMessageBox::information(this, QStringLiteral("导出完成"), QStringLiteral(
         "已导出 %1 条笔记到：\n%2\n\n本包含原始笔记、附件和元信息，不含账号密码。\n"
         "未加密笔记附 HTML 资源视图；其他软件的导入兼容性需另行验证。\n"
@@ -3408,6 +3449,8 @@ void WizMainWindow::on_actionExportNativeNotes_triggered()
 
 void WizMainWindow::on_actionImportNativeNotes_triggered()
 {
+    if (m_noteTransferBusy) return;
+    QScopedValueRollback<bool> transferGuard(m_noteTransferBusy, true);
     NativeSyncPause pause(m_syncFull, m_syncQuick);
     if (!pause.ready()) {
         QMessageBox::information(this, QStringLiteral("请稍后重试"), QStringLiteral("同步正在进行，请等待同步结束后再导入。"));

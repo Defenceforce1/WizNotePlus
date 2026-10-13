@@ -79,6 +79,7 @@ WIZACTION* WizActions::actionsData()
         {WIZACTION_GLOBAL_IMPORT_FILE,          QObject::tr("Import Files..."),             "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_EXPORT_FILE,          QObject::tr("Export Files..."),             "",                                     QKeySequence()},
         {"actionExportNativeNotes",             QStringLiteral("导出原始笔记/文件夹…"),         "",                                     QKeySequence()},
+        {"actionExportPortableHtml",            QStringLiteral("导出通用 HTML/文件夹…"),        "",                                     QKeySequence()},
         {"actionImportNativeNotes",             QStringLiteral("导入原始笔记包…"),             "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_PRINT_MARGIN,         QObject::tr("PDF Page Margins..."),         "",                                     QKeySequence()},
         //{WIZACTION_GLOBAL_VIEW_MESSAGES,      QObject::tr("View messages"),               "",                                     QKeySequence()},

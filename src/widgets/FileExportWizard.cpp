@@ -22,6 +22,7 @@
 #include "database/WizDatabaseManager.h"
 #include "share/WizSettings.h"
 #include "WizFileExporter.h"
+#include "share/WizLocalFileUrl.h"
 #include "widgets/FileLineEdit.h"
 
 FileExportWizard::FileExportWizard(WizExplorerApp& app, QWidget *parent)
@@ -614,7 +615,10 @@ void FileExportPageExport::handleExportFile()
     }
 
     Q_EMIT completeChanged();
-    QDesktopServices::openUrl(QUrl(outputFolder));
+    if (!QDesktopServices::openUrl(WizLocalFileUrl(outputFolder))) {
+        QMessageBox::information(this, tr("Export complete"),
+            QStringLiteral("导出操作已结束，但无法自动打开输出目录。请在 Finder 中手动打开：\n%1").arg(outputFolder));
+    }
 }
 
 bool FileExportPageExport::isComplete() const

@@ -306,6 +306,7 @@ public Q_SLOTS:
     void on_actionImportFile_triggered();
     void on_actionExportFile_triggered();
     void on_actionExportNativeNotes_triggered();
+    void on_actionExportPortableHtml_triggered();
     void on_actionImportNativeNotes_triggered();
     void on_actionPrintMargin_triggered();
 
@@ -523,6 +524,8 @@ public:
     Q_INVOKABLE void onClickedImage(const QString& src, const QString& list);
 
 private:
+    void exportSelectedNotes(bool portable);
+    bool m_noteTransferBusy = false;
     void syncAllData();
     void reconnectServer();
 

@@ -52,6 +52,24 @@ App Store builds, Intel builds and other platforms are not validated by this por
   smoke suites, deployment and artifact upload successfully:
   https://github.com/Defenceforce1/WizNotePlus/actions/runs/38335163135
   CI ran on macOS 26; it is not macOS 27 runtime certification.
+- The native-note transfer commit's CI also succeeded:
+  https://github.com/Defenceforce1/WizNotePlus/actions/runs/38346437328
+- Fixed the old export wizard's automatic directory opening to use a local-file URL,
+  preserving Unicode/spaces/hash/percent. User reported a LaunchServices -50 dialog
+  at completion; the faulty bare-path URL was identified, but the repaired workflow
+  still needs user confirmation on that machine.
+- Added portable HTML/folder export alongside the native package. Synthetic tests
+  cover unchanged bodies/images/attachments, title/URL escaping, duplicate titles,
+  destination refusal and encrypted-selection rejection. Target-app import remains
+  unverified; see [native-note-transfer.md](native-note-transfer.md).
+- Reapply native traffic-light enablement after activation, window-state and modal
+  transitions, respecting modal blocking; preserve collection behaviour and route
+  fullscreen through Qt. Export uses a non-dismissible modal progress window instead
+  of disabling the top-level main window. A Cocoa-only synthetic window test passed
+  native pointer hit tests, actual yellow/green button actions, restore/fullscreen
+  transitions and modal-close recovery, including a hidden prior modal login window.
+  It reads no account or real notes and is not a full WizMainWindow test. The user's
+  report of permanently ineffective main-window buttons is not yet confirmed fixed.
 
 Packaging requires all deployed libraries and signature verification; only a
 bundle passing those checks may be handed off. Public release additionally needs
@@ -116,6 +134,11 @@ data. Neither the new native note envelope nor existing HTML export is a complet
 native database backup. The existing export/import path still needs separate testing.
 The build scripts make only ad-hoc signatures, not a Developer ID signature or
 notarization. A successful CI run is not full macOS 27 runtime certification.
+
+When compatibility tests are enabled, the app also accepts
+`--mac-window-controls-self-test` on macOS. It opens isolated synthetic Cocoa windows
+and bypasses normal login/network/data cleanup. Run it in a desktop session separately
+from offscreen CTest; it is not part of the headless CI suite.
 
 Licenses and remaining redistribution checks: [third-party-licenses.md](third-party-licenses.md).
 Qt's migration note explains persistent profile behavior:

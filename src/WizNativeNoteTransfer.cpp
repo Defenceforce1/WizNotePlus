@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
@@ -21,6 +22,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QUuid>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <quazip/JlCompress.h>
 
@@ -167,6 +169,116 @@ bool exportNotes(WizDatabase& db, const CWizDocumentDataArray& documents,
     }
     return writeArchive(destination, QJsonObject{{"documents", notes},
         {"certificateFingerprint", certificateFingerprint(db)}}, files, error);
+}
+
+bool exportPortableHtml(WizDatabase& db, const CWizDocumentDataArray& documents,
+                        const QString& destination, QString& error)
+{
+    error.clear();
+    const QFileInfo target(destination);
+    if (target.exists() || target.isSymLink() || !QFileInfo(target.absolutePath()).isDir())
+        return failure(error, QStringLiteral("请选择尚不存在的新文件夹；不会覆盖已有文件夹。"));
+    // Cross-app HTML is plaintext. Never implicitly decrypt an encrypted selection.
+    for (const auto& requested : documents) {
+        WIZDOCUMENTDATA d;
+        if (!db.documentFromGuid(requested.strGUID, d) || d.nProtected)
+            return failure(error, QStringLiteral("通用 HTML 导出只支持未加密笔记；请选择未加密笔记，或使用原始笔记包保留加密数据。"));
+    }
+    QTemporaryDir snapshot;
+    QTemporaryDir unpacked;
+    QTemporaryDir output(target.absolutePath() + "/.WizNote-export-XXXXXX");
+    if (!snapshot.isValid() || !unpacked.isValid() || !output.isValid())
+        return failure(error, QStringLiteral("无法创建导出暂存目录。"));
+    // Reuse the native export's download checks, safe ZIP validation and snapshots.
+    const QString archive = snapshot.filePath("snapshot.wiznotes");
+    QJsonObject metadata;
+    if (!exportNotes(db, documents, archive, error)
+        || !readArchive(archive, unpacked.path(), metadata, error)) return false;
+    auto write = [&](const QString& path, const QByteArray& bytes) {
+        if (QFileInfo::exists(path)) return false;
+        QSaveFile file(path);
+        return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size() && file.commit();
+    };
+    auto link = [](const QString& path) {
+        return QString::fromLatin1(QUrl::toPercentEncoding(path, "/")).toHtmlEscaped();
+    };
+    QString catalog = QStringLiteral("<!doctype html><html><head><meta charset=\"utf-8\"><title>导出的笔记</title></head><body><h1>导出的笔记</h1><p>请连同资源和附件导入完整的 Notes 文件夹。附件清单单独列出；原始正文未改写。</p><ul>");
+    QJsonArray portableDocuments;
+    int number = 0;
+    for (const auto& value : metadata.value("documents").toArray()) {
+        const QJsonObject note = value.toObject();
+        QString title = note.value("title").toString();
+        QString filename = title.normalized(QString::NormalizationForm_C);
+        filename.replace(QRegularExpression(QStringLiteral("[\\x00-\\x1f\\x7f/\\\\:*?\"<>|]")), "_");
+        filename = filename.trimmed().left(96);
+        while (filename.endsWith('.') || filename.endsWith(' ')) filename.chop(1);
+        if (filename.isEmpty()) filename = "Untitled";
+        const QString relative = "Notes/" + note.value("location").toString().mid(1)
+            + QStringLiteral("%1-%2").arg(++number, 6, 10, QChar('0')).arg(filename);
+        const QString noteDir = output.filePath(relative);
+        const QString html = note.value("html").toString();
+        if (!safePath(relative) || html.isEmpty() || !QDir().mkpath(noteDir))
+            return failure(error, QStringLiteral("无法生成通用 HTML 目录。"));
+        const QString sourceDir = QFileInfo(unpacked.filePath(html)).absolutePath();
+        QDirIterator files(sourceDir, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories);
+        while (files.hasNext()) {
+            const QString source = files.next();
+            const QString path = QDir(sourceDir).relativeFilePath(source);
+            if (!safePath(path) || !copySnapshot(source, noteDir + "/" + path, error)) return false;
+        }
+        catalog += QStringLiteral("<li><a href=\"%1\">%2</a>").arg(link(relative + "/index.html"), title.toHtmlEscaped());
+        const auto attachments = note.value("attachments").toArray();
+        QJsonObject portableNote = note;
+        portableNote.remove("native");
+        portableNote["html"] = relative + "/index.html";
+        QJsonArray portableAttachments;
+        if (!attachments.isEmpty()) {
+            QString attachmentDir = "_WizNote-attachments";
+            while (QFileInfo::exists(noteDir + "/" + attachmentDir)) attachmentDir += "_";
+            if (!QDir().mkpath(noteDir + "/" + attachmentDir))
+                return failure(error, QStringLiteral("无法创建附件目录。"));
+            QString list = QStringLiteral("<!doctype html><html><head><meta charset=\"utf-8\"><title>附件</title></head><body><h1>%1 — 附件</h1><p><a href=\"../index.html\">返回笔记正文</a></p><ul>").arg(title.toHtmlEscaped());
+            int index = 0;
+            for (const auto& aValue : attachments) {
+                const auto a = aValue.toObject();
+                const QString name = a.value("name").toString();
+                const QString renamed = QStringLiteral("%1-%2").arg(++index, 4, 10, QChar('0')).arg(name);
+                if (!copySnapshot(unpacked.filePath(a.value("path").toString()), noteDir + "/" + attachmentDir + "/" + renamed, error)) return false;
+                list += QStringLiteral("<li><a href=\"%1\">%2</a></li>").arg(link(renamed), name.toHtmlEscaped());
+                QJsonObject portableAttachment = a;
+                portableAttachment["path"] = relative + "/" + attachmentDir + "/" + renamed;
+                portableAttachments.append(portableAttachment);
+            }
+            list += "</ul></body></html>";
+            // This directory is fresh, so the generated index cannot replace a payload.
+            if (!write(noteDir + "/" + attachmentDir + "/index.html", list.toUtf8()))
+                return failure(error, QStringLiteral("附件清单写入失败。"));
+            catalog += QStringLiteral(" — <a href=\"%1\">附件</a>").arg(link(relative + "/" + attachmentDir + "/index.html"));
+        }
+        catalog += "</li>";
+        portableNote["attachments"] = portableAttachments;
+        portableDocuments.append(portableNote);
+    }
+    catalog += "</ul></body></html>";
+    metadata["documents"] = portableDocuments;
+    metadata.remove("certificateFingerprint");
+    metadata["format"] = "WizNotePlus-portable-html";
+    metadata["version"] = 1;
+    if (!write(output.filePath(QStringLiteral("浏览笔记.html")), catalog.toUtf8())
+        || !write(output.filePath("note-metadata.json"), QJsonDocument(metadata).toJson())
+        || !write(output.filePath(QStringLiteral("导入说明.txt")), QStringLiteral(
+            "Notes 内为按原始文件夹组织的 HTML 笔记，每条笔记有独立文件夹，正文为 index.html。\n"
+            "请将完整 Notes 文件夹及其图片、资源和附件导入支持 HTML/文件夹导入的软件，不要只移动 HTML。\n"
+            "附件位于各笔记的 _WizNote-attachments 目录，内容未转换。正文 HTML 未改写、未净化。\n"
+            "note-metadata.json 保留标题、时间、标签等信息；目标软件未必读取这些元信息。\n"
+            "加密笔记不支持本模式；为知内部 GUID 链接不保证在其他软件可用。\n"
+            "导出含私人笔记内容，请妥善保存。本目录不包含可直接恢复的 .wiznotes 原始包。\n").toUtf8()))
+        return failure(error, QStringLiteral("导出索引写入失败。"));
+    if (QFileInfo::exists(destination) || QFileInfo(destination).isSymLink()
+        || !QDir().rename(output.path(), target.absoluteFilePath()))
+        return failure(error, QStringLiteral("无法发布导出文件夹，或目标已存在；未覆盖已有文件。"));
+    output.setAutoRemove(false);
+    return true;
 }
 
 ImportResult importNotes(WizDatabase& db, const QString& archive)

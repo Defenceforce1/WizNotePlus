@@ -4,6 +4,7 @@
 #include "database/WizDatabaseManager.h"
 #include "share/WizEnc.h"
 #include "share/WizZiwReader.h"
+#include "share/WizLocalFileUrl.h"
 #include <QApplication>
 #include <QCryptographicHash>
 #include <QBuffer>
@@ -72,6 +73,11 @@ int wizNativeNoteTransferSelfTest(int argc, char** argv)
     };
     using namespace WizNativeNotes;
     QString error;
+    const QString localPath = root.filePath(QStringLiteral("导出 目录 #50%/"));
+    const QUrl localUrl = WizLocalFileUrl(localPath);
+    check(localUrl.isLocalFile() && localUrl.scheme() == "file"
+        && localUrl.toLocalFile() == QDir(localPath).absolutePath()
+        && localUrl.fragment().isEmpty(), "export directory URL preserves Unicode, spaces, hash and percent");
     check(safePath(QStringLiteral("笔记/图像.png")), "Unicode relative path");
     for (const QString& path : {"../escape", "/absolute", "a/../b", "a\\b", "a:b", "a//b", "a/./b", "a./b", "a /b"})
         check(!safePath(path), "reject unsafe path");
@@ -162,6 +168,45 @@ int wizNativeNoteTransferSelfTest(int argc, char** argv)
         && db.setObjectDataDownloaded(second.strGUID, "document", true)
         && db.updateDocumentDataMD5(second, db.getDocumentFileName(second.strGUID)), "second note in different folder");
     const QString exported = root.filePath("notes.wiznotes");
+    {
+        const QString portable = root.filePath(QStringLiteral("通用 HTML #50%"));
+        const QString relative = QStringLiteral("Notes/中文文件夹/子目录/000001-同名笔记");
+        check(exportPortableHtml(db, {first, second}, portable, error), "portable HTML export publishes a new folder");
+        check(get(portable + "/" + relative + "/index.html") == html
+            && get(portable + "/" + relative + "/index_files/image.png") == image,
+            "portable body and relative image resources preserve original bytes");
+        check(get(portable + "/" + relative + QStringLiteral("/_WizNote-attachments/0001-附件.txt")) == attachment
+            && get(portable + "/" + relative + "/_WizNote-attachments/index.html").contains("%E9%99%84%E4%BB%B6.txt"),
+            "portable named attachments and URI-escaped links");
+        const QByteArray catalog = get(portable + QStringLiteral("/浏览笔记.html"));
+        check(catalog.contains("index.html") && catalog.contains("_WizNote-attachments")
+            && get(portable + "/note-metadata.json").contains("sourceGuid"), "portable catalog and note-only metadata");
+        check(!exportPortableHtml(db, {first}, portable, error)
+            && get(portable + QStringLiteral("/浏览笔记.html")) == catalog, "portable destination is never replaced");
+        WIZDOCUMENTDATA originalSecond = second;
+        second.strLocation = first.strLocation; second.strTitle = first.strTitle;
+        check(db.modifyDocumentInfo(second, false), "same-folder duplicate-title fixture");
+        const QString duplicate = root.filePath("duplicate-titles");
+        check(exportPortableHtml(db, {first, second}, duplicate, error)
+            && get(duplicate + "/" + relative + "/index.html") == html
+            && get(duplicate + QStringLiteral("/Notes/中文文件夹/子目录/000002-同名笔记/index.html")) == html,
+            "same-folder duplicate titles produce independent note/resource folders");
+        second = originalSecond;
+        check(db.modifyDocumentInfo(second, false), "restore original second-note fixture");
+        const QString emptySelection = root.filePath("empty-export");
+        check(!exportPortableHtml(db, {}, emptySelection, error) && !QFileInfo::exists(emptySelection),
+            "portable failure does not publish a partial destination");
+        WIZDOCUMENTDATA unusual = first;
+        unusual.strTitle = QStringLiteral("<标题 & #50% / 文件>");
+        check(db.modifyDocumentInfo(unusual, false), "HTML-special and filename-special title fixture");
+        const QString special = root.filePath("special-title");
+        check(exportPortableHtml(db, {unusual}, special, error)
+            && get(special + QStringLiteral("/浏览笔记.html")).contains("&lt;")
+            && get(special + QStringLiteral("/浏览笔记.html")).contains("%2350%25")
+            && get(special + QStringLiteral("/浏览笔记.html")).contains("&amp;"),
+            "catalog escapes title markup and percent-encodes filename links");
+        check(db.modifyDocumentInfo(first, false), "restore original first-note fixture");
+    }
     if (!check(exportNotes(db, {first, second}, exported, error), "export two notes and folders")) {
         qWarning().noquote() << error; return 1;
     }
@@ -272,6 +317,9 @@ int wizNativeNoteTransferSelfTest(int argc, char** argv)
         && db.WizIndex::updateDocumentDataMD5(secret, db.getDocumentFileName(secret.strGUID)),
         "synthetic encrypted native note")) return 1;
     const QString encryptedPackage = root.filePath("encrypted.wiznotes");
+    const QString encryptedPortable = root.filePath("encrypted-html");
+    check(!exportPortableHtml(db, {first, secret}, encryptedPortable, error)
+        && !QFileInfo::exists(encryptedPortable), "mixed encrypted selection refuses plaintext portable export without partial output");
     check(exportNotes(db, {secret}, encryptedPackage, error), "encrypted note exported without decryption");
     {
         QTemporaryDir staging(root.filePath("stage-XXXXXX")); QJsonObject metadata;

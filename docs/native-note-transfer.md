@@ -23,7 +23,36 @@ completed notes remain, and the dialog reports their count. Newly created tag/st
 definitions or thumbnails may remain after a late failure. This is not a transaction
 over the entire import and does not promise atomicity during a crash or power loss.
 
-## Format version 1
+## Portable HTML export
+
+**导出通用 HTML/文件夹…** writes a new folder, refusing existing destinations. It uses
+the same selection, editor-save, idle-sync, snapshot and validation gates as the native
+export. Only unencrypted personal notes are supported; encrypted selections fail without
+silently decrypting anything or publishing a partial destination.
+
+`Notes/<original folders>/<ordinal>-<sanitised title>/index.html` contains each original
+HTML body with byte-identical resources and relative paths. The ordinal avoids merging
+same-title notes. Attachments retain their bytes in a separate `_WizNote-attachments`
+subfolder with numbered original filenames and a generated, URI-escaped HTML link list.
+The original body is not rewritten to link attachments. `浏览笔记.html` links all bodies
+and attachment lists. `note-metadata.json` preserves note metadata, but generic target
+apps may ignore it. Import the complete folder, not detached HTML files.
+
+Notebooks documents Finder drag-and-drop import of files and folders at
+https://www.notebooksapp.com/mac/help/ . This makes it an intended initial target, **not
+a claim that this app's resulting folder has been verified in Notebooks**. A note may
+appear as a titled book containing an `index` document/resources instead of one flat
+note. Target apps may treat attachments as standalone documents, ignore tags and dates,
+or strip styles/scripts. Official Wiz-client import is also unverified. No Markdown
+conversion, target-app-specific importer, or internal GUID-link rewriting is provided.
+
+Export is staged on the destination filesystem and published only on success. It reuses
+the native archive snapshot and unpacks it in private temporary directories, so free disk
+space requirements are higher than the final HTML folder. Large-scale, crash and
+concurrent-external-writer behaviour are not certified. Original HTML is not sanitised;
+open only your own trusted exported notes and keep their private contents confidential.
+
+## Format version 1 (native package)
 
 This is a WizNotePlus-specific ZIP envelope, **not an official Wiz interchange format**.
 Do not promise direct import by official Wiz clients or arbitrary other note software.

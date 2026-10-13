@@ -7,6 +7,10 @@ class WizDatabase;
 namespace WizNativeNotes {
 bool exportNotes(WizDatabase& db, const CWizDocumentDataArray& documents,
                  const QString& destination, QString& error);
+// A new directory containing original HTML/resources and named attachment files.
+// Plaintext notes only; never silently decrypts or overwrites a destination.
+bool exportPortableHtml(WizDatabase& db, const CWizDocumentDataArray& documents,
+                        const QString& destination, QString& error);
 struct ImportResult {
     int imported = 0;
     QString folder;

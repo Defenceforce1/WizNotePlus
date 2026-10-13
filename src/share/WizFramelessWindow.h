@@ -9,6 +9,7 @@
 #include <QBoxLayout>
 #include <QTimer>
 #include <QToolButton>
+#include <QApplication>
 
 #include "WizWindowTitleBar.h"
 #include "WizShadowEffect.h"
@@ -76,19 +77,33 @@ public:
     void setCloseBtnEnabled(bool enable)
     {
         m_isCloseBtnEnabled = enable;
+        refreshMacWindowButtons();
     }
 
     void setMinBtnEnabled(bool enable)
     {
         m_isMinBtnEnabled = enable;
+        refreshMacWindowButtons();
     }
 
     void setZoomBtnEnabled(bool enable)
     {
         m_isZoomBtnEnabled = enable;
+        refreshMacWindowButtons();
     }
 
 private:
+    void refreshMacWindowButtons()
+    {
+        if (!m_flhInited || !this->windowHandle()) return;
+        // Do not bypass Qt/AppKit's modal blocking. Reapply policy once unblocked.
+        QWidget* modal = QApplication::activeModalWidget();
+        const bool enabled = this->isEnabled() && (!modal || modal == this);
+        const auto win = this->windowHandle();
+        __flh_ns::Utilities::setCloseBtnEnabled(win, enabled && m_isCloseBtnEnabled);
+        __flh_ns::Utilities::setMinBtnEnabled(win, enabled && m_isMinBtnEnabled);
+        __flh_ns::Utilities::setZoomBtnEnabled(win, enabled && m_isZoomBtnEnabled);
+    }
     bool m_isCloseBtnEnabled = true;
     bool m_isMinBtnEnabled = true;
     bool m_isZoomBtnEnabled = true;
@@ -104,6 +119,15 @@ private:
     int m_frameBorderWidth = 0;
 
 protected:
+#ifdef Q_OS_MAC
+    bool event(QEvent* event) override
+    {
+        const bool result = Base::event(event);
+        if (event->type() == QEvent::WindowUnblocked || event->type() == QEvent::WindowBlocked)
+            QTimer::singleShot(0, this, [this] { refreshMacWindowButtons(); });
+        return result;
+    }
+#endif
     void changeEvent(QEvent * event) override
     {
 #ifndef Q_OS_MAC
@@ -141,6 +165,11 @@ protected:
 #endif
 
         Base::changeEvent(event);
+#ifdef Q_OS_MAC
+        if (event->type() == QEvent::EnabledChange || event->type() == QEvent::ActivationChange
+            || event->type() == QEvent::WindowStateChange)
+            QTimer::singleShot(0, this, [this] { refreshMacWindowButtons(); });
+#endif
     }
 
     virtual void layoutTitleBar()
@@ -181,6 +210,9 @@ protected:
                 m_flhInited = true;
             }
         }
+#ifdef Q_OS_MAC
+        QTimer::singleShot(0, this, [this] { refreshMacWindowButtons(); });
+#endif
     }
 
 #ifdef Q_OS_WIN
