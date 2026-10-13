@@ -75,6 +75,34 @@ Packaging requires all deployed libraries and signature verification; only a
 bundle passing those checks may be handed off. Public release additionally needs
 Developer ID signing, notarization, security/asset audit and manual regression.
 
+### Follow-up: native main-window button actions
+
+The user confirmed the v4 export workflow and other sampled behaviour were normal,
+but the main yellow/green buttons still highlighted without changing the window.
+Both corresponding menu actions worked. Thus the window can change state; v4's
+enablement restoration alone did not solve the button-action path. The exact native
+responder-chain failure has not been observed in the user's live process.
+
+The follow-up binds those two native buttons to a target retained by their own NSWindow,
+which dispatches directly to a QPointer of the owning QWidget. It never guesses
+`QApplication::activeWindow()`. Binding is reapplied after show, activation, resize and
+window-state transitions; it neither changes the red close button nor forces buttons
+enabled during a modal dialog. Option-click green keeps zoom behaviour, while normal
+green toggles fullscreen through Qt. Fullscreen transition notifications temporarily
+suppress overlapping actions, with a 10-second stale-notification fallback.
+
+The Cocoa test now loads only a synthetic off-the-record WebEngine editor, deliberately
+injects no-op targets (clicks dispatch but do not move the window), then verifies the
+direct binding repairs them. It checks owning-window versus other-active-window actions,
+modal blocking and repeated binding. Checks wait for native animation completion and
+native/Qt states, not just Qt's requested state. Early timing-sensitive failures are
+retained in local verification logs; the revised build-environment run passed. This
+does not prove the user's live main-window failure is fixed. User retesting, Option-click,
+hover/tile menus and broader multi-screen/Spaces behaviour remain pending.
+
+The v4 commit's full CI succeeded:
+https://github.com/Defenceforce1/WizNotePlus/actions/runs/38354044557
+
 ## Reproducible route
 
 Install Apple command-line developer tools, CMake >= 3.21, Ninja, Qt 6.11.3

@@ -513,6 +513,15 @@ void WizMainWindow::closeEvent(QCloseEvent* event)
 #endif
 }
 
+void WizMainWindow::showEvent(QShowEvent* event)
+{
+    _baseClass::showEvent(event);
+#ifdef Q_OS_MAC
+    // Bind after frameless setup and any deferred Qt/AppKit button recreation.
+    QTimer::singleShot(0, this, [this] { wizMacBindMainWindowControls(this); });
+#endif
+}
+
 void WizMainWindow::mousePressEvent(QMouseEvent* event)
 {
     _baseClass::mousePressEvent(event);
@@ -544,6 +553,10 @@ void WizMainWindow::changeEvent(QEvent* event)
     }
 
     _baseClass::changeEvent(event);
+#ifdef Q_OS_MAC
+    if (event->type() == QEvent::ActivationChange || event->type() == QEvent::WindowStateChange)
+        QTimer::singleShot(0, this, [this] { wizMacBindMainWindowControls(this); });
+#endif
 }
 
 void WizMainWindow::moveEvent(QMoveEvent* ev)
@@ -606,6 +619,9 @@ void WizMainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     update();
+#ifdef Q_OS_MAC
+    QTimer::singleShot(0, this, [this] { wizMacBindMainWindowControls(this); });
+#endif
 }
 
 /**

@@ -10,6 +10,9 @@
 #include <QEventLoop>
 #include <QDebug>
 #include <QBuffer>
+#include <QApplication>
+#include <QPointer>
+#import <objc/runtime.h>
 #include "html/WizHtmlCollector.h"
 
 #import <WebKit/WebKit.h>
@@ -27,6 +30,91 @@
 #include "widgets/WizCrashReportDialog.h"
 
 #define WizShareSettingsName    @"KCS8N3QJ92.cn.wiz.extension"
+
+// The native window retains this target. QPointer prevents dispatch to a deleted
+// QWidget; no responder-chain lookup or active-window guess is required.
+@interface WizMainWindowControlTarget : NSObject {
+@public
+    QPointer<QWidget> qtWindow;
+    BOOL fullscreenTransition;
+    NSTimeInterval fullscreenTransitionStarted;
+}
+- (void)minimize:(id)sender;
+- (void)zoomOrFullscreen:(id)sender;
+- (void)willChangeFullscreen:(NSNotification*)notification;
+- (void)didChangeFullscreen:(NSNotification*)notification;
+@end
+
+@implementation WizMainWindowControlTarget
+- (BOOL)canChangeWindow {
+    // Do not strand controls if AppKit aborts an animation without a completion
+    // notification. Normal animations finish much sooner than this fallback.
+    if (fullscreenTransition && [NSProcessInfo processInfo].systemUptime - fullscreenTransitionStarted > 10.0)
+        fullscreenTransition = NO;
+    QWidget* window = qtWindow.data();
+    QWidget* modal = QApplication::activeModalWidget();
+    return window && !fullscreenTransition && window->isVisible() && window->isEnabled()
+        && (!modal || modal == window);
+}
+- (void)willChangeFullscreen:(NSNotification*)notification {
+    Q_UNUSED(notification);
+    fullscreenTransition = YES;
+    fullscreenTransitionStarted = [NSProcessInfo processInfo].systemUptime;
+}
+- (void)didChangeFullscreen:(NSNotification*)notification {
+    Q_UNUSED(notification);
+    fullscreenTransition = NO;
+}
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [super dealloc];
+}
+- (void)minimize:(id)sender {
+    Q_UNUSED(sender);
+    if ([self canChangeWindow]) qtWindow->showMinimized();
+}
+- (void)zoomOrFullscreen:(id)sender {
+    Q_UNUSED(sender);
+    if (![self canChangeWindow]) return;
+    auto state = qtWindow->windowState();
+    // Keep macOS Option-click zoom, and allow normal green-click fullscreen exit.
+    if (([NSApp currentEvent].modifierFlags & NSEventModifierFlagOption)
+        && !(state & Qt::WindowFullScreen))
+        qtWindow->setWindowState(state ^ Qt::WindowMaximized);
+    else
+        qtWindow->setWindowState(state ^ Qt::WindowFullScreen);
+}
+@end
+
+bool wizMacBindMainWindowControls(QWidget* window)
+{
+    if (!window || !window->isWindow() || !window->windowHandle()) return false;
+    NSView* view = reinterpret_cast<NSView*>(window->winId());
+    NSWindow* native = [view window];
+    if (!native) return false;
+    NSButton* minimize = [native standardWindowButton:NSWindowMiniaturizeButton];
+    NSButton* zoom = [native standardWindowButton:NSWindowZoomButton];
+    if (!minimize || !zoom) return false;
+    static char targetKey;
+    WizMainWindowControlTarget* target = objc_getAssociatedObject(native, &targetKey);
+    if (!target) {
+        target = [[WizMainWindowControlTarget alloc] init];
+        NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
+        [center addObserver:target selector:@selector(willChangeFullscreen:) name:NSWindowWillEnterFullScreenNotification object:native];
+        [center addObserver:target selector:@selector(willChangeFullscreen:) name:NSWindowWillExitFullScreenNotification object:native];
+        [center addObserver:target selector:@selector(didChangeFullscreen:) name:NSWindowDidEnterFullScreenNotification object:native];
+        [center addObserver:target selector:@selector(didChangeFullscreen:) name:NSWindowDidExitFullScreenNotification object:native];
+        objc_setAssociatedObject(native, &targetKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [target release];
+    }
+    target->qtWindow = window;
+    [minimize setTarget:target];
+    [minimize setAction:@selector(minimize:)];
+    [zoom setTarget:target];
+    [zoom setAction:@selector(zoomOrFullscreen:)];
+    // Leave red-button close handling, enablement and AppKit hover menus intact.
+    return true;
+}
 
 
 

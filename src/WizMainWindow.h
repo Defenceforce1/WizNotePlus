@@ -120,6 +120,7 @@ public:
 protected:
     bool eventFilter(QObject* watched, QEvent* event);
     void resizeEvent(QResizeEvent* event);
+    void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* event);
     void mousePressEvent(QMouseEvent* event);
     void mouseMoveEvent(QMouseEvent* event);
