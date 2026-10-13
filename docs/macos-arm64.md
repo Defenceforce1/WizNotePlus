@@ -37,7 +37,7 @@ App Store builds, Intel builds and other platforms are not validated by this por
   persistence/sync, undo/redo and Chinese copy/paste received user-reported sample
   confirmation. Safari clipping to that same account remains unverified: an earlier
   clip was found in a different account and the user deferred clipper-login testing.
-  No private notes or credentials were uploaded or displayed. These are not complete
+  No private notes or credentials are included in this repository. These are not complete
   server, encryption, conflict, large-attachment or broader GUI regression results.
 - Added built-in personal note/folder native export/import, with original ZIW and
   attachment bytes, metadata and unencrypted HTML/resource views. Three local test
@@ -75,7 +75,7 @@ Packaging requires all deployed libraries and signature verification; only a
 bundle passing those checks may be handed off. Public release additionally needs
 Developer ID signing, notarization, security/asset audit and manual regression.
 
-### Follow-up: native main-window button actions
+### Follow-up: withdraw v5 and use the native macOS frame (v6)
 
 The user confirmed the v4 export workflow and other sampled behaviour were normal,
 but the main yellow/green buttons still highlighted without changing the window.
@@ -83,25 +83,46 @@ Both corresponding menu actions worked. Thus the window can change state; v4's
 enablement restoration alone did not solve the button-action path. The exact native
 responder-chain failure has not been observed in the user's live process.
 
-The follow-up binds those two native buttons to a target retained by their own NSWindow,
-which dispatches directly to a QPointer of the owning QWidget. It never guesses
-`QApplication::activeWindow()`. Binding is reapplied after show, activation, resize and
-window-state transitions; it neither changes the red close button nor forces buttons
-enabled during a modal dialog. Option-click green keeps zoom behaviour, while normal
-green toggles fullscreen through Qt. Fullscreen transition notifications temporarily
-suppress overlapping actions, with a 10-second stale-notification fallback.
+v5 tried binding yellow/green controls directly to their owning Qt widget. The user
+reported that this still failed and the red close button also stopped working. v5 is
+withdrawn; its synthetic successful test did not cover the actual application window.
+All v5 native-target binding/rebinding code has been removed.
 
-The Cocoa test now loads only a synthetic off-the-record WebEngine editor, deliberately
-injects no-op targets (clicks dispatch but do not move the window), then verifies the
-direct binding repairs them. It checks owning-window versus other-active-window actions,
-modal blocking and repeated binding. Checks wait for native animation completion and
-native/Qt states, not just Qt's requested state. Early timing-sensitive failures are
-retained in local verification logs; the revised build-environment run passed. This
-does not prove the user's live main-window failure is fixed. User retesting, Option-click,
-hover/tile menus and broader multi-screen/Spaces behaviour remain pending.
+The legacy FramelessHelper installs native method hooks and replaces Qt's Cocoa window
+delegate with a proxy. This is an unsafe integration point on the new toolchain, but
+it has not been proven to be the exact cause in the user's live process. For macOS
+with Qt 6, v6 does not install that helper at all: the system title bar and Qt's own
+QNSWindowDelegate retain control of all three traffic lights. The app's toolbar remains
+below the system title bar. Qt 5 and other platform paths have not been changed by
+this switch. Modal button-enable policy remains, respecting Qt's modal blocking.
+
+The regression fixture now instantiates the actual WizMainWindow, menus, skin,
+toolbar and WebEngine editor, loading a generated temporary note and waiting for
+editor JavaScript to be ready. It creates only temporary databases/settings/caches;
+sync threads and the clipping listener are not started, remote WebEngine requests
+are blocked, Qt networking is redirected to a non-listening local proxy, and remote
+comment queries are skipped only in this test route. Normal startup is unaffected.
+
+The manual processEvents polling version produced intermittent fullscreen failures
+(including one passing debugger run). These failures are retained in local logs.
+The replacement drives checks asynchronously from QApplication::exec(), requires
+each fullscreen action's native Did notification and matching Qt/native state, and
+stops on a failed prerequisite rather than issuing contradictory follow-up actions.
+Four consecutive build-environment runs passed all 21 checks each: native delegate,
+title-bar separation, enabled controls and pointer hit regions, minimize/restore,
+fullscreen entry/exit, modal blocking/recovery, red close/reopen and repeated actions
+after close, including red close in fullscreen. Hit tests and performClick actions
+are not physical mouse-click verification. The user's previously reported failure
+must still be retested; Option-click, hover/tile menus, multi-screen and broader
+Spaces behaviour remain unverified. The final deployed bundle passed two additional
+21-check runs, all three CTest suites, a 47-Mach-O arm64/dependency audit and strict
+ad-hoc signature verification. Only a dedicated isolated manual-test launcher is
+recommended for the first user retest; no login or existing account is needed.
 
 The v4 commit's full CI succeeded:
 https://github.com/Defenceforce1/WizNotePlus/actions/runs/38354044557
+The withdrawn v5 commit's CI also succeeded (build success did not validate its UI):
+https://github.com/Defenceforce1/WizNotePlus/actions/runs/38356894711
 
 ## Reproducible route
 
@@ -164,9 +185,15 @@ The build scripts make only ad-hoc signatures, not a Developer ID signature or
 notarization. A successful CI run is not full macOS 27 runtime certification.
 
 When compatibility tests are enabled, the app also accepts
-`--mac-window-controls-self-test` on macOS. It opens isolated synthetic Cocoa windows
-and bypasses normal login/network/data cleanup. Run it in a desktop session separately
-from offscreen CTest; it is not part of the headless CI suite.
+`--mac-window-controls-self-test` on macOS. It opens the actual main-window class with
+only generated temporary notes and bypasses normal login, sync and data-store cleanup.
+Run it in a desktop session separately from offscreen CTest; it is not part of the
+headless CI suite. `--mac-main-window-controls-probe` opens the same isolated fixture
+for manual pointer testing, with a separate restore/modal/quit control panel and a
+10-minute lifetime. A dedicated local bundle named WizWindowControlsTest always takes
+that isolated route, even when launched without arguments. Never select an installed
+old app by a generic name or bundle ID for this validation; use the exact new bundle
+or executable path. The user requested that the old app not be operated.
 
 Licenses and remaining redistribution checks: [third-party-licenses.md](third-party-licenses.md).
 Qt's migration note explains persistent profile behavior:

@@ -30,9 +30,6 @@ float qt_mac_get_scalefactor(QWidget *window);
 void setupCocoa();
 void setupFullScreenMode(QMainWindow* mainWindow);
 void toggleFullScreenMode(QMainWindow* mainWindow);
-// Bind the main window's native yellow/green buttons to this specific Qt window.
-// Does not depend on the first responder or QApplication::activeWindow().
-bool wizMacBindMainWindowControls(QWidget* window);
 QString WizMacGetOSVersion();
 
 void wizMacHideCurrentApplication();

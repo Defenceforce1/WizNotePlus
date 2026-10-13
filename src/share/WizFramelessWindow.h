@@ -151,7 +151,7 @@ protected:
         }
 #endif
 
-#ifdef Q_OS_MAC
+#if defined(Q_OS_MAC) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         if (event->type() == QEvent::WindowStateChange && m_flhInited) {
             auto cev = static_cast<QWindowStateChangeEvent*>(event);
             if (cev->oldState() & Qt::WindowFullScreen && !this->isFullScreen()) {
@@ -183,6 +183,14 @@ protected:
         if (!m_flhInited) {
             const auto win = this->windowHandle();
             if (win) {
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                // Keep Qt's Cocoa delegate, event dispatch and standard title bar.
+                // The legacy helper replaces the native delegate and swizzles its
+                // event methods; relocating title-bar controls is unsafe on Qt 6.
+                // App content/toolbar remains below the system-managed title bar.
+                if (m_titleBar->layout())
+                    m_titleBar->layout()->setContentsMargins(0, 0, 0, 0);
+#else
                 m_helper->setWindow(win);
                 m_helper->setTitleBarHeight(m_titleBar->height());
                 m_helper->setResizable(m_canResize);
@@ -207,6 +215,7 @@ protected:
                 );
                 m_titleBar->layout()->setContentsMargins(70, 0, 0, 0);
 #endif // Q_OS_MAC
+#endif // Qt 6 macOS uses the native frame
                 m_flhInited = true;
             }
         }

@@ -130,6 +130,17 @@
 
 static WizMainWindow* windowInstance = 0;
 
+// Only the compiled-in regression fixture sets this property, before creating
+// its own temporary database. Normal startup cannot select this test route.
+static bool isIsolatedWindowControlsTest()
+{
+#ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    return qApp->property("wiznoteIsolatedWindowControlsTest").toBool();
+#else
+    return false;
+#endif
+}
+
 WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
     : _baseClass(parent, true)
     , m_dbMgr(dbMgr)
@@ -185,7 +196,7 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
     windowInstance = this;
     qRegisterMetaType<WIZGROUPDATA>("WIZGROUPDATA");
 
-    m_publicAPIsServer = new PublicAPIsServer(
+    m_publicAPIsServer = isIsolatedWindowControlsTest() ? nullptr : new PublicAPIsServer(
         {{"WizExplorerApp", m_IWizExplorerApp}}, this);
 
     initSyncQuick();
@@ -250,8 +261,10 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 #endif
 
     // 开启同步进程
-    m_syncFull->start(QThread::IdlePriority);
-    m_syncQuick->start(QThread::IdlePriority);
+    if (!isIsolatedWindowControlsTest()) {
+        m_syncFull->start(QThread::IdlePriority);
+        m_syncQuick->start(QThread::IdlePriority);
+    }
     // 设置系统托盘图标
     setSystemTrayIconVisible(userSettings().showSystemTrayIcon());
     // 设置接收手机文件传输
@@ -513,15 +526,6 @@ void WizMainWindow::closeEvent(QCloseEvent* event)
 #endif
 }
 
-void WizMainWindow::showEvent(QShowEvent* event)
-{
-    _baseClass::showEvent(event);
-#ifdef Q_OS_MAC
-    // Bind after frameless setup and any deferred Qt/AppKit button recreation.
-    QTimer::singleShot(0, this, [this] { wizMacBindMainWindowControls(this); });
-#endif
-}
-
 void WizMainWindow::mousePressEvent(QMouseEvent* event)
 {
     _baseClass::mousePressEvent(event);
@@ -553,10 +557,6 @@ void WizMainWindow::changeEvent(QEvent* event)
     }
 
     _baseClass::changeEvent(event);
-#ifdef Q_OS_MAC
-    if (event->type() == QEvent::ActivationChange || event->type() == QEvent::WindowStateChange)
-        QTimer::singleShot(0, this, [this] { wizMacBindMainWindowControls(this); });
-#endif
 }
 
 void WizMainWindow::moveEvent(QMoveEvent* ev)
@@ -619,9 +619,6 @@ void WizMainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     update();
-#ifdef Q_OS_MAC
-    QTimer::singleShot(0, this, [this] { wizMacBindMainWindowControls(this); });
-#endif
 }
 
 /**
@@ -2387,7 +2384,8 @@ void WizMainWindow::init()
 
     QTimer::singleShot(100, this, SLOT(adjustToolBarLayout()));
     //
-    QTimer::singleShot(1000 * 3, this, SLOT(on_actionSync_triggered()));
+    if (!isIsolatedWindowControlsTest())
+        QTimer::singleShot(1000 * 3, this, SLOT(on_actionSync_triggered()));
 }
 
 void WizMainWindow::on_actionAutoSync_triggered()

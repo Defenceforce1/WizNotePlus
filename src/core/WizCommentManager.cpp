@@ -4,6 +4,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QDebug>
+#include <QCoreApplication>
 
 #include "share/jsoncpp/json/json.h"
 #include "sync/WizApiEntry.h"
@@ -92,6 +93,11 @@ void WizCommentManager::setCommentUrlTemplate(QString url)
  */
 void WizCommentManager::queryCommentCount(const QString& kbGUID, const QString& GUID, bool removeOtherQueryRequest)
 {
+#ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    // The isolated main-window fixture has no account or remote comments.
+    if (QCoreApplication::instance()->property("wiznoteIsolatedWindowControlsTest").toBool())
+        return;
+#endif
     {
         QMutexLocker locker(&m_mutext);
         Q_UNUSED(locker)

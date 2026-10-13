@@ -411,7 +411,14 @@ int main(int argc, char *argv[])
         return wizNativeNoteTransferSelfTest(argc, argv);
     }
 #ifdef Q_OS_MAC
-    if (argc == 2 && QByteArray(argv[1]) == "--mac-window-controls-self-test") {
+    if (argc == 2 && (QByteArray(argv[1]) == "--mac-window-controls-self-test"
+                     || QByteArray(argv[1]) == "--mac-main-window-controls-probe")) {
+        extern int wizMacWindowControlsSelfTest(int, char**);
+        return wizMacWindowControlsSelfTest(argc, argv);
+    }
+    // A uniquely named local fixture bundle can only open isolated test data,
+    // even if a UI inspection tool launches it without command-line arguments.
+    if (QByteArray(argv[0]).endsWith("/WizWindowControlsTest")) {
         extern int wizMacWindowControlsSelfTest(int, char**);
         return wizMacWindowControlsSelfTest(argc, argv);
     }
