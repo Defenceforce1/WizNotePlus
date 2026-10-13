@@ -1,5 +1,10 @@
 add_subdirectory(libs)
 
+if(WIZNOTE_BUILD_COMPAT_TESTS)
+    set(native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/native-note-transfer.cpp)
+endif()
+
+
 #============================================================================
 # Sources
 #============================================================================
@@ -44,6 +49,7 @@ set(wiznote_FORMS_MAC
 )
 
 set(wiznote_SOURCES
+    ${native_transfer_test_source}
     utils/WizLogger.cpp
     utils/WizMisc.cpp
     utils/WizPinyin.cpp
@@ -215,6 +221,8 @@ set(wiznote_SOURCES
     WizButton.cpp
     WizFileImporter.cpp
     WizFileExporter.cpp
+    WizNativeNoteTransfer.cpp
+    share/WizNativeNoteArchive.cpp
     widgets/FileExportWizard.cpp
     WizProgressDialog.cpp
     WizDocumentSelectionView.cpp
@@ -405,6 +413,8 @@ set(wiznote_HEADERS
     WizButton.h
     WizFileImporter.h
     WizFileExporter.h
+    WizNativeNoteTransfer.h
+    share/WizNativeNoteArchive.h
     widgets/FileExportWizard.h
     WizProgressDialog.h
     WizDocumentSelectionView.h

@@ -404,6 +404,13 @@ int mainCore(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+#ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    // This route never starts login, networking, or the normal data-store cleanup.
+    if (argc == 2 && QByteArray(argv[1]) == "--native-note-transfer-self-test") {
+        extern int wizNativeNoteTransferSelfTest(int, char**);
+        return wizNativeNoteTransferSelfTest(argc, argv);
+    }
+#endif
     int ret = mainCore(argc, argv);
 
     // clean up the last temporary files

@@ -305,6 +305,8 @@ public Q_SLOTS:
     void on_actionSaveAsMarkdown_triggered();
     void on_actionImportFile_triggered();
     void on_actionExportFile_triggered();
+    void on_actionExportNativeNotes_triggered();
+    void on_actionImportNativeNotes_triggered();
     void on_actionPrintMargin_triggered();
 
     // menu editing

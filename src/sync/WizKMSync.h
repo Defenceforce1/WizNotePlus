@@ -71,6 +71,9 @@ public:
     static bool isBusy();
     static void waitUntilIdleAndPause();
     static void setPause(bool pause);
+    // Atomically pause only an idle worker; used by native data transfers.
+    bool pauseIfIdle(bool& previous);
+    void restorePause(bool previous);
 
 signals:
     void startTimer(int interval);

@@ -101,6 +101,9 @@
 #include "share/jsoncpp/json/json.h"
 #include "WizCellButton.h"
 #include "WizFileImporter.h"
+#include "WizNativeNoteTransfer.h"
+#include <QElapsedTimer>
+#include <QEventLoop>
 
 #include "api/ApiWizExplorerApp.h"
 #include "api/PublicAPIsServer.h"
@@ -3323,6 +3326,94 @@ void WizMainWindow::on_actionExportFile_triggered()
     FileExportWizard dialog(*this, this);
     dialog.exec();
     WizGetAnalyzer().logAction("MenuBarExportFile");
+}
+
+namespace {
+class NativeSyncPause {
+    WizKMSyncThread* full;
+    WizKMSyncThread* quick;
+    bool previousFull = false, previousQuick = false;
+    bool fullPaused = false, quickPaused = false;
+public:
+    NativeSyncPause(WizKMSyncThread* f, WizKMSyncThread* q) : full(f), quick(q)
+    {
+        fullPaused = full && full->pauseIfIdle(previousFull);
+        if (fullPaused) quickPaused = quick && quick->pauseIfIdle(previousQuick);
+    }
+    ~NativeSyncPause()
+    {
+        if (quickPaused) quick->restorePause(previousQuick);
+        if (fullPaused) full->restorePause(previousFull);
+    }
+    bool ready() const { return fullPaused && quickPaused; }
+};
+}
+
+void WizMainWindow::on_actionExportNativeNotes_triggered()
+{
+    CWizDocumentDataArray selected;
+    m_documents->getSelectedDocuments(selected);
+    const auto notes = WizNativeNotes::chooseNotes(this, m_dbMgr.db(), selected);
+    if (notes.empty()) return;
+    QString path = QFileDialog::getSaveFileName(this, QStringLiteral("导出原始笔记包"),
+        "WizNotePlus-notes.wiznotes", QStringLiteral("原始笔记包 (*.wiznotes)"));
+    if (path.isEmpty()) return;
+    if (!path.endsWith(".wiznotes", Qt::CaseInsensitive)) path += ".wiznotes";
+    NativeSyncPause pause(m_syncFull, m_syncQuick);
+    if (!pause.ready()) {
+        QMessageBox::information(this, QStringLiteral("请稍后重试"), QStringLiteral("同步正在进行，请等待同步结束后再导出。"));
+        return;
+    }
+    // Flush buffers, then wait for the actual disk saver (callbacks only enqueue).
+    setEnabled(false);
+    if (m_docSaver) m_docSaver->clearTransferError();
+    bool saved = true;
+    processAllDocumentViews([&saved](WizDocumentView* view) {
+        if (!saved || !view->noteLoaded()) return;
+        QEventLoop loop;
+        QPointer<QEventLoop> guard(&loop);
+        bool completed = false;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+        timeout.start(30000);
+        view->web()->trySaveDocument(view->note(), false, [guard, &completed, &saved](const QVariant& ok) {
+            if (!guard) return;
+            completed = true;
+            saved = saved && ok.toBool();
+            guard->quit();
+        });
+        if (!completed) loop.exec();
+        saved = saved && completed;
+    });
+    QElapsedTimer wait;
+    wait.start();
+    while (saved && m_docSaver && !m_docSaver->isIdleForTransfer() && wait.elapsed() < 30000)
+        qApp->processEvents(QEventLoop::AllEvents, 50);
+    saved = saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
+    if (!saved) {
+        setEnabled(true);
+        QMessageBox::warning(this, QStringLiteral("尚未导出"), QStringLiteral("笔记保存失败或超时。请先保存成功，再重试导出。"));
+        return;
+    }
+    QString error;
+    const bool ok = WizNativeNotes::exportNotes(m_dbMgr.db(), notes, path, error);
+    setEnabled(true);
+    if (!ok) QMessageBox::warning(this, QStringLiteral("导出未完成"), error);
+    else QMessageBox::information(this, QStringLiteral("导出完成"), QStringLiteral(
+        "已导出 %1 条笔记到：\n%2\n\n本包含原始笔记、附件和元信息，不含账号密码。\n"
+        "未加密笔记附 HTML 资源视图；其他软件的导入兼容性需另行验证。\n"
+        "加密笔记未解密，只能在具有相同加密证书的账号中恢复。").arg(notes.size()).arg(path));
+}
+
+void WizMainWindow::on_actionImportNativeNotes_triggered()
+{
+    NativeSyncPause pause(m_syncFull, m_syncQuick);
+    if (!pause.ready()) {
+        QMessageBox::information(this, QStringLiteral("请稍后重试"), QStringLiteral("同步正在进行，请等待同步结束后再导入。"));
+        return;
+    }
+    WizNativeNotes::showImport(this, m_dbMgr.db());
 }
 
 void WizMainWindow::on_actionPrintMargin_triggered()

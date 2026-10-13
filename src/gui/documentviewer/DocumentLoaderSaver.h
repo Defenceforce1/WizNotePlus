@@ -77,6 +77,9 @@ class WizDocumentSaverThread : public QThread
 public:
     WizDocumentSaverThread(WizDatabaseManager& dbMgr, QObject* parent);
     void waitForDone();
+    bool isIdleForTransfer();
+    void clearTransferError();
+    bool hasTransferError();
 
 public Q_SLOTS:
     void save(const WIZDOCUMENTDATA& doc, const QString& strHtml,
@@ -94,6 +97,8 @@ private:
     };
 
     std::vector<SAVEDATA> m_arrayData;
+    bool m_savingForTransfer = false;
+    bool m_transferError = false;
 
     bool isEmpty();
     SAVEDATA peekFirst();

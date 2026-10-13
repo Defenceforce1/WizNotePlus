@@ -33,9 +33,19 @@ App Store builds, Intel builds and other platforms are not validated by this por
   reports, not exhaustive migration certification. Formula and encrypted-note
   cases were requested, but individual coverage/results were not recorded.
   Network disconnection was requested, not independently verified.
-- No private notes or credentials were uploaded or displayed. Old/new
-  interoperability, encrypted-note coverage, online sync, web clipping, search,
-  print/export and broader GUI regression remain incomplete.
+- A dedicated test account's bidirectional sync, title/body search, small attachment
+  persistence/sync, undo/redo and Chinese copy/paste received user-reported sample
+  confirmation. Safari clipping to that same account remains unverified: an earlier
+  clip was found in a different account and the user deferred clipper-login testing.
+  No private notes or credentials were uploaded or displayed. These are not complete
+  server, encryption, conflict, large-attachment or broader GUI regression results.
+- Added built-in personal note/folder native export/import, with original ZIW and
+  attachment bytes, metadata and unencrypted HTML/resource views. Three local test
+  suites pass, including synthetic database round trips, path/checksum/CRC rejection,
+  repeated imports, injected write failures and ephemeral-certificate encrypted ZIWR.
+  This is a new WizNotePlus envelope, not verified official/other-app interchange.
+  Manual menu/editor/imported-note/cloud tests remain pending. See
+  [native-note-transfer.md](native-note-transfer.md) for scope, limits and safety.
 - First GitHub Actions run compiled and passed the data smoke suite, but failed
   packaging at `lipo -verify_arch`. Place the input filename before that option to
   support the runner's newer tool. The second run completed compilation, both
@@ -99,10 +109,11 @@ cloud account. Use a dedicated empty test account for online sync/web clipping.
 Data isolation alone does NOT isolate a cloud account.
 
 The existing MathJax/editor/CSS resources are retained. No formula engine
-replacement or Markdown-conversion feature is added. A new original-data batch
-export feature is not implemented here. Local whole-directory backup/restore was
-tested on isolated trial data; the existing HTML/attachment/metadata export is
-not a complete native database backup. Original export/import still needs testing.
+replacement or Markdown-conversion feature is added. The new original-note batch
+export is limited to notes/populated folders; no built-in whole-library backup was
+added. Local whole-directory backup/restore was previously tested on isolated trial
+data. Neither the new native note envelope nor existing HTML export is a complete
+native database backup. The existing export/import path still needs separate testing.
 The build scripts make only ad-hoc signatures, not a Developer ID signature or
 notarization. A successful CI run is not full macOS 27 runtime certification.
 

@@ -840,6 +840,13 @@ bool WizIndex::deleteAttachment(const WIZDOCUMENTATTACHMENTDATA& data,
     return true;
 }
 
+bool WizIndex::restoreImportedAttachmentDates(WIZDOCUMENTATTACHMENTDATA& data)
+{
+    data.strInfoMD5 = calDocumentAttachmentInfoMD5(data);
+    data.nVersion = -1;
+    return modifyAttachmentInfoEx(data);
+}
+
 bool WizIndex::getDocumentsGuidByLocation(const CString& strLocation, CWizStdStringArray& arrayGUID)
 {
     CString strSQL;
@@ -1931,6 +1938,14 @@ bool WizIndex::getDocumentParam(const QString& strDocumentGUID, const QString& s
     } 
     
     return false;
+}
+
+bool WizIndex::getDocumentParamsForExport(const QString& guid, CWizDocumentParamDataArray& params)
+{
+    QString escaped = guid;
+    escaped.replace("'", "''");
+    return sqlToDocumentParamDataArray(formatQuerySQL(TABLE_NAME_WIZ_DOCUMENT_PARAM,
+        FIELD_LIST_WIZ_DOCUMENT_PARAM, "DOCUMENT_GUID='" + escaped + "'"), params);
 }
 
 bool WizIndex::setDocumentParam(const QString& strDocumentGUID, const QString& strParamName, const QString& strParamValue)

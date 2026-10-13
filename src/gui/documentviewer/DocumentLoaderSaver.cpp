@@ -195,6 +195,7 @@ WizDocumentSaverThread::SAVEDATA WizDocumentSaverThread::peekFirst()
 
     SAVEDATA data = m_arrayData[0];
     m_arrayData.erase(m_arrayData.begin());
+    m_savingForTransfer = true;
     return data;
 }
 
@@ -242,6 +243,9 @@ void WizDocumentSaverThread::run()
         WIZDOCUMENTDATA doc;
         if (!db.documentFromGuid(data.doc.strGUID, doc))
         {
+            QMutexLocker locker(&m_mutex);
+            m_savingForTransfer = false;
+            m_transferError = true;
             qDebug() << "fault error: can't find doc in database: " << doc.strGUID;
             continue;
         }
@@ -249,6 +253,11 @@ void WizDocumentSaverThread::run()
         qDebug() << "Saving note: " << doc.strTitle;
 
         bool ok = db.updateDocumentData(doc, data.html, data.htmlFile, data.flags, data.notify);
+        {
+            QMutexLocker locker(&m_mutex);
+            m_savingForTransfer = false;
+            m_transferError = m_transferError || !ok;
+        }
 
         if (ok)
         {
@@ -262,5 +271,23 @@ void WizDocumentSaverThread::run()
 
         emit saved(db.kbGUID(), doc.strGUID, ok, data.requester);
     }
+}
+
+bool WizDocumentSaverThread::isIdleForTransfer()
+{
+    QMutexLocker locker(&m_mutex);
+    return m_arrayData.empty() && !m_savingForTransfer;
+}
+
+void WizDocumentSaverThread::clearTransferError()
+{
+    QMutexLocker locker(&m_mutex);
+    m_transferError = false;
+}
+
+bool WizDocumentSaverThread::hasTransferError()
+{
+    QMutexLocker locker(&m_mutex);
+    return m_transferError;
 }
 

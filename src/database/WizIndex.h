@@ -129,6 +129,7 @@ public:
 
     bool deleteDocumentParams(const QString& strDocumentGUID);
     bool getDocumentParam(const QString& strDocumentGUID, const QString& strParamName, WIZDOCUMENTPARAMDATA &paramData);
+    bool getDocumentParamsForExport(const QString& guid, CWizDocumentParamDataArray& params);
     bool setDocumentParam(const QString& strDocumentGUID, const QString& strParamName, const QString& strParamValue);
     bool removeDocumentParam(const QString& strDocumentGUID, const QString& strParamName);
     bool setDocumentParams(const QString& strDocumentGUID, const CWizDocumentParamDataArray& arrayParam);
@@ -268,6 +269,7 @@ public:
                           const CString& strDataMD5, WIZDOCUMENTATTACHMENTDATA& data);
 
     bool modifyAttachmentInfo(WIZDOCUMENTATTACHMENTDATA& data);
+    bool restoreImportedAttachmentDates(WIZDOCUMENTATTACHMENTDATA& data);
     virtual bool deleteAttachment(const WIZDOCUMENTATTACHMENTDATA& data, bool bLog,
                                   bool bResetDocInfo, bool updateAttachList = true);
 

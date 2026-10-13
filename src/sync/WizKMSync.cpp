@@ -162,12 +162,17 @@ void WizKMSyncThread::run()
             return;
         }
 
-        if (m_bPause)
-            continue;
-
-        m_bBusy = true;
+        {
+            QMutexLocker locker(&m_mutex);
+            if (m_bPause)
+                continue;
+            m_bBusy = true;
+        }
         doSync();
-        m_bBusy = false;
+        {
+            QMutexLocker locker(&m_mutex);
+            m_bBusy = false;
+        }
     }
 }
 
@@ -554,6 +559,7 @@ bool WizKMSyncThread::isBusy()
     if (!g_quickThread)
         return false;
 
+    QMutexLocker locker(&g_quickThread->m_mutex);
     return g_quickThread->m_bBusy;
 }
 
@@ -572,5 +578,20 @@ void WizKMSyncThread::setPause(bool pause)
     if (!g_quickThread)
         return;
 
-    g_quickThread->m_bPause = pause;
+    g_quickThread->restorePause(pause);
+}
+
+bool WizKMSyncThread::pauseIfIdle(bool& previous)
+{
+    QMutexLocker locker(&m_mutex);
+    previous = m_bPause;
+    if (m_bBusy) return false;
+    m_bPause = true;
+    return true;
+}
+
+void WizKMSyncThread::restorePause(bool previous)
+{
+    QMutexLocker locker(&m_mutex);
+    m_bPause = previous;
 }
