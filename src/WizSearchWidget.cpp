@@ -66,12 +66,11 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     layout->setSpacing(3);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_editSearch);
-    m_chipRow = new QWidget(this);
+    m_chipRow = new QWidget(m_editSearch);
     m_chipRow->setObjectName("wiz-note-search-chips");
     m_chipLayout = new QHBoxLayout(m_chipRow);
     m_chipLayout->setContentsMargins(0, 0, 0, 0);
     m_chipLayout->setSpacing(3);
-    layout->addWidget(m_chipRow);
     m_chipRow->hide();
 
     auto* panel = new QWidget;
@@ -181,13 +180,6 @@ QSize WizSearchView::sizeHint() const
     return QSize(m_widthHint, QWidget::sizeHint().height());
 }
 
-QWidget* WizSearchView::takeFilterChipRow()
-{
-    layout()->removeWidget(m_chipRow);
-    m_chipLayout->setContentsMargins(12, 0, 12, 6);
-    return m_chipRow;
-}
-
 void WizSearchView::setWidthHint(int nWidth)
 {
     m_widthHint = nWidth;
@@ -198,6 +190,12 @@ void WizSearchView::on_search_returnPressed()
     m_submitTimer.stop(); m_suggestionTimer.stop();
     m_tagCompleter->popup()->hide(); m_editSearch->hideFilterMenu();
     Q_EMIT doSearch(m_editSearch->text());
+    // Filtering can focus the result view while it searches. Return input focus
+    // to the field so the user can type a keyword immediately after the tokens.
+    if (hasFilters()) {
+        m_editSearch->setFocus();
+        m_editSearch->setCursorPosition(m_editSearch->text().size());
+    }
 }
 
 void WizSearchView::on_searchTextChanged(QString str)
@@ -324,15 +322,17 @@ void WizSearchView::rebuildChips()
     for (const QString& extra : m_extraConditions) chips.append({extra.mid(6), "extra", extra});
     QStringList labels;
     for (const auto& chip : chips) labels << chip.label;
-    const int visibleCount = chips.size() > 3 ? 2 : int(chips.size());
-    for (int i = 0; i < visibleCount; ++i) {
+    for (int i = 0; i < chips.size(); ++i) {
         const auto chip = chips.at(i);
         auto* button = new QPushButton(m_chipRow);
         button->setObjectName("wiz-note-filter-chip");
         button->setProperty("filterKind", chip.kind); button->setProperty("filterId", chip.id);
-        button->setText(fontMetrics().elidedText(chip.label, Qt::ElideRight, 90) + QStringLiteral(" ×"));
+        QFont tokenFont = m_editSearch->font(); tokenFont.setPointSizeF(11);
+        button->setFont(tokenFont);
+        button->setText(button->fontMetrics().elidedText(chip.label, Qt::ElideRight, 70) + QStringLiteral(" ×"));
         button->setToolTip(QStringLiteral("取消条件：") + chip.label);
-        button->setFixedHeight(24);
+        button->setFixedHeight(22);
+        button->setFocusPolicy(Qt::NoFocus);
         button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         button->setStyleSheet("QPushButton { color:#245387; background:#eaf2fc; border:1px solid #c2d5ed;"
             "border-radius:7px; padding:1px 5px; } QPushButton:hover { background:#d8e8fa; }");
@@ -345,32 +345,61 @@ void WizSearchView::rebuildChips()
             rebuildChips(); refreshFilterPanel(); scheduleSearch();
         });
     }
-    if (chips.size() > 3) {
-        auto* more = new QPushButton(QStringLiteral("＋%1").arg(chips.size() - visibleCount), m_chipRow);
+    if (!chips.isEmpty()) {
+        auto* more = new QPushButton(m_chipRow);
         more->setObjectName("wiz-note-more-filters");
         more->setToolTip(labels.join('\n'));
+        QFont tokenFont = m_editSearch->font(); tokenFont.setPointSizeF(11);
+        more->setFont(tokenFont); more->setFocusPolicy(Qt::NoFocus);
         more->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         more->setStyleSheet("QPushButton { color:#52657d; background:#edf1f6; border:1px solid #d6deea;"
             "border-radius:7px; padding:1px 7px; } QPushButton:hover { background:#e1e9f3; }");
-        more->setFixedHeight(24); m_chipLayout->addWidget(more);
+        more->setFixedHeight(22); m_chipLayout->addWidget(more);
         connect(more, &QPushButton::clicked, this, [this] {
             auto* menu = m_editSearch->findChild<QMenu*>("wiz-note-search-menu");
             menu->popup(m_editSearch->mapToGlobal(QPoint(0, m_editSearch->height() + 4)));
         });
     }
-    if (!chips.isEmpty()) {
-        auto* clear = new QPushButton(QStringLiteral("清除"), m_chipRow);
-        clear->setObjectName("wiz-note-clear-filters"); clear->setFixedHeight(24);
-        clear->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
-        clear->setStyleSheet("QPushButton { color:#65758b; background:transparent; border:none;"
-            "border-radius:7px; padding:1px 8px; } QPushButton:hover { color:#245387; background:#e6edf6; }");
-        clear->setToolTip(QStringLiteral("清除所有条件，保留内容关键词"));
-        m_chipLayout->addWidget(clear);
-        connect(clear, &QPushButton::clicked, this, [this] { clearFilters(); scheduleSearch(); });
+    layoutChips();
+}
+
+void WizSearchView::layoutChips()
+{
+    QList<QPushButton*> tokens;
+    QPushButton* more = nullptr;
+    for (int i = 0; i < m_chipLayout->count(); ++i) {
+        auto* button = qobject_cast<QPushButton*>(m_chipLayout->itemAt(i)->widget());
+        if (!button) continue;
+        button->ensurePolished();
+        if (button->objectName() == "wiz-note-more-filters") more = button;
+        else tokens.append(button);
     }
-    m_chipLayout->addStretch();
-    m_chipRow->setVisible(!chips.isEmpty());
-    updateGeometry();
+    // Always retain keyword entry space; fold overflowing conditions into +N.
+    // Text margins move Qt's caret/IME insertion rectangle after the token row.
+    const int budget = qMax(0, m_editSearch->width() - 32 - 28 - 132);
+    int visible = 0, used = 0;
+    for (int i = 0; i < tokens.size(); ++i) {
+        const int candidate = used + (visible ? 3 : 0) + tokens[i]->sizeHint().width();
+        int foldedWidth = 0;
+        if (more && i + 1 < tokens.size()) {
+            more->setText(QStringLiteral("＋%1").arg(tokens.size() - i - 1));
+            foldedWidth = 3 + more->sizeHint().width();
+        }
+        if (candidate + foldedWidth > budget) break;
+        used = candidate; ++visible;
+    }
+    for (int i = 0; i < tokens.size(); ++i) tokens[i]->setVisible(i < visible);
+    if (more) {
+        const int hidden = tokens.size() - visible;
+        more->setText(QStringLiteral("＋%1").arg(hidden));
+        more->setVisible(hidden > 0);
+        if (hidden) used += (visible ? 3 : 0) + more->sizeHint().width();
+    }
+    m_chipRow->setGeometry(32, (m_editSearch->height() - 22) / 2, used, 22);
+    m_chipRow->setVisible(!tokens.isEmpty());
+    m_chipLayout->activate();
+    m_editSearch->setTextMargins(32 + (used ? used + 8 : 0), 0, 28, 0);
+    m_editSearch->setPlaceholderText(tokens.isEmpty() ? QStringLiteral("搜索内容或选择标签…") : QStringLiteral("输入关键词…"));
 }
 
 void WizSearchView::clearFilters()
@@ -416,6 +445,7 @@ void WizSearchView::updateTagSuggestions()
 
 bool WizSearchView::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == m_editSearch && event->type() == QEvent::Resize) layoutChips();
     if ((watched == m_editSearch || watched == m_tagCompleter->popup()) && event->type() == QEvent::KeyPress) {
         auto* key = static_cast<QKeyEvent*>(event);
         if ((key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)

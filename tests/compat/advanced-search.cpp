@@ -237,7 +237,7 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
         check(WizAdvancedSearchDialog::paramToSQL(view.queryParams(), where, keyword, name, scope)
             && keyword == "x/y" && where.contains("DT_MODIFIED >"),
             "editing keyword preserves complex date filters and slash encoding");
-        auto* clear = view.findChild<QPushButton*>("wiz-note-clear-filters");
+        auto* clear = view.findChild<QPushButton*>("wiz-note-panel-clear");
         if (clear) clear->click(); app.processEvents();
         check(clear && !view.hasFilters() && view.keyword() == "x/y", "clearing conditions preserves content keyword");
         view.clear(); check(!view.hasFilters() && view.keyword().isEmpty(), "reset clears all inline query state without search");

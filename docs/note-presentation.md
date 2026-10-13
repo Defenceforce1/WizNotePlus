@@ -1,4 +1,47 @@
-# Note presentation CSS (v11)
+# Note presentation CSS and search tokens (v12)
+
+V12 keeps the restored original PDF exporter unchanged. Selected tags/folder/attachment
+conditions now appear as removable tokens inside the search field. Text/caret and the
+IME insertion rectangle follow the tokens; tag labels remain separate from the keyword.
+Overflow folds into +N while retaining keyword entry space. The magnifier panel still
+edits every condition and offers Clear filters, which preserves the keyword. Selecting
+filters returns focus to the text field after searching. Toolbar height stays one line.
+
+The local CSS setting already applies to all opened notes, without per-note setup.
+The optional Insert math quote-block style button appends a reusable stylesheet once;
+it neither replaces existing CSS nor applies/saves anything until Preview/Save. This
+template specifically targets `.wiz-editor-body.markdown-body blockquote`, the bundled
+Markdown reader's existing DOM class, so ordinary rich-text quotes and Markdown source
+editing are not restyled by this template. Standard `>` blocks and a bold first-line
+title are sufficient. All Markdown quote blocks share this style; theorem/definition/
+proof semantics, separate typed environments, automatic numbering and new parser syntax
+are NOT introduced. Existing math rendering and cross-reference support are unchanged.
+
+Two isolated Markdown fixtures use the same locally saved CSS. Regression checks cover
+quote background/border/title rendering, formulas, original source equality, temporary
+CSS exclusion from saved HTML, duplicate-free template insertion and cancel recovery.
+No remote resources, real notes, old installed app or new PDF rendering path are used.
+
+V12 verification: all five CTest suites pass. The build-tree main-window fixture
+passes 46 checks; the deployed Cocoa repeat passes the same 46 checks, including
+token containment, caret/IME coordinates after tokens, Chinese keyword composition,
+keyword-only clear, filter folding/removal and native window transitions. Both build
+and packaged CSS fixtures pass 19 checks, including two Markdown notes using the
+same global stylesheet, styled quote/title blocks and preserved source/formulas.
+Rendered quote blocks and token/keyword screenshots have been visually inspected.
+The bundle passes its 47-Mach-O arm64/dependency audit and strict ad-hoc signature
+verification. The original PDF function still matches the pre-v10 implementation.
+
+One initial CTest run used the removed clear-chip selector and failed that UI check;
+the test was updated to exercise Clear filters in the existing magnifier panel,
+with the same keyword-preservation assertion. Its failing log is retained. One
+deployed GUI run stopped at tag suggestions while the app/native key window were
+inactive; its log is retained and it is not counted as passing. The subsequent
+serialized repeat passed. This does not establish the cause of the inactive run,
+or replace manual mouse/IME testing in a real session. Developer ID signing,
+notarization and future macOS certification remain outside these local checks.
+
+## Historical v11 changes and validation
 
 At the user's request, v11 removes the new Print / PDF preview action, its Cmd-P
 binding, the separate rendering window, native-printer path and `printPreview.js`.

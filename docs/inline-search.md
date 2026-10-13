@@ -1,4 +1,15 @@
-# Inline personal search (v9)
+# Inline personal search (v12)
+
+V12 moves active condition chips inside the search field. Qt's text margins reserve
+token space, keeping the caret, Chinese IME insertion point and placeholder after
+the selected conditions. Overflow folds into +N according to available width, while
+retaining keyword input space. Clear filters is in the existing magnifier panel and
+preserves keywords; the field's clear-text icon preserves conditions. Selecting or
+removing filters returns focus to the keyword field. The one-line toolbar stays aligned
+with New Note. No backend/query/saved-search semantics change. See
+[note-presentation.md](note-presentation.md) for the current UI and CSS additions.
+
+## Historical v9 interaction and validation
 
 The top search field now combines content keywords with explicit tag, folder and
 attachment filters. This replaces the common multi-step tag-selection workflow,

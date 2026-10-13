@@ -60,6 +60,30 @@ QString styleSheet(const Style& style)
     // One stylesheet for the current page, including the original PDF exporter.
     return style.screen;
 }
+QString mathBlockStyle()
+{
+    // Ordinary Markdown blockquotes only. No parser extension, generated labels,
+    // source conversion or blanket changes to MathJax's internal fonts.
+    return QStringLiteral(R"CSS(/* WizNotePlus math-note blocks */
+.wiz-editor-body.markdown-body blockquote {
+  margin: 1em 0;
+  padding: 0.8em 1em;
+  border-left: 3px solid #5b7fa8;
+  border-radius: 6px;
+  background: #f2f6fb;
+  color: #263950;
+}
+.wiz-editor-body.markdown-body blockquote > p:first-child { margin-top: 0; }
+.wiz-editor-body.markdown-body blockquote > p:last-child { margin-bottom: 0; }
+.wiz-editor-body.markdown-body blockquote > p:first-child > strong:first-child {
+  display: block;
+  color: #245387;
+  font-weight: 700;
+  margin-bottom: 0.4em;
+}
+.wiz-editor-body.markdown-body blockquote .MathJax_Display { margin: 0.8em 0; }
+)CSS");
+}
 void editStyle(QWidget* parent, QSettings* settings, const std::function<void(const Style&)>& preview)
 {
     const Style original = loadStyle(settings);
@@ -82,6 +106,15 @@ void editStyle(QWidget* parent, QSettings* settings, const std::function<void(co
     screen->setPlainText(original.screen);
     screen->setPlaceholderText(QStringLiteral("/* 阅读/编辑正文的样式，不是整个 App 的主题 */\n.wiz-editor-body { line-height: 1.7; color: #263950; }\n.wiz-editor-body p { font-size: 16px; }"));
     box->addWidget(screen, 1);
+    auto* math = new QPushButton(QStringLiteral("插入数学引用块样式"));
+    math->setObjectName("wiz-note-css-math-preset");
+    math->setToolTip(QStringLiteral("仅为 Markdown 阅读预览中的 > 引用块提供统一样式；首行可用 **定理名称**。只填入 CSS，点预览或保存才应用。不新增定理语法。"));
+    box->addWidget(math);
+    QObject::connect(math, &QPushButton::clicked, &dialog, [screen, enabled] {
+        if (!screen->toPlainText().contains("/* WizNotePlus math-note blocks */"))
+            screen->appendPlainText(mathBlockStyle());
+        enabled->setChecked(true);
+    });
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
     auto* test = buttons->addButton(QStringLiteral("预览到当前笔记"), QDialogButtonBox::ActionRole);
     auto* reset = buttons->addButton(QStringLiteral("恢复默认"), QDialogButtonBox::ResetRole);

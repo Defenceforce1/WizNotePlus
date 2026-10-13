@@ -311,14 +311,42 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             if (ok) capture(&window, "v9-tag-chip.png");
             return ok;
         }, [&, selectPanelTag] { selectPanelTag(tag.strGUID); });
-        addCheck("search and New Note remain aligned with filters in their own row", [&] {
+        addCheck("filter tokens are inside the search field with keyword space and aligned toolbar", [&] {
             auto* row = window.findChild<QWidget*>("wiz-note-search-chips");
             auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
             if (!row || !search || !row->isVisible() || !searchAligned()
-                || row->mapTo(&window, QPoint(0, 0)).y()
-                    < search->mapTo(&window, QPoint(0, search->height())).y()) return false;
-            capture(&window, "v11-search-aligned-filters.png");
+                || row->parentWidget() != search || row->geometry().bottom() >= search->height()
+                || search->textMargins().left() <= row->geometry().right()
+                || search->width() - search->textMargins().left() - search->textMargins().right() < 120
+                || !search->hasFocus()) return false;
+            const QRect caret = search->inputMethodQuery(Qt::ImCursorRectangle).toRect();
+            if (caret.left() <= row->geometry().right()) return false;
+            capture(&window, "v12-search-tokens.png");
             return true;
+        });
+        addCheck("IME keyword input follows tokens without mixing tag labels into the keyword", [&, search] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* row = window.findChild<QWidget*>("wiz-note-search-chips");
+            if (!view || !search || !row || view->keyword() != QStringLiteral("窗口")
+                || !view->queryParams().contains(tag.strGUID)
+                || !view->queryParams().contains(QStringLiteral("keyword:窗口"))) return false;
+            const QRect caret = search->inputMethodQuery(Qt::ImCursorRectangle).toRect();
+            if (caret.left() <= row->geometry().right()) return false;
+            capture(&window, "v12-search-token-keyword.png");
+            return true;
+        }, [search] {
+            if (!search) return;
+            QInputMethodEvent commit; commit.setCommitString(QStringLiteral("窗口"));
+            QCoreApplication::sendEvent(search, &commit);
+        });
+        addCheck("keyword clear icon leaves selected tags and returns the caret after tokens", [&, search] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return view && search && view->keyword().isEmpty() && view->queryParams().contains(tag.strGUID)
+                && search->hasFocus() && docs && docs->documentCount() == 2
+                && !QApplication::activeModalWidget();
+        }, [search, sendClick] {
+            if (search) sendClick(search, QPoint(search->width() - 14, search->height() / 2));
         });
         addCheck("inline folder selection intersects tag results in actual main list", [&] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
@@ -375,7 +403,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 && view->queryParams().contains("folder-path-encoded:") && attachment && attachment->isChecked()
                 && docs && docs->documentCount() == 0 && !QApplication::activeModalWidget();
         }, [&, menu, clickChip] { if (menu) menu->hide(); clickChip("tag", secondTag.strGUID); });
-        addCheck("removing attachment chip restores matching notes without losing tags or folder", [&] {
+        addCheck("removing a folded attachment condition restores matching notes without losing tags or folder", [&] {
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* docs = window.findChild<WizDocumentListView*>();
@@ -383,15 +411,20 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 && !view->queryParams().contains(secondTag.strGUID) && view->queryParams().contains("folder-path-encoded:")
                 && docs && docs->documentCount() == 1
                 && !QApplication::activeModalWidget();
-        }, [clickChip] { clickChip("attachment"); });
-        addCheck("clear-filters chip exits an empty-keyword filter search and restores ordinary note list", [&] {
+        }, [&, clickMagnifier, sendClick] {
+            clickMagnifier();
+            auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
+            if (attachment) sendClick(attachment, QPoint(8, attachment->height() / 2));
+        });
+        addCheck("clear filters in magnifier exits filter search and restores ordinary note list", [&] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* docs = window.findChild<WizDocumentListView*>();
             return view && !view->hasFilters() && view->keyword().isEmpty() && docs
                 && !docs->acceptAllSearchItems() && docs->documentCount() == 3;
-        }, [&, sendClick] {
-            for (auto* clear : window.findChildren<QPushButton*>("wiz-note-clear-filters"))
-                if (clear->isVisible()) { sendClick(clear, clear->rect().center()); return; }
+        }, [&, clickMagnifier, sendClick] {
+            clickMagnifier();
+            auto* clear = window.findChild<QPushButton*>("wiz-note-panel-clear");
+            if (clear && clear->isVisible()) sendClick(clear, clear->rect().center());
         });
         addCheck("typing a tag offers local suggestions without submitting a note search", [&] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");

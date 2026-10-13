@@ -245,3 +245,12 @@ print fields. The original current-page Save as PDF function is restored verbati
 the experimental v10 print preview/window and printer action have been removed.
 Markdown input habits and the original formula renderer are unchanged. See
 [note-presentation.md](note-presentation.md) for scope and historical v10 results.
+
+### Search-field tokens and Markdown math-block CSS (v12)
+
+Selected conditions now live inside the search field, with text/caret/IME space
+after them and width-based overflow folding. The optional math quote-block CSS
+template uses standard Markdown `>` blocks and applies through the existing local
+global stylesheet, without source conversion or new theorem syntax. The original
+PDF export is unchanged. See [note-presentation.md](note-presentation.md) and
+[inline-search.md](inline-search.md) for verification and remaining limitations.

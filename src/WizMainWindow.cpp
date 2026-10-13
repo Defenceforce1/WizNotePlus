@@ -1951,10 +1951,6 @@ void WizMainWindow::initToolBar()
     setHitTestVisible(m_searchWidget);
     m_searchWidget->setFixedWidth(420);
     m_toolBar->addWidget(m_searchWidget);
-    // Filters are their own collapsible row, not a second line inside one
-    // toolbar item. Otherwise the toolbar centers New Note against the combined
-    // search+chips height and the search field visibly shifts above it.
-    titleBar()->layout()->addWidget(m_searchWidget->takeFilterChipRow());
 
     connect(m_searchWidget, &WizSearchView::advancedSearchRequest,
             this, &WizMainWindow::on_search_advancedSearch);
