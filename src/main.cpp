@@ -405,6 +405,10 @@ int mainCore(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--advanced-search-self-test") {
+        extern int wizAdvancedSearchSelfTest(int, char**);
+        return wizAdvancedSearchSelfTest(argc, argv);
+    }
     // This route never starts login, networking, or the normal data-store cleanup.
     if (argc == 2 && QByteArray(argv[1]) == "--native-note-transfer-self-test") {
         extern int wizNativeNoteTransferSelfTest(int, char**);

@@ -202,3 +202,11 @@ https://doc.qt.io/qt-6.8/qtwebengine-changes-qt6.html
 Qt's Cocoa backend explicitly propagates an active-state event when reopening
 from the Dock, even if the app was already active:
 https://github.com/qt/qtbase/blob/6.11/src/plugins/platforms/cocoa/qcocoaapplicationdelegate.mm
+
+### Personal advanced search (v7)
+
+Personal tag conditions now combine with the existing online full-text search,
+with an explicit offline title-only fallback. No team features or note schema changes
+were added. See [advanced-search.md](advanced-search.md) for tests, saved-search
+compatibility and remaining real-service verification. Native window code is unchanged;
+the current build passed all 21 actual-main-window regression checks.

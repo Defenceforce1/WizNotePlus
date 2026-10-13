@@ -7,6 +7,11 @@
 #include <QPainter>
 #include <QButtonGroup>
 #include <QDebug>
+#include <QComboBox>
+#include <QSet>
+#include <QUrl>
+#include <QRegularExpression>
+#include <algorithm>
 #include "database/WizDatabase.h"
 #include "database/WizDatabaseManager.h"
 #include "share/WizMisc.h"
@@ -40,6 +45,36 @@
 #define PARAM_KEYWORD       "keyword:"
 #define PARAM_PARAM     "param:"
 
+namespace {
+const QString tagPrefix = QStringLiteral("tag-guid:");
+const QString nameEncoded = QStringLiteral("name-encoded:");
+const QString keywordEncoded = QStringLiteral("keyword-encoded:");
+QString escapeLike(QString value)
+{
+    value.replace("\\", "\\\\");
+    value.replace("%", "\\%");
+    value.replace("_", "\\_");
+    return value;
+}
+QString encodeField(const QString& key, const QString& value)
+{
+    return value.contains('/') ? key.left(key.size() - 1) + "-encoded:" + QString::fromLatin1(QUrl::toPercentEncoding(value))
+                               : key + value;
+}
+bool readTag(const QString& token, QString& guid, QString& label)
+{
+    const QString value = token.mid(tagPrefix.size());
+    const int separator = value.indexOf(':');
+    guid = value.left(separator);
+    static const QRegularExpression uuid(QStringLiteral(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"));
+    if (!token.startsWith(tagPrefix) || separator < 0 || !uuid.match(guid).hasMatch())
+        return false;
+    label = QUrl::fromPercentEncoding(value.mid(separator + 1).toLatin1());
+    return true;
+}
+}
+
 
 
 WizAdvancedSearchDialog::WizAdvancedSearchDialog(bool searchOnly, QWidget *parent) :
@@ -48,6 +83,11 @@ WizAdvancedSearchDialog::WizAdvancedSearchDialog(bool searchOnly, QWidget *paren
   , m_radioGroup(new QButtonGroup(this))
 {
     ui->setupUi(this);
+    // activated(QString) was removed in Qt 6. The index signal works on Qt 5 and 6.
+    connect(ui->comboBox_first, qOverload<int>(&QComboBox::activated), this,
+            [this](int i) { onFirstParameterActivated(ui->comboBox_first->itemText(i)); });
+    connect(ui->comboBox_second, qOverload<int>(&QComboBox::activated), this,
+            [this](int i) { onSecondParameterActivated(ui->comboBox_second->itemText(i)); });
 
     ui->lineEdit_keyword->setAttribute(Qt::WA_MacShowFocusRect, false);
     ui->lineEdit_name->setAttribute(Qt::WA_MacShowFocusRect, false);
@@ -93,136 +133,161 @@ WizAdvancedSearchDialog::~WizAdvancedSearchDialog()
 
 QString WizAdvancedSearchDialog::getParams()
 {
-    int scope = m_radioGroup->checkedId();
-    QString strParam = PARAM_NAME + ui->lineEdit_name->text() + "/" + PARAM_KEYWORD + ui->lineEdit_keyword->text()
-            + "/" + PARAM_SCOPE + QString::number(scope);
-    for (int i = 0; i < ui->listWidget->count(); i++)
+    QString params = encodeField(PARAM_NAME, ui->lineEdit_name->text()) + "/"
+            + encodeField(PARAM_KEYWORD, ui->lineEdit_keyword->text()) + "/"
+            + PARAM_SCOPE + QString::number(m_radioGroup->checkedId());
+    for (int i = 0; i < ui->listWidget->count(); ++i)
     {
-        strParam += QString("/") + PARAM_PARAM + ui->listWidget->item(i)->text();
+        const auto* item = ui->listWidget->item(i);
+        const QString token = item->data(Qt::UserRole).toString();
+        params += "/" + (token.isEmpty() ? PARAM_PARAM + item->text() : token);
     }
-
-    return strParam;
+    return params;
 }
 
-void WizAdvancedSearchDialog::setParams(const QString& strParam)
+void WizAdvancedSearchDialog::setParams(const QString& params)
 {
-    QStringList paramList = strParam.split('/');
-    foreach (QString strParam, paramList) {
-        if (strParam.startsWith(PARAM_NAME))
+    ui->listWidget->clear();
+    ui->lineEdit_keyword->clear();
+    ui->radioButton_personalNotes->setChecked(true);
+    for (const QString& part : params.split('/'))
+    {
+        if (part.startsWith(PARAM_NAME) || part.startsWith(PARAM_KEYWORD)
+            || part.startsWith(nameEncoded) || part.startsWith(keywordEncoded))
         {
-            QString strName = strParam.remove(PARAM_NAME);
-            ui->lineEdit_name->setText(strName);
+            const bool isName = part.startsWith(PARAM_NAME) || part.startsWith(nameEncoded);
+            const bool encoded = part.startsWith(nameEncoded) || part.startsWith(keywordEncoded);
+            const QString prefix = encoded ? (isName ? nameEncoded : keywordEncoded)
+                                           : QString(isName ? PARAM_NAME : PARAM_KEYWORD);
+            QString value = part.mid(prefix.size());
+            if (encoded)
+                value = QUrl::fromPercentEncoding(value.toLatin1());
+            (isName ? ui->lineEdit_name : ui->lineEdit_keyword)->setText(value);
         }
-        else if (strParam.startsWith(PARAM_KEYWORD))
+        else if (part.startsWith(PARAM_SCOPE))
         {
-            QString strKeyword = strParam.remove(PARAM_KEYWORD);
-            ui->lineEdit_keyword->setText(strKeyword);
+            bool ok = false;
+            const int id = part.mid(QString(PARAM_SCOPE).size()).toInt(&ok);
+            if (ok && m_radioGroup->button(id))
+                m_radioGroup->button(id)->setChecked(true);
         }
-        else if (strParam.startsWith(PARAM_SCOPE))
+        else if (part.startsWith(PARAM_PARAM))
+            new WizSearchParamItem(part.mid(QString(PARAM_PARAM).size()), ui->listWidget);
+        else if (part.startsWith(tagPrefix))
         {
-            int scopeId = strParam.remove(PARAM_SCOPE).toInt();
-            QAbstractButton* button = m_radioGroup->button(scopeId);
-            button->setChecked(true);
-        }
-        else if (strParam.startsWith(PARAM_PARAM))
-        {
-            QString param = strParam.remove(PARAM_PARAM);
-            WizSearchParamItem* item = new WizSearchParamItem(param, ui->listWidget);
-            ui->listWidget->addItem(item);
+            QString guid, label;
+            if (readTag(part, guid, label))
+            {
+                auto* item = new WizSearchParamItem(PARAM_SELECT_TAG + ", " + label, ui->listWidget);
+                item->setData(Qt::UserRole, part);
+            }
         }
     }
+    initFirstCombox(m_radioGroup->checkedId() != 1);
 }
 
-bool WizAdvancedSearchDialog::paramToSQL(const QString& param, QString& sqlWhere,
-                                          QString& keyword, QString& name, int& scope)
+bool WizAdvancedSearchDialog::paramToSQL(const QString& params, QString& sqlWhere,
+                                       QString& keyword, QString& name, int& scope)
 {
-    QStringList paramList = param.split('/');
-    foreach (QString strParam, paramList) {
-        if (strParam.startsWith(PARAM_NAME))
+    sqlWhere.clear();
+    keyword.clear();
+    name.clear();
+    scope = 1;
+    bool hasTag = false;
+    QStringList conditions;
+    for (const QString& part : params.split('/'))
+    {
+        if (part.startsWith(PARAM_NAME) || part.startsWith(PARAM_KEYWORD)
+            || part.startsWith(nameEncoded) || part.startsWith(keywordEncoded))
         {
-            name = strParam.remove(PARAM_NAME);
+            const bool isName = part.startsWith(PARAM_NAME) || part.startsWith(nameEncoded);
+            const bool encoded = part.startsWith(nameEncoded) || part.startsWith(keywordEncoded);
+            const QString prefix = encoded ? (isName ? nameEncoded : keywordEncoded)
+                                           : QString(isName ? PARAM_NAME : PARAM_KEYWORD);
+            QString value = part.mid(prefix.size());
+            if (encoded)
+                value = QUrl::fromPercentEncoding(value.toLatin1());
+            (isName ? name : keyword) = value;
         }
-        else if (strParam.startsWith(PARAM_KEYWORD))
+        else if (part.startsWith(PARAM_SCOPE))
         {
-            keyword = strParam.remove(PARAM_KEYWORD);
+            bool ok = false;
+            scope = part.mid(QString(PARAM_SCOPE).size()).toInt(&ok);
+            if (!ok || scope < 0 || scope > 2)
+                return false;
         }
-        else if (strParam.startsWith(PARAM_SCOPE))
+        else if (part.startsWith(tagPrefix))
         {
-            scope = strParam.remove(PARAM_SCOPE).toInt();
+            QString guid, label;
+            if (!readTag(part, guid, label))
+                return false;
+            conditions << "DOCUMENT_GUID IN (SELECT DOCUMENT_GUID FROM WIZ_DOCUMENT_TAG WHERE TAG_GUID="
+                          + STR2SQL(guid) + ")";
+            hasTag = true;
         }
-        else if (strParam.startsWith(PARAM_PARAM))
+        else if (part.startsWith(PARAM_PARAM))
         {
-            QStringList paramList = strParam.remove(PARAM_PARAM).split(',');
-            Q_ASSERT(paramList.count() >= 2);
-            if (paramList.first() == PARAM_SELECT_FOLDER)
+            const QStringList values = part.mid(QString(PARAM_PARAM).size()).split(',');
+            if (values.size() < 2)
+                return false;
+            if (values.first() == PARAM_SELECT_FOLDER)
             {
-                QString strWhere = "DOCUMENT_LOCATION like '/" + paramList.at(1) + QString("/") +
-                        (paramList.last().isEmpty() ? "%'" : paramList.last() + "/%'");
-                sqlWhere += sqlWhere.isEmpty() ? strWhere : " and " + strWhere;
+                if (values.size() > 3 || values.at(1).isEmpty())
+                    return false;
+                QString path = "/" + values.at(1) + "/";
+                if (values.size() == 3 && !values.at(2).isEmpty())
+                    path += values.at(2) + "/";
+                conditions << "DOCUMENT_LOCATION LIKE " + STR2SQL(escapeLike(path) + "%") + " ESCAPE '\\'";
             }
-//            else if (paramList.first() == PARAM_SELECT_TAG)
-//            {
-//                QString strWhere = "DOCUMENT_LOCATION like " + "/" + paramList.at(1) + "/" +
-//                        (paramList.count() == 3 ? paramList.last() + "/" : "");
-//                strSQL += strSQL.isEmpty() ? strWhere : " and " + strWhere;
-//            }
-            else if (paramList.first() == PARAM_SELECT_CONTAIN)
+            else if (values.first() == PARAM_SELECT_CONTAIN)
             {
-                if (paramList.at(1) == PARAM_CONTAIN_ATTACHMENT)
-                {
-                    QString strWhere = "DOCUMENT_ATTACHEMENT_COUNT > 0";
-                    sqlWhere += sqlWhere.isEmpty() ? strWhere : " and " + strWhere;
-                }
+                if (values.at(1) != PARAM_CONTAIN_ATTACHMENT)
+                    return false;
+                conditions << "DOCUMENT_ATTACHEMENT_COUNT > 0";
             }
-            else if (paramList.first() == PARAM_SELECT_DTCREATED )
+            else if (values.first() == PARAM_SELECT_DTCREATED
+                     || values.first() == PARAM_SELECT_DTMODIFIED
+                     || values.first() == PARAM_SELECT_DTACCESSED)
             {
-                QString strWhere = " DT_CREATED";
-                strWhere += paramList.at(1) == PARAM_DATE_AFTER ? " > " : " < ";
-                strWhere += ::WizTimeToSQL(getDateTimeByInterval(paramList.last()));
-                sqlWhere += sqlWhere.isEmpty() ? strWhere : " and " + strWhere;
+                const QStringList dates = {PARAM_DATE_TODAY, PARAM_DATE_YESTODAY, PARAM_DATE_DAYBEFOREYESTODAY,
+                                            PARAM_DATE_LASTWEEK, PARAM_DATE_LASTMONTH, PARAM_DATE_LASTYEAR};
+                if (values.size() != 3 || !dates.contains(values.last())
+                    || (values.at(1) != PARAM_DATE_AFTER && values.at(1) != PARAM_DATE_BEFORE))
+                    return false;
+                QString condition = values.first() == PARAM_SELECT_DTCREATED ? "DT_CREATED"
+                        : values.first() == PARAM_SELECT_DTMODIFIED ? "DT_MODIFIED" : "DT_ACCESSED";
+                condition += values.at(1) == PARAM_DATE_AFTER ? " > " : " < ";
+                conditions << condition + ::WizTimeToSQL(getDateTimeByInterval(values.last()));
             }
-            else if (paramList.first() == PARAM_SELECT_DTMODIFIED)
-            {
-                QString strWhere = " DT_MODIFIED";
-                strWhere += paramList.at(1) == PARAM_DATE_AFTER ? " > " : " < ";
-                strWhere += ::WizTimeToSQL(getDateTimeByInterval(paramList.last()));
-                sqlWhere += sqlWhere.isEmpty() ? strWhere : " and " + strWhere;
-            }
-            else if (paramList.first() == PARAM_SELECT_DTACCESSED)
-            {
-                QString strWhere = " DT_ACCESSED";
-                strWhere += paramList.at(1) == PARAM_DATE_AFTER ? " > " : " < ";
-                strWhere += ::WizTimeToSQL(getDateTimeByInterval(paramList.last()));
-                sqlWhere += sqlWhere.isEmpty() ? strWhere : " and " + strWhere;
-            }
+            else
+                return false;
         }
+        else
+            return false;
     }
+    if (hasTag && scope != 1)
+        return false;
+    sqlWhere = conditions.join(" AND ");
     return true;
 }
 
 void WizAdvancedSearchDialog::onRadioButtonClicked(QAbstractButton* button)
 {
-    ui->comboBox_first->setCurrentIndex(0);
+    const bool personal = button == ui->radioButton_personalNotes;
+    if (!personal)
+    {
+        for (int i = ui->listWidget->count() - 1; i >= 0; --i)
+        {
+            const auto* item = ui->listWidget->item(i);
+            if (item->data(Qt::UserRole).toString().startsWith(tagPrefix)
+                || item->text().startsWith(PARAM_SELECT_FOLDER + ","))
+                delete ui->listWidget->takeItem(i);
+        }
+    }
+    initFirstCombox(!personal);
     ui->comboBox_second->clear();
     ui->comboBox_second->setVisible(false);
     ui->comboBox_third->setVisible(false);
-    if (button == ui->radioButton_allNotes || button == ui->radioButton_groupNotes)
-    {
-        int index = ui->comboBox_first->findText(PARAM_SELECT_FOLDER);
-        if (index != -1)
-        {
-            ui->listWidget->clear();
-            ui->comboBox_first->removeItem(index);
-        }
-    }
-    else if (button == ui->radioButton_personalNotes)
-    {
-        int index = ui->comboBox_first->findText(PARAM_SELECT_FOLDER);
-        if (index == -1)
-        {
-            ui->comboBox_first->insertItem(1, PARAM_SELECT_FOLDER);
-        }
-    }
 }
 
 void WizAdvancedSearchDialog::getDateList(QStringList& dateList)
@@ -271,20 +336,35 @@ void WizAdvancedSearchDialog::getSecondLevelFolders(const QString& firstLevelFol
     }
 }
 
-void WizAdvancedSearchDialog::getAllTags(QStringList& tags)
+void WizAdvancedSearchDialog::populateTags()
 {
-    if (m_strTags.isEmpty())
+    CWizTagDataArray tags;
+    WizDatabaseManager::instance()->db().getAllTags(tags);
+    QMap<QString, WIZTAGDATA> byGuid;
+    for (const auto& tag : tags)
+        byGuid.insert(tag.strGUID, tag);
+    QList<QPair<QString, QString>> choices;
+    for (const auto& tag : tags)
     {
-        CWizTagDataArray arrayTag;
-        WizDatabaseManager::instance()->db().getAllTags(arrayTag);
-        CWizTagDataArray::const_iterator it;
-        for (it = arrayTag.begin(); it != arrayTag.end(); it++) {
-            m_strTags.append(it->strName + ",");
+        QStringList path;
+        QSet<QString> seen;
+        QString guid = tag.strGUID;
+        while (!guid.isEmpty() && byGuid.contains(guid) && !seen.contains(guid))
+        {
+            seen.insert(guid);
+            const auto& current = byGuid[guid];
+            path.prepend(WizDatabase::tagNameToDisplayName(current.strName));
+            guid = current.strParentGUID;
         }
+        choices.append(qMakePair(path.join(" / "), tag.strGUID));
     }
-
-    if (!m_strTags.isEmpty())
-        tags = m_strTags.split(",", Qt::SkipEmptyParts);
+    std::sort(choices.begin(), choices.end(), [](const QPair<QString, QString>& a,
+                                               const QPair<QString, QString>& b) {
+        return QString::localeAwareCompare(a.first, b.first) < 0;
+    });
+    for (const auto& choice : choices)
+        ui->comboBox_second->addItem(choice.first, choice.second);
+    ui->comboBox_second->setVisible(!choices.isEmpty());
 }
 
 WizOleDateTime WizAdvancedSearchDialog::getDateTimeByInterval(const QString& str)
@@ -317,7 +397,7 @@ WizOleDateTime WizAdvancedSearchDialog::getDateTimeByInterval(const QString& str
     return dt;
 }
 
-void WizAdvancedSearchDialog::on_comboBox_first_activated(const QString &arg1)
+void WizAdvancedSearchDialog::onFirstParameterActivated(const QString &arg1)
 {
     ui->comboBox_second->setVisible(true);
     ui->comboBox_third->setVisible(false);
@@ -351,19 +431,11 @@ void WizAdvancedSearchDialog::on_comboBox_first_activated(const QString &arg1)
             }
         }
     }
-//    else if (arg1 == PARAM_SELECT_TAG)
-//    {
-//        QStringList tags;
-//        getAllTags(tags);
-//        if (tags.count() > 0)
-//        {
-//            ui->comboBox_second->addItems(tags);
-//        }
-//        else
-//        {
-//            ui->comboBox_second->setVisible(false);
-//        }
-//    }
+    else if (arg1 == PARAM_SELECT_TAG)
+    {
+        populateTags();
+    }
+
     else if (arg1 == PARAM_SELECT_CONTAIN)
     {
         ui->comboBox_second->addItem(PARAM_CONTAIN_ATTACHMENT);
@@ -391,7 +463,7 @@ void WizAdvancedSearchDialog::initFirstCombox(bool bSearchGroup)
     if (!bSearchGroup)
     {
         ui->comboBox_first->addItem(PARAM_SELECT_FOLDER);
-//        ui->comboBox_first->addItem(PARAM_SELECT_TAG);
+        ui->comboBox_first->addItem(PARAM_SELECT_TAG);
     }
     ui->comboBox_first->addItem(PARAM_SELECT_CONTAIN);
     ui->comboBox_first->addItem(PARAM_SELECT_DTCREATED);
@@ -400,7 +472,7 @@ void WizAdvancedSearchDialog::initFirstCombox(bool bSearchGroup)
     ui->comboBox_first->setCurrentIndex(0);
 }
 
-void WizAdvancedSearchDialog::on_comboBox_second_activated(const QString &arg1)
+void WizAdvancedSearchDialog::onSecondParameterActivated(const QString &arg1)
 {
     ui->comboBox_third->setVisible(false);
     QString firstParam = ui->comboBox_first->currentText();
@@ -438,25 +510,43 @@ void WizAdvancedSearchDialog::on_pushButton_ok_clicked()
         QMessageBox::information(0, tr("Info"), tr("Both of keywords and search param were empty!"));
         return;
     }
+    QString where, keyword, name;
+    int scope;
+    if (!paramToSQL(getParams(), where, keyword, name, scope))
+    {
+        QMessageBox::warning(this, tr("Info"), tr("Invalid search conditions."));
+        return;
+    }
     accept();
 }
 
 void WizAdvancedSearchDialog::on_toolButton_add_clicked()
 {
-    if (ui->comboBox_first->currentText() != PARAM_SELECT_PARAM)
+    const QString first = ui->comboBox_first->currentText();
+    if (first == PARAM_SELECT_PARAM || ui->comboBox_second->currentIndex() < 0)
+        return;
+    const QString second = ui->comboBox_second->currentText();
+    QString third = !ui->comboBox_third->isHidden() ? ui->comboBox_third->currentText() : QString();
+    if (third == PARAM_FOLDER_CHILDFOLDER)
+        third.clear();
+    QString token, label = first + "," + second + "," + third;
+    if (first == PARAM_SELECT_TAG)
     {
-        QString strFirst = ui->comboBox_first->currentText();
-        QString strSecond = ui->comboBox_second->isVisible() ? ui->comboBox_second->currentText() : "";
-        QString strThird = ui->comboBox_third->isVisible() ? ui->comboBox_third->currentText() : "";
-        if (strThird == PARAM_FOLDER_CHILDFOLDER) {
-            strThird.clear();
-        }
-        QString strItem = strFirst + "," + strSecond + (strSecond.isEmpty() ? "" : "," + strThird);
-        WizSearchParamItem* item = new WizSearchParamItem(strItem, ui->listWidget);
-        ui->listWidget->addItem(item);
+        const QString guid = ui->comboBox_second->currentData().toString();
+        if (guid.isEmpty())
+            return;
+        token = tagPrefix + guid + ":" + QString::fromLatin1(QUrl::toPercentEncoding(second));
+        label = first + ", " + second;
     }
+    for (int i = 0; i < ui->listWidget->count(); ++i)
+    {
+        const auto* item = ui->listWidget->item(i);
+        if (token.isEmpty() ? item->text() == label : item->data(Qt::UserRole).toString() == token)
+            return;
+    }
+    auto* item = new WizSearchParamItem(label, ui->listWidget);
+    item->setData(Qt::UserRole, token);
 }
-
 
 WizSearchParamItem::WizSearchParamItem(const QString& text, QListWidget* view, int type)
     : QListWidgetItem(text, view, type)
@@ -519,7 +609,7 @@ void WizAdvancedSearchDialog::on_listWidget_itemClicked(QListWidgetItem *item)
     {
           if (paramItem->removeIconClicked())
           {
-              ui->listWidget->takeItem(ui->listWidget->row(item));
+              delete ui->listWidget->takeItem(ui->listWidget->row(item));
           }
     }
 }

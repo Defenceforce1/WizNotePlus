@@ -6,6 +6,8 @@
 #include <QCoreApplication>
 #include <QNetworkAccessManager>
 #include <QUrlQuery>
+#include <QSet>
+#include <limits>
 
 #ifndef Q_OS_WIN
 #include <unistd.h>
@@ -526,6 +528,59 @@ static void highlightKeywordsInString(QString& str, const QString& keywords)
 }
 
 //
+bool WizSearcher::searchPersonalWithFilters(const QString& keywords, const QString& where, int maxCount,
+                                          CWizDocumentDataArray& results, bool& titleOnlyFallback)
+{
+    results.clear();
+    titleOnlyFallback = false;
+    if (maxCount == 0)
+        return true;
+    WizDatabase& db = m_dbMgr.db();
+    const int limit = maxCount < 0 ? std::numeric_limits<int>::max() : maxCount;
+    QString conditions = "DOCUMENT_LOCATION NOT LIKE " + STR2SQL(db.getDeletedItemsLocation() + "%");
+    if (!where.trimmed().isEmpty())
+        conditions += " AND (" + where + ")";
+
+    CWizDocumentDataArray online;
+    const bool hasKeyword = !keywords.trimmed().isEmpty();
+    const bool onlineOk = hasKeyword && onlineSearchOnly(db.kbGUID(), keywords, online);
+    if (hasKeyword && !onlineOk)
+    {
+        // Keep the old offline title search, but make the fallback explicit to the UI.
+        titleOnlyFallback = true;
+        for (QString term : keywords.split(getWizSearchSplitChar(), Qt::SkipEmptyParts))
+        {
+            term.replace("\\", "\\\\");
+            term.replace("%", "\\%");
+            term.replace("_", "\\_");
+            conditions += " AND DOCUMENT_TITLE LIKE " + STR2SQL("%" + term + "%") + " ESCAPE '\\'";
+        }
+    }
+    CWizDocumentDataArray matching;
+    if (!db.searchDocumentByWhere(conditions, onlineOk ? std::numeric_limits<int>::max() : limit, matching))
+        return false;
+    if (!onlineOk)
+    {
+        results.swap(matching);
+        return true;
+    }
+    QSet<QString> allowed, emitted;
+    for (const auto& doc : matching)
+        allowed.insert(doc.strGUID);
+    // Never re-check titles: a valid server hit can match only the note body.
+    // Apply the result limit after filtering and preserve server highlights/order.
+    for (const auto& doc : online)
+    {
+        if (!allowed.contains(doc.strGUID) || emitted.contains(doc.strGUID))
+            continue;
+        emitted.insert(doc.strGUID);
+        results.push_back(doc);
+        if (int(results.size()) >= limit)
+            break;
+    }
+    return true;
+}
+
 bool WizSearcher::onlineSearch(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& arrayResult)
 {
     if (onlineSearchOnly(kbGuid, keywords, arrayResult))
@@ -572,7 +627,8 @@ bool WizSearcher::onlineSearchOnly(const QString& kbGuid, const QString& keyword
     QUrl url(urlString);
     url.setQuery(postData);
     //
-    qDebug() << url.toString();
+    // The query contains a login token and private search text; never log it.
+    qDebug() << "[Search] Requesting online search";
     //
     int start = WizGetTickCount();
     qDebug() << "start search";
@@ -589,7 +645,7 @@ bool WizSearcher::onlineSearchOnly(const QString& kbGuid, const QString& keyword
 
     if (loop.error() != QNetworkReply::NoError || loop.result().isEmpty())
     {
-        qDebug() << "[Search] Search failed! error: " << loop.errorString();
+        qDebug() << "[Search] Search failed, network error code:" << loop.error();
         return false;
     }
     //
@@ -607,7 +663,7 @@ bool WizSearcher::onlineSearchOnly(const QString& kbGuid, const QString& keyword
     int returnCode = d["return_code"].asInt();
     if (returnCode != 200)
     {
-        qDebug() << "[Search] Return code was not 200, error:  " << returnCode << loop.result();
+        qDebug() << "[Search] Return code was not 200:" << returnCode;
         return false;
     }
     //

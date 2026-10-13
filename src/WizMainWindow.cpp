@@ -4781,7 +4781,30 @@ void WizMainWindow::searchNotesBySQL(const QString& strSQLWhere)
 
 void WizMainWindow::searchNotesBySQLAndKeyword(const QString& strSQLWhere, const QString& strKeyword, int searchScope)
 {
-    qDebug() << "search by sql and keyword : " << strSQLWhere << strKeyword;
+    if (searchScope == Scope_PersonalNotes)
+    {
+        m_category->saveSelection();
+        m_searchWidget->setCurrentKb(m_dbMgr.db().kbGUID());
+        m_strSearchKeywords = strKeyword;
+        m_noteListWidget->show();
+        m_msgListWidget->hide();
+        startSearchStatus();
+        CWizDocumentDataArray results;
+        bool ok = false, titleOnly = false;
+        WizExecutingActionDialog::executeAction(tr("Searching..."), WIZ_THREAD_SEARCH, [&] {
+            ok = m_searcher->searchPersonalWithFilters(strKeyword, strSQLWhere, 500, results, titleOnly);
+        });
+        m_documents->clearAllItems();
+        m_documents->setLeadInfoState(DocumentLeadInfo_SearchResult);
+        m_documents->setDocuments(results, true);
+        on_documents_itemSelectionChanged();
+        if (!ok)
+            QMessageBox::warning(this, tr("Info"), QStringLiteral("高级搜索失败，请重试。"));
+        else if (titleOnly)
+            QMessageBox::information(this, tr("Info"), QStringLiteral(
+                "联网全文搜索暂不可用。本次仅搜索本地笔记标题，并应用所选条件；正文中的匹配不会显示。"));
+        return;
+    }
     if (strSQLWhere.isEmpty())
     {
         m_searcher->search(strKeyword, 500, (SearchScope)searchScope);

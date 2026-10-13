@@ -108,6 +108,7 @@ public:
     bool isLogout() const { return m_bLogoutRestart; }
 
     WizSearcher* searcher();
+    void searchNotesBySQLAndKeyword(const QString& strSQLWhere, const QString& strKeyword, int searchScope);
     QString searchKeywords() const { return m_strSearchKeywords; }
 
     static WizMainWindow* instance();
@@ -557,7 +558,6 @@ private:
     void showMessageList(WizCategoryViewMessageItem* pItem);
     void viewDocumentByShortcut(WizCategoryViewShortcutItem *pShortcut);
     void searchNotesBySQL(const QString& strSQLWhere);
-    void searchNotesBySQLAndKeyword(const QString& strSQLWhere, const QString& strKeyword, int searchScope);
 
     void updateHistoryButtonStatus();
 

@@ -2,6 +2,7 @@ add_subdirectory(libs)
 
 if(WIZNOTE_BUILD_COMPAT_TESTS)
     set(native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/native-note-transfer.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/advanced-search.cpp)
     if(APPLE)
         list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/mac-window-controls.mm)
     endif()

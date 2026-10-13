@@ -45,9 +45,9 @@ public slots:
     void onRadioButtonClicked(QAbstractButton* button);
 
 private slots:
-    void on_comboBox_first_activated(const QString &arg1);
+    void onFirstParameterActivated(const QString &arg1);
 
-    void on_comboBox_second_activated(const QString &arg1);
+    void onSecondParameterActivated(const QString &arg1);
 
     void on_pushButton_cancel_clicked();
 
@@ -61,7 +61,6 @@ private slots:
 private:
     Ui::WizAdvancedSearchDialog *ui;
     QString m_strFolders;
-    QString m_strTags;
     QButtonGroup* m_radioGroup;
 
     void initFirstCombox(bool bSearchGroup);
@@ -69,7 +68,7 @@ private:
     void getDateList(QStringList& getDateList);
     void getFirstLevelFolders(QStringList& folders);
     void getSecondLevelFolders(const QString& firstLevelFolder, QStringList& folders);
-    void getAllTags(QStringList& tags);
+    void populateTags();
     static WizOleDateTime getDateTimeByInterval(const QString& str);
 
 };

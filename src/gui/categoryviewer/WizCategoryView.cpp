@@ -2907,8 +2907,9 @@ void WizCategoryView::on_action_addCustomSearch()
 
         // create item by param
         QString strSQLWhere, name , keyword;
-        int scope;
-        WizAdvancedSearchDialog::paramToSQL(strParam, strSQLWhere, keyword, name, scope);
+        int scope = Scope_PersonalNotes;
+        if (!WizAdvancedSearchDialog::paramToSQL(strParam, strSQLWhere, keyword, name, scope))
+            return;
 
         WizCategoryViewItemBase* rootItem = findAllSearchItem();
         if (!rootItem)
@@ -2953,8 +2954,9 @@ void WizCategoryView::on_action_editCustomSearch()
             {
                 QString strParam = dlg.getParams();
                 QString strSQLWhere, name, keyword;
-                int scope;
-                WizAdvancedSearchDialog::paramToSQL(strParam, strSQLWhere, keyword, name, scope);
+                int scope = Scope_PersonalNotes;
+                if (!WizAdvancedSearchDialog::paramToSQL(strParam, strSQLWhere, keyword, name, scope))
+                    return;
                 item->setText(0, name);
                 item->setKeyword(keyword);
                 item->setSelectParam(strParam);
@@ -4813,8 +4815,9 @@ void WizCategoryView::initQuickSearches()
         for (it = customMap.begin(); it != customMap.end(); it++)
         {
             QString where, name, keyword;
-            int scope;
-            WizAdvancedSearchDialog::paramToSQL(it.value(), where, keyword, name, scope);
+            int scope = Scope_PersonalNotes;
+            if (!WizAdvancedSearchDialog::paramToSQL(it.value(), where, keyword, name, scope))
+                continue;
             WizCategoryViewCustomSearchItem* pCustomSearch = new WizCategoryViewCustomSearchItem(m_app,
                                                                                                    name, it.value(), where, it.key(), keyword, scope);
             pSearchByCustomSQL->addChild(pCustomSearch);
@@ -5855,27 +5858,15 @@ void WizCategoryView::saveItemState(QTreeWidgetItem* pi, QSettings *settings)
 
 void WizCategoryView::advancedSearchByCustomParam(const QString& strParam)
 {
-    QString strSql, strName, strKeyword;
-    int scope;
-    WizAdvancedSearchDialog::paramToSQL(strParam, strSql, strKeyword, strName, scope);
-
-    WizMainWindow* mainWindow = qobject_cast<WizMainWindow*>(m_app.mainWindow());
-    WizSearcher* searcher = mainWindow->searcher();
-    if (searcher)
+    QString where, name, keyword;
+    int scope = Scope_PersonalNotes;
+    if (!WizAdvancedSearchDialog::paramToSQL(strParam, where, keyword, name, scope))
     {
-        if (strSql.isEmpty())
-        {
-            searcher->search(strKeyword, 500, (SearchScope)scope);
-        }
-        else if (strKeyword.isEmpty())
-        {
-            searcher->searchBySQLWhere(strSql, 500, (SearchScope)scope);
-        }
-        else
-        {
-            searcher->searchByKeywordAndWhere(strKeyword, strSql, 500, (SearchScope)scope);
-        }
+        QMessageBox::warning(this, tr("Info"), QStringLiteral("搜索条件无效，请编辑后重试。"));
+        return;
     }
+    if (auto* mainWindow = qobject_cast<WizMainWindow*>(m_app.mainWindow()))
+        mainWindow->searchNotesBySQLAndKeyword(where, keyword, scope);
 }
 
 void WizCategoryView::saveCustomAdvancedSearchParamToDB(const QString& strGuid, const QString& strParam)

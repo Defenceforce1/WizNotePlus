@@ -1,0 +1,156 @@
+#include "widgets/WizAdvancedSearchDialog.h"
+#include "share/WizSearch.h"
+#include "share/WizGlobal.h"
+#include "database/WizDatabase.h"
+#include <QApplication>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QSettings>
+#include <QTemporaryDir>
+#include <QDir>
+#include <QUrl>
+#include <QDebug>
+
+namespace {
+class FixtureSearcher : public WizSearcher
+{
+public:
+    using WizSearcher::WizSearcher;
+    CWizDocumentDataArray candidates;
+    bool available = true;
+    int requests = 0;
+protected:
+    bool onlineSearchOnly(const QString&, const QString&, CWizDocumentDataArray& result) override
+    {
+        ++requests;
+        result = candidates;
+        return available;
+    }
+};
+QString tagParam(const WIZTAGDATA& tag)
+{
+    return "tag-guid:" + tag.strGUID + ":" + QString::fromLatin1(QUrl::toPercentEncoding(tag.strName));
+}
+}
+
+int wizAdvancedSearchSelfTest(int argc, char** argv)
+{
+    // All fixtures live in a fresh temporary store. No token, login or network is used.
+    QTemporaryDir root;
+    if (!root.isValid()) return 1;
+    QDir().mkpath(root.filePath("tmp"));
+    qputenv("WIZNOTE_DATA_STORE", root.filePath("store").toUtf8());
+    qputenv("XDG_CACHE_HOME", root.filePath("cache").toUtf8());
+    qputenv("TMPDIR", root.filePath("tmp").toUtf8());
+    QApplication app(argc, argv);
+    QSettings settings(root.filePath("user.ini"), QSettings::IniFormat);
+    QSettings global(root.filePath("global.ini"), QSettings::IniFormat);
+    WizGlobal::setSettings(&settings);
+    WizGlobal::setGlobalSettings(&global);
+    int failures = 0;
+    auto check = [&](bool ok, const char* name) {
+        qInfo().noquote() << (ok ? "PASS" : "FAIL") << name;
+        failures += !ok;
+        return ok;
+    };
+    WizDatabaseManager manager("synthetic-search-account");
+    if (!check(manager.open(), "fresh isolated database")) return 1;
+    auto& db = manager.db();
+    db.setKbGUID("synthetic-search-kb");
+    WIZTAGDATA parent, tag, other;
+    if (!check(db.createTag("", QStringLiteral("父标签"), "", parent)
+        && db.createTag(parent.strGUID, QStringLiteral("数学,公式/引用'_100%"), "", tag)
+        && db.createTag("", QStringLiteral("另一标签"), "", other), "Unicode and punctuation tags")) return 1;
+    WIZDOCUMENTDATAEX body, title, excluded, trash;
+    if (!check(db.createDocument("Body-only match", "body.ziw", "/常用'_%/", "", 0, body)
+        && db.createDocument("alpha beta 100%_ O'Reilly", "title.ziw", "/常用'_%/", "", 0, title)
+        && db.createDocument("alpha beta 100xx O'Reilly", "excluded.ziw", "/elsewhere/", "", 0, excluded)
+        && db.createDocument("alpha beta", "trash.ziw", db.getDeletedItemsLocation(), "", 0, trash),
+        "synthetic personal notes")) return 1;
+    check(db.insertDocumentTag(body, tag.strGUID) && db.insertDocumentTag(title, tag.strGUID)
+        && db.insertDocumentTag(body, other.strGUID) && db.insertDocumentTag(trash, tag.strGUID),
+        "synthetic note-tag associations");
+    QString where, keyword, name;
+    int scope = -100;
+    const QString params = "name:Tag search/keyword:alpha/scope:1/" + tagParam(tag);
+    check(WizAdvancedSearchDialog::paramToSQL(params, where, keyword, name, scope)
+        && scope == Scope_PersonalNotes && keyword == "alpha" && where.contains(tag.strGUID),
+        "GUID-backed personal tag condition");
+    const QString tagWhere = where;
+    FixtureSearcher searcher(manager);
+    body.strHighlightText = "<em>alpha</em> in body";
+    searcher.candidates = {excluded, body, body, title, trash};
+    CWizDocumentDataArray result;
+    bool fallback = true;
+    check(searcher.searchPersonalWithFilters("alpha", tagWhere, 10, result, fallback)
+        && !fallback && result.size() == 2 && result.front().strGUID == body.strGUID
+        && result.front().strHighlightText == body.strHighlightText, "body-only online hit retained with highlights");
+    check(searcher.searchPersonalWithFilters("alpha", tagWhere, 1, result, fallback)
+        && result.size() == 1 && result.front().strGUID == body.strGUID, "limit applied after tag filtering");
+    searcher.candidates.clear();
+    check(searcher.searchPersonalWithFilters("alpha", tagWhere, 10, result, fallback)
+        && result.empty() && !fallback, "successful empty online result is not a title fallback");
+    const int calls = searcher.requests;
+    check(searcher.searchPersonalWithFilters("", tagWhere, -1, result, fallback)
+        && result.size() == 2 && !fallback && searcher.requests == calls, "tag-only search stays local and excludes trash");
+    check(WizAdvancedSearchDialog::paramToSQL(params + "/" + tagParam(other), where, keyword, name, scope)
+        && searcher.searchPersonalWithFilters("", where, 10, result, fallback)
+        && result.size() == 1 && result.front().strGUID == body.strGUID, "multiple tags use AND");
+    searcher.available = false;
+    check(searcher.searchPersonalWithFilters("beta alpha", tagWhere, 10, result, fallback)
+        && fallback && result.size() == 1 && result.front().strGUID == title.strGUID,
+        "offline title fallback is explicit and supports multiple words");
+    check(searcher.searchPersonalWithFilters("100%_ O'Reilly", "", 10, result, fallback)
+        && fallback && result.size() == 1 && result.front().strGUID == title.strGUID,
+        "literal percent, underscore and apostrophe in title fallback");
+    check(WizAdvancedSearchDialog::paramToSQL("name:Old/keyword:/scope:1/param:"
+        + QObject::tr("Folder") + ",常用'_%,", where, keyword, name, scope)
+        && searcher.searchPersonalWithFilters("", where, 10, result, fallback) && result.size() == 2,
+        "legacy folder condition safely escapes punctuation and LIKE wildcards");
+    check(WizAdvancedSearchDialog::paramToSQL("name:Old/keyword:/scope:1/param:"
+        + QObject::tr("Contains") + "," + QObject::tr("Attachment") + ",", where, keyword, name, scope)
+        && where == "DOCUMENT_ATTACHEMENT_COUNT > 0", "legacy attachment condition");
+    check(WizAdvancedSearchDialog::paramToSQL("name:Old/keyword:/scope:1/param:"
+        + QObject::tr("Modified time") + "," + QObject::tr("After") + "," + QObject::tr("Last week"),
+        where, keyword, name, scope) && where.startsWith("DT_MODIFIED >"), "legacy date condition");
+    for (const auto& bad : QStringList{"name:x/keyword:k/scope:9", "scope:no", "scope:1/param:Folder",
+            "scope:1/tag-guid:bad:label", "scope:2/" + tagParam(tag), "scope:1/param:Unknown,x",
+            "scope:1/param:" + QObject::tr("Created time") + "," + QObject::tr("Before")})
+        check(!WizAdvancedSearchDialog::paramToSQL(bad, where, keyword, name, scope), "reject malformed search rather than broaden it");
+    check(WizAdvancedSearchDialog::paramToSQL("name:keyword:name:/keyword:encoded:literal/scope:1",
+        where, keyword, name, scope) && name == "keyword:name:" && keyword == "encoded:literal",
+        "legacy field values retain prefix-like text");
+
+    {
+        WizAdvancedSearchDialog dialog(false);
+        auto* first = dialog.findChild<QComboBox*>("comboBox_first");
+        auto* second = dialog.findChild<QComboBox*>("comboBox_second");
+        auto* list = dialog.findChild<QListWidget*>("listWidget");
+        auto* keyEdit = dialog.findChild<QLineEdit*>("lineEdit_keyword");
+        auto* nameEdit = dialog.findChild<QLineEdit*>("lineEdit_name");
+        if (!check(first && second && list && keyEdit && nameEdit, "real advanced search widgets")) return 1;
+        const int tagIndex = first->findText(QObject::tr("Tag"));
+        first->setCurrentIndex(tagIndex);
+        check(tagIndex >= 0 && QMetaObject::invokeMethod(first, "activated", Q_ARG(int, tagIndex))
+            && second->findData(tag.strGUID) >= 0, "Qt 6 selector signal populates GUID-backed tags");
+        second->setCurrentIndex(second->findData(tag.strGUID));
+        QMetaObject::invokeMethod(&dialog, "on_toolButton_add_clicked");
+        QMetaObject::invokeMethod(&dialog, "on_toolButton_add_clicked");
+        check(list->count() == 1 && list->item(0)->text().contains(parent.strName),
+            "nested tag label and duplicate prevention");
+        keyEdit->setText(QStringLiteral("x/y keyword:name:"));
+        nameEdit->setText(QStringLiteral("搜索/数学"));
+        const QString saved = dialog.getParams();
+        check(WizAdvancedSearchDialog::paramToSQL(saved, where, keyword, name, scope)
+            && keyword == keyEdit->text() && name == nameEdit->text(), "slash-containing search fields round trip");
+        dialog.setParams(saved);
+        check(dialog.getParams() == saved && list->count() == 1, "saved advanced search round trip without duplicate conditions");
+        tag.strName = QStringLiteral("已改名");
+        check(db.modifyTag(tag) && WizAdvancedSearchDialog::paramToSQL(saved, where, keyword, name, scope)
+            && searcher.searchPersonalWithFilters("", where, 10, result, fallback) && result.size() == 2,
+            "tag rename keeps saved search bound to same GUID");
+    }
+    qInfo() << "Advanced search failures:" << failures;
+    return failures ? 1 : 0;
+}

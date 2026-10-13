@@ -48,8 +48,11 @@ public:
             , SearchScope scope = Scope_AllNotes);
     //
     bool onlineSearch(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& arrayResult);
+    bool searchPersonalWithFilters(const QString& keywords, const QString& where, int maxCount,
+                                   CWizDocumentDataArray& results, bool& titleOnlyFallback);
 
 protected:
+    virtual bool onlineSearchOnly(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& arrayResult);
     virtual bool onSearchProcess(const std::string& lpszKbGUID, const std::string& lpszDocumentID, const std::string& lpszURL);
     virtual bool onSearchEnd();
 
@@ -71,7 +74,6 @@ private:
     int m_nResults; // results returned
 
     void doSearch();
-    bool onlineSearchOnly(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& arrayResult);
 
     void searchDatabaseByKeyword(const QString& strKeywords);
     WizOleDateTime getDateByInterval(SearchDateInterval dateInterval);

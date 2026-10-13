@@ -23,6 +23,10 @@ set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_NATIVE_TRANSFER_TESTS)
+add_test(NAME wiznote_advanced_search
+    COMMAND $<TARGET_FILE:WizNotePlus> --advanced-search-self-test)
+set_tests_properties(wiznote_advanced_search PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
 add_test(NAME wiznote_native_note_transfer
     COMMAND $<TARGET_FILE:WizNotePlus> --native-note-transfer-self-test)
 set_tests_properties(wiznote_native_note_transfer PROPERTIES
