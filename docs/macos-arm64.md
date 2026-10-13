@@ -15,19 +15,33 @@ App Store builds, Intel builds and other platforms are not validated by this por
 - Isolated smoke suite passed: UTF-8/BOM, GB18030, UTF-8 output, timestamps,
   recursive locks, INI round-trip, SHA-256 known-answer and synthetic ZIP/ZIW.
   These are dependency/format smoke tests, not complete database/encryption tests.
-- User confirmed the isolated experimental bundle opens the login window. Its
-  minimize/restore behavior failed; quitting and relaunching restores the window.
+- User confirmed the isolated experimental bundle opens the login window. The
+  initial minimize/restore failure was fixed; the user confirmed restoration.
 - Added login-only application activation recovery, a named window and enabled
   minimization. Offscreen regression covers restoration, nested modal dialogs,
-  closed/destroyed dialogs and the `QDialog::exec()` loop. This is not yet a manual
-  Dock restoration test. Native Cocoa testing from the sandbox failed before
+  closed/destroyed dialogs and the `QDialog::exec()` loop. The exact Dock versus
+  Cmd-Tab path was not recorded separately. Cocoa testing from the sandbox failed before
   opening a window (no screens available); that does not validate or invalidate
   the fix on the user's desktop.
-- Original user data was not read or migrated. Authentication, editing, sync and
-  other real GUI behavior remain unverified.
+- User-reported manual checks passed for Chinese text, bold formatting, images,
+  switching notes, quitting/reopening and restoring an isolated trial-data copy.
+- After explicit consent, legacy data was copied to a private local backup and
+  a separate test copy, with the original untouched. File comparisons matched;
+  the two legacy SQLite databases passed read-only quick checks on the test copy.
+  The user reported normal legacy-note/attachment reading and normal results
+  for the follow-up offline editing/reopening round. These are sample-level
+  reports, not exhaustive migration certification. Formula and encrypted-note
+  cases were requested, but individual coverage/results were not recorded.
+  Network disconnection was requested, not independently verified.
+- No private notes or credentials were uploaded or displayed. Old/new
+  interoperability, encrypted-note coverage, online sync, web clipping, search,
+  print/export and broader GUI regression remain incomplete.
 - First GitHub Actions run compiled and passed the data smoke suite, but failed
   packaging at `lipo -verify_arch`. Place the input filename before that option to
-  support the runner's newer tool. A successful full CI rerun is still required.
+  support the runner's newer tool. The second run completed compilation, both
+  smoke suites, deployment and artifact upload successfully:
+  https://github.com/Defenceforce1/WizNotePlus/actions/runs/38335163135
+  CI ran on macOS 26; it is not macOS 27 runtime certification.
 
 Packaging requires all deployed libraries and signature verification; only a
 bundle passing those checks may be handed off. Public release additionally needs
@@ -66,7 +80,8 @@ for the final build/package. The workaround was needed only with the 6.8 bootstr
 The native data path remains `~/.wiznote/` unless `WIZNOTE_DATA_STORE` is set.
 When that environment variable is set, browser cache/cookies are isolated there too.
 Database schema, encryption algorithm and note/attachment filename conventions
-are unchanged. This design intent is NOT a completed migration test.
+are unchanged. Sample-level legacy-copy checks passed, but exhaustive migration
+and encrypted-note compatibility have not been established.
 Never start the experimental app on the only copy of existing notes. Quit the
 old app, back up the entire data directory separately, then test an expendable
 copy with an isolated data root. Example using an empty test data directory:
@@ -75,16 +90,21 @@ copy with an isolated data root. Example using an empty test data directory:
 WIZNOTE_DATA_STORE=/absolute/path/to/empty-test-data/ /path/to/WizNotePlus.app/Contents/MacOS/WizNotePlus
 ```
 
-Do not run old and new versions against the same data directory. Login/sync,
-encrypted notes, attachments, offline edits, search, editor bridge, print/export,
-high DPI, system clipboard and IME require manual regression tests.
+Do not run old and new versions against the same data directory. Both use local
+port 8848; concurrent copies can prevent startup. Confirmed locally that closing
+the old app resolved this conflict. More complete GUI regression is still needed.
+An isolated legacy copy still has the original account settings: keep it offline
+and quit the test app before reconnecting, or test edits may sync to the real
+cloud account. Use a dedicated empty test account for online sync/web clipping.
+Data isolation alone does NOT isolate a cloud account.
 
 The existing MathJax/editor/CSS resources are retained. No formula engine
 replacement or Markdown-conversion feature is added. A new original-data batch
-export feature is not implemented here; copy/restore and original export behavior
-need validation first. The build scripts make only ad-hoc signatures, not a
-Developer ID signature or notarization. GitHub CI is experimental until a run
-actually succeeds; it is not macOS 27 runtime certification.
+export feature is not implemented here. Local whole-directory backup/restore was
+tested on isolated trial data; the existing HTML/attachment/metadata export is
+not a complete native database backup. Original export/import still needs testing.
+The build scripts make only ad-hoc signatures, not a Developer ID signature or
+notarization. A successful CI run is not full macOS 27 runtime certification.
 
 Licenses and remaining redistribution checks: [third-party-licenses.md](third-party-licenses.md).
 Qt's migration note explains persistent profile behavior:
