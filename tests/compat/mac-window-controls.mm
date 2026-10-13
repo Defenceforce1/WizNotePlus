@@ -255,6 +255,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             - newNote->mapTo(&window, newNote->rect().center()).y()) <= 1;
     };
     addCheck("search and New Note centers align without filters", searchAligned);
+    addCheck("compact search view uses 340 logical pixels", [&] {
+        auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+        return view && view->width() == 340;
+    });
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     addCheck("native title bar uses Aqua after simulated dark appearance", [&] {
         return [[native.effectiveAppearance bestMatchFromAppearancesWithNames:
@@ -399,17 +403,22 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* docs = window.findChild<WizDocumentListView*>();
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
-            return view && view->queryParams().contains(tag.strGUID) && !view->queryParams().contains(secondTag.strGUID)
+            return view && !view->queryParams().contains(tag.strGUID) && view->queryParams().contains(secondTag.strGUID)
                 && view->queryParams().contains("folder-path-encoded:") && attachment && attachment->isChecked()
                 && docs && docs->documentCount() == 0 && !QApplication::activeModalWidget();
-        }, [&, menu, clickChip] { if (menu) menu->hide(); clickChip("tag", secondTag.strGUID); });
+        // At the compact width the second tag is folded; cancel the first visible
+        // tag and retain the second, rather than attempting to click a hidden chip.
+        }, [&, menu, clickChip] { if (menu) menu->hide(); clickChip("tag", tag.strGUID); });
         addCheck("removing a folded attachment condition restores matching notes without losing tags or folder", [&] {
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* docs = window.findChild<WizDocumentListView*>();
-            return attachment && !attachment->isChecked() && view && view->queryParams().contains(tag.strGUID)
-                && !view->queryParams().contains(secondTag.strGUID) && view->queryParams().contains("folder-path-encoded:")
-                && docs && docs->documentCount() == 1
+            return attachment && !attachment->isChecked() && view && !view->queryParams().contains(tag.strGUID)
+                && view->queryParams().contains(secondTag.strGUID) && view->queryParams().contains("folder-path-encoded:")
+                && docs && docs->documentCount() == 2
+                && docs->documentIndexFromGUID(note.strGUID) >= 0
+                && docs->documentIndexFromGUID(unrelated.strGUID) >= 0
+                && docs->documentIndexFromGUID(elsewhere.strGUID) < 0
                 && !QApplication::activeModalWidget();
         }, [&, clickMagnifier, sendClick] {
             clickMagnifier();

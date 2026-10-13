@@ -193,7 +193,7 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
     }
     {
         WizSearchView view;
-        view.setFixedWidth(420);
+        view.setFixedWidth(340);
         view.setAvailableTags({{QStringLiteral("父标签 / 已改名"), tag.strGUID}, {other.strName, other.strGUID}});
         view.setAvailableFolders({QStringLiteral("/常用'_ %/"), QStringLiteral("/研究,100%_/子/更深/")});
         auto* edit = view.findChild<WizSearchEdit*>("wiz-note-search-field");

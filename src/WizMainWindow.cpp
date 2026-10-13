@@ -1946,10 +1946,10 @@ void WizMainWindow::initToolBar()
     m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(10, 1), m_toolBar);
     m_toolBar->addWidget(m_spacerForToolButtonAdjust);
 
-    // 搜索栏，值得注意搜索栏的长度随着笔记列表宽度而变化
+    // Compact single-line search; excess conditions fold without covering keywords.
     m_searchWidget = new WizSearchView(this);
     setHitTestVisible(m_searchWidget);
-    m_searchWidget->setFixedWidth(420);
+    m_searchWidget->setFixedWidth(340);
     m_toolBar->addWidget(m_searchWidget);
 
     connect(m_searchWidget, &WizSearchView::advancedSearchRequest,

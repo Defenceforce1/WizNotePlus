@@ -26,7 +26,7 @@
 
 WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     : QWidget(parent)
-    , m_widthHint(360)
+    , m_widthHint(340)
 {
     setObjectName("wiz-note-search-view");
     QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);

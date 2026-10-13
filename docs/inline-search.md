@@ -1,4 +1,22 @@
-# Inline personal search (v12)
+# Inline personal search (v13)
+
+V13 reduces the toolbar search width from 420 to 340 logical pixels (about 19%).
+The existing token layout still reserves keyword space and folds excess conditions
+into +N. No Markdown syntax, math numbering or PDF behavior is changed by v13.
+
+V13 verification: all five CTest suites pass; both the build-tree and packaged
+Cocoa main-window fixtures pass 47 checks, including the actual 340-pixel view,
+token/caret/IME placement, visible-tag cancellation, folded conditions, retained
+query semantics and native window controls. The package passes its 47-Mach-O
+arm64/dependency audit and strict ad-hoc signature verification. Search screenshots
+were visually reviewed. Future macOS compatibility and notarization are not verified.
+
+Two initial main-window fixture runs failed obsolete expectations inherited from
+the wider field: the second tag was now folded, and canceling the first visible tag
+instead retained a different tag that correctly matches two fixture notes rather
+than one. The fixture now clicks the first visible tag and verifies both matching
+note GUIDs plus exclusion of the out-of-folder note; no production search logic was
+changed to satisfy the test. The initial failure logs are retained, not counted as passes.
 
 V12 moves active condition chips inside the search field. Qt's text margins reserve
 token space, keeping the caret, Chinese IME insertion point and placeholder after
