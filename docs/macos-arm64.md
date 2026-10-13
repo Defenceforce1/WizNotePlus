@@ -5,7 +5,22 @@ Experimental native port of upstream master
 Target: direct-download macOS app, arm64; macOS 27 validation in progress.
 App Store builds, Intel builds and other platforms are not validated by this port.
 
-## Verified local status (2026-10-13)
+## Current closeout status (2026-10-14, v14.1)
+
+The current baseline retains the v11 original PDF exporter, v13 compact inline
+search and v14 optional scientific math blocks/labels. The v10 print window and
+separate print CSS described historically below were withdrawn; they are not in
+the current application. PDF block-reference vertical offsets remain a deferred
+known issue, and the later PDF rewrite experiment was withdrawn as well.
+
+V14.1 adds a Chinese guide, a bundled Markdown demonstration, an opt-in isolated
+launcher and demonstration regression checks, not new production features. See
+[release-v14.1.md](release-v14.1.md) for the current scope and limitations. The
+v14 GitHub build passed on macOS 26; the local host reports native arm64 macOS
+27.0.1 with SDK 27.0. These do not certify future macOS 28 or all user workloads.
+Do not launch the bundle directly against existing default data during trial.
+
+## Historical verification notes (2026-10-13)
 
 - v10 retains the original Markdown editing workflow and adds local screen/print
   CSS, independent note print/PDF rendering and a light default-skin refinement.

@@ -1,5 +1,19 @@
 # Note presentation CSS and mathematical environments (v14)
 
+## v14.1 closeout and deferred PDF links
+
+The current implementation remains the v14 baseline. A multi-page synthetic PDF
+confirmed correct target pages but vertical offsets for block-label references.
+Moving the target to visible heading text did not eliminate print scaling/margin
+offsets. A PDFKit rewrite experiment could alter other PDF link/structure data and
+was withdrawn, along with all of its production code/dependencies and test hooks.
+No PDF rewrite, new print CSS, new macro configuration or editor change is shipped.
+
+V14.1 adds the [Chinese guide](math-notes-guide.zh-CN.md), bundled demonstration and
+a regression of that exact Markdown example. See [release-v14.1.md](release-v14.1.md)
+for delivery and safety limits. Historical v14 test counts below are not claims
+about the additional v14.1 test until its run has completed.
+
 V14 adds an optional Scientific math environments preset adapted from the user's
 Notebooks stylesheet: blue theorem/lemma/proposition/corollary blocks sharing one
 counter, independently numbered green definitions and orange examples, gray

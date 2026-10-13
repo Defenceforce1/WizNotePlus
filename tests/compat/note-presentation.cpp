@@ -120,7 +120,7 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
 
     Style math{mathBlockStyle(), true};
     check(saveStyle(&settings, math, error), "one global math-block stylesheet is saved locally");
-    const QStringList sources{
+    QStringList sources{
         QString::fromUtf8("# 数学引用块测试\n\n> **定理 1（测试）**\n>\n> 对任意实数 $x$，有 $x^2 \\ge 0$。\n>\n> $$x^2 \\ge 0$$\n\n原来的 Markdown 引用块，不使用新语法。"),
         QString::fromUtf8("# 第二篇 Markdown\n\n> **定义（测试）**\n>\n> 这篇也使用同一份 CSS，不逐篇设置。\n\n```cpp\nint answer = 42;\n```\n"),
         QString::fromUtf8("# 分类数学样式\n\n<div class=\"definition\"><p>称 $\\mathbb{R}$ 为实数集。</p></div>\n\n"
@@ -142,6 +142,11 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
             "> **定理** \\label{thm:duplicate}\n>\n> 第一条。\n\n"
             "> **定义** \\label{thm:duplicate}\n>\n> 第二条。\n\n")
     };
+    QFile example(Utils::WizPathResolve::resourcesPath() + "files/examples/mathematical-notes.md");
+    if (!check(example.open(QIODevice::ReadOnly) && example.size() > 0 && example.size() < 65536,
+        "bundled user-facing Markdown example is available and bounded")) return 1;
+    const QString exampleSource = QString::fromUtf8(example.readAll());
+    sources.append(exampleSource);
     for (int index = 0; index < sources.size(); ++index) {
         if (index == 2) {
             math.screen = scientificMathStyle();
@@ -219,11 +224,24 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
                 "(function(){var url=location.href,a=document.querySelector('.wiz-math-reference'),e=new MouseEvent('click',{bubbles:true,cancelable:true});"
                 "a.dispatchEvent(e);return e.defaultPrevented&&location.href===url;})()").toBool(),
                 "block reference clicks scroll locally without forwarding a file URL to macOS");
-        } else {
+        } else if (index == 4) {
             check(evaluate(reader.page(),
                 "document.querySelectorAll('.wiz-math-block').length===2&&document.querySelectorAll('.wiz-math-reference').length===0"
                 "&&Array.from(document.querySelectorAll('.wiz-math-block')).every(function(b){return b.getAttribute('data-wiz-math-heading').indexOf('标签重复')>=0;})").toBool(),
                 "duplicate labels warn on both blocks and never create an ambiguous reference");
+        } else {
+            check(evaluate(reader.page(),
+                "Array.from(document.querySelectorAll('.wiz-math-block')).map(function(b){return b.getAttribute('data-wiz-math-number');}).join(',')==='1,2,1,,2,1,,7,8'"
+                "&&document.querySelectorAll('.wiz-math-reference').length===8"
+                "&&!document.querySelector('pre .wiz-math-reference')").toBool(),
+                "delivered example renders independent definitions shared theorem numbers manual seven/eight and eight references");
+            check(evaluate(reader.page(),
+                "Array.from(document.querySelectorAll('.wiz-math-reference')).every(function(a){return !!document.getElementById(a.getAttribute('href').slice(1));})").toBool(),
+                "every delivered example reference has a local destination");
+            const QString actualExampleSource = evaluate(reader.page(), "WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString();
+            qInfo() << "Example source lengths:" << actualExampleSource.size() << exampleSource.size();
+            check(actualExampleSource == exampleSource,
+                "delivered Markdown demonstration survives rendering with identical source");
         }
         const QString query = "WizEditor.getMarkdownSrc({unEscapeHtml:true})";
         const QString before = evaluate(reader.page(), query).toString();
@@ -252,6 +270,13 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
             QEventLoop settle; QTimer::singleShot(150, &settle, &QEventLoop::quit); settle.exec();
             evaluate(reader.page(), "window.scrollTo(0,0)");
             reader.grab().save(QDir(artifacts).filePath(QString("v14-math-block-%1.png").arg(index)));
+            if (index == 5) {
+                for (int section : {1, 2}) {
+                    evaluate(reader.page(), QString("document.querySelectorAll('h2')[%1].scrollIntoView({block:'start'})").arg(section));
+                    QEventLoop draw; QTimer::singleShot(100, &draw, &QEventLoop::quit); draw.exec();
+                    reader.grab().save(QDir(artifacts).filePath(QString("v14.1-example-section-%1.png").arg(section)));
+                }
+            }
         }
         reader.close();
     }

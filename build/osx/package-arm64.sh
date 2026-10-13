@@ -22,6 +22,7 @@ cp "$source_dir/LICENSE" "$licenses/WizNotePlus-GPL-3.0.txt"
 cp "$source_dir/docs/third-party-licenses.md" "$licenses/NOTICE.md"
 cp "$source_dir/src/libs/3rdparty/quazip/COPYING" "$licenses/QuaZip-LGPL.txt"
 cp "$source_dir/src/libs/3rdparty/gumbo-parser/COPYING" "$licenses/Gumbo-Apache.txt"
+ditto "$source_dir/build/osx/licenses" "$licenses/Full-license-texts"
 if [[ -d "$qt_prefix/licenses" ]]; then
     ditto "$qt_prefix/licenses" "$licenses/Qt"
 fi
