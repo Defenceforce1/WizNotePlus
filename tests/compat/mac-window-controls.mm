@@ -36,6 +36,10 @@
 #include <QLineEdit>
 #include <QToolButton>
 #include <QMouseEvent>
+#include <QCompleter>
+#include <QAbstractItemView>
+#include <QCheckBox>
+#include <QInputMethodEvent>
 #include <QDir>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
@@ -116,6 +120,14 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     WIZDOCUMENTDATA unrelated;
     if (!manager.db().createDocumentAndInit("<html><body>无此标签的测试笔记</body></html>",
         "", 0, QStringLiteral("不应出现在标签结果中"), "other.html", "/Window test/", "", unrelated)) return 1;
+    WIZTAGDATA secondTag;
+    if (!manager.db().createTag("", QStringLiteral("待整理"), "", secondTag)
+        || !manager.db().insertDocumentTag(note, secondTag.strGUID)
+        || !manager.db().insertDocumentTag(unrelated, secondTag.strGUID)) return 1;
+    WIZDOCUMENTDATA elsewhere;
+    if (!manager.db().createDocumentAndInit("<html><body>另一个文件夹中的测试笔记</body></html>",
+        "", 0, QStringLiteral("另一个文件夹的标签笔记"), "elsewhere.html", "/Elsewhere/", "", elsewhere)
+        || !manager.db().insertDocumentTag(elsewhere, tag.strGUID)) return 1;
     WizFramelessWindow<QDialog> login(nullptr, false);
     login.titleBar()->layoutTitleBar();
     login.titleBar()->setFixedHeight(40);
@@ -219,7 +231,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             if (edit->palette().color(QPalette::Base).lightnessF() < 0.8
                 || edit->palette().color(QPalette::Text).lightnessF() > 0.4) return false;
         }
-        capture(&window, "v8-main-light.png");
+        capture(&window, "v9-main-light.png");
         return true;
     });
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
@@ -245,19 +257,170 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             if (search) sendClick(search, QPoint(12, search->height() / 2));
         };
         const auto chooseAdvanced = [menu, sendClick] {
-            if (menu && !menu->actions().isEmpty())
+            if (menu && menu->findChild<QAction*>("actionAdvancedSearch"))
                 QTimer::singleShot(0, menu, [menu, sendClick] {
-                    sendClick(menu, menu->actionGeometry(menu->actions().first()).center());
+                    sendClick(menu, menu->actionGeometry(menu->findChild<QAction*>("actionAdvancedSearch")).center());
                 });
         };
-        addCheck("clicking the magnifier opens its menu without a separate advanced-search toolbar button", [&, menu] {
-            if (!menu || !menu->isVisible() || menu->actions().isEmpty()
-                || menu->actions().first()->objectName() != "actionAdvancedSearch") return false;
+        addCheck("magnifier opens an inline personal filter panel without a modal dialog or extra toolbar button", [&, menu] {
+            auto* panel = window.findChild<QWidget*>("wiz-note-filter-panel");
+            auto* advanced = menu ? menu->findChild<QAction*>("actionAdvancedSearch") : nullptr;
+            if (!menu || !menu->isVisible() || !panel || !panel->isVisible() || !advanced
+                || QApplication::activeModalWidget()) return false;
             for (auto* tool : window.findChildren<QToolButton*>())
-                if (tool->defaultAction() == menu->actions().first() && tool->isVisible()) return false;
-            capture(menu, "v8-magnifier-menu.png");
+                if (tool->defaultAction() == advanced && tool->isVisible()) return false;
+            capture(menu, "v9-filter-panel.png");
             return true;
         }, clickMagnifier);
+        const auto selectPanelTag = [&, sendClick](const QString& guid) {
+            auto* tags = window.findChild<QListWidget*>("wiz-note-panel-tags");
+            if (!tags) return;
+            for (int i = 0; i < tags->count(); ++i) if (tags->item(i)->data(Qt::UserRole).toString() == guid) {
+                const QRect rect = tags->visualItemRect(tags->item(i));
+                sendClick(tags->viewport(), QPoint(rect.left() + 8, rect.center().y())); return;
+            }
+        };
+        addCheck("one panel tag click searches actual notes and displays a removable tag chip", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            const bool ok = view && view->hasFilters() && view->queryParams().contains(tag.strGUID)
+                && docs && docs->isSearchResult() && docs->documentCount() == 2
+                && docs->documentIndexFromGUID(note.strGUID) >= 0 && docs->documentIndexFromGUID(elsewhere.strGUID) >= 0
+                && docs->documentIndexFromGUID(unrelated.strGUID) < 0 && !QApplication::activeModalWidget();
+            if (ok) capture(&window, "v9-tag-chip.png");
+            return ok;
+        }, [&, selectPanelTag] { selectPanelTag(tag.strGUID); });
+        addCheck("inline folder selection intersects tag results in actual main list", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return view && view->queryParams().contains("folder-path-encoded:") && docs
+                && docs->documentCount() == 1 && docs->documentIndexFromGUID(note.strGUID) >= 0
+                && docs->documentIndexFromGUID(elsewhere.strGUID) < 0 && !QApplication::activeModalWidget();
+        }, [&, clickMagnifier] {
+            clickMagnifier();
+            auto* folder = window.findChild<QComboBox*>("wiz-note-panel-folder");
+            if (folder) {
+                folder->setCurrentIndex(folder->findData("/Window test/"));
+                QMetaObject::invokeMethod(folder, "activated", Q_ARG(int, folder->currentIndex()));
+            }
+        });
+        addCheck("adding a second inline tag retains AND semantics and current folder", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return view && view->queryParams().contains(tag.strGUID) && view->queryParams().contains(secondTag.strGUID)
+                && view->queryParams().contains("folder-path-encoded:") && docs && docs->documentCount() == 1
+                && docs->documentIndexFromGUID(unrelated.strGUID) < 0 && !QApplication::activeModalWidget();
+        }, [&, clickMagnifier, selectPanelTag] { clickMagnifier(); selectPanelTag(secondTag.strGUID); });
+        addCheck("inline attachment checkbox filters notes with no attachments out", [&] {
+            auto* docs = window.findChild<WizDocumentListView*>();
+            auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
+            return attachment && attachment->isChecked() && docs && docs->documentCount() == 0
+                && !QApplication::activeModalWidget();
+        }, [&, clickMagnifier, sendClick] {
+            clickMagnifier();
+            auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
+            if (attachment) sendClick(attachment, QPoint(8, attachment->height() / 2));
+        });
+        addCheck("folded conditions reopen the panel without changing the combined search", [&, menu] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
+            return menu && menu->isVisible() && view && view->queryParams().contains(tag.strGUID)
+                && view->queryParams().contains(secondTag.strGUID) && attachment && attachment->isChecked();
+        }, [&, sendClick] {
+            auto* more = window.findChild<QPushButton*>("wiz-note-more-filters");
+            if (more && more->isVisible()) sendClick(more, more->rect().center());
+        });
+        const auto clickChip = [&, sendClick](const QString& kind, const QString& id = QString()) {
+            for (auto* chip : window.findChildren<QPushButton*>("wiz-note-filter-chip"))
+                if (chip->isVisible() && chip->property("filterKind").toString() == kind
+                    && (id.isEmpty() || chip->property("filterId").toString() == id)) {
+                    sendClick(chip, chip->rect().center()); return;
+                }
+        };
+        addCheck("removing one visible tag reveals folded chips and retains other conditions", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
+            return view && view->queryParams().contains(tag.strGUID) && !view->queryParams().contains(secondTag.strGUID)
+                && view->queryParams().contains("folder-path-encoded:") && attachment && attachment->isChecked()
+                && docs && docs->documentCount() == 0 && !QApplication::activeModalWidget();
+        }, [&, menu, clickChip] { if (menu) menu->hide(); clickChip("tag", secondTag.strGUID); });
+        addCheck("removing attachment chip restores matching notes without losing tags or folder", [&] {
+            auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return attachment && !attachment->isChecked() && view && view->queryParams().contains(tag.strGUID)
+                && !view->queryParams().contains(secondTag.strGUID) && view->queryParams().contains("folder-path-encoded:")
+                && docs && docs->documentCount() == 1
+                && !QApplication::activeModalWidget();
+        }, [clickChip] { clickChip("attachment"); });
+        addCheck("clear-filters chip exits an empty-keyword filter search and restores ordinary note list", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return view && !view->hasFilters() && view->keyword().isEmpty() && docs
+                && !docs->acceptAllSearchItems() && docs->documentCount() == 3;
+        }, [&, sendClick] {
+            for (auto* clear : window.findChildren<QPushButton*>("wiz-note-clear-filters"))
+                if (clear->isVisible()) { sendClick(clear, clear->rect().center()); return; }
+        });
+        addCheck("typing a tag offers local suggestions without submitting a note search", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* completer = view ? view->findChild<QCompleter*>() : nullptr;
+            auto* docs = window.findChild<WizDocumentListView*>();
+            const bool ok = view && !view->hasFilters() && completer && completer->popup()->isVisible()
+                && !completer->popup()->currentIndex().isValid() && docs && !docs->acceptAllSearchItems();
+            if (ok) capture(completer->popup(), "v9-tag-suggestions.png");
+            return ok;
+        }, [search] {
+            if (search) {
+                search->setFocus();
+                QInputMethodEvent commit; commit.setCommitString(QStringLiteral("测试标签"));
+                QCoreApplication::sendEvent(search, &commit);
+            }
+        });
+        addCheck("explicit suggestion click creates a tag condition and searches real temporary notes", [&] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return view && view->hasFilters() && view->keyword().isEmpty() && view->queryParams().contains(tag.strGUID)
+                && docs && docs->documentCount() == 2 && docs->documentIndexFromGUID(unrelated.strGUID) < 0
+                && !QApplication::activeModalWidget();
+        }, [&, sendClick] {
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            auto* completer = view ? view->findChild<QCompleter*>() : nullptr;
+            if (completer) {
+                auto* popup = completer->popup();
+                sendClick(popup->viewport(), popup->visualRect(completer->completionModel()->index(0, 0)).center());
+            }
+        });
+        const auto savedQuery = std::make_shared<bool>(false);
+        addCheck("save-current-search menu prefills and persists the actual inline tag query", [&, savedQuery] {
+            auto* dialog = qobject_cast<WizAdvancedSearchDialog*>(QApplication::activeModalWidget());
+            if (dialog && !*savedQuery) {
+                auto* name = dialog->findChild<QLineEdit*>("lineEdit_name");
+                auto* list = dialog->findChild<QListWidget*>("listWidget");
+                auto* ok = dialog->findChild<QPushButton*>("pushButton_ok");
+                if (!name || !name->isVisible() || !list || list->count() != 1
+                    || !dialog->getParams().contains(tag.strGUID) || !ok) {
+                    dialog->reject(); return false;
+                }
+                name->setText(QStringLiteral("隔离已保存搜索"));
+                *savedQuery = true;
+                QTimer::singleShot(0, dialog, [ok] { ok->click(); });
+            }
+            if (!*savedQuery || QApplication::activeModalWidget()) return false;
+            CWizMetaDataArray values;
+            manager.db().getMetasByName("CUSTOM_QUICK_SEARCH", values);
+            for (const auto& value : values)
+                if (value.strValue.contains(QStringLiteral("name:隔离已保存搜索"))
+                    && value.strValue.contains(tag.strGUID)) return true;
+            return false;
+        }, [clickMagnifier, menu, sendClick] {
+            clickMagnifier();
+            if (menu) QTimer::singleShot(0, menu, [menu, sendClick] {
+                auto* save = menu->findChild<QAction*>("actionSaveSearch");
+                if (save) sendClick(menu, menu->actionGeometry(save).center());
+            });
+        });
         const auto submitted = std::make_shared<bool>(false);
         addCheck("clicking advanced-search in magnifier menu opens dialog and tag-only search filters actual main list", [&, submitted] {
             auto* dialog = qobject_cast<WizAdvancedSearchDialog*>(QApplication::activeModalWidget());
@@ -276,16 +439,16 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 if (selected < 0) { dialog->reject(); return false; }
                 second->setCurrentIndex(selected); add->click();
                 if (list->count() != 1) { dialog->reject(); return false; }
-                capture(dialog, "v8-advanced-tag.png");
+                capture(dialog, "v9-advanced-tag.png");
                 *submitted = true;
                 // Queue acceptance so the step timer never blocks in a nested search modal.
                 QTimer::singleShot(0, dialog, [ok] { ok->click(); });
             }
             auto* docs = window.findChild<WizDocumentListView*>();
             return *submitted && !QApplication::activeModalWidget() && docs && docs->isSearchResult()
-                && docs->documentCount() == 1 && docs->documentIndexFromGUID(note.strGUID) >= 0
+                && docs->documentCount() == 2 && docs->documentIndexFromGUID(note.strGUID) >= 0
                 && docs->documentIndexFromGUID(unrelated.strGUID) < 0;
-        }, chooseAdvanced);
+        }, [clickMagnifier, chooseAdvanced] { clickMagnifier(); chooseAdvanced(); });
         const auto menuOpened = std::make_shared<bool>(false);
         addCheck("reopening magnifier menu and advanced search opens a cancellable built-in dialog", [menuOpened] {
             auto* dialog = qobject_cast<WizAdvancedSearchDialog*>(QApplication::activeModalWidget());

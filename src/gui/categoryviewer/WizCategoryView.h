@@ -426,6 +426,7 @@ public Q_SLOTS:
     void on_action_addToShortcuts();
 
     void on_action_addCustomSearch();
+    void addCustomSearchWithParams(const QString& params);
     void on_action_editCustomSearch();
     void on_action_removeCustomSearch();
 

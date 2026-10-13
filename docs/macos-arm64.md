@@ -221,3 +221,14 @@ and Retina-scaled rectangles as painting. See
 [search-ui-compatibility.md](search-ui-compatibility.md) for scope and verification.
 This does not reinterpret plain top-field text as a tag query, redesign the whole
 UI, change the global macOS appearance or change note/database formats.
+
+### Inline personal search (v9)
+
+Common tag, folder and attachment conditions now live in the search field's
+magnifier panel. Typing offers local tag suggestions; only an explicit choice
+creates a tag filter. Plain Return remains a content search. Removable conditions
+combine with keywords, while complex dates and saving queries keep the original
+prefilled dialogs. Note formats and the existing online/title-fallback engine
+are unchanged. See [inline-search.md](inline-search.md) for compatibility and tests.
+The local build passed all four CTest suites and 37 isolated actual-main-window
+Cocoa checks, including the original native traffic-light regression coverage.

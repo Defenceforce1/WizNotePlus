@@ -1,5 +1,10 @@
 # Search entry and light appearance (v8)
 
+The light-appearance repair remains in v9. The magnifier's common-search entry has
+since become an inline personal-filter panel with explicit tag suggestions and
+removable conditions; More conditions retains the prefilled advanced dialog.
+See [inline-search.md](inline-search.md). The v8 flow below is historical.
+
 The top search field searches note content, not tag metadata. In v7 the generic
 search field emitted an advanced-search request which the actual main window did
 not receive. Dialog/backend tests alone missed that unusable entry point.

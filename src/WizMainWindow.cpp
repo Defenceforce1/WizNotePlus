@@ -1949,13 +1949,23 @@ void WizMainWindow::initToolBar()
     // 搜索栏，值得注意搜索栏的长度随着笔记列表宽度而变化
     m_searchWidget = new WizSearchView(this);
     setHitTestVisible(m_searchWidget);
-    m_searchWidget->setFixedWidth(200);
+    m_searchWidget->setFixedWidth(420);
     m_toolBar->addWidget(m_searchWidget);
 
     connect(m_searchWidget, &WizSearchView::advancedSearchRequest,
             this, &WizMainWindow::on_search_advancedSearch);
-    connect(m_searchWidget, SIGNAL(addCustomSearchRequest()),
-            m_category, SLOT(on_action_addCustomSearch()));
+    connect(m_searchWidget, &WizSearchView::addCustomSearchRequest,
+            this, &WizMainWindow::on_search_saveSearch);
+    refreshSearchChoices();
+    auto* choicesTimer = new QTimer(this);
+    choicesTimer->setSingleShot(true); choicesTimer->setInterval(100);
+    connect(choicesTimer, &QTimer::timeout, this, &WizMainWindow::refreshSearchChoices);
+    const auto refreshChoices = [choicesTimer] { choicesTimer->start(); };
+    connect(&m_dbMgr, &WizDatabaseManager::tagCreated, this, refreshChoices);
+    connect(&m_dbMgr, &WizDatabaseManager::tagModified, this, refreshChoices);
+    connect(&m_dbMgr, &WizDatabaseManager::tagDeleted, this, refreshChoices);
+    connect(&m_dbMgr, &WizDatabaseManager::folderCreated, this, refreshChoices);
+    connect(&m_dbMgr, &WizDatabaseManager::folderDeleted, this, refreshChoices);
 
     m_toolBar->addWidget(new WizFixedSpacer(QSize(10, 1), m_toolBar));
 
@@ -3498,16 +3508,61 @@ void WizMainWindow::on_actionPrintMargin_triggered()
 void WizMainWindow::on_search_advancedSearch()
 {
     WizAdvancedSearchDialog dialog(true, this);
+    if (m_searchWidget->hasFilters() || !m_searchWidget->keyword().isEmpty())
+        dialog.setParams(m_searchWidget->queryParams());
     if (dialog.exec() != QDialog::Accepted)
         return;
     QString where, keyword, name;
     int scope = Scope_PersonalNotes;
-    if (WizAdvancedSearchDialog::paramToSQL(dialog.getParams(), where, keyword, name, scope))
+    if (WizAdvancedSearchDialog::paramToSQL(dialog.getParams(), where, keyword, name, scope)) {
+        m_searchWidget->setQueryParams(dialog.getParams());
         searchNotesBySQLAndKeyword(where, keyword, scope);
+    }
+}
+
+void WizMainWindow::on_search_saveSearch()
+{
+    m_category->addCustomSearchWithParams(m_searchWidget->hasFilters() || !m_searchWidget->keyword().isEmpty()
+        ? m_searchWidget->queryParams() : QString());
+}
+
+void WizMainWindow::refreshSearchChoices()
+{
+    CWizTagDataArray tags; m_dbMgr.db().getAllTags(tags);
+    QMap<QString, WIZTAGDATA> byGuid;
+    for (const auto& tag : tags) byGuid.insert(tag.strGUID, tag);
+    QList<QPair<QString, QString>> choices;
+    for (const auto& tag : tags) {
+        QStringList path; QSet<QString> seen; QString guid = tag.strGUID;
+        while (!guid.isEmpty() && byGuid.contains(guid) && !seen.contains(guid)) {
+            seen.insert(guid);
+            const auto& current = byGuid[guid];
+            path.prepend(WizDatabase::tagNameToDisplayName(current.strName));
+            guid = current.strParentGUID;
+        }
+        choices.append(qMakePair(path.join(" / "), tag.strGUID));
+    }
+    std::sort(choices.begin(), choices.end(), [](const QPair<QString, QString>& a, const QPair<QString, QString>& b) {
+        return QString::localeAwareCompare(a.first, b.first) < 0;
+    });
+    m_searchWidget->setAvailableTags(choices);
+    QStringList folders;
+    for (const QString& path : m_dbMgr.db().getFolders().split('*', Qt::SkipEmptyParts))
+        if (!path.startsWith(m_dbMgr.db().getDeletedItemsLocation())) folders << path;
+    m_searchWidget->setAvailableFolders(folders);
 }
 
 void WizMainWindow::on_search_doSearch(const QString& keywords)
 {
+    if (m_searchWidget->hasFilters()) {
+        QString where, keyword, name; int scope = Scope_PersonalNotes;
+        if (!WizAdvancedSearchDialog::paramToSQL(m_searchWidget->queryParams(), where, keyword, name, scope)) {
+            QMessageBox::warning(this, tr("Info"), QStringLiteral("筛选条件无效，请清除后重试。"));
+            return;
+        }
+        searchNotesBySQLAndKeyword(where, keyword, scope);
+        return;
+    }
     m_category->saveSelection();
     //
     QString kbGuid = m_category->storedSelectedItemKbGuid();
@@ -3726,6 +3781,7 @@ void WizMainWindow::on_category_itemSelectionChanged()
         WizCategoryViewCustomSearchItem* pSearchItem = dynamic_cast<WizCategoryViewCustomSearchItem*>(categoryItem);
         if (pSearchItem)
         {
+            m_searchWidget->setQueryParams(pSearchItem->getSelectParam());
             searchNotesBySQLAndKeyword(pSearchItem->getSQLWhere(), pSearchItem->getKeyword(), pSearchItem->searchScope());
             WizGetAnalyzer().logAction("categoryCustomQuickSearchItem");
         }

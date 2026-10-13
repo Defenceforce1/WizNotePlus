@@ -10,6 +10,7 @@
 #include <QtXml>
 
 #include "WizDef.h"
+#include "WizSearchWidget.h"
 #include "utils/WizStyleHelper.h"
 #include "utils/WizMisc.h"
 #include "utils/WizLogger.h"
@@ -2897,9 +2898,15 @@ void WizCategoryView::on_action_addToShortcuts()
 
 void WizCategoryView::on_action_addCustomSearch()
 {
+    addCustomSearchWithParams(QString());
+}
+
+void WizCategoryView::addCustomSearchWithParams(const QString& params)
+{
     ::WizGetAnalyzer().logAction("categoryMenuAddCustomSearch");
     bool bSearchOnly = false;
     WizAdvancedSearchDialog dlg(bSearchOnly);
+    if (!params.isEmpty()) dlg.setParams(params);
     if (dlg.exec() == QDialog::Accepted)
     {
         QString strParam = dlg.getParams();
@@ -5865,8 +5872,11 @@ void WizCategoryView::advancedSearchByCustomParam(const QString& strParam)
         QMessageBox::warning(this, tr("Info"), QStringLiteral("搜索条件无效，请编辑后重试。"));
         return;
     }
-    if (auto* mainWindow = qobject_cast<WizMainWindow*>(m_app.mainWindow()))
+    if (auto* mainWindow = qobject_cast<WizMainWindow*>(m_app.mainWindow())) {
+        if (auto* search = mainWindow->findChild<WizSearchView*>("wiz-note-search-view"))
+            search->setQueryParams(strParam);
         mainWindow->searchNotesBySQLAndKeyword(where, keyword, scope);
+    }
 }
 
 void WizCategoryView::saveCustomAdvancedSearchParamToDB(const QString& strGuid, const QString& strParam)

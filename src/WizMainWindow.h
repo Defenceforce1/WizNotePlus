@@ -220,6 +220,7 @@ private:
     void initSyncQuick();
     void initActions();
     void initToolBar();
+    void refreshSearchChoices();
     void initToolBarPluginButtons();
     void initClient();
 
@@ -407,6 +408,7 @@ public Q_SLOTS:
 
     void on_search_doSearch(const QString& keywords);
     void on_search_advancedSearch();
+    void on_search_saveSearch();
     void on_options_settingsChanged(WizOptionsType type);
 
     void on_syncLogined();

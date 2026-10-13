@@ -1,4 +1,11 @@
-# Personal advanced search (v7/v8)
+# Personal advanced search (v7/v8/v9)
+
+In v9, common personal filters are available directly in the top search field:
+explicit tag suggestions, removable conditions, and a compact magnifier panel
+for tags, folders and attachments. More conditions (dates, etc.) and Save current
+search retain the built-in dialogs, now prefilled with the current query. Plain
+Return still searches content. See [inline-search.md](inline-search.md) for the
+current interaction and verification; the v8 description below is historical.
 
 In v8, use the existing magnifier menu in the top search field and choose Advanced
 search. Its request is now connected to the actual main window's built-in dialog.

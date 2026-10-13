@@ -49,6 +49,14 @@ namespace {
 const QString tagPrefix = QStringLiteral("tag-guid:");
 const QString nameEncoded = QStringLiteral("name-encoded:");
 const QString keywordEncoded = QStringLiteral("keyword-encoded:");
+const QString folderEncoded = QStringLiteral("folder-path-encoded:");
+bool readFolder(const QString& token, QString& path)
+{
+    if (!token.startsWith(folderEncoded)) return false;
+    path = QUrl::fromPercentEncoding(token.mid(folderEncoded.size()).toLatin1());
+    return path.startsWith('/') && path.endsWith('/') && !path.contains(QChar(0))
+        && !path.contains('\n') && !path.contains('\r');
+}
 QString escapeLike(QString value)
 {
     value.replace("\\", "\\\\");
@@ -182,6 +190,14 @@ void WizAdvancedSearchDialog::setParams(const QString& params)
                 item->setData(Qt::UserRole, part);
             }
         }
+        else if (part.startsWith(folderEncoded))
+        {
+            QString path;
+            if (readFolder(part, path)) {
+                auto* item = new WizSearchParamItem(PARAM_SELECT_FOLDER + ", " + path, ui->listWidget);
+                item->setData(Qt::UserRole, part);
+            }
+        }
     }
     initFirstCombox(m_radioGroup->checkedId() != 1);
 }
@@ -224,6 +240,13 @@ bool WizAdvancedSearchDialog::paramToSQL(const QString& params, QString& sqlWher
             conditions << "DOCUMENT_GUID IN (SELECT DOCUMENT_GUID FROM WIZ_DOCUMENT_TAG WHERE TAG_GUID="
                           + STR2SQL(guid) + ")";
             hasTag = true;
+        }
+        else if (part.startsWith(folderEncoded))
+        {
+            QString path;
+            if (!readFolder(part, path)) return false;
+            conditions << "DOCUMENT_LOCATION LIKE " + STR2SQL(escapeLike(path) + "%") + " ESCAPE '\\'";
+            hasTag = true; // This additive folder token also represents a personal-only filter.
         }
         else if (part.startsWith(PARAM_PARAM))
         {
@@ -280,6 +303,7 @@ void WizAdvancedSearchDialog::onRadioButtonClicked(QAbstractButton* button)
         {
             const auto* item = ui->listWidget->item(i);
             if (item->data(Qt::UserRole).toString().startsWith(tagPrefix)
+                || item->data(Qt::UserRole).toString().startsWith(folderEncoded)
                 || item->text().startsWith(PARAM_SELECT_FOLDER + ","))
                 delete ui->listWidget->takeItem(i);
         }
