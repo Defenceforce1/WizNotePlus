@@ -91,9 +91,7 @@ QString WizFileImporter::loadHtmlFileToHtml(const QString& strFileName, const ch
     QFile file(strFileName);
     if(!file.open(QIODevice::ReadOnly|QIODevice::Text))
         return "";
-    QTextStream in(&file);
-    in.setCodec(encoding);
-    QString ret = in.readAll();
+    QString ret = WizReadEncodedText(file, encoding);
     file.close();
 
     return ret;
@@ -124,9 +122,7 @@ QString WizFileImporter::loadTextFileToHtml(const QString& strFileName, const ch
     QFile file(strFileName);
     if(!file.open(QIODevice::ReadOnly|QIODevice::Text))
         return "";
-    QTextStream in(&file);
-    in.setCodec(encoding);
-    QString ret = in.readAll();
+    QString ret = WizReadEncodedText(file, encoding);
     file.close();
     ret = ret.toHtmlEscaped();
     ret.replace("\n","<br>");

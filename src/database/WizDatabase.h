@@ -58,7 +58,7 @@ public:
     Q_PROPERTY(QString FileName READ FileName)
 
     bool Downloaded() const;
-    Q_PROPERTY(QString Downloaded READ Downloaded NOTIFY DownloadedChanged)
+    Q_PROPERTY(bool Downloaded READ Downloaded NOTIFY DownloadedChanged)
 
     long ReadCount() const { return m_data.nReadCount; }
     Q_PROPERTY(long ReadCount READ ReadCount NOTIFY ReadCountChanged)
@@ -272,7 +272,7 @@ private:
     QMutex m_mtxTempFile;
 
 private:
-    QMutex m_mutexCache;
+    WizRecursiveMutex m_mutexCache;
     CWizGroupDataArray m_cachedGroups;
     CWizBizDataArray m_cachedBizs;
 

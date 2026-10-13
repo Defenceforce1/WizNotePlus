@@ -70,7 +70,7 @@
 static QString LocalLanguage = QLocale::system().name();
 QString WizCommonApiEntry::m_server = QString();
 QMap<QString, QString> WizCommonApiEntry::m_cacheMap = QMap<QString, QString>();
-QMutex WizCommonApiEntry::m_mutex(QMutex::Recursive);
+WizRecursiveMutex WizCommonApiEntry::m_mutex;
 
 
 QString _requestUrl(const QString& strUrl)
@@ -367,7 +367,7 @@ QString WizCommonApiEntry::groupUsersUrl(const QString& strToken, const QString&
             .arg(strToken)
             .arg(strBizGUID)
             .arg(strkbGUID)
-            .arg(qrand());
+            .arg(QRandomGenerator::global()->generate());
 
     return url.scheme() + "://" + url.host() + "/wizas/a/biz/user_aliases" + strExt;
 }
@@ -405,14 +405,13 @@ QString WizOfficialApiEntry::appendSrc(QString url)
 QString WizCommonApiEntry::makeUpUrlFromCommand(const QString& strCommand)
 {
     // random seed
-    qsrand((uint)QTime::currentTime().msec());
     QString strUrl = QString(WIZNOTE_API_ENTRY)
             .arg(m_server)
             .arg(WIZNOTE_API_ARG_PRODUCT)\
             .arg(LocalLanguage)\
             .arg(WIZ_CLIENT_VERSION)\
             .arg(strCommand)\
-            .arg(qrand())\
+            .arg(QRandomGenerator::global()->generate())\
             .arg(QHostInfo::localHostName())\
             .arg(WIZNOTE_API_ARG_PLATFORM)\
             .arg("false");
@@ -531,14 +530,13 @@ QString WizOfficialApiEntry::requestUrl(const QString& strCommand)
 
 QString WizOfficialApiEntry::urlFromCommand(const QString& strCommand)
 {
-    qsrand((uint)QTime::currentTime().msec());
     QString strUrl = QString(WIZNOTE_API_ENTRY)
             .arg(WIZNOTE_API_SERVER)
             .arg(WIZNOTE_API_ARG_PRODUCT)\
             .arg(LocalLanguage)\
             .arg(WIZ_CLIENT_VERSION)\
             .arg(strCommand)\
-            .arg(qrand())\
+            .arg(QRandomGenerator::global()->generate())\
             .arg(QHostInfo::localHostName())\
             .arg(WIZNOTE_API_ARG_PLATFORM)\
             .arg("false");

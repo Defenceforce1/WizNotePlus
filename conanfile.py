@@ -7,6 +7,7 @@ import re
 import json
 import contextlib
 import warnings
+import platform
 from six import StringIO
 from conans import ConanFile, CMake, tools, __version__ as conan_version
 from conans.tools import Version
@@ -14,9 +15,12 @@ from conans.errors import ConanInvalidConfiguration
 
 
 def qmake_query(prop, prefix=None):
-    value = subprocess.check_output(
-        ["qmake" if not prefix else os.path.join(prefix, "qmake"),
-         "-query", prop]).decode("utf-8")
+    command = ["qmake" if not prefix else os.path.join(prefix, "qmake"),
+               "-query", prop]
+    # Opt-in workaround only for sandboxes denying Qt's CPU feature probe.
+    if platform.system() == "Darwin" and os.environ.get("WIZNOTE_QT_HOST_TOOLS_ROSETTA") == "1":
+        command = ["arch", "-x86_64"] + command
+    value = subprocess.check_output(command).decode("utf-8")
     return value.strip()
 
 def get_qt_dir(prefix=None):
@@ -65,8 +69,8 @@ class WizNotePlusConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "cmake_find_package", "cmake_paths", "cmake"
     requires = (
-        "cryptopp/8.5.0",
-        "zlib/1.2.11"
+        "cryptopp/8.9.0",
+        "zlib/1.3.1"
     )
     keep_imports = True
     options = {
@@ -75,7 +79,7 @@ class WizNotePlusConan(ConanFile):
     default_options = {
         "qtdir": None,
         "openssl:shared": True,
-        "cryptopp:shared": True,
+        "cryptopp:shared": False,
         "zlib:shared": True,
         "qt:shared": True,
         "qt:gui": True,
@@ -116,11 +120,13 @@ class WizNotePlusConan(ConanFile):
             #     qt_version = get_qt_version()
             # else:
             #     raise ConanInvalidConfiguration("Qt library is required!")
-        # Different Qt was built against different OpenSSL
-        if qt_version < Version("5.12"):
-            self.requires("openssl/1.0.2u")
-        else:
-            self.requires("openssl/[~1.1.1m]")
+        # macOS uses Secure Transport through Qt and this target does not link
+        # OpenSSL. Other platforms retain the legacy dependency for now.
+        if self.settings.os != "Macos":
+            if qt_version < Version("5.12"):
+                self.requires("openssl/1.0.2u")
+            else:
+                self.requires("openssl/[~1.1.1m]")
 
 
     def build_requirements(self):
@@ -183,6 +189,7 @@ class WizNotePlusConan(ConanFile):
         #   because it will invoke conan.cmake automatically when
         #   CONAN_INSTALL_MANUALLY is OFF.
         cmake.definitions["CONAN_INSTALL_MANUALLY"] = "ON"
+        cmake.definitions["WIZNOTE_USE_CONAN"] = "ON"
         cmake.configure()
         return cmake
 

@@ -22,7 +22,9 @@ JSPluginSpec::JSPluginSpec(const QString &manifestFileName, QObject* parent)
     m_path = m_dir.absolutePath() + "/";
 
     m_settings = new QSettings(manifestFile.absoluteFilePath(), QSettings::IniFormat, this);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     m_settings->setIniCodec("UTF-8");
+#endif
 
     // Parse 'Common' setiong
     m_name = m_settings->value("Common/AppName", "").toString();

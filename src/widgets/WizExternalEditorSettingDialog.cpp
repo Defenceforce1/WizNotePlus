@@ -11,7 +11,6 @@
 #include <QVariant>
 #include <QTableWidgetItem>
 #include <QIntValidator>
-#include <QRegExpValidator>
 #include <QLineEdit>
 #include <QCheckBox>
 #include <QRegExp>
@@ -117,7 +116,7 @@ void WizExternalEditorInfoDialog::setSelectedProgramFile()
 {
     QString programFilePath = QFileDialog::getOpenFileName(this,
                                     tr("Select a program file."), QString("/home"),
-                                                           "", 0, 0);
+                                                           "", nullptr, {});
     m_editProgram->setText(programFilePath);
 
 }

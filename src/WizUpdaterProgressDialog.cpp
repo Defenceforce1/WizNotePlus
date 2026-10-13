@@ -2,7 +2,8 @@
 #include "ui_WizUpdaterProgressDialog.h"
 
 #include <QMouseEvent>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QDir>
 #include <QTimer>
 #include <QMessageBox>
@@ -55,7 +56,7 @@ void WizUpdaterDialog::center()
                     Qt::LeftToRight,
                     Qt::AlignCenter,
                     size(),
-                    qApp->desktop()->availableGeometry()
+                    QGuiApplication::primaryScreen()->availableGeometry()
     ));
 }
 

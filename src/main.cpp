@@ -11,9 +11,13 @@
 #include <QDesktopServices>
 #include <QSslConfiguration>
 #include <QNetworkProxy>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QtWebEngine>
+#endif
 #include <QStyleFactory>
 #include <QWebEngineSettings>
+#include <QWebEngineProfile>
+#include "share/WizWebEngineView.h"
 #include <QVersionNumber>
 
 #include <sys/stat.h>
@@ -124,15 +128,24 @@ int mainCore(int argc, char *argv[])
 #endif // Q_OS_LINUX
 
     disableWebengineSandboxIfNeeded();
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QtWebEngine::initialize();
-    QWebEngineSettings::defaultSettings()->setAttribute(QWebEngineSettings::FocusOnNavigationEnabled, false);
+    QWebEngineSettings* webEngineSettings = QWebEngineSettings::defaultSettings();
+#else
+    // Set the same identity before Qt 6 resolves the persistent profile path.
+    // Qt 5's profile was created later, after the identity setup below.
+    QApplication::setApplicationName(QObject::tr("WizNotePlus"));
+    QApplication::setOrganizationName(QObject::tr("cn.wiz.wiznoteformac"));
+    QWebEngineSettings* webEngineSettings = WizWebEngineProfile()->settings();
+#endif
+    webEngineSettings->setAttribute(QWebEngineSettings::FocusOnNavigationEnabled, false);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-    QWebEngineSettings::defaultSettings()->setAttribute(QWebEngineSettings::AllowWindowActivationFromJavaScript, true);
+    webEngineSettings->setAttribute(QWebEngineSettings::AllowWindowActivationFromJavaScript, true);
 #endif
 
-    QWebEngineSettings::defaultSettings()->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, true);
-    QWebEngineSettings::defaultSettings()->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, true);
+    webEngineSettings->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, true);
+    webEngineSettings->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, true);
 
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
 
@@ -214,7 +227,7 @@ int mainCore(int argc, char *argv[])
 
     // setup locale for welcome dialog
     QString strLocale = userSettings.locale();
-    QLocale::setDefault(strLocale);
+    QLocale::setDefault(QLocale(strLocale));
 
     QTranslator translatorWizNote;
     QString strLocaleFile = Utils::WizPathResolve::localeFileName(strLocale);

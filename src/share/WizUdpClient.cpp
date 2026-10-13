@@ -1,5 +1,6 @@
 ﻿#include "WizUdpClient.h"
 #include <QNetworkInterface>
+#include <QDebug>
 #include <QNetworkAddressEntry>
 #include <QUdpSocket>
 #include <QThread>

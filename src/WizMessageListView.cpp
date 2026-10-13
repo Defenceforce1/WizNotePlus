@@ -922,15 +922,14 @@ void WizMessageListView::clearRightMenuFocus()
 
 void WizMessageListView::wheelEvent(QWheelEvent* event)
 {
-    int delta = event->delta();
+    int delta = event->angleDelta().y();
     delta = delta / 3;
-    QWheelEvent* newEvent = new QWheelEvent(event->pos(),
-                                          event->globalPos(),
-                                          delta,
-                                          event->buttons(),
-                                          event->modifiers(),
-                                          event->orientation());
-    QListWidget::wheelEvent(newEvent);
+    QWheelEvent newEvent(event->position(), event->globalPosition(),
+                        event->pixelDelta() / 3, QPoint(event->angleDelta().x(), delta),
+                        event->buttons(), event->modifiers(), event->phase(),
+                        event->inverted(), event->source());
+    QListWidget::wheelEvent(&newEvent);
+    event->setAccepted(newEvent.isAccepted());
 }
 
 void WizMessageListView::mousePressEvent(QMouseEvent* event)
@@ -1168,7 +1167,7 @@ void WizMessageListTitleBar::showTipsWidget()
 void WizMessageListTitleBar::paintEvent(QPaintEvent* ev)
 {
     QStyleOption opt;
-    opt.init(this);
+    opt.initFrom(this);
     QPainter p(this);
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
 }
@@ -1361,7 +1360,7 @@ void WizMessageSenderSelector::addUser(const QString& userGUID)
         userSet.insert(user.alias);
         strUserId = user.userId;
     }
-    QStringList userList(userSet.toList());
+    QStringList userList(userSet.values());
     QString strText = userList.join(";");
 
     QPixmap pix;

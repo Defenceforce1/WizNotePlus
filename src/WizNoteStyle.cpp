@@ -681,7 +681,7 @@ QColor WizNotePlusStyle::mergedColors(const QColor &colorA, const QColor &colorB
 QColor WizNotePlusStyle::outline(const QPalette &pal) const {
     if (pal.window().style() == Qt::TexturePattern)
         return QColor(0, 0, 0, 160);
-    return pal.background().color().darker(140);
+    return pal.window().color().darker(140);
 }
 
 QColor WizNotePlusStyle::buttonColor(const QPalette &pal) const {

@@ -222,7 +222,7 @@ int WizRoundCellButton::buttonWidth() const
     f.setPixelSize(WizSmartScaleUI(RoundCellButtonConst::fontSize));
     QFontMetrics fm(f);
     int width = static_cast<int>(RoundCellButtonConst::margin * 2.5 + RoundCellButtonConst::spacing
-            + iconWidth() + fm.width(text()));
+            + iconWidth() + fm.horizontalAdvance(text()));
     return width;
 }
 
@@ -565,7 +565,7 @@ int WizEditButton::buttonWidth() const
     f.setPixelSize(WizSmartScaleUI(RoundCellButtonConst::fontSize));
     QFontMetrics fm(f);
     int width = static_cast<int>(RoundCellButtonConst::margin * 2.5 + RoundCellButtonConst::spacing
-            + iconWidth() + fm.width(text()));
+            + iconWidth() + fm.horizontalAdvance(text()));
     return width;
 }
 

@@ -66,7 +66,7 @@ public:
         return QSize(1, 1);
     }
 protected:
-    void enterEvent(QEvent* ev)
+    void enterEvent(WizEnterEvent* ev)
     {
         QWidget::enterEvent(ev);
         setCursor(Qt::SplitHCursor);

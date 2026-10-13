@@ -9,7 +9,12 @@
 #include <QElapsedTimer>
 #include <QIcon>
 
-class QWebEngineDownloadItem;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QWebEngineDownloadRequest>
+using QWebEngineDownloadItem = QWebEngineDownloadRequest;
+#else
+#include <QWebEngineDownloadItem>
+#endif
 
 // Displays one ongoing or finished download (QWebEngineDownloadItem).
 class DownloadWidget final : public QFrame, public Ui::DownloadWidget

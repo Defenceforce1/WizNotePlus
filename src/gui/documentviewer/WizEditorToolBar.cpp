@@ -499,7 +499,7 @@ void drawComboPrimitive(QStylePainter* p, QStyle::PrimitiveElement pe, const QSt
     p->save();
 
     int xOffset = opt.direction == Qt::LeftToRight ? 2 : -1;
-    QMatrix matrix;
+    QTransform matrix;
     matrix.translate(opt.rect.center().x() + xOffset, opt.rect.center().y() + 2);
     QPainterPath path;
     switch(pe) {
@@ -519,7 +519,7 @@ void drawComboPrimitive(QStylePainter* p, QStyle::PrimitiveElement pe, const QSt
     path.moveTo(0, 2.3);
     path.lineTo(-2.3, -2.3);
     path.lineTo(2.3, -2.3);
-    p->setMatrix(matrix);
+    p->setTransform(matrix);
     p->setPen(Qt::NoPen);
     p->setBrush(QColor(0, 0, 0, 255));
     p->setRenderHint(QPainter::Antialiasing);
@@ -545,7 +545,7 @@ void WizDblclickableToolButton::mouseDoubleClickEvent(QMouseEvent *event)
 void WizDblclickableToolButton::mouseReleaseEvent(QMouseEvent* event)
 {
     QDateTime now = QDateTime::currentDateTime();
-    int seconds = now.toTime_t() - m_tDblClicked.toTime_t();
+    int seconds = now.toSecsSinceEpoch() - m_tDblClicked.toSecsSinceEpoch();
     if (seconds < 1) {
         event->ignore();
     } else {
@@ -599,7 +599,7 @@ protected:
         update();
     }
 
-    virtual void enterEvent(QEvent* event)
+    virtual void enterEvent(WizEnterEvent* event)
     {
         WizDblclickableToolButton::enterEvent(event);
 
@@ -834,7 +834,7 @@ public:
         , m_position(NoPosition)
     {
         setFocusPolicy(Qt::NoFocus);
-        setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLength);
+        setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
         QFont f = font();
         f.setPixelSize(Utils::WizStyleHelper::editComboFontSize());
         setFont(f);
@@ -920,7 +920,7 @@ protected:
         update();
     }
 
-    virtual void enterEvent(QEvent* event) {
+    virtual void enterEvent(WizEnterEvent* event) {
         QComboBox::enterEvent(event);
 
         update();
@@ -1059,7 +1059,7 @@ public:
         , m_isPopup(false)
     {
         setFocusPolicy(Qt::NoFocus);
-        setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLength);
+        setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
         setEditable(false);
     }
 
@@ -1248,7 +1248,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_comboFontSize->setItemDelegate(fontDelegate);
 #endif
 
-    QStringList fontList = m_app.userSettings().get(WIZRECENTFONTLIST).split('/', QString::SkipEmptyParts);
+    QStringList fontList = m_app.userSettings().get(WIZRECENTFONTLIST).split('/', Qt::SkipEmptyParts);
     WizComboboxStyledItem* fontFamilyItems = FontFamilies();
     for (QString recent : fontList)
     {
@@ -2421,7 +2421,7 @@ void WizEditorToolBar::selectCurrentFontFamily(const QString& strFontFamily)
         }
     }
 
-    QStringList fontList = m_app.userSettings().get(WIZRECENTFONTLIST).split('/', QString::SkipEmptyParts);
+    QStringList fontList = m_app.userSettings().get(WIZRECENTFONTLIST).split('/', Qt::SkipEmptyParts);
     for (QString recent : fontList)
     {
         if (recent == strFontFamily)

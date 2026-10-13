@@ -20,7 +20,10 @@
 #include <QSvgRenderer>
 #include <QGraphicsSvgItem>
 #include <QtCore>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QNetworkConfigurationManager>
+#endif
+#include <QNetworkInterface>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -427,7 +430,7 @@ CString WizIntToStr(int n)
 
 QString WizGetTimeStamp()
 {
-    return QString::number(QDateTime::currentDateTime().toTime_t());
+    return QString::number(QDateTime::currentDateTime().toSecsSinceEpoch());
 }
 
 WizOleDateTime WizGetCurrentTime()
@@ -538,7 +541,7 @@ CString WizIntToHexEx(int n, int nWidth, BOOL bWithPrefix /*= FALSE*/)
     CString strFormat = CString("%0") + WizIntToStr(nWidth) + "X";
     //
     CString strValue;
-    strValue.sprintf(strFormat.toUtf8(), n);
+    strValue = QString::asprintf(strFormat.toUtf8().constData(), n);
     //
     if (bWithPrefix)
     {
@@ -744,7 +747,7 @@ CString WizFormatInt(__int64 n)
 
 time_t WizTimeGetTimeT(const WizOleDateTime& t)
 {
-    return t.toTime_t();
+    return t.toSecsSinceEpoch();
 }
 
 CString WizStringToSQL(const CString& str)
@@ -1117,9 +1120,7 @@ bool WizLoadUnicodeTextFromFile(const QString& strFileName, QString& strText, co
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return false;
 
-    QTextStream stream(&file);
-    stream.setCodec(encoding);
-    strText = stream.readAll();
+    strText = WizReadEncodedText(file, encoding);
     file.close();
 
     return true;
@@ -1158,7 +1159,7 @@ bool WizSaveUnicodeTextToUtf8File(const QString& strFileName, const QString& str
         return false;
 
     QTextStream stream(&file);
-    stream.setCodec("UTF-8");
+    WizSetUtf8Encoding(stream);
     stream.setGenerateByteOrderMark(true);
     stream << strText;
     stream.flush();
@@ -1174,7 +1175,7 @@ bool WizSaveUnicodeTextToUtf8File(const QString& strFileName, const QByteArray& 
         return false;
 
     QTextStream stream(&file);
-    stream.setCodec("UTF-8");
+    WizSetUtf8Encoding(stream);
     stream.setGenerateByteOrderMark(true);
     stream << strText;
     stream.flush();
@@ -1191,7 +1192,7 @@ bool WizSaveUnicodeTextToUtf8File(const QString& strFileName, const QString& str
         return false;
 
     QTextStream stream(&file);
-    stream.setCodec("UTF-8");
+    WizSetUtf8Encoding(stream);
     stream.setGenerateByteOrderMark(addBom ? true : false);
     stream << strText;
     stream.flush();
@@ -1203,7 +1204,7 @@ bool WizSaveUnicodeTextToUtf8File(const QString& strFileName, const QString& str
 bool WizSaveUnicodeTextToData(QByteArray& data, const QString& strText, bool addBom)
 {
     QTextStream stream(&data);
-    stream.setCodec("UTF-8");
+    WizSetUtf8Encoding(stream);
     stream.setGenerateByteOrderMark(addBom ? true : false);
     stream << strText;
     stream.flush();
@@ -1213,14 +1214,14 @@ bool WizSaveUnicodeTextToData(QByteArray& data, const QString& strText, bool add
 
 BOOL WizSplitTextToArray(const CString& strText, QChar ch, CWizStdStringArray& arrayResult)
 {
-    QStringList strings = strText.split(ch, QString::SkipEmptyParts);
+    QStringList strings = strText.split(ch, Qt::SkipEmptyParts);
     arrayResult.assign(strings.begin(), strings.end());
     return TRUE;
 }
 
 BOOL WizSplitTextToArray(CString strText, const CString& strSplitterText, BOOL bMatchCase, CWizStdStringArray& arrayResult)
 {
-    QStringList strings = strText.split(strSplitterText, QString::KeepEmptyParts, bMatchCase ? Qt::CaseSensitive : Qt::CaseInsensitive);
+    QStringList strings = strText.split(strSplitterText, Qt::KeepEmptyParts, bMatchCase ? Qt::CaseSensitive : Qt::CaseInsensitive);
     arrayResult.assign(strings.begin(), strings.end());
     return TRUE;
 }
@@ -1375,7 +1376,7 @@ BOOL WizStringSimpleSplit(const CString& str, char ch, CString& strLeft, CString
 CString WizDateToLocalString(const WizOleDateTime& t)
 {
     WizOleDateTime localDateTime = t.toLocalTime();
-    return localDateTime.toString(Qt::DefaultLocaleShortDate);
+    return QLocale().toString(localDateTime, QLocale::ShortFormat);
 }
 
 intptr_t WizStrStrI_Pos(const CString& str, const CString& strFind, int nStart /*= 0*/)
@@ -1956,7 +1957,7 @@ inline bool WizConvertTextToHTML_ForPaste_ProcessSpaceBeginEnd(int nBegin, QStri
         //
         QChar ch = strLine[i];
         //
-        QChar chNext = 0;
+        QChar chNext;
         if (i < strLine.length() - 1)
         {
             chNext = strLine[i + 1];
@@ -2379,8 +2380,21 @@ void WizShowWebDialogWithTokenDelayed(const QString& windowTitle, const QString&
 
 bool WizIsOffline()
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QNetworkConfigurationManager mgr;
     return !mgr.isOnline();
+#else
+    // Interface availability is a hint; requests still handle server/network errors.
+    for (const QNetworkInterface& interface : QNetworkInterface::allInterfaces()) {
+        const auto flags = interface.flags();
+        if (flags.testFlag(QNetworkInterface::IsUp)
+                && flags.testFlag(QNetworkInterface::IsRunning)
+                && !flags.testFlag(QNetworkInterface::IsLoopBack)
+                && !interface.addressEntries().isEmpty())
+            return false;
+    }
+    return true;
+#endif
 }
 
 class SleepThread : public QThread
@@ -2445,7 +2459,7 @@ QString WizGetHtmlBodyContent(const QString& strHtml)
     {
         strBody = regBodyContant.cap(0);
 
-        QRegExp regBody = QRegExp("</?body[^>]*>", Qt::CaseInsensitive);
+        QRegularExpression regBody("</?body[^>]*>", QRegularExpression::CaseInsensitiveOption);
         strBody.replace(regBody, "");
     }
 
@@ -2454,7 +2468,7 @@ QString WizGetHtmlBodyContent(const QString& strHtml)
 
 bool WizGetBodyContentFromHtml(QString& strHtml, bool bNeedTextParse)
 {
-    QRegExp regHead("</?head[^>]*>", Qt::CaseInsensitive);
+    QRegularExpression regHead("</?head[^>]*>", QRegularExpression::CaseInsensitiveOption);
     if (strHtml.contains(regHead))
     {
         if (bNeedTextParse)
@@ -2757,7 +2771,7 @@ bool WizCreateThumbnailForAttachment(
 WizOleDateTime WizIniReadDateTimeDef(const CString& strFile, const CString& strSection, const CString& strKey, WizOleDateTime defaultData)
 {
     QSettings settings(strFile, QSettings::IniFormat);
-    QString strStr = strSection.isEmpty() ? strKey : strSection + "/" + strKey;
+    QString strStr = strSection.isEmpty() ? QString(strKey) : strSection + "/" + strKey;
     QDateTime dt = settings.value(strStr, defaultData).toDateTime();
 
     return dt;
@@ -2767,7 +2781,7 @@ WizOleDateTime WizIniReadDateTimeDef(const CString& strFile, const CString& strS
 CString WizIniReadStringDef(const CString& strFile, const CString& strSection, const CString& strKey)
 {
     QSettings settings(strFile, QSettings::IniFormat);
-    QString strStr = strSection.isEmpty() ? strKey : strSection + "/" + strKey;
+    QString strStr = strSection.isEmpty() ? QString(strKey) : strSection + "/" + strKey;
     return settings.value(strStr).toString();
 }
 
@@ -2775,7 +2789,7 @@ CString WizIniReadStringDef(const CString& strFile, const CString& strSection, c
 void WizIniWriteString(const CString& strFile, const CString& strSection, const CString& strKey, const CString& strValue)
 {
     QSettings settings(strFile, QSettings::IniFormat);
-    QString strStr = strSection.isEmpty() ? strKey : strSection + "/" + strKey;
+    QString strStr = strSection.isEmpty() ? QString(strKey) : strSection + "/" + strKey;
     settings.setValue(strStr, strValue);
 }
 
@@ -2783,7 +2797,7 @@ void WizIniWriteString(const CString& strFile, const CString& strSection, const 
 int WizIniReadIntDef(const CString& strFile, const CString& strSection, const CString& strKey, int defaultValue)
 {
     QSettings settings(strFile, QSettings::IniFormat);
-    QString strStr = strSection.isEmpty() ? strKey : strSection + "/" + strKey;
+    QString strStr = strSection.isEmpty() ? QString(strKey) : strSection + "/" + strKey;
     return settings.value(strStr, defaultValue).toInt();
 }
 
@@ -2791,7 +2805,7 @@ int WizIniReadIntDef(const CString& strFile, const CString& strSection, const CS
 void WizIniWriteInt(const CString& strFile, const CString& strSection, const CString& strKey, int nValue)
 {
     QSettings settings(strFile, QSettings::IniFormat);
-    QString strStr = strSection.isEmpty() ? strKey : strSection + "/" + strKey;
+    QString strStr = strSection.isEmpty() ? QString(strKey) : strSection + "/" + strKey;
     settings.setValue(strStr, nValue);
 }
 
@@ -2799,7 +2813,7 @@ void WizIniWriteInt(const CString& strFile, const CString& strSection, const CSt
 void WizIniWriteDateTime(const CString& strFile, const CString& strSection, const CString& strKey, WizOleDateTime dateTime)
 {
     QSettings settings(strFile, QSettings::IniFormat);
-    QString strStr = strSection.isEmpty() ? strKey : strSection + "/" + strKey;
+    QString strStr = strSection.isEmpty() ? QString(strKey) : strSection + "/" + strKey;
     settings.setValue(strStr, dateTime);
 }
 
@@ -3089,7 +3103,7 @@ bool WizURLDownloadToData(const QString& url, QByteArray& data)
     do
     {
         QNetworkRequest request(newUrl);
-        request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
         //
         reply = netCtrl.get(request);
         WizAutoTimeOutEventLoop loop(reply);

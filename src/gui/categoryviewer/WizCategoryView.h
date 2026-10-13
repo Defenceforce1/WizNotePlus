@@ -77,7 +77,7 @@ protected:
 
 
 
-    virtual void enterEvent(QEvent * event);
+    virtual void enterEvent(WizEnterEvent* event);
     virtual void leaveEvent(QEvent * event);
 
     virtual void resizeEvent(QResizeEvent* event);

@@ -1123,7 +1123,7 @@ bool mime2Notes(const QString& mime, WizDatabaseManager& dbMgr, CWizDocumentData
     if (mime.isEmpty())
         return false;
 
-    QStringList docIDList = mime.split(';', QString::SkipEmptyParts);
+    QStringList docIDList = mime.split(';', Qt::SkipEmptyParts);
     for (QString docID : docIDList)
     {
         QStringList docIDS = docID.split(':');
@@ -1794,7 +1794,7 @@ void WizDocumentListView::on_action_deleteDocument()
     }
     else if (selectedItems().isEmpty())
     {
-        setItemSelected(documentItemAt(index), true);
+        documentItemAt(index)->setSelected(true);
     }
     emit documentsSelectionChanged();
 }
@@ -2188,7 +2188,7 @@ void WizDocumentListView::wheelEvent(QWheelEvent* event)
         //return;
     //}
 
-    int delta = event->delta();
+    int delta = event->angleDelta().y();
     switch (m_nViewType)
     {
     case TypeThumbnail:
@@ -2200,13 +2200,12 @@ void WizDocumentListView::wheelEvent(QWheelEvent* event)
     default:
         break;
     }
-    QWheelEvent* newEvent = new QWheelEvent(event->pos(),
-                                          event->globalPos(),
-                                          delta,
-                                          event->buttons(),
-                                          event->modifiers(),
-                                          event->orientation());
-    QListWidget::wheelEvent(newEvent);
+    QWheelEvent newEvent(event->position(), event->globalPosition(),
+                        event->pixelDelta(), QPoint(event->angleDelta().x(), delta),
+                        event->buttons(), event->modifiers(), event->phase(),
+                        event->inverted(), event->source());
+    QListWidget::wheelEvent(&newEvent);
+    event->setAccepted(newEvent.isAccepted());
 }
 
 void WizDocumentListView::vscrollBeginUpdate(int delta)

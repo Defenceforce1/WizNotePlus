@@ -243,7 +243,7 @@ void WizAdvancedSearchDialog::getFirstLevelFolders(QStringList& folders)
         m_strFolders = WizDatabaseManager::instance()->db().getFolders();
     }
 
-    QStringList folderList = m_strFolders.split('*', QString::SkipEmptyParts);
+    QStringList folderList = m_strFolders.split('*', Qt::SkipEmptyParts);
     foreach (QString strFolder, folderList) {
         if (strFolder.count('/') == 2)
         {
@@ -260,7 +260,7 @@ void WizAdvancedSearchDialog::getSecondLevelFolders(const QString& firstLevelFol
         m_strFolders = WizDatabaseManager::instance()->db().getFolders();
     }
 
-    QStringList folderList = m_strFolders.split('*', QString::SkipEmptyParts);
+    QStringList folderList = m_strFolders.split('*', Qt::SkipEmptyParts);
     foreach (QString strFolder, folderList) {
         if (strFolder.startsWith("/" + firstLevelFolder) && strFolder.count('/') == 3)
         {
@@ -284,7 +284,7 @@ void WizAdvancedSearchDialog::getAllTags(QStringList& tags)
     }
 
     if (!m_strTags.isEmpty())
-        tags = m_strTags.split(",", QString::SkipEmptyParts);
+        tags = m_strTags.split(",", Qt::SkipEmptyParts);
 }
 
 WizOleDateTime WizAdvancedSearchDialog::getDateTimeByInterval(const QString& str)

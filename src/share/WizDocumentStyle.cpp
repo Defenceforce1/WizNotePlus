@@ -9,11 +9,11 @@
 class WizDocumentStylePrivate
 {
 private:
-    QMutex m_mutex;
+    WizRecursiveMutex m_mutex;
     std::map<QString, WIZSTYLEDATA> m_styles;
 public:
     WizDocumentStylePrivate()
-        : m_mutex(QMutex::Recursive)
+        : m_mutex()
     {
     }
 

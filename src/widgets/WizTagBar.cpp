@@ -252,7 +252,7 @@ void WizTagBar::resetLineEditCompleter()
     {
         tagNameSet.insert(tag.strName);
     }
-    QStringList tagNames(tagNameSet.toList());
+    QStringList tagNames(tagNameSet.values());
     m_lineEdit->resetCompleter(tagNames);
 }
 
@@ -586,7 +586,7 @@ QSize WizTagItem::sizeHint() const
     QFont f;
     f.setPixelSize(WizSmartScaleUI(11));
     QFontMetrics fm(f);
-    QSize sz(fm.width(m_tagName) + TAGITEM_MARGIN * 2, fm.height() + WizSmartScaleUI(2));
+    QSize sz(fm.horizontalAdvance(m_tagName) + TAGITEM_MARGIN * 2, fm.height() + WizSmartScaleUI(2));
     return sz;
 }
 
@@ -595,7 +595,7 @@ int WizTagItem::textWidth(const QString text)
     QFont f;
     f.setPixelSize(WizSmartScaleUI(11));
     QFontMetrics fm(f);
-    return fm.width(text) + TAGITEM_MARGIN * 2;
+    return fm.horizontalAdvance(text) + TAGITEM_MARGIN * 2;
 }
 
 void WizTagItem::paintEvent(QPaintEvent* event)

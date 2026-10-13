@@ -4,6 +4,7 @@
 #include <QtGlobal>
 #include <QRect>
 #include <QObject>
+#include <QStringList>
 
 #ifdef Q_OS_MAC
 
@@ -23,7 +24,6 @@ enum WizMacDocumentType {
 
 class QMainWindow;
 class QWidget;
-class QStringList;
 
 float qt_mac_get_scalefactor(QWidget *window);
 

@@ -31,10 +31,6 @@
 #include <QNetworkDiskCache>
 #include <QWebEngineProfile>
 
-#ifdef Q_OS_MAC
-#include <QMacPasteboardMime>
-#endif
-
 #include "share/WizGlobal.h"
 #include "share/WizMisc.h"
 #include "share/WizAnalyzer.h"
@@ -2120,7 +2116,7 @@ void WizDocumentWebView::editorCommandExecuteInsertDate()
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("insertDate");
     //
-    QString date = QDate::currentDate().toString(Qt::DefaultLocaleLongDate);
+    QString date = QLocale().toString(QDate::currentDate(), QLocale::LongFormat);
     editorCommandExecuteInsertHtml(date, false);
 }
 
@@ -2129,7 +2125,7 @@ void WizDocumentWebView::editorCommandExecuteInsertTime()
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("insertTime");
     //
-    QString time = QTime::currentTime().toString(Qt::DefaultLocaleLongDate);
+    QString time = QLocale().toString(QTime::currentTime(), QLocale::LongFormat);
     editorCommandExecuteInsertHtml(time, false);
 }
 

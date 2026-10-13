@@ -1,8 +1,4 @@
-# NOTE for OSX users:
-# export MACOSX_DEPLOYMENT_TARGET=10.7 on .bash_profile if you want to compile use 10.7 sdk
-# sdk location: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs
-# you can download old sdk from here: https://github.com/JuliaEichler/Mac_OSX_SDKs
-# default is 10.7 for binary release.
+# Native Apple Silicon builds: see docs/macos-arm64.md.
 
 # CMake arguments for WizNote
 # APPSTORE_BUILD  build for Apple Appsotre, would not use qt deploy
@@ -10,7 +6,11 @@
 # UPDATE_TRANSLATIONS  update transation files
 # PLCrashReporter   use PLCrashReporter for mac, need PLCrashReporter framework
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.21)
+
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0 CACHE STRING "Minimum supported macOS version")
+endif()
 
 project(WizNotePlus VERSION 2.12.0)
 
@@ -23,6 +23,12 @@ option(USE_CUSTOM_SCROLLBAR "Use custom scrollbar instead of Qt's one." ON)
 
 # Excute conan outside or not.
 option(CONAN_INSTALL_MANUALLY "Run Conan install command manually." OFF)
+if(APPLE)
+    option(WIZNOTE_USE_CONAN "Use the legacy Conan 1 dependency workflow" OFF)
+else()
+    option(WIZNOTE_USE_CONAN "Use the legacy Conan 1 dependency workflow" ON)
+endif()
+option(WIZNOTE_BUILD_COMPAT_TESTS "Build isolated Qt/data compatibility smoke tests" OFF)
 
 # Set default build type to Release
 if(NOT CMAKE_BUILD_TYPE)
@@ -30,8 +36,6 @@ if(NOT CMAKE_BUILD_TYPE)
       "Choose the type of build, options are: Debug Release."
       FORCE)
 endif()
-
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.11)
 
 list(APPEND CMAKE_MODULE_PATH 
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
@@ -75,7 +79,7 @@ endif(APPLE)
 # install conan 3rdparty libraries to package dirs.
 message("\nStart generate 3rdparty dependencies as ${CMAKE_BUILD_TYPE}:\n")
 
-if(NOT CONAN_INSTALL_MANUALLY)
+if(WIZNOTE_USE_CONAN AND NOT CONAN_INSTALL_MANUALLY)
     # if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
     #     message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
     #     file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/master/conan.cmake"
@@ -99,7 +103,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR} ${CMAKE_MODULE_PATH})
 # setup 3rd-party package
 find_package(cryptopp REQUIRED)
 find_package(ZLIB REQUIRED)
-find_package(OpenSSL)
+if(NOT APPLE)
+    find_package(OpenSSL)
+endif()
 
 # install 3rd-party package
 # list(REMOVE_ITEM OpenSSL_LIBRARIES dl)
@@ -111,8 +117,14 @@ find_package(OpenSSL)
 # install(DIRECTORY ${CMAKE_BINARY_DIR}/lib/ DESTINATION ${lib_install_dest} )
 
 # set output path
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_output_dirs_setup()
+if(WIZNOTE_USE_CONAN)
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_output_dirs_setup()
+else()
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+endif()
 
 find_package(Git QUIET)
 
@@ -136,6 +148,9 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     )
 endif()
 
+# Keep the pinned upstream submodule, with a reproducible Qt 6 compatibility patch.
+include(ApplyFramelessHelperPatch)
+
 #============================================================================
 # Internal compiler options
 #============================================================================
@@ -144,14 +159,14 @@ include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(UNIX)
     if(COMPILER_SUPPORTS_CXX11)
         if(APPLE)
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
         else(APPLE)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
         endif(APPLE)
@@ -182,8 +197,23 @@ endif(USE_CUSTOM_SCROLLBAR)
 # Subfolders
 #============================================================================
 
+# The pinned FramelessHelper uses Qt's private GUI/Widgets headers. Starting
+# with Qt 6.10 these are separate packages, not implicit public-module targets.
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
+if(QT_VERSION_MAJOR EQUAL 6)
+    find_package(Qt6 REQUIRED COMPONENTS Gui Widgets)
+    if(Qt6_VERSION VERSION_GREATER_EQUAL 6.10)
+        find_package(Qt6 REQUIRED COMPONENTS GuiPrivate WidgetsPrivate)
+    endif()
+endif()
+
 #add_subdirectory(lib)
 add_subdirectory(src)
+
+if(WIZNOTE_BUILD_COMPAT_TESTS)
+    enable_testing()
+    add_subdirectory(tests/compat)
+endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
     enable_testing()

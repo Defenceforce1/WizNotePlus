@@ -5,7 +5,8 @@
 #include <QHBoxLayout>
 #include <QStackedWidget>
 #include <QApplication>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QWebEngineSettings>
@@ -1154,7 +1155,7 @@ void WizDocumentView::on_commentWidget_statusChanged()
         int maxWidth = maximumWidth();
         if (!WizIsHighPixel())
         {
-            if (qApp->desktop()->availableGeometry().width() < 1440)
+            if (QGuiApplication::primaryScreen()->availableGeometry().width() < 1440)
             {
                 maxWidth = 916;
             }

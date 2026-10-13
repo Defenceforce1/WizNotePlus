@@ -2,6 +2,7 @@
 #include "WebSocketClientWrapper.h"
 #include "WebSocketTransport.h"
 #include "utils/WizPathResolve.h"
+#include "share/WizQtCompat.h"
 
 #include <QWebSocketServer>
 #include <QWebChannel>
@@ -97,7 +98,7 @@ void PublicAPIsServer::appendToAllowedOriginsFile(const QString &origin)
     QFile oriFile(ALLOWED_ORIGINS_FILENAME);
     if (oriFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
         QTextStream textStream(&oriFile);
-        textStream.setCodec("UTF-8");
+        WizSetUtf8Encoding(textStream);
         textStream << origin + "\n";
         textStream.flush();
         oriFile.close();

@@ -1,7 +1,8 @@
 ﻿#include "WizScreenShotWidget.h"
 #include <QMenu>
 #include <QApplication>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QTimer>
 #include <QScreen>
 
@@ -49,8 +50,8 @@ void WizScreenShotWidget::savePixmap()
 void WizScreenShotWidget::loadBackgroundPixmap(const QPixmap &bgPixmap)
 {
     int width,height;
-    width = QApplication::desktop()->size().width();
-    height = QApplication::desktop()->size().height();
+    width = QGuiApplication::primaryScreen()->virtualGeometry().size().width();
+    height = QGuiApplication::primaryScreen()->virtualGeometry().size().height();
 
     loadBackgroundPixmap(bgPixmap, 0, 0, width, height);
 }

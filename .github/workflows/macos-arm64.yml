@@ -1,0 +1,35 @@
+name: macOS Apple Silicon compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: [compat/macos-arm64-qt6]
+  pull_request:
+    paths: ['src/**', 'cmake/**', 'tests/compat/**', 'build/osx/**', 'CMakeLists.txt', '.github/workflows/macos-arm64.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native build dependencies
+        run: |
+          test "$(uname -m)" = arm64
+          brew install cmake ninja cryptopp
+          python -m pip install aqtinstall==3.3.0
+          python -m aqt install-qt mac desktop 6.11.3 clang_64 -O "$RUNNER_TEMP/Qt" -m qtwebengine qtwebchannel qtwebsockets qt5compat qtimageformats qtpositioning qtscxml qtserialport qttasktree
+      - name: Build and synthetic compatibility tests
+        run: bash build/osx/build-arm64.sh "$RUNNER_TEMP/Qt/6.11.3/macos" "$RUNNER_TEMP/wiznote-build" /opt/homebrew
+      - name: Deploy experimental bundle
+        run: |
+          bash build/osx/package-arm64.sh "$RUNNER_TEMP/Qt/6.11.3/macos" "$RUNNER_TEMP/wiznote-build" "$RUNNER_TEMP/wiznote-package"
+          ditto -c -k --keepParent "$RUNNER_TEMP/wiznote-package/WizNotePlus.app" "$RUNNER_TEMP/WizNotePlus-arm64-experimental.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WizNotePlus-arm64-experimental
+          path: ${{ runner.temp }}/WizNotePlus-arm64-experimental.zip

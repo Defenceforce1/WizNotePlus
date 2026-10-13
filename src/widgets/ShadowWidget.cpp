@@ -40,7 +40,11 @@ void ShadowWidget::showEvent(QShowEvent *event)
     QWidget::showEvent(event);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void ShadowWidget::enterEvent(QEnterEvent *event)
+#else
 void ShadowWidget::enterEvent(QEvent *event)
+#endif
 {
     clearTimer();
     QWidget::enterEvent(event);

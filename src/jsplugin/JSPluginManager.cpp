@@ -1,7 +1,8 @@
 #include "JSPluginManager.h"
 
 #include <QApplication>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QToolBar>
 #include <QToolButton>
 #include <QAction>
@@ -189,7 +190,7 @@ void JSPluginManager::showPluginHtmlDialog(JSPluginModule *moduleData)
             Qt::LeftToRight,
             Qt::AlignCenter,
             dialog->dialogSize(),
-            qApp->desktop()->availableGeometry()
+            QGuiApplication::primaryScreen()->availableGeometry()
         )
     );
     dialog->show();

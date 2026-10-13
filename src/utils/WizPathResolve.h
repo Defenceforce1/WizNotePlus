@@ -1,8 +1,8 @@
 ﻿#ifndef UTILS_PATHRESOLVE_H
 #define UTILS_PATHRESOLVE_H
 
-class QString;
-class QStringList;
+#include <QString>
+#include <QStringList>
 
 namespace Utils {
 

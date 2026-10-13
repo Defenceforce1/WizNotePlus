@@ -1,0 +1,28 @@
+diff --git a/src/core/framelesshelper.cpp b/src/core/framelesshelper.cpp
+index a9737ce..560b2e8 100644
+--- a/src/core/framelesshelper.cpp
++++ b/src/core/framelesshelper.cpp
+@@ -542,7 +542,11 @@ bool FramelessHelper::eventFilter(QObject *object, QEvent *event)
+             if (m_clickedFrameSection == Qt::TitleBarArea
+                     && isInTitlebarArea(ev->pos())) {
+                 // Start system move
++#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
++                startMove(ev->globalPosition().toPoint());
++#else
+                 startMove(ev->globalPos());
++#endif
+                 ev->accept();
+                 filterOut = true;
+             } else if (isClickResizeHandler()) {
+@@ -552,7 +556,11 @@ bool FramelessHelper::eventFilter(QObject *object, QEvent *event)
+                 // set to Qt::NoSection , so we use m_clickedFrameSection instead. This
+                 // case also takes into account that the mouse moves outside the window
+                 // boundary.
++#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
++                startResize(ev->globalPosition().toPoint(), m_clickedFrameSection);
++#else
+                 startResize(ev->globalPos(), m_clickedFrameSection);
++#endif
+                 ev->accept();
+                 filterOut = true;
+             }

@@ -187,7 +187,7 @@ int WizToolsChinese2PinYinEx(const wchar_t* lpszText, UINT flags, const char* lp
 			}
 			else
 			{
-				arr.push_back(CString(ch));
+				arr.push_back(CString(QChar(static_cast<ushort>(ch))));
 			}
 			//
 			p++;

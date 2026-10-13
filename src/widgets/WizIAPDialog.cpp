@@ -268,13 +268,13 @@ void WizIAPDialog::parseCheckResult(const QString& strResult, const QString& str
 QStringList WizIAPDialog::getUnfinishedTransations()
 {
     QString transation = WizDatabaseManager::instance()->db().meta(APPSTORE_IAP, APPSTORE_UNFINISHEDTRANSATION);
-    return transation.split(';', QString::SkipEmptyParts);
+    return transation.split(';', Qt::SkipEmptyParts);
 }
 
 void WizIAPDialog::saveUnfinishedTransation(const QString& strTransationID)
 {
     QString transation = WizDatabaseManager::instance()->db().meta(APPSTORE_IAP, APPSTORE_UNFINISHEDTRANSATION);
-    QStringList list = transation.split(';', QString::SkipEmptyParts);
+    QStringList list = transation.split(';', Qt::SkipEmptyParts);
     if (!list.contains(strTransationID))
     {
         list.append(strTransationID);
@@ -286,7 +286,7 @@ void WizIAPDialog::saveUnfinishedTransation(const QString& strTransationID)
 void WizIAPDialog::removeTransationFromUnfinishedList(const QString& strTransationID)
 {
     QString transation = WizDatabaseManager::instance()->db().meta(APPSTORE_IAP, APPSTORE_UNFINISHEDTRANSATION);
-    QStringList list = transation.split(';', QString::SkipEmptyParts);
+    QStringList list = transation.split(';', Qt::SkipEmptyParts);
     if (!list.contains(strTransationID))
     {
         return;
@@ -306,7 +306,7 @@ void WizIAPDialog::on_btn_month_clicked()
 
     hideInfoLabel();
     m_waitingMsgBox->setModal(true);
-    m_waitingMsgBox->setStandardButtons(0);
+    m_waitingMsgBox->setStandardButtons(QMessageBox::NoButton);
     m_waitingMsgBox->setText(tr("Waiting for AppStore..."));
     m_waitingMsgBox->open();
 
@@ -318,7 +318,7 @@ void WizIAPDialog::on_btn_year_clicked()
 {
     hideInfoLabel();
     m_waitingMsgBox->setModal(true);
-    m_waitingMsgBox->setStandardButtons(0);
+    m_waitingMsgBox->setStandardButtons(QMessageBox::NoButton);
     m_waitingMsgBox->setText(tr("Waiting for AppStore..."));
     m_waitingMsgBox->open();
 
@@ -358,7 +358,7 @@ void WizIAPDialog::onCheckReceiptRequest(const QByteArray& receipt, const QStrin
 {
     m_waitingMsgBox->close();
     m_waitingMsgBox->setModal(true);
-    m_waitingMsgBox->setStandardButtons(0);
+    m_waitingMsgBox->setStandardButtons(QMessageBox::NoButton);
     m_waitingMsgBox->setText(tr("Waiting for Wiz Server..."));
     m_waitingMsgBox->open();
 

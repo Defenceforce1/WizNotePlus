@@ -1410,7 +1410,7 @@ bool WizUploadMessages(IWizKMSyncEvents* pEvents, WizKMAccountsServer& server, I
         qDebug() << "upload read message : " << strReadIds;
         if (server.setMessageReadStatus(strReadIds, 1))
         {
-            QStringList readIds = strReadIds.split(',', QString::SkipEmptyParts);
+            QStringList readIds = strReadIds.split(',', Qt::SkipEmptyParts);
             CWizMessageDataArray readMsgArray;
             for (it = arrayMessage.begin(); it != arrayMessage.end(); it++)
             {
@@ -1431,7 +1431,7 @@ bool WizUploadMessages(IWizKMSyncEvents* pEvents, WizKMAccountsServer& server, I
         qDebug() << "upload delete message : " << strReadIds;
         if (server.setMessageDeleteStatus(strDeleteIds, 1))
         {
-            QStringList deleteIds = strDeleteIds.split(',', QString::SkipEmptyParts);
+            QStringList deleteIds = strDeleteIds.split(',', Qt::SkipEmptyParts);
             CWizMessageDataArray deleteMsgArray;
             for (it = arrayMessage.begin(); it != arrayMessage.end(); it++)
             {
@@ -1503,7 +1503,7 @@ public:
             if (it.key() != m_currentUserGUID)
             {
                 QFileInfo info(strFileName);
-                if (info.created().daysTo(QDateTime::currentDateTime()) < 7)
+                if (info.birthTime().daysTo(QDateTime::currentDateTime()) < 7)
                 {
                     continue;
                 }

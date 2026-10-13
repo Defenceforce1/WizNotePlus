@@ -17,7 +17,7 @@ int WizDrawTextSingleLine(QPainter* p, const QRect& rc, QString& str, int flags,
     if (elidedText) {
         CString strRet = p->fontMetrics().elidedText(str, Qt::ElideRight, rc.width());
         p->drawText(rc, flags, strRet);
-        return p->fontMetrics().width(strRet);
+        return p->fontMetrics().horizontalAdvance(strRet);
     } else {
         QTextLayout textLayout(str, p->font());
         textLayout.beginLayout();

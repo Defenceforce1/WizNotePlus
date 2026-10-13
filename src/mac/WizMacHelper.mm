@@ -9,6 +9,7 @@
 #include <QStringList>
 #include <QEventLoop>
 #include <QDebug>
+#include <QBuffer>
 #include "html/WizHtmlCollector.h"
 
 #import <WebKit/WebKit.h>
@@ -24,12 +25,6 @@
 #include "share/WizRtfReader.h"
 #include "utils/WizPathResolve.h"
 #include "widgets/WizCrashReportDialog.h"
-
-#if QT_VERSION >= 0x050200
-#include <qmacfunctions.h>
-#endif
-
-
 
 #define WizShareSettingsName    @"KCS8N3QJ92.cn.wiz.extension"
 
@@ -126,29 +121,17 @@ void enableWidgetBehindBlur(QWidget* wgt)
 
 //#ifdef QT_MAC_USE_COCOA
 float qt_mac_get_scalefactor(QWidget *window)
-    {
-    // No high-dpi support on 10.6 and below
-#if (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7)
-    if (QSysInfo::MacintoshVersion >= QSysInfo::MV_10_7) {
-        if (window == 0) {
-            // If there is no window given we answer the question
-            // "Are there any HiDPI screens connected?" by returning
-            // the highest scale factor found.
-            CGFloat highestScaleFactor = 1.0;
-            NSArray *screens = [NSScreen screens];
-            for (id screen in screens) {
-                highestScaleFactor = qMax(highestScaleFactor, [screen backingScaleFactor]);
-            }
-            return highestScaleFactor;
-        } else {
-            //return [qt_mac_window_for(window) backingScaleFactor];
-            return [[NSScreen mainScreen] backingScaleFactor];
-        }
-    } else
-#endif
-    {
-        return 1.0; // return 1.0 when compiled on or running on 10.6 and lower.
+{
+    if (window == nullptr) {
+        CGFloat highestScaleFactor = 1.0;
+        for (NSScreen *screen in [NSScreen screens])
+            highestScaleFactor = qMax(highestScaleFactor, [screen backingScaleFactor]);
+        return highestScaleFactor;
     }
+
+    NSView *view = reinterpret_cast<NSView *>(window->winId());
+    NSScreen *screen = [[view window] screen];
+    return screen ? [screen backingScaleFactor] : [[NSScreen mainScreen] backingScaleFactor];
 }
 //#endif
 
@@ -158,7 +141,7 @@ void setupCocoa()
     NSDictionary* globalDomain = [defaults persistentDomainForName:@"NSGlobalDomain"];
     //NSArray* languages = [globalDomain objectForKey:@"AppleLanguages"];
     NSString* locale = [globalDomain objectForKey:@"AppleLocale"];
-    QLocale::setDefault(WizToQString(locale));
+    QLocale::setDefault(QLocale(WizToQString(locale)));
     //[defaults setObject:languages forKey:@"AppleLanguages"];
     //[defaults setObject:locale forKey:@"AppleLocale"];
     //NSLog(@"%@\n", languages);
@@ -229,14 +212,14 @@ NSImage* WizToNSImage(const QPixmap &pixmap)
         qDebug() << "WizToNSImage failed: pixmap is null";
         return nil;
     }
-#if QT_VERSION >= 0x050200
-    CGImageRef iref = QtMac::toCGImageRef(pixmap);
-#else
-    CGImageRef iref = pixmap.toMacCGImageRef();
-#endif
-    NSSize sz = NSMakeSize(pixmap.width(), pixmap.height());
-    NSImage *image = [[NSImage alloc] initWithCGImage:iref size:sz];
-    return image;
+    QByteArray pngData;
+    QBuffer buffer(&pngData);
+    buffer.open(QIODevice::WriteOnly);
+    if (!pixmap.save(&buffer, "PNG"))
+        return nil;
+
+    NSData *data = [NSData dataWithBytes:pngData.constData() length:pngData.size()];
+    return [[NSImage alloc] initWithData:data];
 }
 
 NSImage* WizToNSImage(const QIcon &icon, const QSize& size)
@@ -292,9 +275,6 @@ WizChangeCocoaImplementation::~WizChangeCocoaImplementation()
 
 void WizChangeCocoaImplementation::change(Class baseClass, SEL originalSel, Class proxyClass, SEL replacementSel, SEL backupSel)
 {
-#ifndef QT_MAC_USE_COCOA
-    if (QSysInfo::MacintoshVersion >= QSysInfo::MV_10_5)
-#endif
     {
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5
         // The following code replaces the _implementation_ for the selector we want to hack
@@ -323,9 +303,6 @@ void WizChangeCocoaImplementation::change(Class baseClass, SEL originalSel, Clas
 
 void WizChangeCocoaImplementation::changeBack(Class baseClass, SEL originalSel, SEL backupSel)
 {
-#ifndef QT_MAC_USE_COCOA
-    if (QSysInfo::MacintoshVersion >= QSysInfo::MV_10_5)
-#endif
     {
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5
         Method originalMethod = class_getInstanceMethod(baseClass, originalSel);
@@ -867,15 +844,7 @@ void adjustSubViews(QWidget* wgt)
 
 int getSystemMinorVersion()
 {
-    SInt32 minor;
-//    SInt32 major, minor, bugfix;
-//    Gestalt(gestaltSystemVersionMajor, &major);
-    Gestalt(gestaltSystemVersionMinor, &minor);
-//    Gestalt(gestaltSystemVersionBugFix, &bugfix);
-//    NSOperatingSystemVersion systemVersion = [[NSProcessInfo processInfo] operatingSystemVersion];
-//    return systemVersion.minorVersion;
-
-    return minor;
+    return (int)[[NSProcessInfo processInfo] operatingSystemVersion].minorVersion;
 }
 
 
@@ -888,18 +857,13 @@ bool systemWidgetBlurAvailable()
 
 int getSystemMajorVersion()
 {
-    SInt32 major;
-    Gestalt(gestaltSystemVersionMajor, &major);
-
-    return major;
+    return (int)[[NSProcessInfo processInfo] operatingSystemVersion].majorVersion;
 }
 
 
 int getSystemPatchVersion()
 {
-    SInt32 bugfix;
-    Gestalt(gestaltSystemVersionBugFix, &bugfix);
-    return bugfix;
+    return (int)[[NSProcessInfo processInfo] operatingSystemVersion].patchVersion;
 }
 
 void updateShareExtensionAccount(const QString& userId, const QString& userGUID, const QString& myWiz, const QString& displayName)

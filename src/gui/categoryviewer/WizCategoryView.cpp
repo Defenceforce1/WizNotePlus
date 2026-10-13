@@ -729,7 +729,7 @@ void WizCategoryBaseView::dropEvent(QDropEvent * event)
     event->accept();
 }
 
-void WizCategoryBaseView::enterEvent(QEvent* event)
+void WizCategoryBaseView::enterEvent(WizEnterEvent* event)
 {
     m_cursorEntered = true;
     QTreeWidget::enterEvent(event);
@@ -1787,7 +1787,7 @@ void setItemVisible(const QString& strXML, CategorySection section, QTreeWidget*
     {
         sectionVisible = true;
     }
-    treeWidget->setItemHidden(item, !sectionVisible);
+    item->setHidden(!sectionVisible);
 }
 
 void hideSectionItem(QTreeWidget* treewidget)
@@ -4834,10 +4834,10 @@ void WizCategoryView::initShortcut(const QString& shortcut)
     }
 
     //
-    QStringList shortcutList = shortcut.split("*", QString::SkipEmptyParts);
+    QStringList shortcutList = shortcut.split("*", Qt::SkipEmptyParts);
     for (QString param : shortcutList)
     {
-        QStringList paramList = param.split(" ", QString::SkipEmptyParts);
+        QStringList paramList = param.split(" ", Qt::SkipEmptyParts);
         if (paramList.count() < 2)
         {
             qDebug() << "Invalid shortcut data : " << paramList;

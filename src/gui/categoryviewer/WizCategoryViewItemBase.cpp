@@ -276,7 +276,7 @@ void WizCategoryViewItemBase::drawExtraBadge(QPainter* p, const QStyleOptionView
     if (!strCount.isEmpty()) {
         QFont fontOld = p->font();
         p->setFont(fontCount);
-        nCountWidthMax = p->fontMetrics().width(strCount) + nMargin;
+        nCountWidthMax = p->fontMetrics().horizontalAdvance(strCount) + nMargin;
         textRect.adjust(0, 0, -nCountWidthMax, 0);
         p->setFont(fontOld);
     }

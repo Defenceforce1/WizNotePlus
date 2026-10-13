@@ -53,7 +53,7 @@ bool WizDocumentListViewDocumentItem::isAvatarNeedUpdate(const QString& strFileN
 
     QFileInfo info(strFileName);
 
-    QDateTime tCreated = info.created();
+    QDateTime tCreated = info.birthTime();
     QDateTime tNow = QDateTime::currentDateTime();
     if (tCreated.daysTo(tNow) >= 1) { // download avatar before yesterday
         return true;
@@ -533,7 +533,7 @@ QString WizDocumentListViewDocumentItem::cacheKey() const
         stat = "Normal";
     }
 
-    return "ListItem::" + m_data.doc.strGUID + "::" + view->viewType() + "::" + stat;
+    return "ListItem::" + m_data.doc.strGUID + "::" + QString::number(view->viewType()) + "::" + stat;
 }
 
 const int nTextTopMargin = 6;

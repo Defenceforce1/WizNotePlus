@@ -4,7 +4,9 @@
 
 #import <Foundation/Foundation.h>
 #import <StoreKit/StoreKit.h>
+#ifdef BUILD4APPSTORE
 #import "rmstore/RMStoreAppReceiptVerificator.h"
+#endif
 
 #define kProductsLoadedNotification         @"ProductsLoaded"
 #define kProductPurchasedNotification       @"ProductPurchased"

@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QMap>
 #include <QMutex>
+#include "share/WizQtCompat.h"
 #include <deque>
 
 class QString;
@@ -54,7 +55,7 @@ public:
     void closeAll();
 
 private:
-    QMutex m_mutex;
+    WizRecursiveMutex m_mutex;
     QString m_strAccountFolderName;
     QPointer<WizDatabase> m_dbPrivate;
     QMap<QString, WizDatabase*> m_mapGroups;

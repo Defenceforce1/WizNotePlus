@@ -39,7 +39,7 @@ private:
     QString m_strUserId;
     QString m_strPasswd;
     bool m_bProcessing;
-    QMutex* m_mutex;
+    WizRecursiveMutex* m_mutex;
     int m_lastErrorCode;
     QString m_lastErrorMessage;
     bool m_bLastIsNetworkError;

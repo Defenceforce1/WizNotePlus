@@ -45,7 +45,7 @@ Q_SIGNALS:
     void notifyRequested(const QString &title, const QString &msg);
 
 private:
-    QMutex m_mutex;
+    WizRecursiveMutex m_mutex;
     QBuffer* m_buffer;
 
     void getAll(QString& text);

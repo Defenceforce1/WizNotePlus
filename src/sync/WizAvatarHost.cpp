@@ -138,7 +138,7 @@ WizAvatarHostPrivate::WizAvatarHostPrivate(WizAvatarHost* avatarHost)
 bool WizAvatarHostPrivate::isLoaded(const QString& strUserID)
 {
     QPixmap pm;
-    bool ret = QPixmapCache::find(keyFromUserID(strUserID), pm);
+    bool ret = QPixmapCache::find(keyFromUserID(strUserID), &pm);
     qDebug() << "[AvatarHost]search: " << keyFromUserID(strUserID) << "result:" << ret;
     return ret;
 }
@@ -322,7 +322,7 @@ void WizAvatarHostPrivate::load(const QString& strUserID, bool isSystem)
 {
     //
     QPixmap pm;
-    if (!QPixmapCache::find(keyFromUserID(strUserID), pm))
+    if (!QPixmapCache::find(keyFromUserID(strUserID), &pm))
     {
         if (loadCache(strUserID))
         {

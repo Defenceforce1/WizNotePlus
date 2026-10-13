@@ -184,7 +184,7 @@ void WizEmailShareDialog::processReturnMessage(const QString& returnMessage, int
 void WizEmailShareDialog::saveContacts()
 {
     QString strText = ui->lineEdit_to->text();
-    QStringList toList = strText.split(QRegExp(",|;"));
+    QStringList toList = strText.split(QRegularExpression(",|;"));
     QString strContact = m_app.userSettings().get(EMAIL_CONTACTS);
     foreach (QString str, toList)
     {

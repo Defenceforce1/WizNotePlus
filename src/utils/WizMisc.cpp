@@ -9,6 +9,7 @@
 #include <QClipboard>
 #include <QMimeData>
 #include <QTextCodec>
+#include <QRegExp>
 
 #include "WizDef.h"
 #include "WizPinyin.h"

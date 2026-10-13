@@ -10,7 +10,9 @@
 WizSettings::WizSettings(const QString& strFileName)
     : QSettings(strFileName, QSettings::IniFormat)
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     setIniCodec("utf-8");
+#endif
 }
 
 QString WizSettings::getString(const QString& strSection, const QString& strKey, const QString& strDef /*= ""*/)
@@ -887,7 +889,7 @@ void WizUserSettings::appendRecentSearch(const QString& search)
 
 QStringList WizUserSettings::getRecentSearches(bool reverseOrder)
 {
-    QStringList recentSearches = get("RecentSearches").split('/', QString::SkipEmptyParts);
+    QStringList recentSearches = get("RecentSearches").split('/', Qt::SkipEmptyParts);
 
     if (reverseOrder)
     {

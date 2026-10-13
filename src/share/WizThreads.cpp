@@ -1,5 +1,6 @@
 ﻿#include "WizThreads.h"
 #include "WizThreads_p.h"
+#include "WizQtCompat.h"
 
 #include <QThread>
 #include <QMutex>
@@ -26,7 +27,7 @@ protected:
     std::deque<CWizTaskWorkThread*> m_threads;
     std::deque<IWizRunable*> m_tasks;
 
-    QMutex m_cs;
+    WizRecursiveMutex m_cs;
     QMutex m_csEvent;
     QWaitCondition m_event;
     bool m_bShuttingDown;
@@ -114,8 +115,8 @@ public:
 };
 
 CWizThreadPool::CWizThreadPool(int poolCount, WizCreateThreadFunction* createThreadFun, QThread::Priority priority)
-    : m_cs(QMutex::Recursive)
-    , m_csEvent(QMutex::NonRecursive)
+    : m_cs()
+    , m_csEvent()
     , m_bShuttingDown(false)
     , m_pEvents(NULL)
 {

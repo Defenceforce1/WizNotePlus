@@ -11,8 +11,6 @@ set(wiznote_SOURCES_MAC
     widgets/WizUserInfoWidgetBase.cpp
     utils/WizNotify.mm
     mac/WizIAPHelper.mm
-    mac/rmstore/RMAppReceipt.mm
-    mac/rmstore/RMStoreAppReceiptVerificator.mm
     mac/WizNotificationCenter.mm
     widgets/WizIAPDialog.cpp
     mac/DTWebArchive.m
@@ -24,12 +22,21 @@ set(wiznote_HEADERS_MAC
     mac/WizUserInfoWidgetBaseMac_mm.h
     widgets/WizUserInfoWidgetBase.h
     mac/WizIAPHelper.h
-    mac/rmstore/RMAppReceipt.h
-    mac/rmstore/RMStoreAppReceiptVerificator.h
     mac/WizNotificationCenter.h
     widgets/WizIAPDialog.h
     mac/DTWebArchive.h
 )
+
+if(APPSTORE_BUILD)
+    list(APPEND wiznote_SOURCES_MAC
+        mac/rmstore/RMAppReceipt.mm
+        mac/rmstore/RMStoreAppReceiptVerificator.mm
+    )
+    list(APPEND wiznote_HEADERS_MAC
+        mac/rmstore/RMAppReceipt.h
+        mac/rmstore/RMStoreAppReceiptVerificator.h
+    )
+endif()
 
 
 set(wiznote_FORMS_MAC
@@ -557,15 +564,10 @@ if(UNIX)
         # this should be issue of cmake, refer: http://public.kitware.com/Bug/bug_revision_view_page.php?rev_id=958
         set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-F /System/Library/Frameworks")
 
-        # qmake will do this automatically
-        set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-mmacosx-version-min=10.7")
-
         # suppress cmake warnning when link library is not a target, refer to cmp0016 for detailed info.
         #cmake_policy(SET CMP0016 OLD)
         find_library(_CARBON_LIBRARY Carbon)
         find_library(_COCOA_LIBRARY Cocoa)
-        find_library(_WEBENGINE_LIBRARY WebEngine)
-        find_library(_WEBENGINEWIDGETS_LIBRARY WebEngineWidgets)
         find_library(_STORE_LIBRARY StoreKit)
         find_library(_IO_LIBRARY IOKit)
         if (PLCrashReporter)

@@ -14,6 +14,7 @@
 #include <QString>
 #include <QDateTime>
 #include <QSharedPointer>
+#include "WizQtCompat.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -129,7 +130,14 @@ public:
     WizOleDateTime(const QDateTime& other) { *this = other; }
     WizOleDateTime(int year, int month, int day, int hour, int minute, int second) : QDateTime(QDate(year, month, day), QTime(hour, minute, second))  {}
     //
-    WizOleDateTime(time_t t) { this->setTime_t(t);}
+    WizOleDateTime(time_t t)
+    {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        this->setSecsSinceEpoch(static_cast<qint64>(t));
+#else
+        this->setTime_t(t);
+#endif
+    }
     //
     int getYear() const { return date().year(); }
     int getMonth() const { return date().month(); }

@@ -274,8 +274,8 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
     m_docSaver = new WizDocumentSaverThread(dbMgr, this);
     m_docLoader = new WizDocumentLoaderThread(dbMgr, this);
 
-    insertScrollbarStyleSheet(QWebEngineProfile::defaultProfile());
-    connect(QWebEngineProfile::defaultProfile(), &QWebEngineProfile::downloadRequested,
+    insertScrollbarStyleSheet(WizWebEngineProfile());
+    connect(WizWebEngineProfile(), &QWebEngineProfile::downloadRequested,
             &DownloadManagerWidget::instance(), &DownloadManagerWidget::downloadRequested);
 
     auto &jsmgr = JSPluginManager::instance();
@@ -1525,7 +1525,7 @@ void WizMainWindow::resetWindowListMenu(QMenu* menu, bool removeExists)
         newActions.append(action);
     }
 
-    qSort(newActions.begin(), newActions.end(), caseInsensitiveLessThan);
+    std::sort(newActions.begin(), newActions.end(), caseInsensitiveLessThan);
     for (QAction* action : newActions)
     {
         connect(action, SIGNAL(triggered()), SLOT(on_dockMenuAction_triggered()));

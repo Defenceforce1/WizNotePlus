@@ -1672,7 +1672,7 @@ QString WizOEMDownloader::_downloadOEMSettings()
     WizCommonApiEntry::setEnterpriseServerIP(m_server);
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("oem");
     QNetworkRequest req(strUrl);
-    req.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     QNetworkReply* reply = net.get(req);
     qDebug() << "get oem from server : " << strUrl;
 
@@ -1868,7 +1868,11 @@ void WizActionWidget::mouseReleaseEvent(QMouseEvent* event)
     QWidget::mouseReleaseEvent(event);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void WizActionWidget::enterEvent(QEnterEvent* event)
+#else
 void WizActionWidget::enterEvent(QEvent* event)
+#endif
 {
     m_deleteButton->setVisible(true);
     QWidget::enterEvent(event);
@@ -1883,7 +1887,7 @@ void WizActionWidget::leaveEvent(QEvent* event)
 void WizActionWidget::paintEvent(QPaintEvent * event)
 {
     QStyleOption opt;
-    opt.init(this);
+    opt.initFrom(this);
     QPainter p(this);
 
     QRect rcText = opt.rect;

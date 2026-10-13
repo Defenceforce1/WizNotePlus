@@ -18,6 +18,10 @@ class WizWebEngineView;
 class WizDevToolsDialog;
 class WebPageZoomWidget;
 
+// Qt 6's default profile is off-the-record. Keep Qt 5's named, persistent
+// profile so browser cookies/cache are not silently discarded on migration.
+QWebEngineProfile* WizWebEngineProfile();
+
 typedef QHash<QString, QObject *> WizWebEngineInjectObjectCollection;
 
 class WizWebEngineAsyncMethodResultObject: public QObject
@@ -45,16 +49,19 @@ class WizWebEnginePage: public QWebEnginePage
 
 public:
     // Do not use {{}} to initialize InjectObjectCollection.
-    explicit WizWebEnginePage(QObject* parent = nullptr): WizWebEnginePage({}, QWebEngineProfile::defaultProfile(), parent) { }
+    explicit WizWebEnginePage(QObject* parent = nullptr): WizWebEnginePage({}, WizWebEngineProfile(), parent) { }
     WizWebEnginePage(QWebEngineProfile *profile, 
         QObject* parent = nullptr): WizWebEnginePage({}, profile, parent) { }
     WizWebEnginePage(const WizWebEngineInjectObjectCollection& objects, 
-        QObject* parent = nullptr): WizWebEnginePage(objects, QWebEngineProfile::defaultProfile(), parent) { }
+        QObject* parent = nullptr): WizWebEnginePage(objects, WizWebEngineProfile(), parent) { }
     WizWebEnginePage(const WizWebEngineInjectObjectCollection& objects, 
         QWebEngineProfile *profile, QObject* parent = nullptr);
 
     void stopCurrentNavigation() { m_continueNavigate = false; }
     static void processCopiedData();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QWidget* view() const { return QWebEngineView::forPage(this); }
+#endif
 
 protected:
     virtual void javaScriptConsoleMessage(JavaScriptConsoleMessageLevel level, const QString& message, int lineNumber, const QString& sourceID);

@@ -52,7 +52,7 @@ void WizUserInfoWidgetBase::paintEvent(QPaintEvent *event)
     // draw display name
     QRect rectText = rectIcon;
     rectText.setLeft(rectText.right() + nMargin);
-    rectText.setRight(rectText.left() + fontMetrics().width(opt.text));
+    rectText.setRight(rectText.left() + fontMetrics().horizontalAdvance(opt.text));
 //    rectText.setBottom(rectText.top() + rectText.height()/2);
     if (!opt.text.isEmpty()) {
         if (opt.state & QStyle::State_MouseOver) {

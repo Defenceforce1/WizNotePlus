@@ -1032,7 +1032,7 @@ bool WizKMDatabaseServer::document_downloadDataNew(const QString& strDocumentGUI
             data.name = QString::fromUtf8(resObj["name"].asString().c_str());
             data.url = QString::fromUtf8(resObj["url"].asString().c_str());
             data.size = atoi((resObj["size"].asString().c_str()));
-            data.time = QDateTime::fromTime_t(resObj["time"].asInt64() / 1000);
+            data.time = QDateTime::fromSecsSinceEpoch(resObj["time"].asInt64() / 1000);
             serverResources.push_back(data);
         }
     }
@@ -1407,7 +1407,7 @@ bool WizKMDatabaseServer::attachment_postDataNew(WIZDOCUMENTATTACHMENTDATAEX& da
     att["docGuid"] = data.strDocumentGUID.toStdString();
     att["attGuid"] = data.strGUID.toStdString();
     att["dataMd5"] = data.strDataMD5.toStdString();
-    att["dataModified"] = (Json::UInt64)data.tDataModified.toTime_t() * (Json::UInt64)1000;
+    att["dataModified"] = (Json::UInt64)data.tDataModified.toSecsSinceEpoch() * (Json::UInt64)1000;
     att["name"] = data.strName.toStdString();
     att["url"] = data.strURL.toStdString();
     att["withData"] = withData;
@@ -1489,7 +1489,7 @@ bool WizKMDatabaseServer::document_postDataNew(const WIZDOCUMENTDATAEX& dataTemp
     doc["docGuid"] = data.strGUID.toStdString();
     doc["title"] = data.strTitle.toStdString();
     doc["dataMd5"] = data.strDataMD5.toStdString();
-    doc["dataModified"] = (Json::UInt64)data.tDataModified.toTime_t() * (Json::UInt64)1000;
+    doc["dataModified"] = (Json::UInt64)data.tDataModified.toSecsSinceEpoch() * (Json::UInt64)1000;
     doc["category"] = data.strLocation.toStdString();
     doc["owner"] = data.strOwner.toStdString();
     doc["protected"] = (int)data.nProtected;
@@ -1497,8 +1497,8 @@ bool WizKMDatabaseServer::document_postDataNew(const WIZDOCUMENTDATAEX& dataTemp
     doc["attachmentCount"] = (int)data.nAttachmentCount;
     doc["type"] = data.strType.toStdString();
     doc["fileType"] = data.strFileType.toStdString();
-    doc["created"] = (Json::UInt64)data.tCreated.toTime_t() * (Json::UInt64)1000;
-    doc["accessed"] = (Json::UInt64)data.tAccessed.toTime_t() * (Json::UInt64)1000;
+    doc["created"] = (Json::UInt64)data.tCreated.toSecsSinceEpoch() * (Json::UInt64)1000;
+    doc["accessed"] = (Json::UInt64)data.tAccessed.toSecsSinceEpoch() * (Json::UInt64)1000;
     doc["url"] = data.strURL.toStdString();
     doc["styleGuid"] = data.strStyleGUID.toStdString();
     doc["seo"] = data.strSEO.toStdString();
@@ -1537,7 +1537,7 @@ bool WizKMDatabaseServer::document_postDataNew(const WIZDOCUMENTDATAEX& dataTemp
         {
             Json::Value elemObj;
             elemObj["name"] = data.name.toStdString();
-            elemObj["time"] = (Json::UInt64)data.time.toTime_t() * (Json::UInt64)1000;
+            elemObj["time"] = (Json::UInt64)data.time.toSecsSinceEpoch() * (Json::UInt64)1000;
             elemObj["size"] = (Json::UInt64)data.size;
             res.append(elemObj);
         }

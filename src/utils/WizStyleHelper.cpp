@@ -330,7 +330,7 @@ void WizStyleHelper::drawTreeViewBadge(QPainter* p, const QRect& rc, const QStri
     QFont f;
     f.setPixelSize(11);
     QRect rcd(rc.adjusted(2, 2, -5, -2));
-    int nWidth = QFontMetrics(f).width(str);
+    int nWidth = QFontMetrics(f).horizontalAdvance(str);
     int nHeight = QFontMetrics(f).height();
     if (nWidth > rcd.width() || nHeight > rcd.height()) {
         qDebug() << "[WARNING] not enough space for drawing badge string";
@@ -761,10 +761,10 @@ QRect WizStyleHelper::drawText(QPainter* p, const QRect& rc, QString& str, int n
         QString lineText;
         if (nLines == 1 && bElided) { // the last line
             lineText = p->fontMetrics().elidedText(str, elidedMode, rcRet.width());
-            nWidth = qMax<int>(p->fontMetrics().width(lineText), nWidth);
+            nWidth = qMax<int>(p->fontMetrics().horizontalAdvance(lineText), nWidth);
         } else {
             lineText = str.left(line.textLength());
-            nWidth = qMax<int>(p->fontMetrics().width(lineText), nWidth);
+            nWidth = qMax<int>(p->fontMetrics().horizontalAdvance(lineText), nWidth);
         }
 
         str.remove(0, line.textLength());

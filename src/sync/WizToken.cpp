@@ -14,7 +14,7 @@
 WizTokenPrivate::WizTokenPrivate(WizToken* token)
     : m_bProcessing(false)
     , m_bLastIsNetworkError(false)
-    , m_mutex(new QMutex(QMutex::Recursive))
+    , m_mutex(new WizRecursiveMutex())
     , q(token)
 
 {

@@ -6,7 +6,8 @@
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
 #include <QWebEngineProfile>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QStyle>
 #include <QMenu>
 #include <QKeyEvent>
@@ -14,6 +15,7 @@
 #include <QDesktopServices>
 #include <QClipboard>
 #include <QFileDialog>
+#include <QDir>
 #include <QTimer>
 #include <QMessageBox>
 #include <QMargins>
@@ -36,6 +38,26 @@
 #include "share/WizMisc.h"
 #include "widgets/DownloadManagerWidget.h"
 
+
+QWebEngineProfile* WizWebEngineProfile()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    static QPointer<QWebEngineProfile> profile;
+    if (!profile) {
+        profile = new QWebEngineProfile(QStringLiteral("Default"), qApp);
+        // Isolated-data launches must isolate browser state too, not only DBs.
+        const QString isolatedRoot = qEnvironmentVariable("WIZNOTE_DATA_STORE");
+        if (!isolatedRoot.isEmpty()) {
+            const QDir root(isolatedRoot);
+            profile->setPersistentStoragePath(root.filePath("webengine/Default"));
+            profile->setCachePath(root.filePath("webengine/cache"));
+        }
+    }
+    return profile;
+#else
+    return QWebEngineProfile::defaultProfile();
+#endif
+}
 
 WizWebEngineAsyncMethodResultObject::WizWebEngineAsyncMethodResultObject(QObject* parent)
     : QObject(parent)
@@ -326,13 +348,13 @@ QString toArgument(const QVariant& v)
     case QVariant::Double: {
         double f = v.toDouble();
         QString str;
-        str.sprintf("%f", f);
+        str = QString::asprintf("%f", f);
         return str;
     }
     case QVariant::Date:
     case QVariant::Time:
     case QVariant::DateTime:
-        return QString("new Date(%1)").arg(v.toDateTime().toTime_t() * 1000);
+        return QString("new Date(%1)").arg(v.toDateTime().toSecsSinceEpoch() * 1000);
     case QVariant::String: {
             QString s = v.toString();
             s.replace("\\", "\\\\");
@@ -582,7 +604,11 @@ void WizWebEngineView::setupWebActions()
  */
 QMenu* WizWebEngineView::createStandardContextMenu()
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QMenu *menu = QWebEngineView::createStandardContextMenu();
+#else
     QMenu *menu = page()->createStandardContextMenu();
+#endif
     const QList<QAction *> actions = menu->actions();
 
     // remove ViewSource
@@ -751,7 +777,7 @@ bool WizWebEngineView::eventFilter(QObject *obj, QEvent *ev)
     if (ev->type() == QEvent::Wheel) {
         QWheelEvent *whellEvent = static_cast<QWheelEvent *>(ev);
         if (whellEvent->modifiers() == Qt::ControlModifier) {
-            if (whellEvent->delta() > 0) {
+            if (whellEvent->angleDelta().y() > 0) {
                 scaleUp();
                 return true;
             } else {
@@ -789,7 +815,7 @@ QWebEngineView *WizNavigationForwarderView::forward(QWebEnginePage::WebWindowTyp
 }
 
 WizNavigationForwarderPage::WizNavigationForwarderPage(QWebEngineView *ownerView, QObject *parent)
-    : QWebEnginePage(parent)
+    : QWebEnginePage(WizWebEngineProfile(), parent)
     , m_ownerView(ownerView)
 {
 

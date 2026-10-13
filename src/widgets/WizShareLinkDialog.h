@@ -2,7 +2,6 @@
 #define CWIZSHARELINKDIALOG_H
 
 #include <QDialog>
-#include <QtWebEngine>
 #include <QPropertyAnimation>
 #include "share/WizObject.h"
 #include <QWebEngineView>
@@ -17,7 +16,7 @@ class WizShareLinkDialog : public WizWebEngineViewContainerDialog
 {
     Q_OBJECT
 public:
-    WizShareLinkDialog(WizUserSettings& settings, QWidget *parent = 0, Qt::WindowFlags f = 0);
+    WizShareLinkDialog(WizUserSettings& settings, QWidget *parent = nullptr, Qt::WindowFlags f = {});
     ~WizShareLinkDialog();
 
     virtual QSize sizeHint() const;

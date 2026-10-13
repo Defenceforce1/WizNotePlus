@@ -32,7 +32,7 @@
 WizSearcher::WizSearcher(WizDatabaseManager& dbMgr, QObject *parent)
     : QThread(parent)
     , m_dbMgr(dbMgr)
-    , m_mutexWait(QMutex::NonRecursive)
+    , m_mutexWait()
     , m_stop(false)
 {
     qRegisterMetaType<CWizDocumentDataArray>("CWizDocumentDataArray");
@@ -332,7 +332,8 @@ void WizSearcher::searchByKeywordAndWhere(const QString& strKeywords,
         arrayDocument.clear();
     }
 
-    QSet<QString> keywordSet = m_mapDocumentSearched.keys().toSet();
+    const QStringList keywordList = m_mapDocumentSearched.keys();
+    QSet<QString> keywordSet(keywordList.begin(), keywordList.end());
 
     keywordSet.intersect(whereSet);
 

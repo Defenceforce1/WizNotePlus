@@ -4,7 +4,8 @@
 
 #include <QStyle>
 #include <QApplication>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QVBoxLayout>
 #include <QWebEngineView>
 
@@ -34,7 +35,7 @@ WebEngineWindow::WebEngineWindow(QWidget *parent)
             Qt::LeftToRight,
             Qt::AlignCenter,
             QSize(800, 500),
-            qApp->desktop()->availableGeometry()
+            QGuiApplication::primaryScreen()->availableGeometry()
         )
     );
 }

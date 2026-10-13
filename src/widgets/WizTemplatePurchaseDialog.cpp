@@ -263,7 +263,7 @@ void WizTemplatePurchaseDialog::parseCheckResult(const QString& strResult, const
 QStringList WizTemplatePurchaseDialog::getUnfinishedTransations()
 {
     QString transation = WizDatabaseManager::instance()->db().meta(APPSTORE_IAP, APPSTORE_UNFINISHED_TEMPLATE_TRANSATION);
-    return transation.split(';', QString::SkipEmptyParts);
+    return transation.split(';', Qt::SkipEmptyParts);
 }
 
 void WizTemplatePurchaseDialog::processUnfinishedTransation()
@@ -290,7 +290,7 @@ void WizTemplatePurchaseDialog::processUnfinishedTransation()
     changeToStatusPage();
     showStatusMeesage(tr("Waiting for Wiz server..."));
 
-    QStringList transationData = idList.first().split(',', QString::SkipEmptyParts);
+    QStringList transationData = idList.first().split(',', Qt::SkipEmptyParts);
     checkRecipt(receipt, transationData.first(), transationData.last().toInt());
 }
 
@@ -298,7 +298,7 @@ void WizTemplatePurchaseDialog::saveUnfinishedTransation(const QString& strTrans
 {
     QString transationData = strTransationID + "," + QString::number(templateId);
     QString transation = WizDatabaseManager::instance()->db().meta(APPSTORE_IAP, APPSTORE_UNFINISHED_TEMPLATE_TRANSATION);
-    QStringList list = transation.split(';', QString::SkipEmptyParts);
+    QStringList list = transation.split(';', Qt::SkipEmptyParts);
     if (!list.contains(transationData))
     {
         list.append(transationData);
@@ -310,10 +310,10 @@ void WizTemplatePurchaseDialog::saveUnfinishedTransation(const QString& strTrans
 void WizTemplatePurchaseDialog::removeTransationFromUnfinishedList(const QString& strTransationID)
 {
     QString transation = WizDatabaseManager::instance()->db().meta(APPSTORE_IAP, APPSTORE_UNFINISHED_TEMPLATE_TRANSATION);
-    QStringList list = transation.split(';', QString::SkipEmptyParts);
+    QStringList list = transation.split(';', Qt::SkipEmptyParts);
     for (QString str : list)
     {
-        QStringList transationData = str.split(',', QString::SkipEmptyParts);
+        QStringList transationData = str.split(',', Qt::SkipEmptyParts);
         if (transationData.size() != 2 || transationData.first() != strTransationID)
             continue;
 
