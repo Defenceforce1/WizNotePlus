@@ -93,6 +93,7 @@
 #include "widgets/WizCustomToolBar.h"
 #include "widgets/WizTipsWidget.h"
 #include "widgets/WizExecutingActionDialog.h"
+#include "widgets/WizAdvancedSearchDialog.h"
 #include "widgets/WizUserServiceExprDialog.h"
 #include "widgets/FileExportWizard.h"
 
@@ -1951,6 +1952,11 @@ void WizMainWindow::initToolBar()
     m_searchWidget->setFixedWidth(200);
     m_toolBar->addWidget(m_searchWidget);
 
+    connect(m_searchWidget, &WizSearchView::advancedSearchRequest,
+            this, &WizMainWindow::on_search_advancedSearch);
+    connect(m_searchWidget, SIGNAL(addCustomSearchRequest()),
+            m_category, SLOT(on_action_addCustomSearch()));
+
     m_toolBar->addWidget(new WizFixedSpacer(QSize(10, 1), m_toolBar));
 
     /*
@@ -3488,6 +3494,17 @@ void WizMainWindow::on_actionPrintMargin_triggered()
 //    m_documents->addDocument(doc, true);
 //    on_documents_itemSelectionChanged();
 //}
+
+void WizMainWindow::on_search_advancedSearch()
+{
+    WizAdvancedSearchDialog dialog(true, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    QString where, keyword, name;
+    int scope = Scope_PersonalNotes;
+    if (WizAdvancedSearchDialog::paramToSQL(dialog.getParams(), where, keyword, name, scope))
+        searchNotesBySQLAndKeyword(where, keyword, scope);
+}
 
 void WizMainWindow::on_search_doSearch(const QString& keywords)
 {

@@ -406,6 +406,7 @@ public Q_SLOTS:
     //void on_document_contentChanged();  
 
     void on_search_doSearch(const QString& keywords);
+    void on_search_advancedSearch();
     void on_options_settingsChanged(WizOptionsType type);
 
     void on_syncLogined();

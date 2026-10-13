@@ -21,10 +21,15 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     setContentsMargins(1, 0, 1, 1);
 
     m_editSearch = new WizSearchEdit(this);
+    m_editSearch->setObjectName("wiz-note-search-field");
+    m_editSearch->setPlaceholderText(QStringLiteral("搜索笔记内容…"));
+    m_editSearch->setToolTip(QStringLiteral("搜索标题和正文；点击左侧放大镜，在菜单中选择“高级搜索”可按标签筛选。"));
     m_editSearch->setTextMargins(25, 1, 0, 1);
 
-    m_editSearch->setStyleSheet("QLineEdit{background-color:#eeeeee;border:1px solid #aeaeae; border-radius:10px;}"
-                                "QLineEdit::focus{background-color:#ffffff;border:1px solid #6699cb; border-radius:10px;}");
+    m_editSearch->setStyleSheet(
+        "QLineEdit { color:#333333; background-color:#ffffff; border:1px solid #b8b8b8; border-radius:8px;"
+        "selection-background-color:#3377cc; selection-color:#ffffff; }"
+        "QLineEdit:focus { border:1px solid #3377cc; }");
 
 
     // avoid focus rect on OSX, this should be a bug of qt style sheet
@@ -44,6 +49,8 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
             SLOT(on_searchTextChanged(QString)), Qt::QueuedConnection);
     connect(m_editSearch, SIGNAL(addCustomSearchRequest()),
             SIGNAL(addCustomSearchRequest()));
+    connect(m_editSearch, &WizSearchEdit::advanceSearchRequest,
+            this, &WizSearchView::advancedSearchRequest);
 }
 
 void WizSearchView::clear()
@@ -90,7 +97,9 @@ WizSearchEdit::WizSearchEdit(QWidget* parent)
     QString strDeleteIcon = Utils::WizStyleHelper::skinResourceFileName("mactoolbardelete", true);
     m_deleteIcon = QPixmap(strDeleteIcon);
 
-    m_menu->addAction(tr("Advanced search"), this, SLOT(on_actionAdvancedSearch()));
+    m_menu->setObjectName("wiz-note-search-menu");
+    auto* advanced = m_menu->addAction(tr("Advanced search"), this, SLOT(on_actionAdvancedSearch()));
+    advanced->setObjectName("actionAdvancedSearch");
     m_menu->addAction(tr("Add custom search"), this, SLOT(on_addCustomSearch()));
 
 }
@@ -107,30 +116,37 @@ void WizSearchEdit::on_addCustomSearch()
     emit addCustomSearchRequest();
 }
 
+QRect WizSearchEdit::searchIconRect() const
+{
+    QSize size = m_searchIcon.size();
+    WizScaleIconSizeForRetina(size);
+    return QRect(QPoint(4, (height() - size.height()) / 2 + 1), size);
+}
+
+QRect WizSearchEdit::deleteIconRect() const
+{
+    QSize size = m_deleteIcon.size();
+    WizScaleIconSizeForRetina(size);
+    return QRect(QPoint(width() - size.width() - 4, (height() - size.height()) / 2), size);
+}
+
 void WizSearchEdit::paintEvent(QPaintEvent* event)
 {
     QLineEdit::paintEvent(event);
 
     QPainter pt(this);
-    QSize szIcon = m_searchIcon.size();
-    WizScaleIconSizeForRetina(szIcon);
-    QRect rcIcon(QPoint(4, (height() - szIcon.height()) / 2 + 1),
-                 szIcon);
-    pt.drawPixmap(rcIcon, m_searchIcon);
+    pt.drawPixmap(searchIconRect(), m_searchIcon);
 
     if (!text().isEmpty())
     {
-        szIcon = m_deleteIcon.size();
-        WizScaleIconSizeForRetina(szIcon);
-        rcIcon = QRect(QPoint(width() - szIcon.width() - 4, (height() - szIcon.height()) / 2),
-                       szIcon);
-        pt.drawPixmap(rcIcon, m_deleteIcon);
+        pt.drawPixmap(deleteIconRect(), m_deleteIcon);
     }
 }
 
 void WizSearchEdit::mousePressEvent(QMouseEvent* event)
 {
-    QRect rcBtnSearch(geometry().topLeft(), m_searchIcon.size());
+    // Events use local logical coordinates, just like the painted Retina icon.
+    const QRect rcBtnSearch = searchIconRect();
     if (rcBtnSearch.contains(event->pos()))
     {
         event->accept();
@@ -141,7 +157,7 @@ void WizSearchEdit::mousePressEvent(QMouseEvent* event)
 
     if (!text().isEmpty())
     {
-        QRect rect(QPoint(width() - m_deleteIcon.width() - 4, (height() - m_deleteIcon.height()) / 2), m_deleteIcon.size());
+        const QRect rect = deleteIconRect();
         if (rect.contains(event->pos()))
         {
             setText("");
@@ -156,7 +172,7 @@ void WizSearchEdit::mouseMoveEvent(QMouseEvent* event)
 {
     QLineEdit::mouseMoveEvent(event);
 
-    QRect rcBtnSearch(geometry().topLeft(), m_searchIcon.size());
+    const QRect rcBtnSearch = searchIconRect();
     if (rcBtnSearch.contains(event->pos()))
     {
         if (cursor().shape() != Qt::ArrowCursor)
@@ -168,7 +184,7 @@ void WizSearchEdit::mouseMoveEvent(QMouseEvent* event)
     {
         if (!text().isEmpty())
         {
-            QRect rect(QPoint(width() - m_deleteIcon.width() - 4, (height() - m_deleteIcon.height()) / 2), m_deleteIcon.size());
+            const QRect rect = deleteIconRect();
             if (rect.contains(event->pos()))
             {
                 if (cursor().shape() != Qt::ArrowCursor)

@@ -13,6 +13,11 @@
 #include "sync/WizToken.h"
 #include "gui/documentviewer/WizDocumentView.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
+#include "gui/documentviewer/WizTitleEdit.h"
+#include "gui/doclistviewer/WizDocumentListView.h"
+#include "widgets/WizAdvancedSearchDialog.h"
+#include "WizSearchWidget.h"
+#include "share/WizLegacyLightAppearance.h"
 #include <QApplication>
 #include <QDialog>
 #include <QElapsedTimer>
@@ -24,6 +29,14 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QAction>
+#include <QMenu>
+#include <QComboBox>
+#include <QListWidget>
+#include <QLineEdit>
+#include <QToolButton>
+#include <QMouseEvent>
+#include <QDir>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
 #include <QWebEngineUrlRequestInterceptor>
@@ -79,6 +92,16 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     settings.setReceiveMobileFile(false);
     settings.setNewFeatureGuideVersion(WIZ_NEW_FEATURE_GUIDE_VERSION);
     app.setStyle(QStyleFactory::create("fusion"));
+    // Simulate the reported dark-system/light-skin combination, in this process only.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    app.styleHints()->setColorScheme(Qt::ColorScheme::Dark);
+#endif
+    QPalette dark = app.palette();
+    dark.setColor(QPalette::Window, Qt::black);
+    dark.setColor(QPalette::Base, Qt::black);
+    dark.setColor(QPalette::Text, Qt::white);
+    app.setPalette(dark);
+    WizApplyLegacyLightAppearance();
     app.setStyleSheet(WizLoadSkinStyleSheet(settings.skin()));
     app.setFont(QFont(settings.UIFontFamily(), settings.UIFontSize()));
     WizAvatarHost avatar;
@@ -87,6 +110,12 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     if (!manager.db().createDocumentAndInit(
             "<html><body><h1>隔离窗口测试</h1><p>这不是您的账号或笔记。仅验证主窗口按钮。</p></body></html>",
             "", 0, QStringLiteral("窗口按钮测试笔记"), "synthetic.html", "/Window test/", "", note)) return 1;
+    WIZTAGDATA tag;
+    if (!manager.db().createTag("", QStringLiteral("测试标签"), "", tag)
+        || !manager.db().insertDocumentTag(note, tag.strGUID)) return 1;
+    WIZDOCUMENTDATA unrelated;
+    if (!manager.db().createDocumentAndInit("<html><body>无此标签的测试笔记</body></html>",
+        "", 0, QStringLiteral("不应出现在标签结果中"), "other.html", "/Window test/", "", unrelated)) return 1;
     WizFramelessWindow<QDialog> login(nullptr, false);
     login.titleBar()->layoutTitleBar();
     login.titleBar()->setFixedHeight(40);
@@ -110,7 +139,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label;
         if (!ok) qInfo() << "Window state at failure" << window.windowState()
             << "native fullscreen" << bool(native.styleMask & NSWindowStyleMaskFullScreen)
-            << "native minimized" << native.miniaturized << "visible" << window.isVisible();
+            << "native minimized" << native.miniaturized << "visible" << window.isVisible()
+            << "modal" << QApplication::activeModalWidget()
+            << "popup" << QApplication::activePopupWidget()
+            << "native key window" << native.keyWindow << "app active" << NSApp.active;
         failures += !ok;
     };
     const auto fullscreenTransition = std::make_shared<bool>(false);
@@ -173,6 +205,97 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }
         return *editorReady;
     }, {}, 15000);
+    const QString artifactDir = qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
+    auto capture = [&](QWidget* widget, const QString& name) {
+        if (!artifactDir.isEmpty() && QDir().mkpath(artifactDir))
+            widget->grab().save(QDir(artifactDir).filePath(name));
+    };
+    addCheck("actual main-window search and title fields have readable light backgrounds and dark text", [&] {
+        auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        auto* title = window.findChild<WizTitleEdit*>();
+        if (!search || !title || !search->isVisible() || !title->isVisible()) return false;
+        search->ensurePolished(); title->ensurePolished();
+        for (const QLineEdit* edit : {static_cast<QLineEdit*>(search), static_cast<QLineEdit*>(title)}) {
+            if (edit->palette().color(QPalette::Base).lightnessF() < 0.8
+                || edit->palette().color(QPalette::Text).lightnessF() > 0.4) return false;
+        }
+        capture(&window, "v8-main-light.png");
+        return true;
+    });
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    addCheck("native title bar uses Aqua after simulated dark appearance", [&] {
+        return [[native.effectiveAppearance bestMatchFromAppearancesWithNames:
+                 @[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]] isEqualToString:NSAppearanceNameAqua];
+    });
+#endif
+    if (!interactive) {
+        auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        auto* menu = search ? search->findChild<QMenu*>("wiz-note-search-menu") : nullptr;
+        const auto sendClick = [](QWidget* target, const QPoint& local) {
+            if (!target) return;
+            const QPoint global = target->mapToGlobal(local);
+            QMouseEvent press(QEvent::MouseButtonPress, QPointF(local), QPointF(global),
+                              Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(target, &press);
+            QMouseEvent release(QEvent::MouseButtonRelease, QPointF(local), QPointF(global),
+                                Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(target, &release);
+        };
+        const auto clickMagnifier = [search, sendClick] {
+            if (search) sendClick(search, QPoint(12, search->height() / 2));
+        };
+        const auto chooseAdvanced = [menu, sendClick] {
+            if (menu && !menu->actions().isEmpty())
+                QTimer::singleShot(0, menu, [menu, sendClick] {
+                    sendClick(menu, menu->actionGeometry(menu->actions().first()).center());
+                });
+        };
+        addCheck("clicking the magnifier opens its menu without a separate advanced-search toolbar button", [&, menu] {
+            if (!menu || !menu->isVisible() || menu->actions().isEmpty()
+                || menu->actions().first()->objectName() != "actionAdvancedSearch") return false;
+            for (auto* tool : window.findChildren<QToolButton*>())
+                if (tool->defaultAction() == menu->actions().first() && tool->isVisible()) return false;
+            capture(menu, "v8-magnifier-menu.png");
+            return true;
+        }, clickMagnifier);
+        const auto submitted = std::make_shared<bool>(false);
+        addCheck("clicking advanced-search in magnifier menu opens dialog and tag-only search filters actual main list", [&, submitted] {
+            auto* dialog = qobject_cast<WizAdvancedSearchDialog*>(QApplication::activeModalWidget());
+            if (dialog && !*submitted) {
+                auto* first = dialog->findChild<QComboBox*>("comboBox_first");
+                auto* second = dialog->findChild<QComboBox*>("comboBox_second");
+                auto* add = dialog->findChild<QPushButton*>("toolButton_add");
+                auto* ok = dialog->findChild<QPushButton*>("pushButton_ok");
+                auto* list = dialog->findChild<QListWidget*>("listWidget");
+                if (!first || !second || !add || !ok || !list) { dialog->reject(); return false; }
+                const int index = first->findText(QObject::tr("Tag"));
+                if (index < 0) { dialog->reject(); return false; }
+                first->setCurrentIndex(index);
+                QMetaObject::invokeMethod(first, "activated", Q_ARG(int, index));
+                const int selected = second->findData(tag.strGUID);
+                if (selected < 0) { dialog->reject(); return false; }
+                second->setCurrentIndex(selected); add->click();
+                if (list->count() != 1) { dialog->reject(); return false; }
+                capture(dialog, "v8-advanced-tag.png");
+                *submitted = true;
+                // Queue acceptance so the step timer never blocks in a nested search modal.
+                QTimer::singleShot(0, dialog, [ok] { ok->click(); });
+            }
+            auto* docs = window.findChild<WizDocumentListView*>();
+            return *submitted && !QApplication::activeModalWidget() && docs && docs->isSearchResult()
+                && docs->documentCount() == 1 && docs->documentIndexFromGUID(note.strGUID) >= 0
+                && docs->documentIndexFromGUID(unrelated.strGUID) < 0;
+        }, chooseAdvanced);
+        const auto menuOpened = std::make_shared<bool>(false);
+        addCheck("reopening magnifier menu and advanced search opens a cancellable built-in dialog", [menuOpened] {
+            auto* dialog = qobject_cast<WizAdvancedSearchDialog*>(QApplication::activeModalWidget());
+            if (dialog) { *menuOpened = true; dialog->reject(); }
+            return *menuOpened && !QApplication::activeModalWidget();
+        }, [clickMagnifier, chooseAdvanced] {
+            clickMagnifier();
+            chooseAdvanced();
+        });
+    }
     addCheck("Qt native delegate is retained, not replaced by the legacy frameless proxy", [&] {
         return [native.delegate respondsToSelector:@selector(windowShouldClose:)]
             && ![NSStringFromClass([native.delegate class]) isEqualToString:@"NSWindowProxyDelegate"];
@@ -250,7 +373,9 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 && !button(NSWindowZoomButton).enabled;
         }, [&] { modal.show(); }, 2000);
         addCheck("all three controls restore after modal closes",
-            [&] { return !QApplication::activeModalWidget() && controlsEnabled(); }, [&] { modal.close(); });
+            [&] { return !QApplication::activeModalWidget() && !QApplication::activePopupWidget()
+                && !NSApp.modalWindow && native.keyWindow && controlsEnabled(); },
+            [&] { modal.close(); window.activateWindow(); });
         addCheck("actual main-window red action hides the window",
             [&] { return !window.isVisible() && !native.visible; }, [&] { [button(NSWindowCloseButton) performClick:nil]; });
         addCheck("actual main window reopens after red close", reopened, reopen);

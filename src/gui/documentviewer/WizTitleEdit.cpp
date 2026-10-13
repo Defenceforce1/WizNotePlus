@@ -22,6 +22,8 @@ WizTitleEdit::WizTitleEdit(QWidget *parent)
     setAlignment(Qt::AlignLeft | Qt::AlignBottom);
     setAttribute(Qt::WA_MacShowFocusRect, false);
     setFrame(false);
+    setStyleSheet("QLineEdit { color:#333333; background-color:#ffffff; border:none;"
+                 "selection-background-color:#3377cc; selection-color:#ffffff; }");
 
     connect(this, SIGNAL(editingFinished()), SLOT(onTitleEditingFinished()));
     connect(this, SIGNAL(textEdited(QString)), SLOT(onTextEdit(QString)));
@@ -195,7 +197,6 @@ void WizTitleEdit::setText(const QString& text)
 {
     QLineEdit::setText(text);
     setCursorPosition(0);
-    setStyleSheet("color:#535353;");
 }
 
 void WizTitleEdit::onTextEdit(const QString& text)

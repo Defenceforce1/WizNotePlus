@@ -1,6 +1,9 @@
 #include "widgets/WizAdvancedSearchDialog.h"
 #include "share/WizSearch.h"
 #include "share/WizGlobal.h"
+#include "share/WizLegacyLightAppearance.h"
+#include "WizSearchWidget.h"
+#include "gui/documentviewer/WizTitleEdit.h"
 #include "database/WizDatabase.h"
 #include <QApplication>
 #include <QComboBox>
@@ -11,6 +14,8 @@
 #include <QDir>
 #include <QUrl>
 #include <QDebug>
+#include <QAction>
+#include <QMenu>
 
 namespace {
 class FixtureSearcher : public WizSearcher
@@ -48,16 +53,44 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
     QSettings global(root.filePath("global.ini"), QSettings::IniFormat);
     WizGlobal::setSettings(&settings);
     WizGlobal::setGlobalSettings(&global);
+    QPalette dark = app.palette();
+    dark.setColor(QPalette::Base, Qt::black);
+    dark.setColor(QPalette::Text, Qt::white);
+    app.setPalette(dark);
+    WizApplyLegacyLightAppearance();
     int failures = 0;
     auto check = [&](bool ok, const char* name) {
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << name;
         failures += !ok;
         return ok;
     };
+    // The real menu action also logs a local usage event through the DB manager.
+    // Supply that dependency before triggering it; never open an existing store.
     WizDatabaseManager manager("synthetic-search-account");
     if (!check(manager.open(), "fresh isolated database")) return 1;
     auto& db = manager.db();
     db.setKbGUID("synthetic-search-kb");
+    {
+        WizSearchView view;
+        auto* edit = view.findChild<WizSearchEdit*>("wiz-note-search-field");
+        bool received = false;
+        QObject::connect(&view, &WizSearchView::advancedSearchRequest, [&] { received = true; });
+        auto* menu = edit ? edit->findChild<QMenu*>("wiz-note-search-menu") : nullptr;
+        auto* advanced = menu ? menu->findChild<QAction*>("actionAdvancedSearch") : nullptr;
+        if (advanced) advanced->trigger();
+        check(advanced && received, "magnifier menu action forwards advanced-search request");
+        if (edit) {
+            edit->ensurePolished();
+            check(edit->palette().color(QPalette::Base).lightnessF() > 0.8
+                  && edit->palette().color(QPalette::Text).lightnessF() < 0.4,
+                  "search field stays readable under initial dark palette");
+        }
+        WizTitleEdit title(nullptr);
+        title.setText(QStringLiteral("测试标题")); title.ensurePolished();
+        check(title.palette().color(QPalette::Base).lightnessF() > 0.8
+              && title.palette().color(QPalette::Text).lightnessF() < 0.4,
+              "title field stays readable after setting text");
+    }
     WIZTAGDATA parent, tag, other;
     if (!check(db.createTag("", QStringLiteral("父标签"), "", parent)
         && db.createTag(parent.strGUID, QStringLiteral("数学,公式/引用'_100%"), "", tag)

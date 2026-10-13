@@ -31,6 +31,7 @@
 #include "share/WizSingleApplication.h"
 #include "share/WizThreads.h"
 #include "share/WizGlobal.h"
+#include "share/WizLegacyLightAppearance.h"
 
 #include "core/WizNoteManager.h"
 
@@ -220,6 +221,7 @@ int mainCore(int argc, char *argv[])
 
     // 样式
     app.setStyle(QStyleFactory::create("fusion"));
+    WizApplyLegacyLightAppearance();
     app.setStyleSheet(WizLoadSkinStyleSheet(userSettings.skin()));
 
     // 语言本地化

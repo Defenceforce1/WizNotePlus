@@ -210,3 +210,14 @@ with an explicit offline title-only fallback. No team features or note schema ch
 were added. See [advanced-search.md](advanced-search.md) for tests, saved-search
 compatibility and remaining real-service verification. Native window code is unchanged;
 the current build passed all 21 actual-main-window regression checks.
+
+### Search entry and light appearance (v8)
+
+The existing magnifier menu now opens the personal advanced-search dialog from
+the actual main window, without a separate toolbar button. App-local light
+appearance fixes the old light skin/system dark palette conflict in the title
+and search fields. Magnifier pointer targets use the same logical coordinates
+and Retina-scaled rectangles as painting. See
+[search-ui-compatibility.md](search-ui-compatibility.md) for scope and verification.
+This does not reinterpret plain top-field text as a tag query, redesign the whole
+UI, change the global macOS appearance or change note/database formats.

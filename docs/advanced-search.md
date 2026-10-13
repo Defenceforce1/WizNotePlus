@@ -1,4 +1,12 @@
-# Personal advanced search (v7)
+# Personal advanced search (v7/v8)
+
+In v8, use the existing magnifier menu in the top search field and choose Advanced
+search. Its request is now connected to the actual main window's built-in dialog.
+There is no additional toolbar button. The top field itself still searches note
+content, not tag names. For a tag-only query, leave keywords empty, choose Personal
+notes, select Tag and an existing tag, click Add, then OK. See
+[search-ui-compatibility.md](search-ui-compatibility.md) for the entry-point repair,
+Retina hit regions, coherent light appearance and actual-main-window regression.
 
 The existing advanced-search dialog now enables personal tag conditions. Tag choices
 carry tag GUIDs, not SQL built from names, and show ancestor labels to distinguish
@@ -36,11 +44,17 @@ Tests cover body-only hits/highlights, post-filter limits, explicit fallback, mu
 tag intersection, trash exclusion, malformed criteria, legacy conditions, special
 characters, actual Qt widgets/signals, saving/restoring and tag rename.
 
-Local Release arm64 build with Qt 6.11.3 passed all four CTest suites. The current
-build's actual-main-window Cocoa fixture passed all 21 button regression checks.
+The v7 local Release arm64 build with Qt 6.11.3 passed all four CTest suites. Its
+actual-main-window Cocoa fixture passed all 21 button regression checks.
 The deployed bundle passed the search self-test, a 47-Mach-O arm64/dependency audit,
-and strict ad-hoc signature validation. The v6 CI finished successfully:
+and strict ad-hoc signature validation. These are the v7 baseline results, which
+did not cover the main window's missing advanced-search menu connection.
+The v6 CI finished successfully:
 https://github.com/Defenceforce1/WizNotePlus/actions/runs/38379792071
+
+The v7 CI also finished successfully (build success alone did not validate the
+missing user-facing entry):
+https://github.com/Defenceforce1/WizNotePlus/actions/runs/38385298576
 
 The deployed bundle includes the cocoa platform plugin, not offscreen. An attempted
 packaged offscreen self-test aborted before QApplication finished initialization;

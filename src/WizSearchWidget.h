@@ -32,6 +32,8 @@ protected:
     void mouseMoveEvent(QMouseEvent* event);
 
 private:
+    QRect searchIconRect() const;
+    QRect deleteIconRect() const;
     QPixmap m_searchIcon;
     QPixmap m_deleteIcon;
     QMenu* m_menu;
@@ -63,6 +65,7 @@ private:
     QString m_strCurrentKbGuid;
 
 Q_SIGNALS:
+    void advancedSearchRequest();
     void addCustomSearchRequest();
     void doSearch(const QString& keywords);
 };
