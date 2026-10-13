@@ -74,7 +74,11 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
             }
           },
           reader: {
-            type: noteType
+            type: noteType,
+            callback: {
+              markdown: function () { WizApplyNoteStyle(); },
+              mathJax: function () { WizApplyNoteStyle(); }
+            }
           }
         }
         //
@@ -88,6 +92,14 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
       }
     });
   });
+}
+
+// Temporary engine style: excluded from saved note HTML by the original editor.
+function WizApplyNoteStyle(css) {
+  if (typeof css === 'string') window.WizNoteCss = css;
+  if (!window.WizEditor || typeof WizEditor.insertCustomStyle !== 'function') return;
+  if (window.WizNoteCss) WizEditor.insertCustomStyle('wiz_tmp_style_note_presentation', window.WizNoteCss, true);
+  else WizEditor.removeStyleById('wiz_tmp_style_note_presentation');
 }
 
 function WizOnSelectionChange(style) {

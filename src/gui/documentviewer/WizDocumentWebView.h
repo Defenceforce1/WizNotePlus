@@ -119,6 +119,9 @@ public:
     void editorCommandExecutePastePlainText();
 
     void saveAsPDF();
+    void showPrintPreview(bool pdfOnly = false);
+    void editNoteStyle();
+    void applyNoteStyle();
     void saveAsMarkdown();
     void saveAsMarkdown(QString& strIndexFileName, bool bSaveResource = true);
     void saveAsPlainMarkdown(QString& destFileName, std::function<void(QString fileName)> callback);

@@ -31,3 +31,7 @@ add_test(NAME wiznote_native_note_transfer
     COMMAND $<TARGET_FILE:WizNotePlus> --native-note-transfer-self-test)
 set_tests_properties(wiznote_native_note_transfer PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+add_test(NAME wiznote_note_presentation
+    COMMAND $<TARGET_FILE:WizNotePlus> --note-presentation-self-test)
+set_tests_properties(wiznote_note_presentation PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 180)

@@ -7,6 +7,11 @@ App Store builds, Intel builds and other platforms are not validated by this por
 
 ## Verified local status (2026-10-13)
 
+- v10 retains the original Markdown editing workflow and adds local screen/print
+  CSS, independent note print/PDF rendering and a light default-skin refinement.
+  See [note-presentation.md](note-presentation.md) for verification and limits.
+- The v9 inline-search commit's full CI succeeded:
+  https://github.com/Defenceforce1/WizNotePlus/actions/runs/38395192684
 - Host reports arm64, macOS 27.0.1, SDK 27.0 (Command Line Tools).
 - Full native Release compilation/linking succeeded with Qt 6.11.3 and C++17.
 - Native build tools, system zlib, static Crypto++ 8.9.0 with the Conan recipe's

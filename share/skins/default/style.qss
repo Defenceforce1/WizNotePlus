@@ -8,9 +8,9 @@ WizMainWindow WizWindowTitleBar {
     x1: 0.5, y1: 0,
     x2: 0.5, y2: 1,
     stop: 0 rgb(254, 254, 254),
-    stop: 1 rgb(224, 224, 224)
+    stop: 1 rgb(243, 245, 248)
   );
-  border-bottom: 1px solid #aeaeae;
+  border-bottom: 1px solid #d8dde5;
 }
 
 WizWindowTitleBar QToolBar {
@@ -47,12 +47,12 @@ QToolButton::menu-button {
 }
 
 QToolButton:hover {
-  background-color: rgba(211, 211, 211, 0.5)
+  background-color: rgba(68, 138, 223, 0.10);
 }
 
 QToolButton:pressed,
 QToolButton:checked {
-  background-color: rgba(211, 211, 211, 1)
+  background-color: rgba(68, 138, 223, 0.18);
 }
 
 QToolButton#window-close-btn,
@@ -180,7 +180,7 @@ CollaborationDocView {
  */
 
 QWidget#document-panel {
-  background-color: #F5F5F5;
+  background-color: #f2f4f7;
 }
 
 /* The tab widget frame */
@@ -201,6 +201,7 @@ WizMainTabBrowser > QTabBar::tab {
   height: 26px;
   min-width: 8em;
   max-width: 15em;
+  color: #596579;
 }
 
 WizMainTabBrowser > QTabBar::tab:selected,
@@ -209,6 +210,7 @@ WizMainTabBrowser > QTabBar::tab:hover {
 
 WizMainTabBrowser > QTabBar::tab:selected {
   background: white;
+  color: #202d40;
   border-left: 2px solid #448AFF;
   border-right: 1px solid #DADAD9;
 }
@@ -217,6 +219,11 @@ WizMainTabBrowser > QTabBar::tab:!selected {
   border-left: 0px;
   margin-left: 2px;
   margin-right: 1px;
+}
+
+WizMainTabBrowser > QTabBar::tab:!selected:hover {
+  background: #e7edf6;
+  color: #263950;
 }
 
 /*

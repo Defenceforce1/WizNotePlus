@@ -3334,6 +3334,18 @@ void WizMainWindow::on_actionSaveAsHtml_triggered()
     WizGetAnalyzer().logAction("MenuBarSaveAsHtml");
 }
 
+void WizMainWindow::on_actionPrintNote_triggered()
+{
+    if (auto* editor = getActiveEditor()) editor->showPrintPreview();
+}
+void WizMainWindow::on_actionNoteStyle_triggered()
+{
+    if (auto* editor = getActiveEditor()) {
+        editor->editNoteStyle();
+        for (auto* web : findChildren<WizDocumentWebView*>()) web->applyNoteStyle();
+    }
+}
+
 
 void WizMainWindow::on_actionSaveAsMarkdown_triggered()
 {
@@ -3957,10 +3969,14 @@ void WizMainWindow::on_mainTabWidget_currentChanged(int pageIndex)
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_MARKDOWN)->setEnabled(WizIsMarkdownNote(docView->note()));
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_PDF)->setEnabled(true);
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_HTML)->setEnabled(true);
+        m_actions->actionFromName("actionPrintNote")->setEnabled(true);
+        m_actions->actionFromName("actionNoteStyle")->setEnabled(true);
     } else {
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_MARKDOWN)->setEnabled(false);
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_PDF)->setEnabled(false);
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_HTML)->setEnabled(false);
+        m_actions->actionFromName("actionPrintNote")->setEnabled(false);
+        m_actions->actionFromName("actionNoteStyle")->setEnabled(false);
     }
 }
 

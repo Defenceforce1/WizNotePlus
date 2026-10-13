@@ -74,6 +74,8 @@ WIZACTION* WizActions::actionsData()
         {WIZACTION_GLOBAL_NEW_DOCUMENT,         QObject::tr("New Note"),                    "",                                     QKeySequence("Ctrl+N")},
         {"actionNewNoteByTemplate",             QObject::tr("New Note by Template..."),     "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_PDF,          QObject::tr("Save as PDF..."),              "",                                     QKeySequence()},
+        {"actionPrintNote",                    QStringLiteral("打印 / PDF 预览…"),           "",                                     QKeySequence::Print},
+        {"actionNoteStyle",                    QStringLiteral("笔记显示与打印 CSS…"),         "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_HTML,         QObject::tr("Save as Html..."),             "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_MARKDOWN,     QObject::tr("Save as Markdown..."),         "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_IMPORT_FILE,          QObject::tr("Import Files..."),             "",                                     QKeySequence()},

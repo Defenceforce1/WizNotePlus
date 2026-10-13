@@ -18,6 +18,7 @@
 #include "widgets/WizAdvancedSearchDialog.h"
 #include "WizSearchWidget.h"
 #include "share/WizLegacyLightAppearance.h"
+#include "WizNotePresentation.h"
 #include <QApplication>
 #include <QDialog>
 #include <QElapsedTimer>
@@ -39,6 +40,7 @@
 #include <QCompleter>
 #include <QAbstractItemView>
 #include <QCheckBox>
+#include <QPlainTextEdit>
 #include <QInputMethodEvent>
 #include <QDir>
 #include <QWebEngineProfile>
@@ -457,6 +459,59 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }, [clickMagnifier, chooseAdvanced] {
             clickMagnifier();
             chooseAdvanced();
+        });
+    }
+    if (!interactive) {
+        const auto originalHtml = std::make_shared<QString>();
+        const auto sourceReady = std::make_shared<bool>(false);
+        addCheck("original editor source is captured before presentation operations", [&, sourceReady, originalHtml] {
+            if (!*sourceReady && !*queryPending) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript("WizEditor.getContentHtml()", [=](const QVariant& value) {
+                    *originalHtml = value.toString(); *sourceReady = !originalHtml->isEmpty(); *queryPending = false;
+                });
+            }
+            return *sourceReady;
+        });
+        const auto styleVisited = std::make_shared<bool>(false);
+        addCheck("Tools menu opens the built-in CSS dialog and cancel restores rendering", [&, styleVisited] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            if (dialog && dialog->objectName() == "wiz-note-style-dialog") {
+                auto* css = dialog->findChild<QPlainTextEdit*>("wiz-note-screen-css");
+                auto* preview = dialog->findChild<QPushButton*>("wiz-note-css-preview");
+                if (!css || !preview) { dialog->reject(); return false; }
+                css->setPlainText("body { line-height:1.7; color:#263950; }"); preview->click();
+                capture(dialog, "v10-css-dialog.png"); *styleVisited = true;
+                QTimer::singleShot(0, dialog, &QDialog::reject);
+            }
+            return *styleVisited && !QApplication::activeModalWidget();
+        }, [&] {
+            if (auto* action = window.findChild<QAction*>("actionNoteStyle"))
+                QTimer::singleShot(0, action, &QAction::trigger);
+        });
+        const auto printVisited = std::make_shared<bool>(false);
+        const bool wasEditing = window.docView()->isEditing();
+        addCheck("File menu renders an independent printable copy without switching the editor mode", [&, printVisited, wasEditing] {
+            auto* dialog = dynamic_cast<WizNotePrintDialog*>(QApplication::activeModalWidget());
+            if (dialog && dialog->ready()) {
+                if (window.docView()->isEditing() != wasEditing) { dialog->reject(); return false; }
+                capture(dialog, "v10-print-preview.png"); *printVisited = true;
+                QTimer::singleShot(0, dialog, &WizNotePrintDialog::reject);
+            } else if (dialog && !dialog->error().isEmpty()) { qInfo() << dialog->error(); dialog->reject(); }
+            return *printVisited && !QApplication::activeModalWidget();
+        }, [&] {
+            if (auto* action = window.findChild<QAction*>("actionPrintNote"))
+                QTimer::singleShot(0, action, &QAction::trigger);
+        }, 65000);
+        const auto unchanged = std::make_shared<bool>(false);
+        addCheck("actual editor HTML remains identical after CSS preview and printing", [&, unchanged, originalHtml] {
+            if (!*unchanged && !*queryPending) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript("WizEditor.getContentHtml()", [=](const QVariant& value) {
+                    *unchanged = value.toString() == *originalHtml; *queryPending = false;
+                });
+            }
+            return *unchanged;
         });
     }
     addCheck("Qt native delegate is retained, not replaced by the legacy frameless proxy", [&] {

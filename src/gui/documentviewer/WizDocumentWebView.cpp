@@ -24,6 +24,8 @@
 #include <QCommandLineParser>
 #include <QTimer>
 #include <QTextDocument>
+#include <QPointer>
+#include "WizNotePresentation.h"
 
 #include <QApplication>
 #include <QUndoStack>
@@ -873,12 +875,12 @@ void WizDocumentWebView::enableEditor(bool enalbe)
 {
     if (enalbe)
     {
-        page()->runJavaScript("WizEditor.on();");
+        page()->runJavaScript("WizEditor.on(null, function(){WizApplyNoteStyle();});");
         setFocus();
     }
     else
     {
-        QString code = QString("WizEditor.off({reader: {type:'%1'}});").arg(getNoteType());
+        QString code = QString("WizEditor.off({reader: {type:'%1'}}, function(){WizApplyNoteStyle();});").arg(getNoteType());
         //
         page()->runJavaScript(code);
         //
@@ -1080,6 +1082,8 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     QString keywords = getHighlightKeywords();
     // Initialize rich text editor
     QString strCode = "(async function(){\n";
+    strCode += "window.WizNoteCss=" + WizNotePresentation::jsonString(
+        WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()))) + ";\n";
     strCode += WizFormatString6("await WizEditorInit(\"%1\", \"%2\", \"%3\", \"%4\", %5, \"%6\", false);",
                                        editorPath, lang, userGUID, userAlias,
                                        ignoreTable ? "true" : "false",
@@ -1111,7 +1115,7 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
             }
         }
     }
-    strCode += "\n})()";
+    strCode += "\nWizApplyNoteStyle();\n})()";
     page()->runJavaScript(strCode, [=](const QVariant &v) {
         if (!keywords.isEmpty()) {
             if (noteType == "common") {
@@ -2215,35 +2219,61 @@ void WizDocumentWebView::editorCommandExecuteScreenShot()
 
 void WizDocumentWebView::saveAsPDF()
 {
-    CString strTitle = view()->note().strTitle;
-    WizMakeValidFileNameNoPath(strTitle);
-    static QString strInitPath = QDir::homePath();
-    QString strInitFileName = Utils::WizMisc::addBackslash2(strInitPath) + Utils::WizMisc::extractFileTitle(strTitle);
-    //
-    QString strFileName = QFileDialog::getSaveFileName(this, QString(),
-                                                       strInitFileName,
-                                                       tr("PDF Files (*.pdf)"));
-    //
-    if (strFileName.isEmpty())
-        return;
-    //
-    strInitPath = Utils::WizMisc::extractFilePath(strFileName);
-    //
-    if (::WizPathFileExists(strFileName))
-    {
-        ::WizDeleteFile(strFileName);
+    showPrintPreview(true);
+}
+
+void WizDocumentWebView::showPrintPreview(bool pdfOnly)
+{
+    if (!view()->noteLoaded()) return;
+    QString path;
+    if (pdfOnly) {
+        CString title = view()->note().strTitle; WizMakeValidFileNameNoPath(title);
+        path = WizNotePresentation::choosePdfPath(this, title + ".pdf");
+        if (path.isEmpty()) return;
     }
-    //
-    QPrinter::Unit marginUnit =  (QPrinter::Unit)m_app.userSettings().printMarginUnit();
-    double marginTop = m_app.userSettings().printMarginValue(wizPositionTop);
-    double marginBottom = m_app.userSettings().printMarginValue(wizPositionBottom);
-    double marginLeft = m_app.userSettings().printMarginValue(wizPositionLeft);
-    double marginRight = m_app.userSettings().printMarginValue(wizPositionRight);
-    QMarginsF margins(marginLeft, marginTop, marginRight, marginBottom);
-    //
-    const QPageLayout layout = QPageLayout(QPageSize(QPageSize::A4), QPageLayout::Portrait, margins);
-    //
-    page()->printToPdf(strFileName, layout);
+    const QString guid = view()->note().strGUID;
+    const QString type = getNoteType();
+    const QUrl base = page()->url();
+    const QPointer<WizDocumentWebView> guard(this);
+    page()->runJavaScript("typeof WizEditor.getContentHtml==='function' ? WizEditor.getContentHtml() : ''", [guard, guid, type, base, path](const QVariant& value) {
+        if (!guard || guard->view()->note().strGUID != guid) return;
+        const QString html = value.toString();
+        // Release WebEngine's JavaScript callback before entering a modal loop.
+        // Its IPC dispatch must remain free to initialize the independent page.
+        QTimer::singleShot(0, guard, [guard, guid, type, base, path, html] {
+        if (!guard || guard->view()->note().strGUID != guid) return;
+        if (html.isEmpty()) { QMessageBox::warning(guard, QStringLiteral("尚未打印"), QStringLiteral("笔记尚未加载完成。")); return; }
+        WizNotePrintDialog dialog(html, type, base, WizNotePresentation::loadStyle(WizGlobal::settings()),
+            WizNotePresentation::printLayout(guard->m_app.userSettings()), guard);
+        if (!path.isEmpty()) {
+            QTimer timer;
+            QObject::connect(&timer, &QTimer::timeout, &dialog, [&] {
+                if (!dialog.error().isEmpty()) { timer.stop(); return; }
+                if (!dialog.ready()) return;
+                timer.stop();
+                const QPointer<WizNotePrintDialog> dialogGuard(&dialog);
+                dialog.writePdf(path, [dialogGuard](bool ok, const QString& error) {
+                    if (dialogGuard && !ok) QMessageBox::warning(dialogGuard, QStringLiteral("未保存"), error);
+                });
+            });
+            timer.start(100); dialog.exec();
+        } else dialog.exec();
+        });
+    });
+}
+
+void WizDocumentWebView::applyNoteStyle()
+{
+    const QString css = WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()));
+    page()->runJavaScript("if (typeof WizApplyNoteStyle==='function') WizApplyNoteStyle(" + WizNotePresentation::jsonString(css) + ");");
+}
+void WizDocumentWebView::editNoteStyle()
+{
+    const QPointer<WizDocumentWebView> guard(this);
+    WizNotePresentation::editStyle(this, WizGlobal::settings(), [guard](const WizNotePresentation::Style& style) {
+        if (guard) guard->page()->runJavaScript("if (typeof WizApplyNoteStyle==='function') WizApplyNoteStyle("
+            + WizNotePresentation::jsonString(WizNotePresentation::styleSheet(style)) + ");");
+    });
 }
 
 void WizDocumentWebView::saveAsMarkdown()

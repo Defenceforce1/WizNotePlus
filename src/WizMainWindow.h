@@ -303,6 +303,8 @@ public Q_SLOTS:
     void on_actionJSConsole_triggered();
     void on_actionFindReplace_triggered();
     void on_actionSaveAsPDF_triggered();
+    void on_actionPrintNote_triggered();
+    void on_actionNoteStyle_triggered();
     void on_actionSaveAsHtml_triggered();
     void on_actionSaveAsMarkdown_triggered();
     void on_actionImportFile_triggered();

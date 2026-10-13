@@ -407,6 +407,10 @@ int mainCore(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--note-presentation-self-test") {
+        extern int wizNotePresentationSelfTest(int, char**);
+        return wizNotePresentationSelfTest(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--advanced-search-self-test") {
         extern int wizAdvancedSearchSelfTest(int, char**);
         return wizAdvancedSearchSelfTest(argc, argv);
