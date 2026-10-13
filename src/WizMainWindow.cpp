@@ -1951,6 +1951,10 @@ void WizMainWindow::initToolBar()
     setHitTestVisible(m_searchWidget);
     m_searchWidget->setFixedWidth(420);
     m_toolBar->addWidget(m_searchWidget);
+    // Filters are their own collapsible row, not a second line inside one
+    // toolbar item. Otherwise the toolbar centers New Note against the combined
+    // search+chips height and the search field visibly shifts above it.
+    titleBar()->layout()->addWidget(m_searchWidget->takeFilterChipRow());
 
     connect(m_searchWidget, &WizSearchView::advancedSearchRequest,
             this, &WizMainWindow::on_search_advancedSearch);
@@ -3334,10 +3338,6 @@ void WizMainWindow::on_actionSaveAsHtml_triggered()
     WizGetAnalyzer().logAction("MenuBarSaveAsHtml");
 }
 
-void WizMainWindow::on_actionPrintNote_triggered()
-{
-    if (auto* editor = getActiveEditor()) editor->showPrintPreview();
-}
 void WizMainWindow::on_actionNoteStyle_triggered()
 {
     if (auto* editor = getActiveEditor()) {
@@ -3969,13 +3969,11 @@ void WizMainWindow::on_mainTabWidget_currentChanged(int pageIndex)
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_MARKDOWN)->setEnabled(WizIsMarkdownNote(docView->note()));
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_PDF)->setEnabled(true);
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_HTML)->setEnabled(true);
-        m_actions->actionFromName("actionPrintNote")->setEnabled(true);
         m_actions->actionFromName("actionNoteStyle")->setEnabled(true);
     } else {
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_MARKDOWN)->setEnabled(false);
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_PDF)->setEnabled(false);
         m_actions->actionFromName(WIZACTION_GLOBAL_SAVE_AS_HTML)->setEnabled(false);
-        m_actions->actionFromName("actionPrintNote")->setEnabled(false);
         m_actions->actionFromName("actionNoteStyle")->setEnabled(false);
     }
 }

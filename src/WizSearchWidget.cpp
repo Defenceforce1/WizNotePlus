@@ -37,12 +37,25 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     m_editSearch->setObjectName("wiz-note-search-field");
     m_editSearch->setPlaceholderText(QStringLiteral("搜索内容或选择标签…"));
     m_editSearch->setToolTip(QStringLiteral("直接回车搜索内容；点选标签提示后，再输入内容关键词。放大镜可筛选标签、文件夹和附件。"));
-    m_editSearch->setTextMargins(25, 1, 0, 1);
+    // Reserve room for both painted controls; long keywords must not overlap
+    // the clear icon. Keep drawing and pointer targets in logical coordinates.
+    m_editSearch->setTextMargins(32, 0, 28, 0);
+    m_editSearch->setFixedHeight(30);
+    QFont searchFont = m_editSearch->font();
+    searchFont.setPointSizeF(13);
+    m_editSearch->setFont(searchFont);
 
     m_editSearch->setStyleSheet(
-        "QLineEdit { color:#333333; background-color:#ffffff; border:1px solid #b8b8b8; border-radius:8px;"
+        "QLineEdit { color:#263445; background-color:#f5f7fa; border:1px solid #cbd3df; border-radius:9px;"
+        "padding:0px;"
         "selection-background-color:#3377cc; selection-color:#ffffff; }"
-        "QLineEdit:focus { border:1px solid #3377cc; }");
+        "QLineEdit:hover { border-color:#aab8ca; }"
+        "QLineEdit:focus { background-color:#ffffff; border-color:#6b9bd3; }");
+    QPalette searchPalette = m_editSearch->palette();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
+    searchPalette.setColor(QPalette::PlaceholderText, QColor("#7b8798"));
+#endif
+    m_editSearch->setPalette(searchPalette);
 
 
     // avoid focus rect on OSX, this should be a bug of qt style sheet
@@ -165,7 +178,14 @@ void WizSearchView::focus()
 
 QSize WizSearchView::sizeHint() const
 {
-    return QSize(m_widthHint, height());
+    return QSize(m_widthHint, QWidget::sizeHint().height());
+}
+
+QWidget* WizSearchView::takeFilterChipRow()
+{
+    layout()->removeWidget(m_chipRow);
+    m_chipLayout->setContentsMargins(12, 0, 12, 6);
+    return m_chipRow;
 }
 
 void WizSearchView::setWidthHint(int nWidth)
@@ -313,6 +333,7 @@ void WizSearchView::rebuildChips()
         button->setText(fontMetrics().elidedText(chip.label, Qt::ElideRight, 90) + QStringLiteral(" ×"));
         button->setToolTip(QStringLiteral("取消条件：") + chip.label);
         button->setFixedHeight(24);
+        button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         button->setStyleSheet("QPushButton { color:#245387; background:#eaf2fc; border:1px solid #c2d5ed;"
             "border-radius:7px; padding:1px 5px; } QPushButton:hover { background:#d8e8fa; }");
         m_chipLayout->addWidget(button);
@@ -328,6 +349,9 @@ void WizSearchView::rebuildChips()
         auto* more = new QPushButton(QStringLiteral("＋%1").arg(chips.size() - visibleCount), m_chipRow);
         more->setObjectName("wiz-note-more-filters");
         more->setToolTip(labels.join('\n'));
+        more->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+        more->setStyleSheet("QPushButton { color:#52657d; background:#edf1f6; border:1px solid #d6deea;"
+            "border-radius:7px; padding:1px 7px; } QPushButton:hover { background:#e1e9f3; }");
         more->setFixedHeight(24); m_chipLayout->addWidget(more);
         connect(more, &QPushButton::clicked, this, [this] {
             auto* menu = m_editSearch->findChild<QMenu*>("wiz-note-search-menu");
@@ -337,6 +361,9 @@ void WizSearchView::rebuildChips()
     if (!chips.isEmpty()) {
         auto* clear = new QPushButton(QStringLiteral("清除"), m_chipRow);
         clear->setObjectName("wiz-note-clear-filters"); clear->setFixedHeight(24);
+        clear->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+        clear->setStyleSheet("QPushButton { color:#65758b; background:transparent; border:none;"
+            "border-radius:7px; padding:1px 8px; } QPushButton:hover { color:#245387; background:#e6edf6; }");
         clear->setToolTip(QStringLiteral("清除所有条件，保留内容关键词"));
         m_chipLayout->addWidget(clear);
         connect(clear, &QPushButton::clicked, this, [this] { clearFilters(); scheduleSearch(); });
@@ -445,14 +472,14 @@ QRect WizSearchEdit::searchIconRect() const
 {
     QSize size = m_searchIcon.size();
     WizScaleIconSizeForRetina(size);
-    return QRect(QPoint(4, (height() - size.height()) / 2 + 1), size);
+    return QRect(QPoint(8, (height() - size.height()) / 2), size);
 }
 
 QRect WizSearchEdit::deleteIconRect() const
 {
     QSize size = m_deleteIcon.size();
     WizScaleIconSizeForRetina(size);
-    return QRect(QPoint(width() - size.width() - 4, (height() - size.height()) / 2), size);
+    return QRect(QPoint(width() - size.width() - 8, (height() - size.height()) / 2), size);
 }
 
 void WizSearchEdit::paintEvent(QPaintEvent* event)

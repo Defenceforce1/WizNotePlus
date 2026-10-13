@@ -63,6 +63,9 @@ public:
     bool setQueryParams(const QString& params);
     void setAvailableTags(const QList<QPair<QString, QString>>& labelGuids);
     void setAvailableFolders(const QStringList& paths);
+    // The main window places filters in a separate row below the toolbar,
+    // keeping the actual search field aligned with the other toolbar controls.
+    QWidget* takeFilterChipRow();
 
     virtual QSize sizeHint() const;
     //

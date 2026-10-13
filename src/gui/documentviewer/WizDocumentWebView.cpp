@@ -2219,47 +2219,35 @@ void WizDocumentWebView::editorCommandExecuteScreenShot()
 
 void WizDocumentWebView::saveAsPDF()
 {
-    showPrintPreview(true);
-}
-
-void WizDocumentWebView::showPrintPreview(bool pdfOnly)
-{
-    if (!view()->noteLoaded()) return;
-    QString path;
-    if (pdfOnly) {
-        CString title = view()->note().strTitle; WizMakeValidFileNameNoPath(title);
-        path = WizNotePresentation::choosePdfPath(this, title + ".pdf");
-        if (path.isEmpty()) return;
+    CString strTitle = view()->note().strTitle;
+    WizMakeValidFileNameNoPath(strTitle);
+    static QString strInitPath = QDir::homePath();
+    QString strInitFileName = Utils::WizMisc::addBackslash2(strInitPath) + Utils::WizMisc::extractFileTitle(strTitle);
+    //
+    QString strFileName = QFileDialog::getSaveFileName(this, QString(),
+                                                       strInitFileName,
+                                                       tr("PDF Files (*.pdf)"));
+    //
+    if (strFileName.isEmpty())
+        return;
+    //
+    strInitPath = Utils::WizMisc::extractFilePath(strFileName);
+    //
+    if (::WizPathFileExists(strFileName))
+    {
+        ::WizDeleteFile(strFileName);
     }
-    const QString guid = view()->note().strGUID;
-    const QString type = getNoteType();
-    const QUrl base = page()->url();
-    const QPointer<WizDocumentWebView> guard(this);
-    page()->runJavaScript("typeof WizEditor.getContentHtml==='function' ? WizEditor.getContentHtml() : ''", [guard, guid, type, base, path](const QVariant& value) {
-        if (!guard || guard->view()->note().strGUID != guid) return;
-        const QString html = value.toString();
-        // Release WebEngine's JavaScript callback before entering a modal loop.
-        // Its IPC dispatch must remain free to initialize the independent page.
-        QTimer::singleShot(0, guard, [guard, guid, type, base, path, html] {
-        if (!guard || guard->view()->note().strGUID != guid) return;
-        if (html.isEmpty()) { QMessageBox::warning(guard, QStringLiteral("尚未打印"), QStringLiteral("笔记尚未加载完成。")); return; }
-        WizNotePrintDialog dialog(html, type, base, WizNotePresentation::loadStyle(WizGlobal::settings()),
-            WizNotePresentation::printLayout(guard->m_app.userSettings()), guard);
-        if (!path.isEmpty()) {
-            QTimer timer;
-            QObject::connect(&timer, &QTimer::timeout, &dialog, [&] {
-                if (!dialog.error().isEmpty()) { timer.stop(); return; }
-                if (!dialog.ready()) return;
-                timer.stop();
-                const QPointer<WizNotePrintDialog> dialogGuard(&dialog);
-                dialog.writePdf(path, [dialogGuard](bool ok, const QString& error) {
-                    if (dialogGuard && !ok) QMessageBox::warning(dialogGuard, QStringLiteral("未保存"), error);
-                });
-            });
-            timer.start(100); dialog.exec();
-        } else dialog.exec();
-        });
-    });
+    //
+    QPrinter::Unit marginUnit =  (QPrinter::Unit)m_app.userSettings().printMarginUnit();
+    double marginTop = m_app.userSettings().printMarginValue(wizPositionTop);
+    double marginBottom = m_app.userSettings().printMarginValue(wizPositionBottom);
+    double marginLeft = m_app.userSettings().printMarginValue(wizPositionLeft);
+    double marginRight = m_app.userSettings().printMarginValue(wizPositionRight);
+    QMarginsF margins(marginLeft, marginTop, marginRight, marginBottom);
+    //
+    const QPageLayout layout = QPageLayout(QPageSize(QPageSize::A4), QPageLayout::Portrait, margins);
+    //
+    page()->printToPdf(strFileName, layout);
 }
 
 void WizDocumentWebView::applyNoteStyle()

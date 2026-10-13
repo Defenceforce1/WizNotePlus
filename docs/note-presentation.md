@@ -1,4 +1,48 @@
-# Note presentation and printing (v10)
+# Note presentation CSS (v11)
+
+At the user's request, v11 removes the new Print / PDF preview action, its Cmd-P
+binding, the separate rendering window, native-printer path and `printPreview.js`.
+The `saveAsPDF()` function is restored verbatim to the pre-v10 checkout version:
+it exports the current WebEngine page directly, using its original save dialog,
+A4 pagination and original margin handling. No additional rendering pass, preview,
+new pagination CSS or formula conversion is inserted into that function.
+
+Tools > Note body CSS now has just one editor. The former screenCss setting key
+is retained, but its CSS is no longer wrapped in `@media screen`, so the same
+stylesheet participates naturally in the original PDF export. The retired printCss
+setting is ignored, not deleted. User-authored media queries still have their normal
+CSS meaning. Print-specific styles already in the original engine are untouched;
+physical page width and pagination mean PDF cannot promise pixel-identical screen
+geometry. This change does not implement a new PDF or physical printing feature.
+
+Enable/disable, local persistence, live preview, cancel recovery and Restore defaults
+are retained. Temporary CSS is not saved into note content. Existing Markdown editing
+habits, formula renderer, search, window controls and light-skin refinements remain.
+
+The v10 validation described below is historical and does not validate v11 exports.
+V11 tests cover the single CSS settings path and actual main-window CSS preview,
+unchanged editor source/mode and canceling the restored PDF save dialog. The former
+independent-print-copy tests have been removed with that implementation. Complex
+user Markdown/PDF output still requires manual testing; no real account data is used.
+
+The search field has a consistent 30-logical-pixel height, softer border/focus colors,
+and reserved text space for both icons. Filter chips are moved into a separate,
+collapsible row below the toolbar rather than making the search toolbar item two
+lines tall. This keeps Search and New Note vertically centered together with and
+without filters. Search semantics, chip removal and the magnifier panel are unchanged.
+
+V11 verification: the native Qt 6.11.3 build passes all five CTest suites. Both the
+build-tree and deployed Cocoa main-window fixtures pass 44 checks, including actual
+coordinate comparisons (Search/New Note centers within one logical pixel), tag
+filters in the separate row, readable long-keyword spacing, CSS preview/cancel,
+unchanged note HTML, restored PDF save-dialog cancellation and native window controls.
+The packaged empty/filled/filter search screenshots have been visually reviewed.
+The bundle passes the 47-Mach-O arm64/dependency audit and strict ad-hoc signature
+verification. V11 has not generated or visually validated new user-note PDFs; restoring
+the original exporter is verified by source equality, not a claim of resolving every
+previously reported Markdown layout issue. No installed old app or real data was used.
+
+## Historical v10 implementation and validation (superseded)
 
 This adds local rendering CSS and a real print route, while retaining the bundled
 Markdown/rich-text editor, existing shortcuts and edit/read switching. There is

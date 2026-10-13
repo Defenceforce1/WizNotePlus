@@ -237,3 +237,11 @@ prefilled dialogs. Note formats and the existing online/title-fallback engine
 are unchanged. See [inline-search.md](inline-search.md) for compatibility and tests.
 The local build passed all four CTest suites and 37 isolated actual-main-window
 Cocoa checks, including the original native traffic-light regression coverage.
+
+### Note body CSS and restored PDF export (v11)
+
+The local CSS dialog uses one common stylesheet rather than separate screen and
+print fields. The original current-page Save as PDF function is restored verbatim;
+the experimental v10 print preview/window and printer action have been removed.
+Markdown input habits and the original formula renderer are unchanged. See
+[note-presentation.md](note-presentation.md) for scope and historical v10 results.

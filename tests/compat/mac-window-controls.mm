@@ -19,6 +19,7 @@
 #include "WizSearchWidget.h"
 #include "share/WizLegacyLightAppearance.h"
 #include "WizNotePresentation.h"
+#include <QFileDialog>
 #include <QApplication>
 #include <QDialog>
 #include <QElapsedTimer>
@@ -233,9 +234,27 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             if (edit->palette().color(QPalette::Base).lightnessF() < 0.8
                 || edit->palette().color(QPalette::Text).lightnessF() > 0.4) return false;
         }
-        capture(&window, "v9-main-light.png");
+        capture(&window, "v11-main-light.png");
         return true;
     });
+    addCheck("refined search field keeps readable height and reserved icon spacing", [&] {
+        auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        if (!search || search->height() != 30 || search->textMargins().left() < 32
+            || search->textMargins().right() < 28) return false;
+        search->setFocus();
+        search->setText(QStringLiteral("长关键词与标签搜索 / mathematical notes and references"));
+        capture(&window, "v11-search-filled.png");
+        search->clear();
+        if (window.docView()) window.docView()->setEditorFocus();
+        return true;
+    });
+    const auto searchAligned = [&] {
+        auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        auto* newNote = window.findChild<QToolButton*>("btn-newnote");
+        return search && newNote && qAbs(search->mapTo(&window, search->rect().center()).y()
+            - newNote->mapTo(&window, newNote->rect().center()).y()) <= 1;
+    };
+    addCheck("search and New Note centers align without filters", searchAligned);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     addCheck("native title bar uses Aqua after simulated dark appearance", [&] {
         return [[native.effectiveAppearance bestMatchFromAppearancesWithNames:
@@ -292,6 +311,15 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             if (ok) capture(&window, "v9-tag-chip.png");
             return ok;
         }, [&, selectPanelTag] { selectPanelTag(tag.strGUID); });
+        addCheck("search and New Note remain aligned with filters in their own row", [&] {
+            auto* row = window.findChild<QWidget*>("wiz-note-search-chips");
+            auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+            if (!row || !search || !row->isVisible() || !searchAligned()
+                || row->mapTo(&window, QPoint(0, 0)).y()
+                    < search->mapTo(&window, QPoint(0, search->height())).y()) return false;
+            capture(&window, "v11-search-aligned-filters.png");
+            return true;
+        });
         addCheck("inline folder selection intersects tag results in actual main list", [&] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* docs = window.findChild<WizDocumentListView*>();
@@ -474,37 +502,54 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return *sourceReady;
         });
         const auto styleVisited = std::make_shared<bool>(false);
-        addCheck("Tools menu opens the built-in CSS dialog and cancel restores rendering", [&, styleVisited] {
+        const auto styleMeasured = std::make_shared<bool>(false);
+        const auto styleVisible = std::make_shared<bool>(false);
+        addCheck("Tools menu opens CSS dialog, visibly styles paragraphs, and cancel restores rendering", [&, styleVisited, styleMeasured, styleVisible] {
             auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
-            if (dialog && dialog->objectName() == "wiz-note-style-dialog") {
+            if (dialog && dialog->objectName() == "wiz-note-style-dialog" && !*styleVisited) {
                 auto* css = dialog->findChild<QPlainTextEdit*>("wiz-note-screen-css");
                 auto* preview = dialog->findChild<QPushButton*>("wiz-note-css-preview");
                 if (!css || !preview) { dialog->reject(); return false; }
-                css->setPlainText("body { line-height:1.7; color:#263950; }"); preview->click();
+                window.docView()->web()->page()->runJavaScript(
+                    "(function(){function read(){var p=document.querySelector('.wiz-editor-body p');var s=getComputedStyle(document.body);"
+                    "return {bodyClass:document.body.className,bodyColor:s.color,bodyLine:s.lineHeight,paragraphColor:p?getComputedStyle(p).color:'',paragraphLine:p?getComputedStyle(p).lineHeight:''};}"
+                    "var before=read();WizApplyNoteStyle('@media screen {body {line-height:1.7;color:#263950;}}');return {before:before,after:read()};})()",
+                    [](const QVariant& value) { qInfo() << "CSS original-example computed comparison" << value; });
+                css->setPlainText("body, .wiz-editor-body { background-color:#fff8dc !important; } .wiz-editor-body p, .wiz-editor-body li { color:#0066cc !important; font-size:22px !important; line-height:2 !important; }"); preview->click();
                 capture(dialog, "v10-css-dialog.png"); *styleVisited = true;
-                QTimer::singleShot(0, dialog, &QDialog::reject);
+                window.docView()->web()->page()->runJavaScript(
+                    "(function(){var p=document.querySelector('.wiz-editor-body p');var s=p?getComputedStyle(p):null;"
+                    "return {background:getComputedStyle(document.body).backgroundColor,color:s?s.color:'',fontSize:s?s.fontSize:'',lineHeight:s?s.lineHeight:''};})()",
+                    [&, styleMeasured, styleVisible](const QVariant& value) {
+                        qInfo() << "CSS visible diagnostic computed values" << value;
+                        const auto style = value.toMap();
+                        *styleVisible = style.value("background") == "rgb(255, 248, 220)" && style.value("color") == "rgb(0, 102, 204)"
+                            && style.value("fontSize") == "22px" && style.value("lineHeight") == "44px";
+                        *styleMeasured = true;
+                        capture(&window, "css-visible-diagnostic.png");
+                    });
             }
-            return *styleVisited && !QApplication::activeModalWidget();
+            if (dialog && *styleMeasured) QTimer::singleShot(0, dialog, &QDialog::reject);
+            return *styleVisited && *styleVisible && !QApplication::activeModalWidget();
         }, [&] {
             if (auto* action = window.findChild<QAction*>("actionNoteStyle"))
                 QTimer::singleShot(0, action, &QAction::trigger);
         });
-        const auto printVisited = std::make_shared<bool>(false);
+        const auto pdfVisited = std::make_shared<bool>(false);
         const bool wasEditing = window.docView()->isEditing();
-        addCheck("File menu renders an independent printable copy without switching the editor mode", [&, printVisited, wasEditing] {
-            auto* dialog = dynamic_cast<WizNotePrintDialog*>(QApplication::activeModalWidget());
-            if (dialog && dialog->ready()) {
+        addCheck("original Save as PDF opens its save dialog without print preview", [&, pdfVisited, wasEditing] {
+            auto* dialog = qobject_cast<QFileDialog*>(QApplication::activeModalWidget());
+            if (dialog) {
                 if (window.docView()->isEditing() != wasEditing) { dialog->reject(); return false; }
-                capture(dialog, "v10-print-preview.png"); *printVisited = true;
-                QTimer::singleShot(0, dialog, &WizNotePrintDialog::reject);
-            } else if (dialog && !dialog->error().isEmpty()) { qInfo() << dialog->error(); dialog->reject(); }
-            return *printVisited && !QApplication::activeModalWidget();
+                *pdfVisited = true; QTimer::singleShot(0, dialog, &QDialog::reject);
+            }
+            return *pdfVisited && !QApplication::activeModalWidget() && !window.findChild<QAction*>("actionPrintNote");
         }, [&] {
-            if (auto* action = window.findChild<QAction*>("actionPrintNote"))
+            if (auto* action = window.findChild<QAction*>("actionSaveAsPDF"))
                 QTimer::singleShot(0, action, &QAction::trigger);
-        }, 65000);
+        });
         const auto unchanged = std::make_shared<bool>(false);
-        addCheck("actual editor HTML remains identical after CSS preview and printing", [&, unchanged, originalHtml] {
+        addCheck("actual editor HTML remains identical after CSS preview and canceling original PDF export", [&, unchanged, originalHtml] {
             if (!*unchanged && !*queryPending) {
                 *queryPending = true;
                 window.docView()->web()->page()->runJavaScript("WizEditor.getContentHtml()", [=](const QVariant& value) {
