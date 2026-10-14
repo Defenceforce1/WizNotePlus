@@ -81,8 +81,6 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent* ev) override;
 
-public:
-    bool eventFilter(QObject* watched, QEvent* event) override;
 };
 
 #endif // WIZTABWIDGET_H

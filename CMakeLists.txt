@@ -15,7 +15,7 @@ endif()
 project(WizNotePlus VERSION 2.12.0)
 
 # Independent trial identity; keep the upstream client version and note schema.
-set(WIZNOTE_COMPAT_TRIAL_BUILD "v14.4-rc7")
+set(WIZNOTE_COMPAT_TRIAL_BUILD "v14.4-rc8")
 set(WIZNOTE_APPLE_SILICON_TRIAL 0)
 set(WIZNOTE_MAC_DISPLAY_NAME "WizNotePlus")
 set(WIZNOTE_MAC_BUNDLE_BUILD "${PROJECT_VERSION}")
@@ -25,7 +25,7 @@ set(WIZNOTE_MAC_URL_TYPES "<array><dict><key>CFBundleURLName</key><string>WizNot
 if(APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
     set(WIZNOTE_APPLE_SILICON_TRIAL 1)
     set(WIZNOTE_MAC_DISPLAY_NAME "WizNotePlus — Apple Silicon 发布候选版")
-    set(WIZNOTE_MAC_BUNDLE_BUILD "14.4.7")
+    set(WIZNOTE_MAC_BUNDLE_BUILD "14.4.8")
     set(WIZNOTE_MAC_BUNDLE_ID "io.github.defenceforce1.wiznoteplus.applesilicon")
     set(WIZNOTE_MAC_BUNDLE_NAME "WizNotePlus Apple Silicon")
     # Keep in-note wiz:// links, but do not take over old-app LaunchServices URLs.

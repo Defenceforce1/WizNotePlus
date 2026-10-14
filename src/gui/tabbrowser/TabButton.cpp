@@ -19,7 +19,7 @@ QSize TabButton::sizeHint() const
     ensurePolished();
     int width = style()->pixelMetric(QStyle::PM_TabCloseIndicatorWidth, 0, this);
     int height = style()->pixelMetric(QStyle::PM_TabCloseIndicatorHeight, 0, this);
-    return QSize(width, height);
+    return QSize(qMax(16, width), qMax(16, height));
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

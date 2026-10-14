@@ -15,6 +15,7 @@
 #include "gui/documentviewer/WizDocumentView.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
 #include "gui/documentviewer/WizTitleEdit.h"
+#include "gui/tabbrowser/WizMainTabBrowser.h"
 #include "gui/doclistviewer/WizDocumentListView.h"
 #include "widgets/WizAdvancedSearchDialog.h"
 #include "WizSearchWidget.h"
@@ -23,6 +24,8 @@
 #include "WizBuildIdentity.h"
 #include <QFileDialog>
 #include <QApplication>
+#include <QTabBar>
+#include <QAbstractButton>
 #include <QDialog>
 #include <QElapsedTimer>
 #include <QTemporaryDir>
@@ -60,6 +63,14 @@
 // close handler. A bare QMainWindow does not cover this application's chrome.
 // No existing account is read. Sync and clipping are disabled by a test-only
 // property; all remote browser requests are blocked and Qt networking is local.
+class TabCloseFixturePage final : public AbstractTabPage {
+public:
+    QString name;
+    explicit TabCloseFixturePage(const QString& title) : name(title) {}
+    QString Title() override { return name; }
+    void RequestClose(bool = false) override { Q_EMIT pageCloseRequested(); }
+};
+
 class WindowTestRequestInterceptor final : public QWebEngineUrlRequestInterceptor
 {
 public:
@@ -188,6 +199,50 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         const bool visibleError = avatarAccount->toolTip() == QStringLiteral("synthetic avatar failure");
         Q_EMIT avatar.loaded(manager.db().getUserId());
         check(visibleError && avatarAccount->toolTip().isEmpty(), "avatar failure status is displayed and cleared on a later load");
+    }
+    auto* tabs = window.mainTabView();
+    auto* originalPage = tabs ? tabs->currentWidget() : nullptr;
+    QList<QPointer<TabCloseFixturePage>> tabFixtures;
+    if (tabs) for (int i = 0; i < 8; ++i) {
+        auto* page = new TabCloseFixturePage(QStringLiteral("多笔记关闭测试 %1 长标题").arg(i));
+        tabFixtures.append(page); tabs->createTab(page);
+    }
+    const auto allTabActionsVisible = [&] {
+        if (!tabs) return false;
+        for (int i = 0; i < tabs->count(); ++i) {
+            auto* button = qobject_cast<QAbstractButton*>(tabs->tabBar()->tabButton(i, QTabBar::RightSide));
+            if (!button || button->isHidden() || button->size().width() < 16 || button->icon().isNull()) return false;
+        }
+        return true;
+    };
+    app.processEvents();
+    check(tabFixtures.size() == 8 && allTabActionsVisible(), "multiple long-title tabs keep every close action without hover");
+    if (tabs) {
+        for (int i = tabs->count() - 1; i >= 0; --i) tabs->setCurrentIndex(i);
+        tabs->tabBar()->moveTab(tabs->indexOf(tabFixtures[0]), tabs->count() - 1);
+        app.processEvents();
+    }
+    check(allTabActionsVisible(), "switching and reordering tabs retain close actions");
+    if (tabs) {
+        const int locked = tabs->indexOf(tabFixtures[0]);
+        tabs->lockTab(locked); tabs->closeTab(locked); app.processEvents();
+        check(tabs->indexOf(tabFixtures[0]) >= 0 && tabs->isTabLocked(tabs->indexOf(tabFixtures[0]))
+              && allTabActionsVisible(), "visible lock action still prevents closing a locked tab");
+        tabs->unlockTab(tabs->indexOf(tabFixtures[0]));
+        const int index = tabs->indexOf(tabFixtures[2]);
+        auto* close = qobject_cast<QAbstractButton*>(tabs->tabBar()->tabButton(index, QTabBar::RightSide));
+        if (close) close->click();
+        check(tabs->indexOf(tabFixtures[2]) == -1 && tabs->indexOf(tabFixtures[1]) >= 0
+              && allTabActionsVisible(), "a reordered close button closes only its own page and leaves other actions visible");
+        for (const auto& page : tabFixtures) if (page) tabs->closeTab(tabs->indexOf(page));
+        if (originalPage) tabs->setCurrentWidget(originalPage);
+        app.processEvents();
+        // Restore settled main-window geometry after the long-title fixture
+        // temporarily expanded the splitter's minimum width.
+        window.resize(1000, 650);
+        app.processEvents();
+        QMetaObject::invokeMethod(&window, "adjustToolBarLayout", Qt::DirectConnection);
+        app.processEvents();
     }
     const auto fullscreenTransition = std::make_shared<bool>(false);
     const auto minimizeTransition = std::make_shared<bool>(false);
