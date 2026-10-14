@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -132,6 +133,17 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
     QFile::remove(root + "/unsafe-account");
     check(validateRoot(home, root, normalized, error), "store can reopen after synthetic unsafe link removal");
     check(WizNotePresentation::loadStyle(&css).screen == cssSource, "all startup checks retain exact existing CSS");
+    QProcess invalidTest;
+    auto testEnvironment = QProcessEnvironment::systemEnvironment();
+    const QString unusedStore = base + "/unknown-test-unused-store";
+    testEnvironment.insert("WIZNOTE_DATA_STORE", unusedStore);
+    invalidTest.setProcessEnvironment(testEnvironment);
+    invalidTest.start(QCoreApplication::applicationFilePath(), {"--mac-main-window-controls-self-test"});
+    const bool refused = invalidTest.waitForFinished(5000);
+    if (!refused) { invalidTest.kill(); invalidTest.waitForFinished(3000); }
+    check(refused && invalidTest.exitStatus() == QProcess::NormalExit && invalidTest.exitCode() == 2
+          && invalidTest.readAllStandardError().contains("normal startup refused") && !QFileInfo::exists(unusedStore),
+          "misspelled self-test refuses normal startup before opening or creating an account store");
     qInfo() << "Standalone startup failures:" << failures;
     return failures ? 1 : 0;
 }

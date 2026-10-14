@@ -3,6 +3,9 @@
 #include "share/jsoncpp/json/json.h"
 #include "WizBuildIdentity.h"
 #include "sync/WizAvatarUploader.h"
+#include "sync/WizAvatarHost_p.h"
+#include "sync/WizApiEntry.h"
+#include "utils/WizPathResolve.h"
 #include <QImage>
 #include <QRegularExpression>
 #include <QCoreApplication>
@@ -221,6 +224,7 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
     check(avatarResponse(200, "{\"returnCode\":200}") && avatarSucceeded,
           "actual avatar multipart upload succeeds with verified loopback HTTPS and structured result");
     check(server.received.startsWith("POST ") && server.received.contains("name=\"token\"")
+          && server.received.contains("X-Wiz-Token: synthetic-avatar-token")
           && server.received.contains("synthetic-avatar-token") && server.received.contains("name=\"avatar\"; filename=\"avatar.png\"")
           && server.received.contains("image/png") && !server.received.contains(temporary.path().toUtf8()),
           "avatar request preserves Wiz field names and does not transmit local file paths");
@@ -236,6 +240,8 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
           "Qt server error 499 exposes actual HTTP 502 without leaking response bodies");
     check(avatarResponse(401, "denied") && !avatarSucceeded && avatarUploader.lastErrorMessage().contains("HTTP 401"),
           "avatar authentication denial reports actual HTTP status");
+    check(avatarResponse(200, "{\"returnCode\":301}") && !avatarSucceeded && avatarUploader.lastErrorMessage().contains("301"),
+          "modern JSON invalid-token error is not mistaken for HTTP success");
     const int beforeAvatarRedirect = other.accepted;
     check(avatarResponse(307, {}, "Location: https://localhost:" + QByteArray::number(other.serverPort()) + "/avatar\r\n")
           && !avatarSucceeded && other.accepted == beforeAvatarRedirect,
@@ -255,6 +261,60 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
                                "synthetic-avatar-token", avatar);
     check(avatarSignals == 1 && !avatarSucceeded && expiredAvatarServer.requests == 0,
           "actual avatar upload rejects expired certificates before sending a picture or token");
+    // The real downloader, with an isolated cache and a verified synthetic server.
+    const auto savedEndpoints = WizCommonApiEntry::m_cacheMap;
+    WizCommonApiEntry::m_cacheMap.insert("upload_avatar", localhost.toString() + "/upload-avatar");
+    check(WizCommonApiEntry::avatarUploadUrl() == localhost.toString() + "/upload-avatar",
+          "avatar upload uses the server-discovered command instead of concatenating a legacy path");
+    WizCommonApiEntry::m_cacheMap.insert("upload_avatar", "http://localhost/upload-avatar");
+    check(WizCommonApiEntry::avatarUploadUrl().isEmpty(), "insecure discovered upload endpoint rejected");
+    WizCommonApiEntry::m_cacheMap.insert("avatar", localhost.toString() + "/{userGuid}");
+    check(WizCommonApiEntry::avatarDownloadUrlByGuid("fixture+guid").contains("/fixture%2Bguid")
+          && WizCommonApiEntry::avatarDownloadUrlByGuid(QString()).isEmpty(),
+          "discovered avatar template uses an encoded GUID, never the login email");
+    WizCommonApiEntry::m_cacheMap.insert("avatar", "http://localhost/avatar/{userGuid}");
+    check(WizCommonApiEntry::avatarDownloadUrlByGuid("fixture").isEmpty(), "insecure discovered avatar endpoint rejected");
+    WizCommonApiEntry::m_cacheMap = savedEndpoints;
+    WizAvatarDownloader downloader;
+    downloader.m_strCurrentUser = "synthetic-download-account";
+    bool downloadSucceeded = false; int downloadSignals = 0; QString downloadError;
+    QObject::connect(&downloader, &WizAvatarDownloader::downloaded, &app, [&](const QString&, bool ok) {
+        downloadSucceeded = ok; ++downloadSignals;
+    });
+    QObject::connect(&downloader, &WizAvatarDownloader::failed, &app, [&](const QString&, const QString& error) { downloadError = error; });
+    const QString cacheFile = Utils::WizPathResolve::avatarPath() + downloader.m_strCurrentUser + ".png";
+    check(downloader.save(downloader.m_strCurrentUser, avatar) && QImage(cacheFile).size() == QSize(100, 100),
+          "validated avatar is saved to the isolated original cache name");
+    const auto cachedBytes = [&] { QFile file(cacheFile); file.open(QIODevice::ReadOnly); return file.readAll(); };
+    const QByteArray previousAvatar = cachedBytes();
+    check(!downloader.save(downloader.m_strCurrentUser, "{\"returnCode\":2000}") && cachedBytes() == previousAvatar,
+          "HTTP 200 JSON error cannot erase an existing avatar");
+    check(!downloader.save("../escape", avatar), "avatar cache path traversal rejected");
+    const auto downloadResponse = [&](int status, const QByteArray& body, const QByteArray& extra = QByteArray()) {
+        server.response = "HTTP/1.1 " + QByteArray::number(status) + " Fixture\r\nContent-Length: "
+            + QByteArray::number(body.size()) + "\r\nConnection: close\r\n" + extra + "\r\n" + body;
+        server.received.clear(); downloadSignals = 0; downloadSucceeded = false; downloadError.clear();
+        downloader.queryUserAvatar(localhost.toString());
+        return downloadSignals == 1;
+    };
+    check(downloadResponse(200, avatar) && downloadSucceeded && downloadError.isEmpty(),
+          "real downloader validates and atomically replaces a verified HTTPS image");
+    check(server.received.startsWith("GET ") && server.received.contains("_wizAvatarRefresh=")
+          && server.received.contains("Cache-Control: no-cache") && !server.received.contains("synthetic-avatar-token"),
+          "avatar refresh bypasses stale cache without credentials");
+    check(downloadResponse(200, "{\"returnCode\":2000}") && !downloadSucceeded && !downloadError.isEmpty()
+          && cachedBytes() == previousAvatar, "JSON avatar failure reports once and preserves the old image");
+    check(downloadResponse(502, "private backend") && !downloadSucceeded && downloadError.contains("HTTP 502")
+          && !downloadError.contains("private backend") && cachedBytes() == previousAvatar,
+          "avatar HTTP error is visible without raw response or cache loss");
+    check(downloadResponse(302, {}, "Location: http://localhost:" + QByteArray::number(server.serverPort()) + "/unsafe\r\n")
+          && !downloadSucceeded && cachedBytes() == previousAvatar, "avatar download blocks TLS downgrade and preserves cache");
+    FixtureServer expiredDownloadServer; expiredDownloadServer.certificate = expired; expiredDownloadServer.key = server.key;
+    check(expiredDownloadServer.listen(QHostAddress::LocalHost), "expired avatar download fixture ready");
+    downloadSignals = 0; downloadSucceeded = false;
+    downloader.queryUserAvatar(QString("https://localhost:%1/avatar").arg(expiredDownloadServer.serverPort()));
+    check(downloadSignals == 1 && !downloadSucceeded && expiredDownloadServer.requests == 0 && cachedBytes() == previousAvatar,
+          "avatar download validates certificates before any GET and preserves cache");
     QSslConfiguration::setDefaultConfiguration(systemConfiguration);
     check(QSslConfiguration::defaultConfiguration().caCertificates() == systemConfiguration.caCertificates(),
           "test trust removed; no persistent system CA installation");

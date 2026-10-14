@@ -18,6 +18,7 @@ public:
     static QString messageServerUrl();
     static QString systemAvatarUrl(const QString& avatarName);
     static QString avatarDownloadUrl(const QString& strUserGUID);
+    static QString avatarDownloadUrlByGuid(const QString& userGUID);
     static QString avatarUploadUrl();
     static QString commentUrlTemplate();
     static QString mailShareUrl(const QString& strKsServer, const QString& strMailInfo);
@@ -51,6 +52,7 @@ public:
     static QString server() { return m_server; }
 
 private:
+    friend int wizNetworkSecuritySelfTest(int, char**);
     static QString requestUrl(const QString& strCommand);
     static void getEndPoints();
     static void updateUrlCache(const QString& strCommand, const QString& url);

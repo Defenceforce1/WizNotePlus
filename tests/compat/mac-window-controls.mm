@@ -11,6 +11,7 @@
 #include "share/WizWebEngineView.h"
 #include "sync/WizAvatarHost.h"
 #include "sync/WizToken.h"
+#include "widgets/WizUserInfoWidget.h"
 #include "gui/documentviewer/WizDocumentView.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
 #include "gui/documentviewer/WizTitleEdit.h"
@@ -175,6 +176,18 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     check(styleAction && styleAction->text() == QStringLiteral("笔记样式（CSS）…")
         && aboutAction && aboutAction->text() == QStringLiteral("关于 WizNotePlus…"),
         "style and About menu names are consistent with their dialogs");
+    auto* avatarAccount = window.findChild<WizUserInfoWidget*>("wiz-header-account");
+    auto* avatarRefresh = avatarAccount && avatarAccount->menu()
+        ? avatarAccount->menu()->findChild<QAction*>("wiz-refresh-avatar-action") : nullptr;
+    check(avatarRefresh && avatarRefresh->text() == QStringLiteral("刷新头像"), "account menu exposes explicit avatar refresh");
+    if (avatarRefresh) avatarRefresh->trigger();
+    check(avatarRefresh && avatarRefresh->isEnabled(), "isolated account without a GUID does not start or stall avatar refresh");
+    if (avatarAccount) {
+        Q_EMIT avatar.loadFailed(manager.db().getUserId(), QStringLiteral("synthetic avatar failure"));
+        const bool visibleError = avatarAccount->toolTip() == QStringLiteral("synthetic avatar failure");
+        Q_EMIT avatar.loaded(manager.db().getUserId());
+        check(visibleError && avatarAccount->toolTip().isEmpty(), "avatar failure status is displayed and cleared on a later load");
+    }
     const auto fullscreenTransition = std::make_shared<bool>(false);
     const auto minimizeTransition = std::make_shared<bool>(false);
     const auto deminiaturized = std::make_shared<int>(0);

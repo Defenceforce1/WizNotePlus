@@ -73,6 +73,8 @@ void WizAvatarUploader::upload_impl(const QString& url, const QString& token, co
     }
     // Never replay credentials or silently turn an avatar POST into a GET.
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    // Current Wiz account API (official SDK); keep legacy form fields as well.
+    request.setRawHeader("X-Wiz-Token", token.toUtf8());
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     request.setTransferTimeout(20000);
 #endif
@@ -125,6 +127,10 @@ void WizAvatarUploader::upload_impl(const QString& url, const QString& token, co
     // Standard Wiz JSON result plus the exact legacy plain-text success code.
     // An unrelated "200" substring is not proof that an avatar was saved.
     if (response != "200" && (!document.isObject() || !code.isDouble() || code.toDouble() != 200)) {
+        if (code.isDouble() && code.toDouble() == 301) {
+            fail(QStringLiteral("头像服务拒绝登录凭据（服务返回码 301）。请重新确认登录状态；本地头像未改动。"));
+            return;
+        }
         fail(code.isDouble()
              ? QStringLiteral("头像服务拒绝保存图片（服务返回码 %1，HTTP %2）。").arg(code.toDouble()).arg(status)
              : QStringLiteral("头像服务未返回可确认的成功结果（HTTP %1）。本地头像未改动。")

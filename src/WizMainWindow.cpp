@@ -2556,6 +2556,9 @@ void WizMainWindow::on_syncDone(int nErrorCode, bool isNetworkError, const QStri
     m_documents->viewport()->update();
     m_category->updateGroupsData();
     m_category->viewport()->update();
+    if (S_OK == nErrorCode && !isBackground) {
+        if (auto* account = findChild<WizUserInfoWidget*>("wiz-header-account")) account->refreshAvatar();
+    }
 }
 
 void WizMainWindow::on_syncDone_userVerified()

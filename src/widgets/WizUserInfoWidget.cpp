@@ -3,6 +3,7 @@
 #include <QMenu>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QTimer>
 
 #include "WizDef.h"
 #include "share/WizSettings.h"
@@ -28,8 +29,7 @@ WizUserInfoWidget::WizUserInfoWidget(WizExplorerApp& app, QWidget *parent)
 {
     connect(WizAvatarHost::instance(), SIGNAL(loaded(const QString&)),
             SLOT(on_userAvatar_loaded(const QString&)));
-
-    WizAvatarHost::load(m_db.getUserId(), false);
+    connect(WizAvatarHost::instance(), &WizAvatarHost::loadFailed, this, &WizUserInfoWidget::on_userAvatar_failed);
 
     resetUserInfo();
 
@@ -63,6 +63,9 @@ WizUserInfoWidget::WizUserInfoWidget(WizExplorerApp& app, QWidget *parent)
     m_menuMain->addAction(actionAccountInfo);
     m_menuMain->addAction(actionAccountSetup);
     m_menuMain->addAction(actionChangeAvatar);
+    QAction* refresh = m_menuMain->addAction(QStringLiteral("刷新头像"));
+    refresh->setObjectName("wiz-refresh-avatar-action");
+    connect(refresh, &QAction::triggered, this, [this] { refreshAvatar(true); });
     WizOEMSettings oemSettings(m_db.getAccountPath());
     if (!oemSettings.isHideBuyVip() && app.userSettings().serverType() != EnterpriseServer)
     {
@@ -83,6 +86,9 @@ WizUserInfoWidget::WizUserInfoWidget(WizExplorerApp& app, QWidget *parent)
     m_menuMain->addAction(actionLogout);
 
     setMenu(m_menuMain);
+    WizAvatarHost::setUserGuid(m_db.getUserId(), m_db.getUserGuid());
+    WizAvatarHost::load(m_db.getUserId(), false);
+    QTimer::singleShot(0, this, [this] { refreshAvatar(); });
 }
 
 void WizUserInfoWidget::showAccountSettings()
@@ -129,7 +135,32 @@ void WizUserInfoWidget::on_userAvatar_loaded(const QString& strGUID)
     if (strGUID != m_db.getUserId())
         return;
 
+    m_avatarRefreshRequested = false;
+    setToolTip(QString());
+    if (auto* action = m_menuMain->findChild<QAction*>("wiz-refresh-avatar-action")) action->setEnabled(true);
     updateUI();
+}
+
+void WizUserInfoWidget::refreshAvatar(bool showError)
+{
+    if (m_db.getUserGuid().isEmpty()) {
+        setToolTip(QStringLiteral("尚未取得用户 GUID，无法刷新头像。请完成登录与同步。"));
+        return;
+    }
+    WizAvatarHost::setUserGuid(m_db.getUserId(), m_db.getUserGuid());
+    m_avatarRefreshRequested = m_avatarRefreshRequested || showError;
+    if (auto* action = m_menuMain->findChild<QAction*>("wiz-refresh-avatar-action")) action->setEnabled(false);
+    WizAvatarHost::reload(m_db.getUserId());
+}
+
+void WizUserInfoWidget::on_userAvatar_failed(const QString& userID, const QString& error)
+{
+    if (userID != m_db.getUserId()) return;
+    if (auto* action = m_menuMain->findChild<QAction*>("wiz-refresh-avatar-action")) action->setEnabled(true);
+    setToolTip(error);
+    const bool showError = m_avatarRefreshRequested;
+    m_avatarRefreshRequested = false;
+    if (showError) QMessageBox::warning(this, QStringLiteral("刷新头像"), error);
 }
 
 void WizUserInfoWidget::on_action_accountInfo_triggered()

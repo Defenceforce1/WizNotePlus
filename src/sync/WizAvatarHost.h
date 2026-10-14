@@ -23,6 +23,8 @@ public:
     static WizAvatarHost* instance();
     static void load(const QString& strUserID, bool isSystem);
     static void reload(const QString& strUserID);
+    // Keep existing cache names; the current API identifies users by GUID.
+    static void setUserGuid(const QString& userID, const QString& userGUID);
     static bool isLoaded(const QString& strUserID);
     static bool isFileExists(const QString& strUserID);
     static bool avatar(const QString& strUserID, QPixmap* pixmap);
@@ -36,6 +38,7 @@ public:
 
 Q_SIGNALS:
     void loaded(const QString& strUserID);
+    void loadFailed(const QString& userID, const QString& error);
 
     friend class WizAvatarHostPrivate;
 

@@ -207,15 +207,19 @@ QString WizCommonApiEntry::avatarDownloadUrl(const QString& strUserGUID)
     return strUrl;
 }
 
+QString WizCommonApiEntry::avatarDownloadUrlByGuid(const QString& userGUID)
+{
+    if (userGUID.isEmpty()) return QString();
+    QString url = getUrlByCommand(WIZNOTE_API_COMMAND_AVATAR);
+    if (!url.contains("{userGuid}")) return QString();
+    url.replace("{userGuid}", QString::fromLatin1(QUrl::toPercentEncoding(userGUID)));
+    return WizNetworkSecurity::allowsAccountUrl(QUrl(url)) ? url : QString();
+}
+
 QString WizCommonApiEntry::avatarUploadUrl()
 {
-    QString strUrl = asServerUrl();
-    if (strUrl.isEmpty())
-        return QString();
-
-    strUrl.append(QString("/a/users/avatar"));
-
-    return strUrl;
+    const QString url = getUrlByCommand(WIZNOTE_API_COMMAND_UPLOAD_AVATAR);
+    return WizNetworkSecurity::allowsAccountUrl(QUrl(url)) ? url : QString();
 }
 
 QString WizCommonApiEntry::mailShareUrl(const QString& strKsServer, const QString& strMailInfo)

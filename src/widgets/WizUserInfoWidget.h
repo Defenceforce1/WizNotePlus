@@ -25,6 +25,7 @@ protected:
     QIcon m_iconVipIndicator;
     QIcon m_iconArraw;
     QPixmap m_circleAvatar;
+    bool m_avatarRefreshRequested = false;
     //
     QPixmap getCircleAvatar(int width, int height);
 
@@ -37,6 +38,7 @@ protected:
     //
 public:
     void showAccountSettings();
+    void refreshAvatar(bool showError = false);
 
 protected Q_SLOTS:
     void resetUserInfo();
@@ -44,6 +46,7 @@ protected Q_SLOTS:
     void on_userInfo_changed();
 
     void on_userAvatar_loaded(const QString& strGUID);
+    void on_userAvatar_failed(const QString& userID, const QString& error);
     void on_action_accountInfo_triggered();
     void on_action_accountSettings_triggered();
     void on_action_upgradeVip_triggered();

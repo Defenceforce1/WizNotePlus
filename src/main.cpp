@@ -489,6 +489,14 @@ int main(int argc, char *argv[])
     }
 #endif
 #endif
+    // Misspelled test/probe flags must never fall through to real account startup.
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray argument(argv[i]);
+        if (argument.startsWith("--") && (argument.contains("self-test") || argument.endsWith("-probe"))) {
+            qCritical() << "Unknown or malformed test option; normal startup refused.";
+            return 2;
+        }
+    }
     WizStandaloneStorage::Session session;
     if (WizBuildIdentity::appleSiliconTrial) {
         QString error;

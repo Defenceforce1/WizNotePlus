@@ -10,6 +10,10 @@
 #include <QNetworkReply>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
+#include <QBuffer>
+#include <QImageReader>
+#include <QUrlQuery>
 #include <QPixmap>
 #include <QPixmapCache>
 #include <QDateTime>
@@ -26,6 +30,7 @@
 #include "../share/WizMisc.h"
 #include "share/WizThreads.h"
 #include "share/WizEventLoop.h"
+#include "share/WizNetworkSecurity.h"
 
 /* ----------------------- AvatarDownloader ----------------------- */
 WizAvatarDownloader::WizAvatarDownloader(QObject* parent)
@@ -34,93 +39,78 @@ WizAvatarDownloader::WizAvatarDownloader(QObject* parent)
 {
 }
 
-void WizAvatarDownloader::download(const QString& strUserGUID, bool isSystemAvatar)
+void WizAvatarDownloader::download(const QString& userID, bool isSystemAvatar, const QString& userGUID)
 {
-    if (m_net.get() == nullptr)
-    {
-        m_net = std::make_shared<QNetworkAccessManager>();
-    }
-
-    m_strCurrentUser = strUserGUID;
-#ifdef Q_OS_LINUX
-    QString strUrl = WizCommonApiEntry::avatarDownloadUrl(strUserGUID);
-#else
-    QString standGID = QUrl::toPercentEncoding(strUserGUID);
-    QString strUrl = isSystemAvatar ? WizCommonApiEntry::systemAvatarUrl(standGID)
-                                    : WizCommonApiEntry::avatarDownloadUrl(standGID);
-#endif
+    m_strCurrentUser = userID;
+    const QString encodedID = QString::fromLatin1(QUrl::toPercentEncoding(userID));
+    const QString strUrl = isSystemAvatar ? WizCommonApiEntry::systemAvatarUrl(encodedID)
+        : !userGUID.isEmpty() ? WizCommonApiEntry::avatarDownloadUrlByGuid(userGUID)
+                             : WizCommonApiEntry::avatarDownloadUrl(encodedID);
     if (strUrl.isEmpty()) {
+        fetchUserAvatarEnd(false, QStringLiteral("无法获取头像下载地址；原头像已保留。"));
         return;
     }
-
-    //
     queryUserAvatar(strUrl);
 }
 
 void WizAvatarDownloader::queryUserAvatar(const QString& strUrl)
 {
-    qDebug() << "downloader start to download : " << m_strCurrentUser;
-    QNetworkReply* reply = m_net->get(QNetworkRequest(strUrl));
-    WizAutoTimeOutEventLoop loop(reply);
-    loop.exec();
-
-    if (loop.error() != QNetworkReply::NoError)
-    {
-        fetchUserAvatarEnd(false);
+    if (!m_net) m_net = std::make_shared<QNetworkAccessManager>();
+    QUrl url(strUrl);
+    // Ignore stale intermediaries after a web-side change; no credentials here.
+    QUrlQuery query(url);
+    query.addQueryItem("_wizAvatarRefresh", QString::number(QDateTime::currentMSecsSinceEpoch()));
+    url.setQuery(query);
+    QNetworkRequest request(url);
+    if (!WizNetworkSecurity::prepareAccountRequest(request, true)) {
+        fetchUserAvatarEnd(false, QStringLiteral("头像下载地址不安全；原头像已保留。"));
         return;
     }
-
-    // cause we use "default", redirection may occur
-    QVariant possibleRedirectUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
-    m_urlRedirectedTo = redirectUrl(possibleRedirectUrl.toUrl(), m_urlRedirectedTo);
-
-
-    if(!m_urlRedirectedTo.isEmpty()) {
-        qDebug() << "[AvatarHost]fetching redirected, url: "
-                 << m_urlRedirectedTo.toString();
-
-        queryUserAvatar(m_urlRedirectedTo.toString());
-    } else {
-        // read and save avatar
-        QByteArray bReply = loop.result();
-
-        if (!save(m_strCurrentUser, bReply))
-        {
-            qDebug() << "[AvatarHost]failed: unable to save user avatar, guid: " << m_strCurrentUser;
-            fetchUserAvatarEnd(false);
-            return;
-        }
-
-        qDebug() << "[AvatarHost]fetching finished, guid: " << m_strCurrentUser;
-        fetchUserAvatarEnd(true);
+    request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
+    request.setRawHeader("Cache-Control", "no-cache");
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    request.setTransferTimeout(20000);
+#endif
+    QNetworkReply* reply = m_net->get(request);
+    QObject::connect(reply, &QNetworkReply::downloadProgress, reply, [reply](qint64 received, qint64 total) {
+        if (received > 4 * 1024 * 1024 || total > 4 * 1024 * 1024) reply->abort();
+    });
+    WizAutoTimeOutEventLoop loop(reply);
+    loop.setTimeoutWaitSeconds(20);
+    loop.exec();
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (loop.error() != QNetworkReply::NoError || status != 200) {
+        const QString detail = status ? QString("HTTP %1，网络错误码 %2").arg(status).arg(int(loop.error()))
+                                      : QString("网络错误码 %1").arg(int(loop.error()));
+        fetchUserAvatarEnd(false, QString("头像下载失败（%1）；原头像已保留。").arg(detail));
+        return;
     }
+    if (!save(m_strCurrentUser, loop.result())) {
+        fetchUserAvatarEnd(false, QStringLiteral("头像服务未返回有效图片，或本地缓存无法写入；原头像已保留。"));
+        return;
+    }
+    fetchUserAvatarEnd(true);
 }
 
-QUrl WizAvatarDownloader::redirectUrl(const QUrl& possibleRedirectUrl,
-                                         const QUrl& oldRedirectUrl) const
+void WizAvatarDownloader::fetchUserAvatarEnd(bool bSucceed, const QString& error)
 {
-    QUrl redirectUrl;
-
-    if(!possibleRedirectUrl.isEmpty() && possibleRedirectUrl != oldRedirectUrl)
-        redirectUrl = possibleRedirectUrl;
-    return redirectUrl;
-}
-
-void WizAvatarDownloader::fetchUserAvatarEnd(bool bSucceed)
-{
+    if (!bSucceed) Q_EMIT failed(m_strCurrentUser, error);
     Q_EMIT downloaded(m_strCurrentUser, bSucceed);
 }
 
 bool WizAvatarDownloader::save(const QString& strUserGUID, const QByteArray& bytes)
 {
-    QString strFileName = Utils::WizPathResolve::avatarPath() + strUserGUID + ".png";
-    if (!strFileName.isEmpty() && QFile::exists(strFileName)) {
-        ::WizDeleteFile(strFileName);
-        qDebug() << "[AvatarHost]avatar file exists , remove it :" << !QFile::exists(strFileName);
-    }
-    QImage img = QImage::fromData(bytes);
-
-    return img.save(strFileName);
+    if (strUserGUID.isEmpty() || strUserGUID.contains('/') || strUserGUID.contains('\\')
+        || strUserGUID.contains(QChar::Null) || bytes.size() > 4 * 1024 * 1024) return false;
+    QBuffer buffer;
+    buffer.setData(bytes); buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
+    const QSize size = reader.size();
+    if (!size.isValid() || size.width() > 4096 || size.height() > 4096) return false;
+    const QImage image = reader.read();
+    if (image.isNull()) return false;
+    QSaveFile file(Utils::WizPathResolve::avatarPath() + strUserGUID + ".png");
+    return file.open(QIODevice::WriteOnly) && image.save(&file, "PNG") && file.commit();
 }
 
 
@@ -132,6 +122,7 @@ WizAvatarHostPrivate::WizAvatarHostPrivate(WizAvatarHost* avatarHost)
 {
     connect(m_downloader, SIGNAL(downloaded(QString, bool)),
             SLOT(on_downloaded(QString, bool)));
+    connect(m_downloader, &WizAvatarDownloader::failed, q, &WizAvatarHost::loadFailed);
     loadCacheDefault();
 }
 
@@ -345,6 +336,12 @@ void WizAvatarHostPrivate::reload(const QString& strUserID)
     addToDownloadList(strUserID, false);
 }
 
+void WizAvatarHostPrivate::setUserGuid(const QString& userID, const QString& userGUID)
+{
+    QMutexLocker locker(&m_mutex);
+    if (!userID.isEmpty() && !userGUID.isEmpty()) m_userGuids.insert(userID, userGUID);
+}
+
 void WizAvatarHostPrivate::download_impl()
 {
     if (!m_currentDownloadingUser.userID.isEmpty())
@@ -360,13 +357,20 @@ void WizAvatarHostPrivate::download_impl()
         return;
     }
 
+    const DownloadingUser user = m_currentDownloadingUser;
+    QString guid;
+    {
+        QMutexLocker locker(&m_mutex);
+        guid = m_userGuids.value(user.userID);
+    }
     WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        m_downloader->download(m_currentDownloadingUser.userID, m_currentDownloadingUser.isSystemAvatar);
+        m_downloader->download(user.userID, user.isSystemAvatar, guid);
     });
 }
 
 void WizAvatarHostPrivate::appendUserID(const QString& strUserID, bool isSystem)
 {
+    if (strUserID.isEmpty() || m_currentDownloadingUser.userID == strUserID) return;
     QMutexLocker locker(&m_mutex);
     Q_UNUSED(locker);
 
@@ -400,8 +404,8 @@ void WizAvatarHostPrivate::on_downloaded(QString strUserID, bool bSucceed)
 {
     if (bSucceed)
     {
-        loadCache(strUserID);
-        Q_EMIT q->loaded(strUserID);        
+        if (loadCache(strUserID)) Q_EMIT q->loaded(strUserID);
+        else Q_EMIT q->loadFailed(strUserID, QStringLiteral("头像缓存无法显示，请稍后重试。"));
     }
 
     //  下载列表中的下一个头像
@@ -440,7 +444,13 @@ void WizAvatarHost::load(const QString& strUserID, bool isSystem)
 
 void WizAvatarHost::reload(const QString& strUserID)
 {
-    d->reload(strUserID);
+    if (QThread::currentThread() == d->thread()) d->reload(strUserID);
+    else QMetaObject::invokeMethod(d, [strUserID] { d->reload(strUserID); }, Qt::QueuedConnection);
+}
+
+void WizAvatarHost::setUserGuid(const QString& userID, const QString& userGUID)
+{
+    d->setUserGuid(userID, userGUID);
 }
 
 // retrieve pixmap from cache, return default avatar if not exist
