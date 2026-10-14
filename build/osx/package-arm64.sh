@@ -36,6 +36,7 @@ ditto "$source_dir/build/osx/licenses" "$licenses/Full-license-texts"
 if [[ -d "$qt_prefix/licenses" ]]; then
     ditto "$qt_prefix/licenses" "$licenses/Qt"
 fi
+python3 "$source_dir/build/osx/collect-qt-notices.py" "$qt_prefix" "$licenses/Qt-SBOM-notices"
 deploy=("$qt_prefix/bin/macdeployqt")
 if [[ ${WIZNOTE_QT_HOST_TOOLS_ROSETTA:-OFF} == ON ]]; then
     deploy=(/usr/bin/arch -x86_64 "${deploy[@]}")

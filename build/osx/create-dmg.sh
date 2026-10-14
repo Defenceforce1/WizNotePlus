@@ -12,6 +12,7 @@ output_dmg=$2
 }
 app="$candidate_dir/WizNotePlus Apple Silicon.app"
 [[ -d "$app" && ! -L "$app" ]] || exit 1
+[[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist") == io.github.defenceforce1.wiznoteplus.applesilicon ]] || exit 1
 codesign --verify --deep --strict "$app"
 lipo "$app/Contents/MacOS/WizNotePlus" -verify_arch arm64
 dmg_stage=$(mktemp -d /tmp/wiznote-dmg.XXXXXX)
@@ -21,18 +22,8 @@ cleanup() {
 }
 trap cleanup EXIT
 ditto "$app" "$dmg_stage/WizNotePlus Apple Silicon.app"
-# Include only the explicitly named companion, never arbitrary candidate apps.
-clipper="$candidate_dir/WizNotePlus Web Clipper.app"
-if [[ -e "$clipper" ]]; then
-    [[ -d "$clipper" && ! -L "$clipper" ]] || exit 1
-    [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$clipper/Contents/Info.plist") == io.github.defenceforce1.wiznoteplus.clipper.mac ]] || exit 1
-    extension="$clipper/Contents/PlugIns/WizNotePlusShare.appex"
-    [[ -d "$extension" && ! -L "$extension" ]] || exit 1
-    codesign --verify --deep --strict "$clipper"
-    lipo "$clipper/Contents/MacOS/WizNotePlusClipper" -verify_arch arm64
-    lipo "$extension/Contents/MacOS/WizNotePlusShare" -verify_arch arm64
-    ditto "$clipper" "$dmg_stage/WizNotePlus Web Clipper.app"
-fi
+# Main-client releases intentionally never include the separate clipper, even
+# when an older candidate directory still contains its companion App.
 ln -s /Applications "$dmg_stage/Applications"
 for name in '开始使用.md' '发布说明.md' '验证记录.md' '安装说明.txt'; do
     [[ -f "$candidate_dir/$name" && ! -L "$candidate_dir/$name" ]] || exit 1

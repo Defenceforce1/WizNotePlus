@@ -35,8 +35,10 @@ jobs:
       - name: Deploy experimental bundle
         run: |
           bash build/osx/package-arm64.sh "$RUNNER_TEMP/Qt/6.11.3/macos" "$RUNNER_TEMP/wiznote-build" "$RUNNER_TEMP/wiznote-package"
-          python build/osx/check-bundle.py "$RUNNER_TEMP/wiznote-package/WizNotePlus Apple Silicon.app"
-          ditto -c -k --keepParent "$RUNNER_TEMP/wiznote-package/WizNotePlus Apple Silicon.app" "$RUNNER_TEMP/WizNotePlus-arm64-experimental.zip"
+          python build/osx/thin-arm64-bundle.py "$RUNNER_TEMP/wiznote-package/WizNotePlus Apple Silicon.app" "$RUNNER_TEMP/wiznote-compact/WizNotePlus Apple Silicon.app"
+          python build/osx/check-bundle.py "$RUNNER_TEMP/wiznote-compact/WizNotePlus Apple Silicon.app"
+          bash build/osx/test-packaged.sh "$RUNNER_TEMP/wiznote-compact/WizNotePlus Apple Silicon.app"
+          ditto -c -k --keepParent "$RUNNER_TEMP/wiznote-compact/WizNotePlus Apple Silicon.app" "$RUNNER_TEMP/WizNotePlus-arm64-experimental.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: WizNotePlus-arm64-experimental
