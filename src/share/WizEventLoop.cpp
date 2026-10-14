@@ -1,6 +1,7 @@
 ﻿#include "WizEventLoop.h"
 
 #include <QTimer>
+#include "WizNetworkSecurity.h"
 #include <QDebug>
 
 const int NETWORK_TIMEOUT_SECS = 60;
@@ -27,6 +28,14 @@ WizAutoTimeOutEventLoop::WizAutoTimeOutEventLoop(QNetworkReply* pReply, QObject 
     connect(pReply, SIGNAL(downloadProgress(qint64,qint64)), SLOT(on_downloadProgress(qint64,qint64)));
     connect(pReply, SIGNAL(uploadProgress(qint64,qint64)), SLOT(on_uploadProgress(qint64,qint64)));
     connect(&m_timer, SIGNAL(timeout()), SLOT(on_timeOut()));
+    m_cancelTimer.setInterval(50);
+    connect(&m_cancelTimer, &QTimer::timeout, this, [this] {
+        if (!WizNetworkSecurity::isNetworkCancellationRequested()) return;
+        m_error = QNetworkReply::OperationCanceledError;
+        m_errorString = QStringLiteral("Network work canceled during shutdown");
+        m_reply->abort();
+        quit();
+    });
 }
 
 WizAutoTimeOutEventLoop::~WizAutoTimeOutEventLoop()
@@ -86,9 +95,19 @@ void WizAutoTimeOutEventLoop::doError(QNetworkReply::NetworkError error)
 
 int WizAutoTimeOutEventLoop::exec(QEventLoop::ProcessEventsFlags flags)
 {
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) {
+        m_error = QNetworkReply::OperationCanceledError;
+        m_errorString = QStringLiteral("Network work canceled during shutdown");
+        m_reply->abort();
+        return 0;
+    }
     if (m_reply->isFinished()) { on_replyFinished(); return 0; }
+    m_cancelTimer.start();
     m_timer.start(m_timeOutSeconds * 1000);
-    return QEventLoop::exec(flags);
+    const int result = QEventLoop::exec(flags);
+    m_cancelTimer.stop();
+    m_timer.stop();
+    return result;
 }
 
 void WizAutoTimeOutEventLoop::on_replyFinished()

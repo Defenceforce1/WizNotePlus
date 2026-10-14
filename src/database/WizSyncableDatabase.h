@@ -2,6 +2,7 @@
 #define WIZSYNCABLEDATABASE_H
 
 #include "share/WizObject.h"
+#include <atomic>
 
 
 struct IWizSyncableDatabase
@@ -217,7 +218,7 @@ public:
     void onError(const QString& strText) { onText(wizSyncMeesageError, strText); }
 
 private:
-    bool m_bStop;
+    std::atomic_bool m_bStop;
     int m_nLastError;
     bool m_bIsNetworkError;
     QString m_strLastErrorMessage;

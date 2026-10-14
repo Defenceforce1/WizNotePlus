@@ -56,6 +56,7 @@ protected:
     qint64 m_uploadBytes;
     qint64 m_lastUploadBytes;
     QTimer m_timer;
+    QTimer m_cancelTimer;
     bool m_finished;
 };
 

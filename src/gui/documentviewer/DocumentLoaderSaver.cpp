@@ -176,6 +176,7 @@ void WizDocumentSaverThread::waitForDone()
 
 void WizDocumentSaverThread::stop()
 {
+    QMutexLocker locker(&m_mutex);
     m_stop = true;
     m_waitEvent.wakeAll();
 }
@@ -203,7 +204,7 @@ void WizDocumentSaverThread::peekData(SAVEDATA& data)
 {
     while (1)
     {
-        if (m_stop)
+        if (m_stop && isEmpty())
             return;
 
         if (isEmpty())
@@ -246,6 +247,7 @@ void WizDocumentSaverThread::run()
             QMutexLocker locker(&m_mutex);
             m_savingForTransfer = false;
             m_transferError = true;
+            m_failedSaveNotes.insert(data.doc.strKbGUID + "/" + data.doc.strGUID);
             qDebug() << "fault error: can't find doc in database: " << doc.strGUID;
             continue;
         }
@@ -257,6 +259,9 @@ void WizDocumentSaverThread::run()
             QMutexLocker locker(&m_mutex);
             m_savingForTransfer = false;
             m_transferError = m_transferError || !ok;
+            const QString key = doc.strKbGUID + "/" + doc.strGUID;
+            if (ok) m_failedSaveNotes.remove(key);
+            else m_failedSaveNotes.insert(key);
         }
 
         if (ok)
@@ -288,6 +293,6 @@ void WizDocumentSaverThread::clearTransferError()
 bool WizDocumentSaverThread::hasTransferError()
 {
     QMutexLocker locker(&m_mutex);
-    return m_transferError;
+    return m_transferError || !m_failedSaveNotes.isEmpty();
 }
 

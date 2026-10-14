@@ -14,6 +14,8 @@
 #include <QTextCodec>
 
 #include <QDebug>
+#include "share/WizNetworkSecurity.h"
+#include "share/WizEventLoop.h"
 
 
 QString WizKMGetDocumentEditStatusURL()
@@ -119,6 +121,7 @@ void WizDocumentEditStatusSyncThread::on_timerOut()
 
 void WizDocumentEditStatusSyncThread::stop()
 {
+    requestInterruption();
     //If thread wasn't running, no need to stop. Otherwise will start running ,and cause crash at destructor of program.
     if (!isRunning())
         return;
@@ -196,6 +199,7 @@ void WizDocumentEditStatusSyncThread::sendEditingMessage()
 
 bool WizDocumentEditStatusSyncThread::sendEditingMessage(const QString& strUserAlias, const QString& strObjID)
 {
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return false;
     QString strUrl = ::WizFormatString5("%1/add?obj_id=%2&user_id=%3&t=%4&token=%5",
                                         WizKMGetDocumentEditStatusURL(),
                                         strObjID,
@@ -207,16 +211,17 @@ bool WizDocumentEditStatusSyncThread::sendEditingMessage(const QString& strUserA
     {
         m_netManager = new QNetworkAccessManager();
     }
-    QNetworkReply* reply = m_netManager->get(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return false;
+    QNetworkReply* reply = m_netManager->get(request);
 
     //qDebug() << "sendEditingMessage called " <<strUrl;
     qDebug() << "[EditStatus]:Send editing status : " << strObjID;
 
-    QEventLoop loop;
-    connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
+    WizAutoTimeOutEventLoop loop(reply);
     loop.exec();
 
-    return reply->error() == QNetworkReply::NoError;
+    return loop.error() == QNetworkReply::NoError;
 }
 
 void WizDocumentEditStatusSyncThread::sendDoneMessage()
@@ -242,6 +247,7 @@ void WizDocumentEditStatusSyncThread::sendDoneMessage()
 
 bool WizDocumentEditStatusSyncThread::sendDoneMessage(const QString& strUserAlias, const QString& strObjID)
 {
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return false;
     QString strUrl = WizFormatString5("%1/delete?obj_id=%2&user_id=%3&t=%4&token=%5",
                                       WizKMGetDocumentEditStatusURL(),
                                       strObjID,
@@ -253,15 +259,16 @@ bool WizDocumentEditStatusSyncThread::sendDoneMessage(const QString& strUserAlia
     {
         m_netManager = new QNetworkAccessManager();
     }
-    QNetworkReply* reply = m_netManager->get(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return false;
+    QNetworkReply* reply = m_netManager->get(request);
 //    qDebug() << "sendDoneMessage called " <<strUrl;
     qDebug() << "[EditStatus]:Send done status : " << strObjID;
 
-    QEventLoop loop;
-    connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
+    WizAutoTimeOutEventLoop loop(reply);
     loop.exec();
 
-    return reply->error() == QNetworkReply::NoError;
+    return loop.error() == QNetworkReply::NoError;
 }
 
 
@@ -469,13 +476,14 @@ bool WizDocumentStatusChecker::checkDocumentEditStatus(const QString& strKbGUID,
 bool WizDocumentStatusChecker::checkDocumentEditStatus(const QString& strUrl)
 {
     QNetworkAccessManager net;
-    QNetworkReply* reply = net.get(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return false;
+    QNetworkReply* reply = net.get(request);
 
-    QEventLoop loop;
-    loop.connect(reply, SIGNAL(finished()), SLOT(quit()));
+    WizAutoTimeOutEventLoop loop(reply);
     loop.exec();
 
-    if (reply->error()) {
+    if (loop.error() != QNetworkReply::NoError) {
         m_networkError = true;
         reply->deleteLater();
         return false;
@@ -483,7 +491,7 @@ bool WizDocumentStatusChecker::checkDocumentEditStatus(const QString& strUrl)
 
     Json::Value d;
     Json::Reader reader;
-    if (!reader.parse(reply->readAll().constData(), d))
+    if (!reader.parse(loop.result().constData(), d))
         return false;
 
     if (d.isArray())

@@ -22,6 +22,14 @@ QSize TabButton::sizeHint() const
     return QSize(qMax(16, width), qMax(16, height));
 }
 
+void TabButton::setAutoHidden(bool hidden)
+{
+    if (m_autoHidden == hidden) return;
+    m_autoHidden = hidden;
+    setAttribute(Qt::WA_TransparentForMouseEvents, hidden);
+    update();
+}
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 void TabButton::enterEvent(QEnterEvent *event)
 #else
@@ -42,6 +50,7 @@ void TabButton::leaveEvent(QEvent *event)
 
 void TabButton::paintEvent(QPaintEvent *)
 {
+    if (m_autoHidden) return;
     QPainter p(this);
     QStyleOptionButton opt;
     opt.initFrom(this);

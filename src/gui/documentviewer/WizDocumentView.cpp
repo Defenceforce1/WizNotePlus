@@ -11,6 +11,8 @@
 #include <QWebEnginePage>
 #include <QWebEngineSettings>
 #include <QAction>
+#include <QElapsedTimer>
+#include <memory>
 
 #include "share/WizGlobal.h"
 #include "share/WizObjectDataDownloader.h"
@@ -268,17 +270,22 @@ void WizDocumentView::waitForDone()
     }
 }
 
-void WizDocumentView::waitForSave()
+bool WizDocumentView::waitForSave(bool force)
 {
-    bool done = false;
-    m_web->trySaveDocument(m_note, false, [=, &done](const QVariant& ret){
-        done = true;
+    // Unloaded/encrypted pages have no editable content to save.
+    if (!noteLoaded()) return true;
+    struct Result { bool done = false; bool ok = false; };
+    const auto result = std::make_shared<Result>();
+    m_web->trySaveDocument(m_note, force, [result](const QVariant& ret){
+        result->ok = ret.toBool(); result->done = true;
     });
-
-    while (!done)
+    QElapsedTimer deadline; deadline.start();
+    while (!result->done && deadline.elapsed() < 30000)
     {
         QApplication::processEvents();
+        QThread::msleep(5);
     }
+    return result->done && result->ok;
 }
 
 void WizDocumentView::waitForThread()
@@ -294,7 +301,7 @@ void WizDocumentView::RequestClose(bool force /*= false*/)
         handleWindowCloseRequest();
     } else {
         // We can not runJavaScript after RequestClose.
-        waitForSave();
+        if (!waitForSave()) return;
         m_web->triggerPageAction(QWebEnginePage::RequestClose);
     }
 }

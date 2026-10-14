@@ -52,6 +52,7 @@ public:
     ~WizKMSyncThread();
     void startSyncAll(bool bBackground = true);
     bool isBackground() const;
+    bool isIdle();
     void stopSync();
     void setNeedResetGroups() { m_bNeedResetGroups = true; }
 
@@ -87,13 +88,13 @@ private slots:
     void on_timerOut();
 
 private:
-    bool m_bBackground;
+    std::atomic_bool m_bBackground;
     WizDatabase& m_db;
     WIZUSERINFO m_info;
     WizKMSyncEvents* m_pEvents;
-    bool m_bNeedSyncAll;
-    bool m_bNeedDownloadMessages;
-    bool m_bNeedResetGroups;
+    std::atomic_bool m_bNeedSyncAll;
+    std::atomic_bool m_bNeedDownloadMessages;
+    std::atomic_bool m_bNeedResetGroups;
     QDateTime m_tLastSyncAll;
     int m_nFullSyncSecondsInterval;
     bool m_bBusy;

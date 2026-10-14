@@ -435,6 +435,10 @@ int main(int argc, char *argv[])
         return 0;
     }
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--shutdown-self-test") {
+        extern int wizShutdownSelfTest(int, char**);
+        return wizShutdownSelfTest(argc, argv);
+    }
     if (argc >= 2 && QByteArray(argv[1]) == "--network-security-self-test") {
         extern int wizNetworkSecuritySelfTest(int, char**);
         return wizNetworkSecuritySelfTest(argc, argv);

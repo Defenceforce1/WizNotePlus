@@ -16,6 +16,7 @@
 #include "gui/documentviewer/WizDocumentWebView.h"
 #include "gui/documentviewer/WizTitleEdit.h"
 #include "gui/tabbrowser/WizMainTabBrowser.h"
+#include "gui/tabbrowser/TabButton.h"
 #include "gui/doclistviewer/WizDocumentListView.h"
 #include "widgets/WizAdvancedSearchDialog.h"
 #include "WizSearchWidget.h"
@@ -207,35 +208,58 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         auto* page = new TabCloseFixturePage(QStringLiteral("多笔记关闭测试 %1 长标题").arg(i));
         tabFixtures.append(page); tabs->createTab(page);
     }
-    const auto allTabActionsVisible = [&] {
+    const auto tabActionsMatchPointer = [&] {
         if (!tabs) return false;
+        const QPoint pos = tabs->tabBar()->mapFromGlobal(QCursor::pos());
+        const int hovered = tabs->tabBar()->rect().contains(pos) ? tabs->tabBar()->tabAt(pos) : -1;
         for (int i = 0; i < tabs->count(); ++i) {
-            auto* button = qobject_cast<QAbstractButton*>(tabs->tabBar()->tabButton(i, QTabBar::RightSide));
+            auto* button = qobject_cast<TabButton*>(tabs->tabBar()->tabButton(i, QTabBar::RightSide));
             if (!button || button->isHidden() || button->size().width() < 16 || button->icon().isNull()) return false;
+            if (button->isAutoHidden() != (i != hovered && !tabs->isTabLocked(i))) return false;
         }
         return true;
     };
+    const auto hoverAt = [&](const QPoint& point) {
+        QCursor::setPos(tabs->tabBar()->mapToGlobal(point));
+        QMouseEvent move(QEvent::MouseMove, QPointF(point), QPointF(QCursor::pos()),
+                         Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(tabs->tabBar(), &move);
+        app.processEvents(); app.processEvents();
+    };
     app.processEvents();
-    check(tabFixtures.size() == 8 && allTabActionsVisible(), "multiple long-title tabs keep every close action without hover");
+    if (tabs) hoverAt(QPoint(-10, -10));
+    check(tabFixtures.size() == 8 && tabActionsMatchPointer(), "multiple long-title tabs auto-hide close glyphs without losing layout slots");
+    if (tabs) hoverAt(tabs->tabBar()->tabRect(tabs->currentIndex()).center());
+    check(tabActionsMatchPointer(), "hover reveals only the pointed tab's close action");
+    if (tabs) {
+        auto* button = tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::RightSide);
+        hoverAt(button->geometry().center());
+        check(tabActionsMatchPointer(), "pointer over the close child keeps its action visible");
+        hoverAt(QPoint(-10, -10));
+    }
+    check(tabActionsMatchPointer(), "leaving the bar auto-hides close actions again");
     if (tabs) {
         for (int i = tabs->count() - 1; i >= 0; --i) tabs->setCurrentIndex(i);
         tabs->tabBar()->moveTab(tabs->indexOf(tabFixtures[0]), tabs->count() - 1);
         app.processEvents();
     }
-    check(allTabActionsVisible(), "switching and reordering tabs retain close actions");
+    check(tabActionsMatchPointer(), "switching and reordering recalculate hover state");
     if (tabs) {
         const int locked = tabs->indexOf(tabFixtures[0]);
         tabs->lockTab(locked); tabs->closeTab(locked); app.processEvents();
         check(tabs->indexOf(tabFixtures[0]) >= 0 && tabs->isTabLocked(tabs->indexOf(tabFixtures[0]))
-              && allTabActionsVisible(), "visible lock action still prevents closing a locked tab");
+              && tabActionsMatchPointer(), "visible lock action still prevents closing a locked tab");
         tabs->unlockTab(tabs->indexOf(tabFixtures[0]));
         const int index = tabs->indexOf(tabFixtures[2]);
+        tabs->setCurrentIndex(index); app.processEvents();
+        hoverAt(tabs->tabBar()->tabRect(index).center());
         auto* close = qobject_cast<QAbstractButton*>(tabs->tabBar()->tabButton(index, QTabBar::RightSide));
         if (close) close->click();
         check(tabs->indexOf(tabFixtures[2]) == -1 && tabs->indexOf(tabFixtures[1]) >= 0
-              && allTabActionsVisible(), "a reordered close button closes only its own page and leaves other actions visible");
+              && tabActionsMatchPointer(), "a reordered close button closes only its own page and refreshes neighbor hover");
         for (const auto& page : tabFixtures) if (page) tabs->closeTab(tabs->indexOf(page));
         if (originalPage) tabs->setCurrentWidget(originalPage);
+        hoverAt(QPoint(-10, -10));
         app.processEvents();
         // Restore settled main-window geometry after the long-title fixture
         // temporarily expanded the splitter's minimum width.
@@ -948,6 +972,16 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }, [&] { beforeFull = *exitedFullscreen; [button(NSWindowCloseButton) performClick:nil]; });
         addCheck("actual main window restores after fullscreen red close", reopened, reopen);
         addCheck("unified header alignment survives fullscreen red close", nativeHeaderAligned);
+        addCheck("actual quit preflight confirms synthetic Markdown is saved without preview decoration", [&] {
+            if (!window.prepareForQuit()) return false;
+            QString path;
+            if (!manager.db().documentToTempHtmlFile(window.docView()->note(), path)) return false;
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly)) return false;
+            const QByteArray source = file.readAll();
+            return source.contains("\\label{thm:native}")
+                && !source.contains("class=\"wiz-math-block") && !source.contains("class=\"wiz-math-reference");
+        });
     }
     QTimer test;
     QElapsedTimer deadline;

@@ -100,6 +100,7 @@ public:
     ~WizMainWindow();
 
     void cleanOnQuit();
+    bool prepareForQuit();
 
     void setRestart(bool b) { m_bRestart = b; }
     bool isRestart() const { return m_bRestart; }
@@ -141,6 +142,8 @@ private:
     WizTemplatePurchaseDialog* m_templateIAPDialog;
 
     bool m_quiting;
+    bool m_preparingQuit = false;
+    bool m_quitPrepared = false;
 
     WizTrayIcon* m_tray;
     QMenu* m_trayMenu;

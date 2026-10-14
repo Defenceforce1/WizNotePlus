@@ -741,6 +741,8 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
     if (!ok)
     {
         TOLOG("Save document failed");
+        setModified(true);
+        return;
     }
 
     view()->sendDocumentSavedSignal(strGUID, kbGUID);
@@ -1284,6 +1286,7 @@ void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bo
 
             if (!succeeded)
             {
+                setModified(true);
                 TOLOG("save note failed, html is empty");
                 QString message = tr("Failed to save note.");
                 WizMessageBox::warning(this, tr("Error"), message);

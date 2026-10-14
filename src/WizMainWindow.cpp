@@ -19,6 +19,7 @@
 #include <QPrinter>
 #include <QCheckBox>
 #include <QProgressDialog>
+#include "share/WizNetworkSecurity.h"
 #include <QScopedValueRollback>
 #include <QWindow>
 
@@ -328,9 +329,13 @@ bool WizMainWindow::eventFilter(QObject* watched, QEvent* event)
     // Qt issue: issue? User quit for mac dock send close event to qApp?
     // I was throught close event only send to widget.
     if (watched == qApp) {
-        if (event->type() == QEvent::Close)
+        if (event->type() == QEvent::Quit)
         {
-            qApp->quit();
+            if (!prepareForQuit()) { event->ignore(); return true; }
+        }
+        else if (event->type() == QEvent::Close)
+        {
+            on_actionExit_triggered();
             return true;
 
         }
@@ -379,12 +384,87 @@ void WizMainWindow::on_application_aboutToQuit()
     cleanOnQuit();
 }
 
+bool WizMainWindow::prepareForQuit()
+{
+    if (m_quitPrepared) return true;
+    if (m_preparingQuit || m_noteTransferBusy) return false;
+    QScopedValueRollback<bool> preparing(m_preparingQuit, true);
+    QProgressDialog progress(this);
+    progress.setWindowTitle(QStringLiteral("退出为知笔记"));
+    progress.setWindowModality(Qt::ApplicationModal);
+    progress.setRange(0, 0);
+    progress.setCancelButton(nullptr);
+    progress.setLabelText(QStringLiteral("正在保存本地笔记…"));
+    progress.setMinimumDuration(0);
+    progress.show();
+
+    // Do not stop the saver or discard its queue. Check actual disk writes,
+    // not merely the JavaScript callback that enqueues a save.
+    QElapsedTimer saveDeadline; saveDeadline.start();
+    while (m_docSaver && !m_docSaver->isIdleForTransfer() && saveDeadline.elapsed() < 30000) {
+        QApplication::processEvents(); QThread::msleep(5);
+    }
+    bool saved = !m_docSaver || m_docSaver->isIdleForTransfer();
+    if (saved && m_docSaver) m_docSaver->clearTransferError();
+    QList<QPointer<WizDocumentView>> views;
+    processAllDocumentViews([&](WizDocumentView* view) { views.append(view); });
+    for (auto* viewer : m_singleViewMgr->getDocumentViewerMap().values())
+        if (viewer) views.append(viewer->docView());
+    for (const auto& view : views)
+        if (saved && view) saved = view->waitForSave(true);
+    saveDeadline.restart();
+    while (m_docSaver && !m_docSaver->isIdleForTransfer() && saveDeadline.elapsed() < 30000) {
+        QApplication::processEvents(); QThread::msleep(5);
+    }
+    saved = saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
+    if (!saved) {
+        progress.hide();
+        QMessageBox::critical(this, QStringLiteral("未退出"),
+            QStringLiteral("本地笔记尚未确认保存成功，已取消退出。请保留当前窗口，检查磁盘空间并重试保存。"));
+        return false;
+    }
+
+    // One final full synchronization, with one deadline including existing
+    // sync work. Offline/failed requests do not trigger another attempt.
+    if (!qApp->property("wiznoteIsolatedWindowControlsTest").toBool()
+        && m_syncFull && m_syncFull->isRunning()) {
+        progress.setLabelText(QStringLiteral("本地已保存，正在进行最后一次同步…（最多等待 20 秒）"));
+        progress.setCancelButtonText(QStringLiteral("仅保存本地并退出"));
+        bool canceled = false;
+        connect(&progress, &QProgressDialog::canceled, &progress, [&] { canceled = true; });
+        QElapsedTimer deadline; deadline.start();
+        while ((!m_syncFull->isIdle() || (m_syncQuick && !m_syncQuick->isIdle()))
+               && !canceled && deadline.elapsed() < 20000) {
+            QApplication::processEvents(); QThread::msleep(10);
+        }
+        if (!canceled && deadline.elapsed() < 20000) {
+            bool finished = false;
+            const auto connection = connect(m_syncFull, &WizKMSyncThread::syncFinished,
+                &progress, [&](int, bool, const QString&, bool) { finished = true; });
+            m_syncFull->startSyncAll(true);
+            while (!finished && !canceled && deadline.elapsed() < 20000) {
+                QApplication::processEvents(); QThread::msleep(10);
+            }
+            disconnect(connection);
+        }
+    }
+    m_quitPrepared = true;
+    m_quiting = true;
+    WizNetworkSecurity::beginShutdown();
+    if (m_syncQuick) m_syncQuick->stopSync();
+    if (m_syncFull) m_syncFull->stopSync();
+    return true;
+}
+
 /**
  * @brief 退出前的同步工作
  */
 void WizMainWindow::cleanOnQuit()
 {
     m_quiting = true;
+    WizNetworkSecurity::beginShutdown();
+    if (m_syncQuick) m_syncQuick->stopSync();
+    if (m_syncFull) m_syncFull->stopSync();
 
     int i = 0;
     m_quitProgress = new QProgressDialog(this);
@@ -397,15 +477,18 @@ void WizMainWindow::cleanOnQuit()
     m_quitProgress->setValue(0);
 
     connect(m_quitProgress, &QProgressDialog::canceled, [this] {
-        m_syncQuick->quit();
-        m_syncFull->quit();
+        m_syncQuick->stopSync();
+        m_syncFull->stopSync();
     });
 
     // 处理所有标签
     m_quitProgress->setLabelText(tr("Closing opened documents..."));
     processAllDocumentViews([=](WizDocumentView* docView){
-        docView->waitForDone();
+        if (m_quitPrepared) docView->waitForThread();
+        else docView->waitForDone();
     });
+    for (auto* viewer : m_singleViewMgr->getDocumentViewerMap().values())
+        if (viewer) viewer->docView()->waitForThread();
     m_quitProgress->setValue(++i);
 
     m_quitProgress->setLabelText(tr("Shutting object downloader host..."));
@@ -592,7 +675,7 @@ void WizMainWindow::moveEvent(QMoveEvent* ev)
 
 void WizMainWindow::on_actionExit_triggered()
 {
-    if (m_noteTransferBusy) return;
+    if (!prepareForQuit()) return;
     //FIXME: 增加一个进度条，显示正在处理的收尾工作
     WizGetAnalyzer().logAction("MenuBarExit");
     //
@@ -2508,6 +2591,8 @@ void WizMainWindow::on_syncStarted(bool syncAll)
 void WizMainWindow::on_syncDone(int nErrorCode, bool isNetworkError, const QString& strErrorMsg, bool isBackground)
 {
     m_animateSync->stopPlay();
+    // The final quit attempt must not launch account reconnection/retry dialogs.
+    if (m_preparingQuit || m_quiting) return;
 
     if (isXMLRpcErrorCodeRelatedWithUserAccount(nErrorCode))
     {
@@ -2578,6 +2663,7 @@ void WizMainWindow::on_syncProcessLog(const QString& strMsg)
 
 void WizMainWindow::on_promptMessage_request(int nType, const QString& strTitle, const QString& strMsg)
 {
+    if (m_preparingQuit || m_quiting) return;
     switch (nType) {
     case wizSyncMessageNormal:
         WizMessageBox::information(this, strTitle.isEmpty() ? tr("Info") : strTitle, strMsg);

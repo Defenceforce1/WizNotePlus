@@ -2,6 +2,7 @@
 #define WIZDOCUMENTEDITSTATUS_H
 
 #include <QThread>
+#include <atomic>
 #include <QMutex>
 #include <QTimer>
 #include <QWeakPointer>
@@ -45,7 +46,7 @@ private:
     bool sendDoneMessage(const QString& strUserAlias, const QString& strObjID);
 private:
     //
-    bool m_stop;
+    std::atomic_bool m_stop;
     bool m_sendNow;
 
     QMap<QString, QString> m_editingMap;

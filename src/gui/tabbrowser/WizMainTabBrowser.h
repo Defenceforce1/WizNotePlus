@@ -37,6 +37,7 @@ public:
     bool isTabLocked(int index) const;
 
 private:
+    void updateTabCloseButtons();
     WizExplorerApp& m_app;
     WizDatabaseManager& m_dbMgr;
     QString m_strTheme;
@@ -78,6 +79,9 @@ private:
     void doCloseSchedule();
 
 protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+    void tabInserted(int index) override;
+    void tabRemoved(int index) override;
     void mousePressEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent* ev) override;
 

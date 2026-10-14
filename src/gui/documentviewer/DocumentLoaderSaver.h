@@ -2,6 +2,8 @@
 #define GUI_DOCUMENTVIEWER_DOCUMENTLOADERSAVER_H
 
 #include <QThread>
+#include <atomic>
+#include <QSet>
 #include <QMutex>
 #include <QWaitCondition>
 
@@ -67,7 +69,7 @@ private:
     WizEditorMode m_editorMode;
     QMutex m_mutex;
     WizWaitEvent m_waitEvent;
-    bool m_stop;
+    std::atomic_bool m_stop;
 };
 
 class WizDocumentSaverThread : public QThread
@@ -99,6 +101,7 @@ private:
     std::vector<SAVEDATA> m_arrayData;
     bool m_savingForTransfer = false;
     bool m_transferError = false;
+    QSet<QString> m_failedSaveNotes;
 
     bool isEmpty();
     SAVEDATA peekFirst();
@@ -116,7 +119,7 @@ private:
     WizDatabaseManager& m_dbMgr;
     QMutex m_mutex;
     WizWaitEvent m_waitEvent;
-    bool m_stop;
+    std::atomic_bool m_stop;
 };
 
 #endif // GUI_DOCUMENTVIEWER_DOCUMENTLOADERSAVER_H

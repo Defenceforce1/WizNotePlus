@@ -11,6 +11,8 @@
 #include <QShortcut>
 #include <QKeySequence>
 #include <QKeyEvent>
+#include <QTimer>
+#include <QCursor>
 
 #include "share/WizWebEngineView.h"
 #include "share/WizGlobal.h"
@@ -37,6 +39,12 @@ WizMainTabBrowser::WizMainTabBrowser(WizExplorerApp& app, QWidget *parent)
     tabBar->setSelectionBehaviorOnRemove(QTabBar::SelectPreviousTab);
     tabBar->setMovable(true);
     tabBar->setContextMenuPolicy(Qt::CustomContextMenu);
+    tabBar->setMouseTracking(true);
+    tabBar->setAttribute(Qt::WA_Hover);
+    tabBar->installEventFilter(this);
+    connect(tabBar, &QTabBar::tabMoved, this, [this] {
+        QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+    });
 
     setElideMode(Qt::ElideRight);
 
@@ -51,11 +59,53 @@ WizMainTabBrowser::WizMainTabBrowser(WizExplorerApp& app, QWidget *parent)
 
 void WizMainTabBrowser::handleCurrentChanged(int index)
 {
+    QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
     if (index != -1) {
         emit titleChanged(tabPage(index)->Title());
     } else {
         emit titleChanged(QString());
     }
+}
+
+void WizMainTabBrowser::updateTabCloseButtons()
+{
+    const QPoint pos = tabBar()->mapFromGlobal(QCursor::pos());
+    const int hovered = tabBar()->isVisible() && tabBar()->rect().contains(pos)
+        ? tabBar()->tabAt(pos) : -1;
+    for (int i = 0; i < count(); ++i) {
+        auto* button = qobject_cast<TabButton*>(tabBar()->tabButton(i, QTabBar::RightSide));
+        if (button) button->setAutoHidden(i != hovered && !isTabLocked(i));
+    }
+}
+
+bool WizMainTabBrowser::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == tabBar() || qobject_cast<TabButton*>(watched)) {
+        switch (event->type()) {
+        case QEvent::Paint:
+            // Re-evaluate after layout/scrolling even if the pointer did not move.
+            updateTabCloseButtons(); break;
+        case QEvent::Enter: case QEvent::Leave: case QEvent::MouseMove:
+        case QEvent::HoverMove: case QEvent::HoverEnter: case QEvent::HoverLeave:
+        case QEvent::Resize: case QEvent::Move: case QEvent::LayoutRequest:
+        case QEvent::Show: case QEvent::Hide:
+            QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons); break;
+        default: break;
+        }
+    }
+    return QTabWidget::eventFilter(watched, event);
+}
+
+void WizMainTabBrowser::tabInserted(int index)
+{
+    QTabWidget::tabInserted(index);
+    QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+}
+
+void WizMainTabBrowser::tabRemoved(int index)
+{
+    QTabWidget::tabRemoved(index);
+    QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
 }
 
 /** Show menu when right clicked */
@@ -226,8 +276,10 @@ void WizMainTabBrowser::setupTab(int index)
         closeBtn->setIcon(WizLoadSkinIcon(m_strTheme, "tab_close", QSize(16, 16)));
         connect(closeBtn, &QAbstractButton::clicked, this, &WizMainTabBrowser::handleCloseButtonClicked);
         tabBar()->setTabButton(index, QTabBar::RightSide, closeBtn);
-        // Keep every tab action visible. Hover-only visibility can become stale
-        // after insertion, movement or closing changes the tab under the pointer.
+        closeBtn->installEventFilter(this);
+        closeBtn->setMouseTracking(true);
+        // Reserve layout geometry; hide only painting and mouse hit target.
+        closeBtn->setAutoHidden(true);
         closeBtn->show();
 
         QWidget* placeHolder = new QWidget(tabBar());
@@ -237,6 +289,7 @@ void WizMainTabBrowser::setupTab(int index)
         QMap<QString, QVariant> status;
         status["Locked"] = QVariant(false);
         tabBar()->setTabData(index, status);
+        QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
     }
 }
 
@@ -354,6 +407,7 @@ void WizMainTabBrowser::switchTabStatus(int index, bool lock)
             tabBtn->setIcon(WizLoadSkinIcon(m_strTheme, lock ? "tab_lock" : "tab_close", QSize(16, 16)));
             status["Locked"] = QVariant(lock);
             tabBar()->setTabData(index, status);
+            updateTabCloseButtons();
         }
     }
 }

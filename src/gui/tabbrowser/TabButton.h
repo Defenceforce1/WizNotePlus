@@ -12,6 +12,8 @@ class TabButton : public QAbstractButton
 
 public:
     explicit TabButton(QWidget *parent = nullptr);
+    void setAutoHidden(bool hidden);
+    bool isAutoHidden() const { return m_autoHidden; }
 
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override
@@ -25,6 +27,7 @@ public:
     void paintEvent(QPaintEvent *event) override;
 
 private:
+    bool m_autoHidden = false;
     void drawTabBtn(const QStyleOptionButton *option, QPainter *painter, const QWidget *widget = nullptr) const;
 };
 

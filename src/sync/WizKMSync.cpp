@@ -4,6 +4,9 @@
 #include <QApplication>
 #include <QUrl>
 #include <QTcpSocket>
+#include <QElapsedTimer>
+#include <QEventLoop>
+#include "share/WizNetworkSecurity.h"
 
 #include "WizToken.h"
 
@@ -196,6 +199,7 @@ void WizKMSyncThread::on_timerOut()
 void WizKMSyncThread::startSyncAll(bool bBackground)
 {
     m_mutex.lock();
+    if (m_pEvents->isStop()) { m_mutex.unlock(); return; }
     m_bNeedSyncAll = true;
     m_bBackground = bBackground;
 
@@ -211,6 +215,7 @@ bool WizKMSyncThread::isBackground() const
 
 bool WizKMSyncThread::prepareToken()
 {
+    if (m_pEvents->isStop() || WizNetworkSecurity::isNetworkCancellationRequested()) return false;
     QString token = WizToken::token();
     if (token.isEmpty())
     {
@@ -227,15 +232,30 @@ bool WizKMSyncThread::prepareToken()
 
 bool WizKMSyncThread::isOnline()
 {
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return false;
     QString server = WizCommonApiEntry::server();
     if (server.isEmpty())
         return false;
 
     QUrl serverUrl(server);
     QTcpSocket sock;
-    sock.connectToHost(serverUrl.host(), serverUrl.port(80));
-
-    bool connected = sock.waitForConnected();
+    QEventLoop loop;
+    QTimer timeout, cancellation;
+    timeout.setSingleShot(true);
+    cancellation.setInterval(50);
+    bool finished = false;
+    const auto finish = [&] { finished = true; loop.quit(); };
+    connect(&sock, &QTcpSocket::connected, &loop, finish);
+    connect(&sock, &QTcpSocket::errorOccurred, &loop, finish);
+    connect(&timeout, &QTimer::timeout, &loop, finish);
+    connect(&cancellation, &QTimer::timeout, &loop, [&] {
+        if (WizNetworkSecurity::isNetworkCancellationRequested()) finish();
+    });
+    timeout.start(5000); cancellation.start();
+    sock.connectToHost(serverUrl.host(), serverUrl.port(serverUrl.scheme() == "https" ? 443 : 80));
+    if (!finished) loop.exec();
+    const bool connected = sock.state() == QAbstractSocket::ConnectedState
+        && !WizNetworkSecurity::isNetworkCancellationRequested();
     if (!connected)
     {
         sock.abort();
@@ -248,6 +268,7 @@ bool WizKMSyncThread::isOnline()
 
 bool WizKMSyncThread::doSync()
 {
+    if (m_pEvents->isStop()) return false;
     if (needResetGroups())
     {
         m_bNeedResetGroups = false;
@@ -273,7 +294,7 @@ bool WizKMSyncThread::doSync()
 
         m_bNeedSyncAll = false;
         m_tLastSyncAll = QDateTime::currentDateTime();
-        emit startTimer(m_nFullSyncSecondsInterval * 1000 + 1);
+        if (!m_pEvents->isStop()) emit startTimer(m_nFullSyncSecondsInterval * 1000 + 1);
         return true;
     }
     else if (needQuickSync())
@@ -385,7 +406,7 @@ bool WizKMSyncThread::quickSync()
     Q_UNUSED(helper);
 
     QString kbGuid;
-    while (peekQuickSyncKb(kbGuid))
+    while (!m_pEvents->isStop() && peekQuickSyncKb(kbGuid))
     {
         if (!prepareToken())
             return false;
@@ -495,13 +516,17 @@ bool WizKMSyncThread::needDownloadMessage()
 
 void WizKMSyncThread::stopSync()
 {
-    if (isRunning() && m_pEvents)
-    {
-        m_pEvents->setStop(true);
-        m_mutex.lock();
-        m_wait.wakeAll();
-        m_mutex.unlock();
-    }
+    requestInterruption();
+    m_pEvents->setStop(true);
+    emit stopTimer();
+    QMutexLocker locker(&m_mutex);
+    m_wait.wakeAll();
+}
+
+bool WizKMSyncThread::isIdle()
+{
+    QMutexLocker locker(&m_mutex);
+    return !m_bBusy && !m_bNeedSyncAll && m_setQuickSyncKb.empty();
 }
 
 void WizKMSyncThread::setFullSyncInterval(int nMinutes)
@@ -514,6 +539,7 @@ void WizKMSyncThread::addQuickSyncKb(const QString& kbGuid)
     QMutexLocker locker(&m_mutex);
     Q_UNUSED(locker);
 
+    if (m_pEvents->isStop()) return;
     m_setQuickSyncKb.insert(kbGuid);
 
     m_tLastKbModified = QDateTime::currentDateTime();

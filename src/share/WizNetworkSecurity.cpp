@@ -5,8 +5,16 @@
 #include <QRegularExpression>
 #include <QSslConfiguration>
 #include <QSslSocket>
+#include <QThread>
+#include <atomic>
 
 namespace WizNetworkSecurity {
+static std::atomic_bool shuttingDown{false};
+void beginShutdown() { shuttingDown.store(true); }
+bool isShuttingDown() { return shuttingDown.load(); }
+bool isNetworkCancellationRequested() {
+    return isShuttingDown() || QThread::currentThread()->isInterruptionRequested();
+}
 static QSslConfiguration secureConfiguration() {
     auto configuration = QSslConfiguration::defaultConfiguration();
     configuration.setPeerVerifyMode(QSslSocket::VerifyPeer);
@@ -41,6 +49,7 @@ bool allowsAccountUrl(const QUrl& url) {
 }
 
 bool prepareAccountRequest(QNetworkRequest& request, bool resourceDownload) {
+    if (isNetworkCancellationRequested()) return false;
     if (!allowsAccountUrl(request.url())) {
         qWarning() << "Account request rejected: HTTPS server address required";
         return false;
