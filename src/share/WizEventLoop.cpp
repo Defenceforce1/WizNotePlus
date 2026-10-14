@@ -19,7 +19,11 @@ WizAutoTimeOutEventLoop::WizAutoTimeOutEventLoop(QNetworkReply* pReply, QObject 
 {
     m_url = pReply->request().url();
     connect(pReply, SIGNAL(finished()), SLOT(on_replyFinished()));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    connect(pReply, &QNetworkReply::errorOccurred, this, &WizAutoTimeOutEventLoop::on_replyError);
+#else
     connect(pReply, SIGNAL(error(QNetworkReply::NetworkError)), SLOT(on_replyError(QNetworkReply::NetworkError)));
+#endif
     connect(pReply, SIGNAL(downloadProgress(qint64,qint64)), SLOT(on_downloadProgress(qint64,qint64)));
     connect(pReply, SIGNAL(uploadProgress(qint64,qint64)), SLOT(on_uploadProgress(qint64,qint64)));
     connect(&m_timer, SIGNAL(timeout()), SLOT(on_timeOut()));
@@ -77,10 +81,12 @@ void WizAutoTimeOutEventLoop::doFinished(QNetworkReply* reply)
 void WizAutoTimeOutEventLoop::doError(QNetworkReply::NetworkError error)
 {
     m_error = error;
+    m_errorString = m_reply->errorString();
 }
 
 int WizAutoTimeOutEventLoop::exec(QEventLoop::ProcessEventsFlags flags)
 {
+    if (m_reply->isFinished()) { on_replyFinished(); return 0; }
     m_timer.start(m_timeOutSeconds * 1000);
     return QEventLoop::exec(flags);
 }

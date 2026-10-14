@@ -152,7 +152,8 @@ bool confirmFirstLaunch(Session& session, QWidget* parent) {
     QMessageBox notice(QMessageBox::Information, QStringLiteral("WizNotePlus 独立资料库"),
         QStringLiteral("新版仅使用以下独立本地目录，不自动读取或搬动旧版资料库：\n%1\n\n"
             "若此目录已准备好此前的测试副本，将沿用其中笔记和 CSS。\n"
-            "本地隔离不能阻止登录账号的云端同步；目前仍是未公证试用版，请先使用测试账号。")
+            "本地隔离不能阻止登录账号的云端同步；本版为未公证发布候选版。"
+            "真实账号与长期同步尚未完整验证，请先使用测试账号；原账号启用前先备份并验证少量笔记。")
             .arg(session.root()), QMessageBox::Ok | QMessageBox::Cancel, parent);
     notice.setObjectName("wiz-standalone-first-launch");
     notice.setTextFormat(Qt::PlainText);

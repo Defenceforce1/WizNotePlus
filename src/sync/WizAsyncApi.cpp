@@ -61,7 +61,7 @@ void WizAsyncApi::setMessageDeleteStatus(const QString& ids, bool bDelete)
 void WizAsyncApi::setMessageReadStatus_impl(const QString& ids, bool bRead)
 {
     QString strToken = WizToken::token();
-    qDebug() << "set message read status, strken:" << strToken;
+    qDebug() << "set message read status";
 
     if (strToken.isEmpty()) {
         return;

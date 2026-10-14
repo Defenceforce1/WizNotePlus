@@ -17,6 +17,7 @@
 #include "WizKMServer.h"
 #include "WizDef.h"
 #include "share/WizEventLoop.h"
+#include "share/WizNetworkSecurity.h"
 #include "share/jsoncpp/json/json.h"
 
 /*
@@ -76,7 +77,9 @@ WizRecursiveMutex WizCommonApiEntry::m_mutex;
 QString _requestUrl(const QString& strUrl)
 {
     QNetworkAccessManager net;
-    QNetworkReply* reply = net.get(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return QString();
+    QNetworkReply* reply = net.get(request);
 
     WizAutoTimeOutEventLoop loop(reply);
     loop.exec();

@@ -45,7 +45,7 @@ WizAboutDialog::WizAboutDialog(QWidget *parent)
     if (WizBuildIdentity::appleSiliconTrial) {
         versionInfo = QStringLiteral("<span style='font-size:11px'>基础版本：WizNotePlus %1</span><br/>")
             .arg(QString::fromLatin1(WIZ_CLIENT_VERSION));
-        devInfo = QStringLiteral("<span style='font-size:11px'>试用构建：%1（临时签名，未公证）</span><br/>")
+        devInfo = QStringLiteral("<span style='font-size:11px'>候选构建：%1（临时签名，未公证）</span><br/>")
             .arg(WizBuildIdentity::trialBuild());
     }
     QString qtInfo = QString(

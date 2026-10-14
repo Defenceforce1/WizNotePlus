@@ -23,6 +23,10 @@ set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_NATIVE_TRANSFER_TESTS)
+find_program(WIZNOTE_TEST_OPENSSL openssl REQUIRED)
+add_test(NAME wiznote_network_security
+    COMMAND $<TARGET_FILE:WizNotePlus> --network-security-self-test ${WIZNOTE_TEST_OPENSSL})
+set_tests_properties(wiznote_network_security PROPERTIES TIMEOUT 180)
 add_test(NAME wiznote_standalone_startup
     COMMAND $<TARGET_FILE:WizNotePlus> --standalone-startup-self-test)
 set_tests_properties(wiznote_standalone_startup PROPERTIES

@@ -5,6 +5,7 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/advanced-search.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/note-presentation.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/standalone-startup.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/network-security.cpp)
     if(APPLE)
         list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/mac-window-controls.mm)
     endif()
@@ -67,6 +68,7 @@ set(wiznote_SOURCES
     share/WizObject.cpp
     share/WizKMCore.cpp
     share/WizGlobal.cpp
+    share/WizNetworkSecurity.cpp
 
     database/WizDatabase.cpp
     database/WizIndex.cpp

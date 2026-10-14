@@ -12,6 +12,7 @@
 #include <fstream>
 #include "WizMisc.h"
 #include "WizPathResolve.h"
+#include "share/WizNetworkSecurity.h"
 
 #define LOG_LINES_MAX 30000
 #define LOG_DAYS_MAX 10
@@ -31,8 +32,9 @@ WizLogger::~WizLogger()
 }
 
 
-void WizLogger::messageHandler(QtMsgType type, const QMessageLogContext& context, const QString &msg)
+void WizLogger::messageHandler(QtMsgType type, const QMessageLogContext& context, const QString &originalMessage)
 {
+    const QString msg = WizNetworkSecurity::redactLogUrls(originalMessage);
     //Q_UNUSED(context);
 
     //FIXME: useless waning message from qt, ignore it
@@ -87,7 +89,7 @@ QString WizLogger::logFileName()
 QString WizLogger::msg2LogMsg(const QString& strMsg)
 {
     QString strTime = QDateTime::currentDateTime().toString(Qt::ISODate);
-    return strTime + ": " + strMsg + "\n";
+    return strTime + ": " + WizNetworkSecurity::redactLogUrls(strMsg) + "\n";
 }
 
 void WizLogger::saveToLogFile(const QString& strMsg)
@@ -129,8 +131,9 @@ WizLogger* WizLogger::logger()
     return &logger;
 }
 
-void WizLogger::writeLog(const QString& strMsg)
+void WizLogger::writeLog(const QString& originalMessage)
 {
+    const QString strMsg = WizNetworkSecurity::redactLogUrls(originalMessage);
     if (strMsg.startsWith("[WARNING]: Property "))
         return;
     logger()->saveToLogFile(strMsg);

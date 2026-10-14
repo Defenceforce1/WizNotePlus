@@ -10,6 +10,7 @@
 #include "share/WizEventLoop.h"
 #include "share/WizRequest.h"
 #include "share/WizThreads.h"
+#include "share/WizNetworkSecurity.h"
 
 #include "utils/WizMisc.h"
 #include "utils/WizLogger.h"
@@ -1000,7 +1001,7 @@ bool WizKMDatabaseServer::document_downloadDataNew(const QString& strDocumentGUI
     if (!urlValue.isNull())
     {
         //encrypted note
-        if (!::WizURLDownloadToData(urlValue.asString().c_str(), ret.arrayData))
+        if (!WizNetworkSecurity::downloadAccountData(urlValue.asString().c_str(), ret.arrayData))
         {
             TOLOG1("Failed to download document data: %1", ret.strTitle);
             return false;
@@ -1118,7 +1119,7 @@ bool WizKMDatabaseServer::document_downloadDataNew(const QString& strDocumentGUI
 
             QByteArray data;
             qDebug() << "downloading " << resName;
-            bool ret = WizURLDownloadToData(res.url, data, this, SLOT(onDocumentObjectDownloadProgress(QUrl, qint64, qint64)));
+            bool ret = WizNetworkSecurity::downloadAccountData(res.url, data, this, SLOT(onDocumentObjectDownloadProgress(QUrl, qint64, qint64)));
             qDebug() << "downloaded " << resName;
 
             QMutexLocker locker(&mutex);
@@ -1185,7 +1186,7 @@ bool WizKMDatabaseServer::document_downloadData(const QString& strDocumentGUID, 
 bool WizKMDatabaseServer::attachment_downloadDataNew(const QString& strDocumentGUID, const QString& strAttachmentGUID, WIZDOCUMENTATTACHMENTDATAEX& ret)
 {
     QString url = buildUrl("/ks/object/download/" + m_userInfo.strKbGUID + "/" + strDocumentGUID + "?objType=attachment&objId=" + strAttachmentGUID);
-    return WizURLDownloadToData(url, ret.arrayData);
+    return WizNetworkSecurity::downloadAccountData(url, ret.arrayData);
 }
 
 bool WizKMDatabaseServer::attachment_downloadData(const QString& strDocumentGUID, const QString& strAttachmentGUID, WIZDOCUMENTATTACHMENTDATAEX& ret)
@@ -1241,6 +1242,11 @@ bool uploadResources(WizKMDatabaseServer& server, const QString& url, const QStr
     }
     //
     QNetworkRequest request(url);
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) {
+        delete multiPart;
+        return server.setLastError(WIZSTANDARDRESULT(WIZSTANDARDRESULT::network,
+            QStringLiteral("HTTPS server address required")));
+    }
 
     QNetworkAccessManager networkManager;
     QNetworkReply* reply = networkManager.post(request, multiPart);
@@ -1349,6 +1355,11 @@ bool uploadObject(WizKMDatabaseServer& server, const QString& url, const QString
         multiPart->append(filePart);
         //
         QNetworkRequest request(url);
+        if (!WizNetworkSecurity::prepareAccountRequest(request)) {
+            delete multiPart;
+            return server.setLastError(WIZSTANDARDRESULT(WIZSTANDARDRESULT::network,
+                QStringLiteral("HTTPS server address required")));
+        }
         // 建立链接并上传
         QNetworkAccessManager networkManager;
         QNetworkReply* reply = networkManager.post(request, multiPart);

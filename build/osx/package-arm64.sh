@@ -1,13 +1,21 @@
 #!/bin/bash
 set -euo pipefail
-if [[ $# -ne 3 ]]; then
-    echo "Usage: $0 QT_PREFIX BUILD_DIR OUTPUT_DIR" >&2
+if [[ $# -lt 3 || $# -gt 4 ]]; then
+    echo "Usage: $0 QT_PREFIX BUILD_DIR OUTPUT_DIR [DEVELOPER_ID_IDENTITY]" >&2
     exit 2
 fi
 source_dir=$(cd "$(dirname "$0")/../.." && pwd)
 qt_prefix=$1
 build_dir=$2
 output_dir=$3
+sign_identity=${4:--}
+if [[ "$sign_identity" != - ]]; then
+    if [[ "$sign_identity" != "Developer ID Application: "* ]] ||
+       ! security find-identity -v -p codesigning | /usr/bin/grep -Fq -- "\"$sign_identity\""; then
+        echo "A valid installed Developer ID Application identity is required; no fallback to ad-hoc signing." >&2
+        exit 1
+    fi
+fi
 app="$output_dir/WizNotePlus Apple Silicon.app"
 if [[ -e "$app" ]]; then
     echo "Refusing to overwrite existing bundle: $app" >&2
@@ -30,7 +38,11 @@ deploy=("$qt_prefix/bin/macdeployqt")
 if [[ ${WIZNOTE_QT_HOST_TOOLS_ROSETTA:-OFF} == ON ]]; then
     deploy=(/usr/bin/arch -x86_64 "${deploy[@]}")
 fi
-deploy_output=$("${deploy[@]}" "$app" -verbose=1 -codesign=- 2>&1)
+sign_options=(-codesign=-)
+if [[ "$sign_identity" != - ]]; then
+    sign_options=("-sign-for-notarization=$sign_identity")
+fi
+deploy_output=$("${deploy[@]}" "$app" -verbose=1 "${sign_options[@]}" 2>&1)
 printf '%s\n' "$deploy_output"
 # macdeployqt can report an error yet exit zero. Never publish that bundle.
 if [[ "$deploy_output" == *"ERROR:"* ]]; then
@@ -40,5 +52,10 @@ fi
 test -f "$app/Contents/Frameworks/QtCore.framework/Versions/A/QtCore"
 lipo "$app/Contents/MacOS/WizNotePlus" -verify_arch arm64
 codesign --verify --deep --strict "$app"
-echo "Experimental ad-hoc signed bundle: $app"
-echo "Not Developer ID signed or notarized. Test with isolated data before real use."
+if [[ "$sign_identity" == - ]]; then
+    echo "Candidate ad-hoc signed bundle: $app"
+    echo "Not Developer ID signed or notarized. Test with isolated data before real use."
+else
+    echo "Developer ID signed candidate: $app"
+    echo "Not yet notarized. Complete notarize-arm64.sh and repeat runtime tests before release."
+fi

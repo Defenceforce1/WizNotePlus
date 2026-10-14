@@ -62,7 +62,7 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
         ui->checkBox->blockSignals(true);
         ui->checkBox->setChecked(false);
         ui->checkBox->setEnabled(false);
-        ui->checkBox->setToolTip(QStringLiteral("Apple Silicon 试用版尚无验证过的更新通道，暂不检查或下载旧版更新。"));
+        ui->checkBox->setToolTip(QStringLiteral("Apple Silicon 发布候选版尚无验证过的更新通道，暂不检查或下载旧版更新。"));
         ui->checkBox->blockSignals(false);
     }
 

@@ -11,7 +11,7 @@
 #include <QTimer>
 #include <QTemporaryDir>
 #include <QDesktopServices>
-#include <QSslConfiguration>
+#include "share/WizNetworkSecurity.h"
 #include <QNetworkProxy>
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QtWebEngine>
@@ -133,6 +133,7 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
 #endif // Q_OS_LINUX
 
+    WizNetworkSecurity::installSecureDefaults();
     if (cancelStartupProbe) {
         QTimer::singleShot(100, &app, [] {
             if (auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) box->done(QMessageBox::Cancel);
@@ -198,10 +199,6 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
     WizQueuedThreadsInit();
 
-    //FIXME: 在Mac osx安全更新之后存在ssl握手问题，此处进行特殊处理
-    QSslConfiguration conf = QSslConfiguration::defaultConfiguration();
-    conf.setPeerVerifyMode(QSslSocket::VerifyNone);
-    QSslConfiguration::setDefaultConfiguration(conf);
 #endif
 
     // 获取默认用户设置
@@ -421,6 +418,10 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
 int main(int argc, char *argv[])
 {
+    if (argc == 2 && QByteArray(argv[1]) == "--check-public-https") {
+        QCoreApplication diagnostic(argc, argv);
+        return WizNetworkSecurity::checkPublicHttps();
+    }
     if (WizBuildIdentity::appleSiliconTrial && argc == 2 && QByteArray(argv[1]) == "--check-startup") {
         QCoreApplication diagnostic(argc, argv);
         const QString candidate = qEnvironmentVariableIsSet("WIZNOTE_DATA_STORE")
@@ -434,6 +435,10 @@ int main(int argc, char *argv[])
         return 0;
     }
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc >= 2 && QByteArray(argv[1]) == "--network-security-self-test") {
+        extern int wizNetworkSecuritySelfTest(int, char**);
+        return wizNetworkSecuritySelfTest(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--standalone-bootstrap-cancel-probe") {
         QTemporaryDir fixture;
         if (!fixture.isValid()) return 1;

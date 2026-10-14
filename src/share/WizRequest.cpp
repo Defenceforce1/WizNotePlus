@@ -1,5 +1,6 @@
 ﻿#include "WizRequest.h"
 #include "WizEventLoop.h"
+#include "WizNetworkSecurity.h"
 
 #include <QByteArray>
 #include <QNetworkAccessManager>
@@ -39,8 +40,7 @@ bool WizRequest::execJsonRequest(const QString& url, QString method, const QByte
     QNetworkAccessManager net;
     QNetworkRequest request;
     request.setUrl(url);
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
-                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return false;
     //
     QNetworkReply* reply = NULL;
     if (method == "POST")

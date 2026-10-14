@@ -20,7 +20,7 @@ jobs:
       - name: Native build dependencies
         run: |
           test "$(uname -m)" = arm64
-          brew install cmake ninja cryptopp
+          brew install cmake ninja cryptopp openssl@3
           python -m pip install aqtinstall==3.3.0
           python -m aqt install-qt mac desktop 6.11.3 clang_64 -O "$RUNNER_TEMP/Qt" -m qtwebengine qtwebchannel qtwebsockets qt5compat qtimageformats qtpositioning qtscxml qtserialport qttasktree
       - name: Build and synthetic compatibility tests

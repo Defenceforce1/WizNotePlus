@@ -11,6 +11,7 @@
 #include "WizApiEntry.h"
 #include "WizToken.h"
 #include "share/WizEventLoop.h"
+#include "share/WizNetworkSecurity.h"
 
 WizAvatarUploader::WizAvatarUploader(QObject* parent)
     : QObject(parent)
@@ -91,6 +92,12 @@ void WizAvatarUploader::upload_impl(const QString& strUrl,
     multiPart->append(imagePart);
 
     QNetworkRequest request(strUrl);
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) {
+        delete multiPart;
+        m_strError = "HTTPS server address required";
+        Q_EMIT uploaded(false);
+        return;
+    }
     QNetworkReply *reply = m_net->post(request, multiPart);
     multiPart->setParent(reply); // delete the multiPart with the reply
 

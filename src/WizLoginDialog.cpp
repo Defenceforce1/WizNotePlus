@@ -22,6 +22,7 @@
 #include <QStateMachine>
 #include <QWebEngineView>
 #include <QNetworkReply>
+#include "share/WizNetworkSecurity.h"
 
 #include "share/jsoncpp/json/json.h"
 #include "utils/WizStyleHelper.h"
@@ -1680,7 +1681,10 @@ QString WizOEMDownloader::_downloadOEMSettings()
     WizCommonApiEntry::setEnterpriseServerIP(m_server);
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("oem");
     QNetworkRequest req(strUrl);
-    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    if (!WizNetworkSecurity::prepareAccountRequest(req)) {
+        emit errorMessage(tr("HTTPS server address required"));
+        return QString();
+    }
     QNetworkReply* reply = net.get(req);
     qDebug() << "get oem from server : " << strUrl;
 

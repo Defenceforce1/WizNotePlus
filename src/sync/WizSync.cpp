@@ -11,6 +11,7 @@
 #include "database/WizSyncableDatabase.h"
 #include "share/WizAnalyzer.h"
 #include "share/WizEventLoop.h"
+#include "share/WizNetworkSecurity.h"
 
 #include "utils/WizMisc.h"
 
@@ -1536,7 +1537,9 @@ bool WizSyncBizGroupAvatar(IWizSyncableDatabase* pPersonalDatabase)
 QString downloadFromUrl(const QString& strUrl)
 {
     QNetworkAccessManager net;
-    QNetworkReply* reply = net.get(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return QString();
+    QNetworkReply* reply = net.get(request);
 
 
     WizAutoTimeOutEventLoop loop(reply);

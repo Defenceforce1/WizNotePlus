@@ -2,6 +2,7 @@
 #include "share/WizEventLoop.h"
 #include "share/jsoncpp/json/json.h"
 #include <QDebug>
+#include "share/WizNetworkSecurity.h"
 
 WizJSONServerBase::WizJSONServerBase()
     : m_net(std::make_shared<QNetworkAccessManager>())
@@ -21,7 +22,9 @@ int WizJSONServerBase::returnCode()
 
 bool WizJSONServerBase::get(const QString& strUrl, QString& strResult)
 {
-    QNetworkReply* reply = m_net->get(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return false;
+    QNetworkReply* reply = m_net->get(request);
     WizAutoTimeOutEventLoop loop(reply);
     loop.exec();
     //
@@ -37,7 +40,9 @@ bool WizJSONServerBase::get(const QString& strUrl, QString& strResult)
 
 bool WizJSONServerBase::deleteResource(const QString& strUrl)
 {
-    QNetworkReply* reply = m_net->deleteResource(QNetworkRequest(strUrl));
+    QNetworkRequest request{QUrl(strUrl)};
+    if (!WizNetworkSecurity::prepareAccountRequest(request)) return false;
+    QNetworkReply* reply = m_net->deleteResource(request);
     WizAutoTimeOutEventLoop loop(reply);
     loop.exec();
     //
