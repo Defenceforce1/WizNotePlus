@@ -245,10 +245,15 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
     avatarUploader.upload_impl(plaintext.toString(), "synthetic-avatar-token", avatar);
     check(avatarSignals == 1 && !avatarSucceeded && server.accepted == beforeUnsafeAvatar,
           "actual avatar upload rejects HTTP before sending credentials");
-    server.certificate = expired; avatarSignals = 0;
-    const int beforeExpiredAvatar = server.requests;
-    avatarUploader.upload_impl(localhost.toString(), "synthetic-avatar-token", avatar);
-    check(avatarSignals == 1 && !avatarSucceeded && server.requests == beforeExpiredAvatar,
+    // Use a fresh origin: an already verified live TLS connection is not
+    // supposed to re-check a certificate merely changed on the fixture server.
+    FixtureServer expiredAvatarServer;
+    expiredAvatarServer.certificate = expired; expiredAvatarServer.key = server.key;
+    check(expiredAvatarServer.listen(QHostAddress::LocalHost), "fresh expired-certificate avatar origin ready");
+    avatarSignals = 0;
+    avatarUploader.upload_impl(QString("https://localhost:%1/avatar").arg(expiredAvatarServer.serverPort()),
+                               "synthetic-avatar-token", avatar);
+    check(avatarSignals == 1 && !avatarSucceeded && expiredAvatarServer.requests == 0,
           "actual avatar upload rejects expired certificates before sending a picture or token");
     QSslConfiguration::setDefaultConfiguration(systemConfiguration);
     check(QSslConfiguration::defaultConfiguration().caCertificates() == systemConfiguration.caCertificates(),

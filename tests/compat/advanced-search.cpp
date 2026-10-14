@@ -23,6 +23,7 @@
 #include <QKeyEvent>
 #include <QEventLoop>
 #include <QTimer>
+#include <QStyleFactory>
 
 namespace {
 class FixtureSearcher : public WizSearcher
@@ -56,6 +57,7 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
     qputenv("XDG_CACHE_HOME", root.filePath("cache").toUtf8());
     qputenv("TMPDIR", root.filePath("tmp").toUtf8());
     QApplication app(argc, argv);
+    app.setStyle(QStyleFactory::create("fusion")); // same renderer as normal startup
     QSettings settings(root.filePath("user.ini"), QSettings::IniFormat);
     QSettings global(root.filePath("global.ini"), QSettings::IniFormat);
     WizGlobal::setSettings(&settings);
@@ -242,11 +244,30 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
         if (clear) clear->click(); app.processEvents();
         check(clear && !view.hasFilters() && view.keyword() == "x/y", "clearing conditions preserves content keyword");
         view.clear(); check(!view.hasFilters() && view.keyword().isEmpty(), "reset clears all inline query state without search");
-        view.show(); view.activateWindow(); edit->setFocus(); app.processEvents();
+        view.show();
+        view.activateWindow(); edit->setFocus(); app.processEvents();
+        QEventLoop activation;
+        QTimer focusPoll; focusPoll.setInterval(25);
+        QObject::connect(&focusPoll, &QTimer::timeout, &activation, [&] {
+            // Component tests use synthetic key events; activate their own Qt
+            // window explicitly. Real Cocoa activation is covered separately
+            // by the actual-main-window fixture, without weakening assertions.
+            QApplication::setActiveWindow(&view);
+            view.activateWindow(); edit->setFocus();
+            if (edit->hasFocus()) activation.quit();
+        });
+        focusPoll.start();
+        QTimer::singleShot(1500, &activation, &QEventLoop::quit); activation.exec(); focusPoll.stop();
         edit->setText(QStringLiteral("已改名"));
         QMetaObject::invokeMethod(edit, "textEdited", Q_ARG(QString, edit->text()));
         QEventLoop suggestions;
-        QTimer::singleShot(180, &suggestions, &QEventLoop::quit); suggestions.exec();
+        QTimer poll; poll.setInterval(20);
+        QObject::connect(&poll, &QTimer::timeout, &suggestions, [&] {
+            if (completer->popup()->isVisible() && completer->completionCount() == 1) suggestions.quit();
+        });
+        poll.start();
+        QTimer::singleShot(2000, &suggestions, &QEventLoop::quit); suggestions.exec();
+        poll.stop();
         const bool suggested = completer->popup()->isVisible() && completer->completionCount() == 1;
         check(suggested && !completer->popup()->currentIndex().isValid() && !view.hasFilters(),
             "typed tag suggestions are local and do not silently select a tag");
