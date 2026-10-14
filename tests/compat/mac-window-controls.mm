@@ -179,9 +179,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     auto* avatarAccount = window.findChild<WizUserInfoWidget*>("wiz-header-account");
     auto* avatarRefresh = avatarAccount && avatarAccount->menu()
         ? avatarAccount->menu()->findChild<QAction*>("wiz-refresh-avatar-action") : nullptr;
-    check(avatarRefresh && avatarRefresh->text() == QStringLiteral("刷新头像"), "account menu exposes explicit avatar refresh");
-    if (avatarRefresh) avatarRefresh->trigger();
-    check(avatarRefresh && avatarRefresh->isEnabled(), "isolated account without a GUID does not start or stall avatar refresh");
+    check(avatarAccount && !avatarRefresh, "account menu no longer exposes manual avatar refresh");
+    if (avatarAccount) avatarAccount->refreshAvatar();
+    check(avatarAccount && avatarAccount->toolTip().contains(QStringLiteral("GUID")),
+          "automatic avatar refresh without a GUID reports status without a popup or request");
     if (avatarAccount) {
         Q_EMIT avatar.loadFailed(manager.db().getUserId(), QStringLiteral("synthetic avatar failure"));
         const bool visibleError = avatarAccount->toolTip() == QStringLiteral("synthetic avatar failure");
