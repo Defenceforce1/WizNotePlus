@@ -2,6 +2,9 @@
 #include "share/WizRequest.h"
 #include "share/jsoncpp/json/json.h"
 #include "WizBuildIdentity.h"
+#include "sync/WizAvatarUploader.h"
+#include <QImage>
+#include <QRegularExpression>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -39,8 +42,16 @@ protected:
         socket->setProtocol(QSsl::TlsV1_2OrLater);
         QObject::connect(socket, &QSslSocket::disconnected, socket, &QObject::deleteLater);
         QObject::connect(socket, &QSslSocket::readyRead, socket, [this, socket] {
-            received += socket->readAll();
-            if (!socket->property("responded").toBool() && received.contains("\r\n\r\n")) {
+            const QByteArray bytes = socket->readAll();
+            received += bytes;
+            const QByteArray request = socket->property("requestBytes").toByteArray() + bytes;
+            socket->setProperty("requestBytes", request);
+            const int end = request.indexOf("\r\n\r\n");
+            if (end < 0) return;
+            const auto length = QRegularExpression("Content-Length:\\s*(\\d+)", QRegularExpression::CaseInsensitiveOption)
+                .match(QString::fromLatin1(request.left(end)));
+            const int bodyLength = length.hasMatch() ? length.captured(1).toInt() : 0;
+            if (!socket->property("responded").toBool() && request.size() >= end + 4 + bodyLength) {
                 socket->setProperty("responded", true); ++requests;
                 socket->write(response); socket->disconnectFromHost();
             }
@@ -184,6 +195,61 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
     result = fetch(QUrl(localhost.toString() + "?token=fixture-token"));
     check(result.error == QNetworkReply::InsecureRedirectError && other.accepted == 0,
           "account token never reaches another origin during redirect");
+    WizAvatarUploader avatarUploader(nullptr);
+    QImage image(240, 160, QImage::Format_ARGB32); image.fill(QColor("#539675"));
+    const QString imagePath = temporary.filePath("synthetic-avatar.png");
+    check(image.save(imagePath), "synthetic avatar image created without user pictures");
+    const QByteArray avatar = avatarUploader.convert2Avatar(imagePath);
+    check(QImage::fromData(avatar).size() == QSize(100, 100), "avatar is prepared as a bounded square PNG in memory");
+    const auto initialFiles = QDir(temporary.path()).entryList(QDir::Files);
+    avatarUploader.convert2Avatar(imagePath);
+    check(initialFiles == QDir(temporary.path()).entryList(QDir::Files), "avatar preparation leaves no random temporary PNG files");
+    bool avatarSucceeded = false; int avatarSignals = 0;
+    QObject::connect(&avatarUploader, &WizAvatarUploader::uploaded, &app, [&](bool ok) {
+        avatarSucceeded = ok; ++avatarSignals;
+    });
+    avatarUploader.upload(temporary.filePath("missing-synthetic-image.png"));
+    check(avatarSignals == 1 && !avatarSucceeded && !avatarUploader.lastErrorMessage().isEmpty(),
+          "unreadable avatar reports one clear completion before any login or request");
+    const auto avatarResponse = [&](int status, const QByteArray& body, const QByteArray& extra = QByteArray()) {
+        server.response = "HTTP/1.1 " + QByteArray::number(status) + " Fixture\r\nContent-Length: "
+            + QByteArray::number(body.size()) + "\r\nConnection: close\r\n" + extra + "\r\n" + body;
+        server.received.clear(); avatarSignals = 0; avatarSucceeded = false;
+        avatarUploader.upload_impl(localhost.toString(), "synthetic-avatar-token", avatar);
+        return avatarSignals == 1;
+    };
+    check(avatarResponse(200, "{\"returnCode\":200}") && avatarSucceeded,
+          "actual avatar multipart upload succeeds with verified loopback HTTPS and structured result");
+    check(server.received.startsWith("POST ") && server.received.contains("name=\"token\"")
+          && server.received.contains("synthetic-avatar-token") && server.received.contains("name=\"avatar\"; filename=\"avatar.png\"")
+          && server.received.contains("image/png") && !server.received.contains(temporary.path().toUtf8()),
+          "avatar request preserves Wiz field names and does not transmit local file paths");
+    check(avatarResponse(200, " 200 \n") && avatarSucceeded, "exact legacy avatar success code remains supported");
+    check(avatarResponse(200, "{\"returnCode\":503,\"message\":\"not 200\"}") && !avatarSucceeded,
+          "an unrelated 200 substring cannot report a rejected avatar as success");
+    check(avatarResponse(200, "<html>200 avatars unavailable</html>") && !avatarSucceeded,
+          "HTML or unexpected avatar responses are not success");
+    check(avatarResponse(502, "private synthetic backend error") && !avatarSucceeded
+          && avatarUploader.lastErrorMessage().contains("HTTP 502")
+          && avatarUploader.lastErrorMessage().contains("499")
+          && !avatarUploader.lastErrorMessage().contains("private synthetic"),
+          "Qt server error 499 exposes actual HTTP 502 without leaking response bodies");
+    check(avatarResponse(401, "denied") && !avatarSucceeded && avatarUploader.lastErrorMessage().contains("HTTP 401"),
+          "avatar authentication denial reports actual HTTP status");
+    const int beforeAvatarRedirect = other.accepted;
+    check(avatarResponse(307, {}, "Location: https://localhost:" + QByteArray::number(other.serverPort()) + "/avatar\r\n")
+          && !avatarSucceeded && other.accepted == beforeAvatarRedirect,
+          "avatar redirects never replay credentials to another server");
+    const int beforeUnsafeAvatar = server.accepted;
+    avatarSignals = 0;
+    avatarUploader.upload_impl(plaintext.toString(), "synthetic-avatar-token", avatar);
+    check(avatarSignals == 1 && !avatarSucceeded && server.accepted == beforeUnsafeAvatar,
+          "actual avatar upload rejects HTTP before sending credentials");
+    server.certificate = expired; avatarSignals = 0;
+    const int beforeExpiredAvatar = server.requests;
+    avatarUploader.upload_impl(localhost.toString(), "synthetic-avatar-token", avatar);
+    check(avatarSignals == 1 && !avatarSucceeded && server.requests == beforeExpiredAvatar,
+          "actual avatar upload rejects expired certificates before sending a picture or token");
     QSslConfiguration::setDefaultConfiguration(systemConfiguration);
     check(QSslConfiguration::defaultConfiguration().caCertificates() == systemConfiguration.caCertificates(),
           "test trust removed; no persistent system CA installation");

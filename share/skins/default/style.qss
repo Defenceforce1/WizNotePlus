@@ -14,7 +14,7 @@ WizMainWindow WizWindowTitleBar {
 }
 
 WizWindowTitleBar QToolBar {
-  spacing: 6px;
+  spacing: 4px;
   margin: 4px;
 }
 

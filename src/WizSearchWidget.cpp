@@ -26,7 +26,7 @@
 
 WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     : QWidget(parent)
-    , m_widthHint(340)
+    , m_widthHint(300)
 {
     setObjectName("wiz-note-search-view");
     QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -46,11 +46,11 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     m_editSearch->setFont(searchFont);
 
     m_editSearch->setStyleSheet(
-        "QLineEdit { color:#34383f; background-color:#f8f8fa; border:1px solid #c2c4c9; border-radius:13px;"
+        "QLineEdit { color:#34383f; background-color:transparent; border:1px solid #bfc2c8; border-radius:13px;"
         "padding:0px;"
         "selection-background-color:#3377cc; selection-color:#ffffff; }"
-        "QLineEdit:hover { background-color:#fcfcfd; border-color:#aeb2b9; }"
-        "QLineEdit:focus { background-color:#ffffff; border-color:#729bce; }");
+        "QLineEdit:hover { background-color:transparent; border-color:#aeb2b9; }"
+        "QLineEdit:focus { background-color:transparent; border-color:#729bce; }");
     QPalette searchPalette = m_editSearch->palette();
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
     searchPalette.setColor(QPalette::PlaceholderText, QColor("#7b8798"));

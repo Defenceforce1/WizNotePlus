@@ -642,7 +642,10 @@ void WizMainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
 #if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    QTimer::singleShot(0, this, [this] { wizMacConfigureUnifiedHeader(this, titleBar()->height()); });
+    QTimer::singleShot(0, this, [this] {
+        wizMacConfigureUnifiedHeader(this, titleBar()->height());
+        adjustToolBarLayout();
+    });
 #endif
     update();
 }
@@ -1894,7 +1897,7 @@ void WizMainWindow::layoutTitleBar()
     layout->setContentsMargins(0, 0, 0, 0);
 #if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     // Leave the native traffic-light group unobstructed in the unified row.
-    layout->setContentsMargins(80, 0, 0, 0);
+    layout->setContentsMargins(72, 0, 0, 0);
 #endif
 
     QHBoxLayout* layoutTitle = new QHBoxLayout();
@@ -1979,7 +1982,6 @@ void WizMainWindow::initToolBar()
     setHitTestVisible(info);
     m_toolBar->addWidget(info);
 
-    m_toolBar->addWidget(new WizFixedSpacer(QSize(5, 1), m_toolBar));
     // 同步按钮
     WizButton* buttonSync = new WizButton(m_toolBar);
     buttonSync->setObjectName("wiz-header-sync");
@@ -1991,13 +1993,14 @@ void WizMainWindow::initToolBar()
     buttonSync->setAction(m_actions->actionFromName(WIZACTION_GLOBAL_SYNC));
     m_toolBar->addWidget(buttonSync);
 
-    m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(10, 1), m_toolBar);
+    m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(0, 1), m_toolBar);
+    m_spacerForToolButtonAdjust->setObjectName("wiz-header-search-alignment");
     m_toolBar->addWidget(m_spacerForToolButtonAdjust);
 
     // Compact single-line search; excess conditions fold without covering keywords.
     m_searchWidget = new WizSearchView(this);
     setHitTestVisible(m_searchWidget);
-    m_searchWidget->setFixedWidth(340);
+    m_searchWidget->setFixedWidth(300);
     m_toolBar->addWidget(m_searchWidget);
 
     connect(m_searchWidget, &WizSearchView::advancedSearchRequest,
@@ -3711,7 +3714,7 @@ void WizMainWindow::on_menuButtonClicked()
 
 void WizMainWindow::on_client_splitterMoved(int pos, int index)
 {
-#ifndef Q_OS_MAC
+#if !defined(Q_OS_MAC) || QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     adjustToolBarLayout();
 #endif
 }
@@ -4307,6 +4310,19 @@ void WizMainWindow::adjustToolBarLayout()
 {
     if (!m_toolBar)
         return;
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (!m_searchWidget || !m_spacerForToolButtonAdjust || !m_documents) return;
+    QWidget* list = m_documents->isVisible() ? static_cast<QWidget*>(m_documents)
+                                            : static_cast<QWidget*>(m_msgList);
+    if (!list || !list->isVisible()) return;
+    // Match the list's left edge where account/sync controls leave room.
+    const int listLeft = list->mapTo(this, QPoint()).x();
+    const int searchLeft = m_searchWidget->mapTo(this, QPoint()).x();
+    const int width = qMax(0, m_spacerForToolButtonAdjust->width() + listLeft - searchLeft);
+    if (width != m_spacerForToolButtonAdjust->width())
+        m_spacerForToolButtonAdjust->adjustWidth(width);
+    return;
+#endif
 #ifdef Q_OS_MAC
     //
     #ifndef USECOCOATOOLBAR

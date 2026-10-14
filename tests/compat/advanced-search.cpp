@@ -88,7 +88,8 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
         check(advanced && received, "magnifier menu action forwards advanced-search request");
         if (edit) {
             edit->ensurePolished();
-            check(edit->palette().color(QPalette::Base).lightnessF() > 0.8
+            check((edit->palette().color(QPalette::Base).alpha() == 0
+                   || edit->palette().color(QPalette::Base).lightnessF() > 0.8)
                   && edit->palette().color(QPalette::Text).lightnessF() < 0.4,
                   "search field stays readable under initial dark palette");
         }
@@ -193,7 +194,7 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
     }
     {
         WizSearchView view;
-        view.setFixedWidth(340);
+        view.setFixedWidth(300);
         view.setAvailableTags({{QStringLiteral("父标签 / 已改名"), tag.strGUID}, {other.strName, other.strGUID}});
         view.setAvailableFolders({QStringLiteral("/常用'_ %/"), QStringLiteral("/研究,100%_/子/更深/")});
         auto* edit = view.findChild<WizSearchEdit*>("wiz-note-search-field");

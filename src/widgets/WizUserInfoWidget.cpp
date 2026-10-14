@@ -51,6 +51,7 @@ WizUserInfoWidget::WizUserInfoWidget(WizExplorerApp& app, QWidget *parent)
 
 
     QAction* actionChangeAvatar = new QAction(tr("Change avatar..."), m_menuMain);
+    actionChangeAvatar->setObjectName("wiz-change-avatar-action");
     connect(actionChangeAvatar, SIGNAL(triggered()), SLOT(on_action_changeAvatar_triggered()));
 
     QAction* actionWebService = new QAction(tr("Open web client..."), m_menuMain);
@@ -172,7 +173,9 @@ void WizUserInfoWidget::on_action_upgradeVip_triggered()
 
 void WizUserInfoWidget::on_action_changeAvatar_triggered()
 {
-    QFileDialog dialog;
+    auto* action = m_menuMain->findChild<QAction*>("wiz-change-avatar-action");
+    if (action && !action->isEnabled()) return;
+    QFileDialog dialog(this, tr("Change avatar..."));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
     dialog.setFileMode(QFileDialog::ExistingFile);
     dialog.setNameFilter("*.png *.jpg *.jpeg");
@@ -187,6 +190,10 @@ void WizUserInfoWidget::on_action_changeAvatar_triggered()
     }
 
     QString fileName = listFiles[0];
+    if (action) {
+        action->setEnabled(false);
+        action->setText(QStringLiteral("正在上传头像…"));
+    }
     WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
         WizAvatarUploader* uploader = new WizAvatarUploader(nullptr);
         connect(uploader, SIGNAL(uploaded(bool)), SLOT(on_action_changeAvatar_uploaded(bool)));
@@ -196,7 +203,12 @@ void WizUserInfoWidget::on_action_changeAvatar_triggered()
 
 void WizUserInfoWidget::on_action_changeAvatar_uploaded(bool ok)
 {
-    WizAvatarUploader* uploader = qobject_cast<WizAvatarUploader*>(sender());    
+    WizAvatarUploader* uploader = qobject_cast<WizAvatarUploader*>(sender());
+    if (!uploader) return;
+    if (auto* action = m_menuMain->findChild<QAction*>("wiz-change-avatar-action")) {
+        action->setEnabled(true);
+        action->setText(tr("Change avatar..."));
+    }
 
     if (ok) {
         WizAvatarHost::reload(m_db.getUserId());

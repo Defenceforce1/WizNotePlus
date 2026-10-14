@@ -2,6 +2,7 @@
 #define WIZSERVICE_AVATARUPLOADER_H
 
 #include <QObject>
+#include <QByteArray>
 
 class QString;
 class QNetworkAccessManager;
@@ -15,16 +16,19 @@ class WizAvatarUploader : public QObject
 public:
     explicit WizAvatarUploader(QObject *parent);
     void upload(const QString& strFileName);
-    QString lastErrorMessage() { return m_strError; }
+    QString lastErrorMessage() const { return m_strError; }
 
 private:
     QNetworkAccessManager* m_net;
-    QString m_strFileName;
     QString m_strUrl;
     QString m_strError;
 
-    QString convert2Avatar(const QString& strFileName);
-    void upload_impl(const QString& strUrl, const QString& strToken, const QString& strFileName);
+    QByteArray convert2Avatar(const QString& strFileName);
+    void upload_impl(const QString& strUrl, const QString& strToken, const QByteArray& avatar);
+    void fail(const QString& message);
+#ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    friend int wizNetworkSecuritySelfTest(int, char**);
+#endif
 
 Q_SIGNALS:
     void uploaded(bool ok);

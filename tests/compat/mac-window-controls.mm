@@ -246,7 +246,8 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         if (!search || !title || !search->isVisible() || !title->isVisible()) return false;
         search->ensurePolished(); title->ensurePolished();
         for (const QLineEdit* edit : {static_cast<QLineEdit*>(search), static_cast<QLineEdit*>(title)}) {
-            if (edit->palette().color(QPalette::Base).lightnessF() < 0.8
+            if ((edit->palette().color(QPalette::Base).alpha() != 0
+                 && edit->palette().color(QPalette::Base).lightnessF() < 0.8)
                 || edit->palette().color(QPalette::Text).lightnessF() > 0.4) return false;
         }
         capture(&window, "v11-main-light.png");
@@ -279,12 +280,37 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             auto* control = window.findChild<QWidget*>(name);
             if (!control || qAbs(control->mapTo(&window, control->rect().center()).y() - center) > 1) return false;
         }
-        capture(window.titleBar(), "v144rc3-header.png");
+        capture(window.titleBar(), "v144rc5-header.png");
         return true;
     });
-    addCheck("compact search view uses 340 logical pixels", [&] {
+    addCheck("compact search view uses 300 logical pixels", [&] {
         auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
-        return view && view->width() == 340;
+        return view && view->width() == 300;
+    });
+    addCheck("search stays before New Note and near note-list left edge without covering sync", [&] {
+        auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+        auto* sync = window.findChild<QWidget*>("wiz-header-sync");
+        auto* list = window.findChild<WizDocumentListView*>();
+        auto* note = window.findChild<QToolButton*>("btn-newnote");
+        auto* spacer = window.findChild<QWidget*>("wiz-header-search-alignment");
+        if (!view || !sync || !list || !note || !spacer) return false;
+        const int left = view->mapTo(&window, QPoint()).x();
+        const int target = list->mapTo(&window, QPoint()).x();
+        return left > sync->mapTo(&window, sync->rect().topRight()).x()
+            && note->mapTo(&window, QPoint()).x() > left + view->width()
+            && (qAbs(left - target) <= 3 || (spacer->width() == 0 && left > target));
+    });
+    addCheck("focused search interior uses the same header background", [&] {
+        auto* edit = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        if (!edit) return false;
+        edit->clear(); edit->setFocus();
+        const QImage image = window.titleBar()->grab().toImage();
+        const qreal scale = image.devicePixelRatio();
+        const QPoint inside = edit->mapTo(window.titleBar(), QPoint(edit->width() - 45, edit->height() / 2));
+        const QPoint outside(window.titleBar()->width() - 15, inside.y());
+        const QColor a = image.pixelColor(qRound(inside.x() * scale), qRound(inside.y() * scale));
+        const QColor b = image.pixelColor(qRound(outside.x() * scale), qRound(outside.y() * scale));
+        return a == b && a.lightnessF() > 0.8;
     });
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
     addCheck("native title bar uses Aqua after simulated dark appearance", [&] {
