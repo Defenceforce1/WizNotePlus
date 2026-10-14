@@ -20,7 +20,6 @@
 #include <QCheckBox>
 #include <QProgressDialog>
 #include "share/WizNetworkSecurity.h"
-#include "api/WizNativeClipperBridge.h"
 #include <QCryptographicHash>
 #include <QScopedValueRollback>
 #include <QWindow>
@@ -210,17 +209,6 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 
     m_publicAPIsServer = isIsolatedWindowControlsTest() ? nullptr : new PublicAPIsServer(
         {{"WizExplorerApp", m_IWizExplorerApp}}, this);
-    if (!isIsolatedWindowControlsTest()) {
-        const QByteArray account = (dbMgr.db().getUserId() + "/" + dbMgr.db().kbGUID()).toUtf8();
-        const QString name = QString::fromLatin1(QCryptographicHash::hash(account, QCryptographicHash::Sha256).toHex());
-        m_nativeClipper = new WizNativeClipperBridge(dbMgr,
-            Utils::WizPathResolve::dataStorePath() + "native-clipper/" + name + ".json",
-            [this] { return m_preparingQuit || m_quiting || m_noteTransferBusy; }, this);
-        m_nativeClipper->start();
-        connect(m_nativeClipper, &WizNativeClipperBridge::noteSaved, this, [this](const QString&) {
-            quickSyncKb(m_dbMgr.db().kbGUID());
-        });
-    }
 
     initSyncQuick();
 
@@ -414,11 +402,6 @@ bool WizMainWindow::prepareForQuit()
 {
     if (m_quitPrepared) return true;
     if (m_preparingQuit || m_noteTransferBusy) return false;
-    if (m_nativeClipper && m_nativeClipper->isSaving()) {
-        // Do not destroy a bridge that is writing a local note in a nested loop.
-        QTimer::singleShot(100, this, &WizMainWindow::on_actionExit_triggered);
-        return false;
-    }
     QScopedValueRollback<bool> preparing(m_preparingQuit, true);
     struct ActionGuard {
         bool& exiting;
@@ -469,15 +452,17 @@ bool WizMainWindow::prepareForQuit()
         QObject syncContext;
         QElapsedTimer deadline; deadline.start();
         while ((!m_syncFull->isIdle() || (m_syncQuick && !m_syncQuick->isIdle()))
-               && deadline.elapsed() < 20000) {
+               && deadline.elapsed() < WizKMSyncThread::quitSyncTimeoutMs) {
             QApplication::processEvents(); QThread::msleep(10);
         }
-        if (deadline.elapsed() < 20000) {
+        if (deadline.elapsed() < WizKMSyncThread::quitSyncTimeoutMs) {
             bool finished = false;
-            const auto connection = connect(m_syncFull, &WizKMSyncThread::syncFinished,
-                &syncContext, [&](int, bool, const QString&, bool) { finished = true; });
+            // UI errors may deliberately be suppressed after repeated offline
+            // attempts. Observe completion of the attempt, not the UI message.
+            const auto connection = connect(m_syncFull, &WizKMSyncThread::fullSyncAttemptFinished,
+                &syncContext, [&] { finished = true; });
             m_syncFull->startSyncAll(true);
-            while (!finished && deadline.elapsed() < 20000) {
+            while (!finished && deadline.elapsed() < WizKMSyncThread::quitSyncTimeoutMs) {
                 QApplication::processEvents(); QThread::msleep(10);
             }
             disconnect(connection);
@@ -509,6 +494,7 @@ void WizMainWindow::cleanOnQuit()
     m_quitProgress->setFixedWidth(400);
     m_quitProgress->setMinimum(0);
     m_quitProgress->setMaximum(11);
+    m_quitProgress->setMinimumDuration(0);
     m_quitProgress->setValue(0);
     connect(m_quitProgress, &QProgressDialog::canceled, [this] {
         m_syncQuick->stopSync();
@@ -3508,28 +3494,6 @@ void WizMainWindow::on_actionNoteStyle_triggered()
     }
 }
 
-void WizMainWindow::on_actionConnectNativeClipper_triggered()
-{
-    if (m_preparingQuit || m_quiting || m_noteTransferBusy) return;
-    if (!m_nativeClipper || (m_nativeClipper->port() == 0 && !m_nativeClipper->start())) {
-        QMessageBox::warning(this, QStringLiteral("网页剪藏"), QStringLiteral("无法启动本机剪藏连接（8849 端口）。请确认没有同时运行另一个新版客户端。"));
-        return;
-    }
-    const QString code = m_nativeClipper->createPairingCode();
-    if (code.isEmpty()) {
-        QMessageBox::warning(this, QStringLiteral("网页剪藏"), QStringLiteral("请先登录并完成账号初始化，再连接剪藏器。"));
-        return;
-    }
-    QMessageBox info(this);
-    info.setWindowTitle(QStringLiteral("连接原生网页剪藏器"));
-    info.setTextFormat(Qt::PlainText);
-    info.setTextInteractionFlags(Qt::TextSelectableByMouse);
-    info.setText(QStringLiteral("目的账号：%1\n\n本机连接码：%2\n\n在 Safari 的新版网页剪藏分享窗口输入此码。连接码两分钟有效，仅用于当前 Mac；不需要再输入为知账号密码。\n\n请勿把连接码发给别人。旧剪藏器保持不变。").arg(m_dbMgr.db().getUserId(), code));
-    info.setStandardButtons(QMessageBox::Close);
-    info.exec();
-}
-
-
 void WizMainWindow::on_actionSaveAsMarkdown_triggered()
 {
     if (WizDocumentWebView* editor = getActiveEditor())
@@ -4067,6 +4031,8 @@ void WizMainWindow::on_options_settingsChanged(WizOptionsType type)
         processAllDocumentViews([=](WizDocumentView* docView){
             docView->web()->editorResetSpellCheck();
         });
+        for (auto* viewer : m_singleViewMgr->getDocumentViewerMap().values())
+            if (viewer) viewer->docView()->web()->editorResetSpellCheck();
         break;
     default:
         break;

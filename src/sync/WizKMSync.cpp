@@ -295,6 +295,7 @@ bool WizKMSyncThread::doSync()
         m_bNeedSyncAll = false;
         m_tLastSyncAll = QDateTime::currentDateTime();
         if (!m_pEvents->isStop()) emit startTimer(m_nFullSyncSecondsInterval * 1000 + 1);
+        Q_EMIT fullSyncAttemptFinished();
         return true;
     }
     else if (needQuickSync())

@@ -156,6 +156,17 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     login.resize(400, 300);
     login.show(); app.processEvents(); login.hide(); app.processEvents();
     WizMainWindow window(manager);
+    if (window.findChild<QAction*>("actionConnectNativeClipper")) {
+        qWarning() << "Obsolete native clipper pairing action is still present";
+        return 1;
+    }
+    for (auto* object : window.findChildren<QObject*>()) {
+        if (QByteArray(object->metaObject()->className()) == "WizNativeClipperBridge") {
+            qWarning() << "Normal main window still instantiates the obsolete 8849 bridge";
+            return 1;
+        }
+    }
+    qInfo() << "PASS obsolete 8849 bridge and pairing menu are absent from actual main window";
     const QString productWindowTitle = window.windowTitle();
     window.setWindowTitle(QStringLiteral("WizNotePlus — 隔离主窗口测试"));
     window.resize(1000, 650);
@@ -330,6 +341,43 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         return *editorReady;
     }, {}, 15000);
     const QString artifactDir = qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
+    if (!interactive) {
+        const auto spellingOn = std::make_shared<bool>(false);
+        const auto spellingOff = std::make_shared<bool>(false);
+        addCheck("main-client preference reaches browser profile and original prose editor", [&, spellingOn, queryPending] {
+            if (!*spellingOn && !*queryPending && window.docView()) {
+                *queryPending = true;
+                auto* web = window.docView()->web();
+                const bool profileEnabled = web->page()->profile()->isSpellCheckEnabled();
+                web->page()->runJavaScript("!!window.WizSpellCheckEnabled && !!document.querySelector('.wiz-editor-body')"
+                    "&& document.querySelector('.wiz-editor-body').spellcheck", [spellingOn, queryPending, profileEnabled](const QVariant& v) {
+                        *spellingOn = profileEnabled && v.toBool(); *queryPending = false;
+                    });
+            }
+            return *spellingOn;
+        }, [&] {
+            settings.setEnableSpellCheck(true);
+            if (window.docView()) window.docView()->setEditorMode(modeEditor);
+            QMetaObject::invokeMethod(&window, "on_options_settingsChanged", Qt::DirectConnection,
+                Q_ARG(WizOptionsType, wizoptionsSpellCheck));
+        });
+        addCheck("main-client preference switches spelling off in an already open note", [&, spellingOff, queryPending] {
+            if (!*spellingOff && !*queryPending && window.docView()) {
+                *queryPending = true;
+                auto* web = window.docView()->web();
+                const bool profileDisabled = !web->page()->profile()->isSpellCheckEnabled();
+                web->page()->runJavaScript("!window.WizSpellCheckEnabled && !document.querySelector('.wiz-editor-body').spellcheck",
+                    [spellingOff, queryPending, profileDisabled](const QVariant& v) {
+                        *spellingOff = profileDisabled && v.toBool(); *queryPending = false;
+                    });
+            }
+            return *spellingOff;
+        }, [&] {
+            settings.setEnableSpellCheck(false);
+            QMetaObject::invokeMethod(&window, "on_options_settingsChanged", Qt::DirectConnection,
+                Q_ARG(WizOptionsType, wizoptionsSpellCheck));
+        });
+    }
     auto capture = [&](QWidget* widget, const QString& name) {
         if (!artifactDir.isEmpty() && QDir().mkpath(artifactDir))
             widget->grab().save(QDir(artifactDir).filePath(name));
@@ -754,15 +802,16 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 QTimer::singleShot(0, action, &QAction::trigger);
         });
         const auto pdfVisited = std::make_shared<bool>(false);
-        const bool wasEditing = window.docView()->isEditing();
+        const auto wasEditing = std::make_shared<bool>(false);
         addCheck("original Save as PDF opens its save dialog without print preview", [&, pdfVisited, wasEditing] {
             auto* dialog = qobject_cast<QFileDialog*>(QApplication::activeModalWidget());
             if (dialog) {
-                if (window.docView()->isEditing() != wasEditing) { dialog->reject(); return false; }
+                if (window.docView()->isEditing() != *wasEditing) { dialog->reject(); return false; }
                 *pdfVisited = true; QTimer::singleShot(0, dialog, &QDialog::reject);
             }
             return *pdfVisited && !QApplication::activeModalWidget() && !window.findChild<QAction*>("actionPrintNote");
-        }, [&] {
+        }, [&, wasEditing] {
+            *wasEditing = window.docView()->isEditing();
             if (auto* action = window.findChild<QAction*>("actionSaveAsPDF"))
                 QTimer::singleShot(0, action, &QAction::trigger);
         });
@@ -1031,7 +1080,17 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         ++step; started = false;
     });
     test.start(20);
+    bool originalCleanup = false;
+    QObject::connect(&app, &QApplication::aboutToQuit, &window, [&] {
+        // Main-window handler was connected first, so this sees the actual
+        // completed cleanup dialog rather than a separately fabricated widget.
+        auto* progress = window.findChild<QProgressDialog*>();
+        originalCleanup = progress && progress->windowTitle() == "Cleaning on Quit"
+            && progress->minimum() == 0 && progress->maximum() == 11
+            && progress->minimumDuration() == 0 && progress->width() == 400;
+    });
     app.exec();
+    if (!interactive) check(originalCleanup, "original eleven-stage cleanup dialog remains and is configured to display immediately");
     window.hide();
     for (id observer in observers) [center removeObserver:observer];
     return failures ? 1 : 0;

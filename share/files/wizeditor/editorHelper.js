@@ -83,6 +83,7 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
         }
         //
         WizEditor.init(editorOptions);
+        WizSetSpellCheck(!!window.WizSpellCheckEnabled);
         WizEditor.addListener(WizEditor.ListenerType.SelectionChange, WizOnSelectionChange)
         resolve(true);
       }
@@ -92,6 +93,72 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
       }
     });
   });
+}
+
+// Native browser spellchecking for both rich text and Markdown source. The
+// existing input engine stays intact; CodeMirror code blocks stay unchecked.
+var WizSpellCheckState = { enabled: false, records: new Map(), observer: null, pending: false };
+function WizRestoreSpellCheckAttributes() {
+  WizSpellCheckState.records.forEach(function (attributes, element) {
+    Object.keys(attributes).forEach(function (name) {
+      var value = attributes[name];
+      if (value === null) element.removeAttribute(name);
+      else element.setAttribute(name, value);
+    });
+  });
+  WizSpellCheckState.records.clear();
+}
+function WizApplySpellCheck() {
+  var state = WizSpellCheckState;
+  if (!document.body) return;
+  state.records.forEach(function (_, element) {
+    if (!element.isConnected) state.records.delete(element);
+  });
+  function attribute(element, name, value) {
+    if (element.getAttribute(name) === value) return;
+    var original = state.records.get(element) || {};
+    if (!Object.prototype.hasOwnProperty.call(original, name)) original[name] = element.getAttribute(name);
+    state.records.set(element, original);
+    element.setAttribute(name, value);
+  }
+  // Editor.init/on/off and history restore reset spellcheck=false internally.
+  // Track only the actual prose editing root, never URL/title/search fields.
+  var roots = document.querySelectorAll('.wiz-editor-body');
+  roots.forEach(function (body) {
+    var editing = body.isContentEditable && !body.classList.contains('wiz-readonly');
+    attribute(body, 'spellcheck', state.enabled && editing ? 'true' : 'false');
+    if (state.enabled && editing) attribute(body, 'lang', 'en-US');
+    body.querySelectorAll('pre,code,.wiz-code-container,.CodeMirror,.MathJax,.MathJax_Display,.MathJax_SVG,math')
+      .forEach(function (code) { attribute(code, 'spellcheck', 'false'); });
+  });
+}
+function WizSetSpellCheck(enabled) {
+  var state = WizSpellCheckState;
+  state.enabled = !!enabled;
+  window.WizSpellCheckEnabled = state.enabled;
+  WizRestoreSpellCheckAttributes();
+  WizApplySpellCheck();
+  if (!state.observer && document.body) {
+    state.observer = new MutationObserver(function () {
+      if (state.pending) return;
+      state.pending = true;
+      setTimeout(function () { state.pending = false; WizApplySpellCheck(); }, 50);
+    });
+    state.observer.observe(document.body, {subtree:true, childList:true, attributes:true,
+      attributeFilter:['spellcheck','class','contenteditable']});
+  }
+  if (window.WizEditor && !WizEditor.wizSpellCheckSerializationGuards) {
+    ['getContentHtml','getMarkdownSrc','isModified'].forEach(function (name) {
+      var original = WizEditor[name];
+      if (typeof original !== 'function') return;
+      WizEditor[name] = function () {
+        WizRestoreSpellCheckAttributes();
+        try { return original.apply(WizEditor, arguments); }
+        finally { WizApplySpellCheck(); }
+      };
+    });
+    WizEditor.wizSpellCheckSerializationGuards = true;
+  }
 }
 
 // Temporary engine style: excluded from saved note HTML by the original editor.

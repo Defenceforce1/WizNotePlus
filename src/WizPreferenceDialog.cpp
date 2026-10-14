@@ -92,6 +92,7 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
     }
 
     ui->spellCheck->setChecked(userSettings().isEnableSpellCheck());
+    ui->spellCheck->setToolTip(QStringLiteral("标记正文中的英文拼写错误，可右键选择修正建议；不自动改词，不提供中文或语法校对。富文本代码块不检查；Markdown 源码中的代码和 LaTeX 命令仍可能被标记。"));
     connect(ui->spellCheck, SIGNAL(toggled(bool)), this, SLOT(on_enableSpellCheck(bool)));
 
     ui->openLinkWithDesktopBrowser->setChecked(userSettings().isEnableOpenLinkWithDesktopBrowser());

@@ -153,11 +153,8 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
     connect(page, &WizDocumentWebViewPage::linkClicked,
             this, &WizDocumentWebView::onEditorLinkClicked);
 
-    if (m_app.userSettings().isEnableSpellCheck()) {
-        QWebEngineProfile *profile = page->profile();
-        profile->setSpellCheckEnabled(true);
-        profile->setSpellCheckLanguages({"en-US"});
-    }
+    page->profile()->setSpellCheckEnabled(m_app.userSettings().isEnableSpellCheck());
+    page->profile()->setSpellCheckLanguages({"en-US"});
 
     // minimum page size hint
     //setMinimumSize(400, 250);
@@ -854,12 +851,12 @@ void WizDocumentWebView::editorResetFont()
 void WizDocumentWebView::editorResetSpellCheck()
 {
     QWebEngineProfile *profile = page()->profile();
-    if (m_app.userSettings().isEnableSpellCheck()) {
-        profile->setSpellCheckEnabled(true);
-        profile->setSpellCheckLanguages({"en-US"});
-    } else {
-        profile->setSpellCheckEnabled(false);
-    }
+    const bool enabled = m_app.userSettings().isEnableSpellCheck();
+    profile->setSpellCheckEnabled(enabled);
+    profile->setSpellCheckLanguages({"en-US"});
+    page()->runJavaScript(QStringLiteral("window.WizSpellCheckEnabled=%1;"
+        "if(typeof WizSetSpellCheck==='function') WizSetSpellCheck(window.WizSpellCheckEnabled);")
+        .arg(enabled ? "true" : "false"));
 }
 
 
@@ -1084,6 +1081,8 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     QString keywords = getHighlightKeywords();
     // Initialize rich text editor
     QString strCode = "(async function(){\n";
+    strCode += QStringLiteral("window.WizSpellCheckEnabled=%1;\n")
+        .arg(m_app.userSettings().isEnableSpellCheck() ? "true" : "false");
     strCode += "window.WizNoteCss=" + WizNotePresentation::jsonString(
         WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()))) + ";\n";
     strCode += WizFormatString6("await WizEditorInit(\"%1\", \"%2\", \"%3\", \"%4\", %5, \"%6\", false);",

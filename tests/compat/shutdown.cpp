@@ -4,6 +4,7 @@
 #include "database/WizDatabase.h"
 #include "gui/documentviewer/DocumentLoaderSaver.h"
 #include "sync/WizKMSync.h"
+#include "sync/WizApiEntry.h"
 #include <QApplication>
 #include <QTemporaryDir>
 #include <QTcpServer>
@@ -71,6 +72,29 @@ int wizShutdownSelfTest(int argc, char** argv)
     check(idle.isIdle(), "stopped sync worker rejects new queued work before startup");
     idle.start();
     check(idle.wait(1000), "a stopped worker cannot restart synchronization");
+
+    check(WizKMSyncThread::quitSyncTimeoutMs == 5000, "final sync network-stage budget is five seconds, not twenty");
+    // Empty server means explicit offline, without DNS or any cloud request.
+    check(WizCommonApiEntry::server().isEmpty(), "offline completion fixture has no server or credentials");
+    WizKMSyncThread offline(manager.db(), false);
+    offline.setFullSyncInterval(60);
+    int attempts = 0, uiErrors = 0;
+    QObject::connect(&offline, &WizKMSyncThread::fullSyncAttemptFinished, &app, [&] { ++attempts; });
+    QObject::connect(&offline, &WizKMSyncThread::syncFinished, &app,
+        [&](int, bool, const QString&, bool) { ++uiErrors; });
+    offline.start();
+    for (int target = 1; target <= 2; ++target) {
+        offline.startSyncAll();
+        QElapsedTimer attempt; attempt.start();
+        while ((attempts < target || !offline.isIdle()) && attempt.elapsed() < 4500) {
+            app.processEvents(); QThread::msleep(5);
+        }
+        check(attempts == target && attempt.elapsed() < 4500,
+              "each offline final attempt reports completion without exhausting quit budget");
+    }
+    check(uiErrors == 1 && attempts == 2, "suppressed repeated offline UI errors cannot conceal attempt completion");
+    offline.stopSync();
+    check(offline.wait(1000), "offline fixture closes its worker normally");
 
     QTcpServer server;
     bool respond = true;

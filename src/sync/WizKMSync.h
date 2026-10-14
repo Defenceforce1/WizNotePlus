@@ -49,6 +49,8 @@ class WizKMSyncThread : public QThread
 
 public:
     WizKMSyncThread(WizDatabase& db, bool quickOnly, QObject* parent = 0);
+    // Network stage only; local-save confirmation and original cleanup remain.
+    static constexpr int quitSyncTimeoutMs = 5000;
     ~WizKMSyncThread();
     void startSyncAll(bool bBackground = true);
     bool isBackground() const;
@@ -126,6 +128,9 @@ private:
 
 Q_SIGNALS:
     void syncStarted(bool syncAll);
+    // Always delivered for a full attempt, even if repeated offline UI errors
+    // are suppressed. This is completion, not proof of successful cloud sync.
+    void fullSyncAttemptFinished();
     void syncFinished(int nErrorCode, bool isNetworkError, const QString& strErrorMesssage, bool isBackground);
     void processLog(const QString& strStatus);
     void promptMessageRequest(int nType, const QString& strTitle, const QString& strMsg);
