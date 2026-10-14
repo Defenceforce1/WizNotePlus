@@ -8,7 +8,8 @@ struct ClipInput {
     let selectionHTML: String
     let text: String
     let selectionText: String
-    static let maximumBytes = 2 * 1024 * 1024
+    let resources: [String]
+    static let maximumBytes = 8 * 1024 * 1024
 
     init(dictionary: [String: Any]) throws {
         guard let url = dictionary["url"] as? String, let address = URLComponents(string: url),
@@ -26,6 +27,11 @@ struct ClipInput {
         pageHTML = page; selectionHTML = selection
         text = String((dictionary["text"] as? String ?? "").prefix(50000))
         selectionText = String((dictionary["selectionText"] as? String ?? "").prefix(50000))
+        let images = dictionary["resources"] as? [String] ?? []
+        guard images.count <= 48, images.allSatisfy({ $0.utf8.count <= 4096 }) else {
+            throw ClipperError.message("图片资源过多，请改用选区")
+        }
+        resources = images
     }
 }
 
@@ -78,7 +84,7 @@ final class LocalClipClient {
         }
         do {
             let bytes = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
-            guard bytes.count <= ClipInput.maximumBytes else { throw ClipperError.message("剪藏内容太大，请改用选中段落") }
+            guard bytes.count <= 2 * 1024 * 1024 else { throw ClipperError.message("本机保存最多 2 MB，请使用云端上传或选中段落") }
             var request = URLRequest(url: address)
             request.httpMethod = "POST"; request.httpBody = bytes
             request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")

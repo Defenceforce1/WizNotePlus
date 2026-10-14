@@ -3,8 +3,15 @@ on:
   workflow_dispatch:
   push:
     branches: [compat/macos-arm64-qt6]
+    paths:
+      - '**'
+      - '!build/osx/native-clipper/**'
+      - '!tests/compat/fixtures/clipper-cloud-page.html'
+      - '!docs/standalone-web-clipper.md'
+      - '!docs/next-build-requests.md'
+      - '!.github/workflows/web-clipper.yml'
   pull_request:
-    paths: ['src/**', 'cmake/**', 'tests/compat/**', 'build/osx/**', 'CMakeLists.txt', '.github/workflows/macos-arm64.yml']
+    paths: ['src/**', 'cmake/**', 'tests/compat/**', 'build/osx/**', 'CMakeLists.txt', '.github/workflows/macos-arm64.yml', '!build/osx/native-clipper/**', '!tests/compat/fixtures/clipper-cloud-page.html']
 permissions:
   contents: read
 jobs:

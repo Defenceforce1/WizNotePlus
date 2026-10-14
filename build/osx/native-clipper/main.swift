@@ -1,6 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import AppKit
 
+if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--cloud-self-test" { exit(cloudClipperSelfTest()) }
+if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--public-image-self-test" {
+    // One fixed public upstream PNG, no account/keychain and no arbitrary URL option.
+    let capture = ClipResources(); var done = false, code: Int32 = 1
+    let url = "https://raw.githubusercontent.com/WizTeam/WizQTClient/master/share/files/errorpage/load_error.png"
+    capture.embed(html: "<img src=\"\(url)\" data-wiz-clip-resource=\"0\">", urls: [url], progress: { _,_ in }) { html, missing in
+        let success = missing == 0 && html.contains("data:image/png;base64,")
+        print("\(success ? "PASS" : "FAIL") production image download, validation and embedding; public PNG only, no cloud credentials")
+        code = success ? 0 : 1; done = true
+    }
+    let deadline = Date().addingTimeInterval(16)
+    while !done && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+    exit(code)
+}
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--capture-self-test" {
+    exit(captureClipperSelfTest(fixture: CommandLine.arguments[2]))
+}
+
 if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--input-self-test" {
     var checks = 0, failures = 0
     func check(_ ok: Bool, _ text: String) { checks += 1; if !ok { failures += 1 }; print("\(ok ? "PASS" : "FAIL") \(text)") }
@@ -72,7 +90,7 @@ final class ClipperHost: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "WizNotePlus 网页剪藏"
         let text = NSTextField(wrappingLabelWithString:
-            "新版 Apple Silicon 原生分享扩展\n\n1. 打开 WizNotePlus 新版客户端。\n2. 在客户端“工具 → 连接原生网页剪藏器”获取连接码。\n3. 在 Safari 网页点“分享”，选择“WizNotePlus 网页剪藏”。\n4. 首次输入连接码，确认账号/文件夹后保存。\n\n此应用不读取旧剪藏器账号，也不替换旧版。分享扩展可能需要在系统设置中单独启用；免费开发签名的多机加载仍需验证。")
+            "Apple Silicon 独立网页剪藏器 0.2.0\n\n在 Safari 网页点“分享 → WizNotePlus 网页剪藏”。\n选择“直接上传为知云端”，登录原账号并核对文件夹。\n上传无需安装／打开主软件；需要联网。主软件之后正常同步即可。\n\n保存为 HTML＋图片／公式资源，不转成 Markdown。\n也保留原来的本机保存入口。本应用不读取旧剪藏器的账号或密码。\n\n云端实际登录／上传仍需用户验收；未公证，另一台 Mac 加载尚未验证。")
         text.frame = NSRect(x: 24, y: 40, width: 520, height: 240); window.contentView?.addSubview(text)
         window.center(); window.makeKeyAndOrderFront(nil); self.window = window
         let menu = NSMenu(); let root = NSMenuItem(); menu.addItem(root)

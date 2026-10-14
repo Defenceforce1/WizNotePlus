@@ -1,0 +1,32 @@
+name: Independent native web clipper
+on:
+  workflow_dispatch:
+  push:
+    branches: [compat/macos-arm64-qt6]
+    paths: ['build/osx/native-clipper/**', 'tests/compat/fixtures/clipper-cloud-page.html', '.github/workflows/web-clipper.yml', 'build/osx/licenses/GPL-3.0.txt', 'LICENSE']
+  pull_request:
+    paths: ['build/osx/native-clipper/**', 'tests/compat/fixtures/clipper-cloud-page.html', '.github/workflows/web-clipper.yml', 'build/osx/licenses/GPL-3.0.txt', 'LICENSE']
+permissions:
+  contents: read
+jobs:
+  clipper:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile only the clipper and run synthetic input/cloud tests
+        run: |
+          test "$(uname -m)" = arm64
+          bash build/osx/native-clipper/build.sh "$RUNNER_TEMP/wiznote-clipper"
+      - name: Verify static math/image capture with network blocked
+        run: |
+          "$RUNNER_TEMP/wiznote-clipper/WizNotePlus Web Clipper.app/Contents/MacOS/WizNotePlusClipper" --capture-self-test "$GITHUB_WORKSPACE/tests/compat/fixtures/clipper-cloud-page.html"
+      - name: Archive test-only app and corresponding independent source
+        run: |
+          tar -czf "$RUNNER_TEMP/WizNotePlus-WebClipper-source.tar.gz" LICENSE build/osx/native-clipper build/osx/licenses/GPL-3.0.txt tests/compat/fixtures/clipper-cloud-page.html docs/standalone-web-clipper.md
+          ditto -c -k --keepParent "$RUNNER_TEMP/wiznote-clipper/WizNotePlus Web Clipper.app" "$RUNNER_TEMP/WizNotePlus-WebClipper-adhoc-test.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WizNotePlus-WebClipper-adhoc-test-only
+          path: |
+            ${{ runner.temp }}/WizNotePlus-WebClipper-adhoc-test.zip
+            ${{ runner.temp }}/WizNotePlus-WebClipper-source.tar.gz
