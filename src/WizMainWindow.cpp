@@ -268,11 +268,12 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 #ifdef Q_OS_MAC
     setupFullScreenMode(this);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    wizMacHideNativeWindowTitle(this);
+    wizMacConfigureUnifiedHeader(this, titleBar()->height());
     // Paint into the title area when windowed, but respect system/menu/notch
     // safe areas in fullscreen. No hard-coded screen or notch dimensions.
     const auto updateHeaderSafeArea = [this] {
         setContentsMargins(isFullScreen() ? windowHandle()->safeAreaMargins() : QMargins());
+        wizMacConfigureUnifiedHeader(this, titleBar()->height());
     };
     connect(windowHandle(), &QWindow::safeAreaMarginsChanged, this, updateHeaderSafeArea);
     connect(windowHandle(), &QWindow::windowStateChanged, this, [this, updateHeaderSafeArea] {
@@ -640,6 +641,9 @@ void WizMainWindow::on_actionClose_triggered()
 void WizMainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    QTimer::singleShot(0, this, [this] { wizMacConfigureUnifiedHeader(this, titleBar()->height()); });
+#endif
     update();
 }
 
@@ -1901,7 +1905,7 @@ void WizMainWindow::layoutTitleBar()
 
     int margin = 4;
 #if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    margin = 0; // Native controls and toolbar share a compact, centered row.
+    margin = 5; // More breathing room around the 26-pixel search capsule.
 #endif
 
     layoutToolBarContainer->setContentsMargins(0, margin, 0, margin);
@@ -1975,7 +1979,7 @@ void WizMainWindow::initToolBar()
     setHitTestVisible(info);
     m_toolBar->addWidget(info);
 
-    m_toolBar->addWidget(new WizFixedSpacer(QSize(5, 1), m_toolBar));
+    m_toolBar->addWidget(new WizFixedSpacer(QSize(10, 1), m_toolBar));
     // 同步按钮
     WizButton* buttonSync = new WizButton(m_toolBar);
     buttonSync->setObjectName("wiz-header-sync");
@@ -1987,7 +1991,7 @@ void WizMainWindow::initToolBar()
     buttonSync->setAction(m_actions->actionFromName(WIZACTION_GLOBAL_SYNC));
     m_toolBar->addWidget(buttonSync);
 
-    m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(10, 1), m_toolBar);
+    m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(16, 1), m_toolBar);
     m_toolBar->addWidget(m_spacerForToolButtonAdjust);
 
     // Compact single-line search; excess conditions fold without covering keywords.
@@ -2011,7 +2015,7 @@ void WizMainWindow::initToolBar()
     connect(&m_dbMgr, &WizDatabaseManager::folderCreated, this, refreshChoices);
     connect(&m_dbMgr, &WizDatabaseManager::folderDeleted, this, refreshChoices);
 
-    m_toolBar->addWidget(new WizFixedSpacer(QSize(10, 1), m_toolBar));
+    m_toolBar->addWidget(new WizFixedSpacer(QSize(18, 1), m_toolBar));
 
     /*
     // 前一篇文档

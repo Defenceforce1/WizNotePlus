@@ -163,12 +163,26 @@ void toggleFullScreenMode(QMainWindow* mainWindow)
     mainWindow->setWindowState(mainWindow->windowState() ^ Qt::WindowFullScreen);
 }
 
-void wizMacHideNativeWindowTitle(QWidget* window)
+void wizMacConfigureUnifiedHeader(QWidget* window, int height)
 {
-    // Hide only the redundant title text. Preserve Qt's delegate, native button
-    // positions, hit testing and all AppKit window-state transitions.
+    // Preserve Qt's delegate and event dispatch. Only lay out the existing
+    // AppKit controls; never install the legacy proxy or swizzle native methods.
     NSView* view = reinterpret_cast<NSView*>(window->winId());
     view.window.titleVisibility = NSWindowTitleHidden;
+    if (window->isFullScreen() || (view.window.styleMask & NSWindowStyleMaskFullScreen)) return;
+    NSButton* close = [view.window standardWindowButton:NSWindowCloseButton];
+    NSView* container = close.superview;
+    if (!container || !container.superview || height <= 0) return;
+    NSRect frame = container.frame;
+    frame.size.height = height;
+    frame.origin.y = container.superview.flipped ? 0 : NSHeight(container.superview.bounds) - height;
+    container.frame = frame;
+    for (NSWindowButton type : {NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton}) {
+        NSButton* control = [view.window standardWindowButton:type];
+        NSPoint origin = control.frame.origin;
+        origin.y = (height - NSHeight(control.frame)) / 2;
+        [control setFrameOrigin:origin];
+    }
 }
 
 QString WizMacGetOSVersion()

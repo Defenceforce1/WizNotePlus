@@ -9,6 +9,7 @@
 #include <QDebug>
 #include <QStyleOption>
 #include <QPainter>
+#include <QWindow>
 
 #include "framelesshelper/src/core/framelesshelper.h"
 
@@ -95,6 +96,19 @@ void WizWindowTitleBar::paintEvent(QPaintEvent *)
     opt.initFrom(this);
     QPainter p(this);
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
+}
+
+void WizWindowTitleBar::mousePressEvent(QMouseEvent* event)
+{
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    if (property("compactHeader").toBool() && event->button() == Qt::LeftButton
+        && m_window->windowHandle() && !m_window->isFullScreen()
+        && m_window->windowHandle()->startSystemMove()) {
+        event->accept();
+        return;
+    }
+#endif
+    QWidget::mousePressEvent(event);
 }
 
 void WizWindowTitleBar::setContentsMargins(QMargins margins)

@@ -34,6 +34,7 @@ public:
 
 protected:
    void paintEvent(QPaintEvent* ev) override;
+   void mousePressEvent(QMouseEvent* ev) override;
 
 public:
     virtual void layoutTitleBar();

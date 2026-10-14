@@ -273,13 +273,13 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     addCheck("compact neutral header aligns account, sync, search and New Note", [&] {
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
         auto* toolbar = window.findChild<QToolBar*>("wiz-main-toolbar");
-        if (!search || !toolbar || toolbar->height() != 34 || window.titleBar()->height() > 44) return false;
+        if (!search || !toolbar || toolbar->height() != 34 || window.titleBar()->height() != 44) return false;
         const int center = search->mapTo(&window, search->rect().center()).y();
         for (const QString& name : {QStringLiteral("wiz-header-account"), QStringLiteral("wiz-header-sync"), QStringLiteral("btn-newnote")}) {
             auto* control = window.findChild<QWidget*>(name);
             if (!control || qAbs(control->mapTo(&window, control->rect().center()).y() - center) > 1) return false;
         }
-        capture(window.titleBar(), "v144rc2-compact-header.png");
+        capture(window.titleBar(), "v144rc3-header.png");
         return true;
     });
     addCheck("compact search view uses 340 logical pixels", [&] {
@@ -721,7 +721,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     const auto nativeHeaderAligned = [&] {
         auto* account = window.findChild<QWidget*>("wiz-header-account");
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
-        if (!account || !search || window.titleBar()->height() > 36
+        if (!account || !search || window.titleBar()->height() != 44
             || native.titleVisibility != NSWindowTitleHidden) return false;
         for (NSWindowButton type : {NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton}) {
             NSButton* control = button(type);
