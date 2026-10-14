@@ -1979,7 +1979,7 @@ void WizMainWindow::initToolBar()
     setHitTestVisible(info);
     m_toolBar->addWidget(info);
 
-    m_toolBar->addWidget(new WizFixedSpacer(QSize(10, 1), m_toolBar));
+    m_toolBar->addWidget(new WizFixedSpacer(QSize(5, 1), m_toolBar));
     // 同步按钮
     WizButton* buttonSync = new WizButton(m_toolBar);
     buttonSync->setObjectName("wiz-header-sync");
@@ -1991,7 +1991,7 @@ void WizMainWindow::initToolBar()
     buttonSync->setAction(m_actions->actionFromName(WIZACTION_GLOBAL_SYNC));
     m_toolBar->addWidget(buttonSync);
 
-    m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(16, 1), m_toolBar);
+    m_spacerForToolButtonAdjust = new WizFixedSpacer(QSize(10, 1), m_toolBar);
     m_toolBar->addWidget(m_spacerForToolButtonAdjust);
 
     // Compact single-line search; excess conditions fold without covering keywords.
@@ -2015,7 +2015,7 @@ void WizMainWindow::initToolBar()
     connect(&m_dbMgr, &WizDatabaseManager::folderCreated, this, refreshChoices);
     connect(&m_dbMgr, &WizDatabaseManager::folderDeleted, this, refreshChoices);
 
-    m_toolBar->addWidget(new WizFixedSpacer(QSize(18, 1), m_toolBar));
+    m_toolBar->addWidget(new WizFixedSpacer(QSize(10, 1), m_toolBar));
 
     /*
     // 前一篇文档
