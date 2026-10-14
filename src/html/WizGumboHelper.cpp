@@ -412,7 +412,7 @@ void getElementsByTagAttr(
 
 QString getAttribute(GumboNode *node, const QString &attrName)
 {
-    if (node->type != GUMBO_NODE_ELEMENT) {
+    if (!node || node->type != GUMBO_NODE_ELEMENT) {
         return QString();
     }
 
@@ -420,7 +420,7 @@ QString getAttribute(GumboNode *node, const QString &attrName)
     GumboAttribute* attr = gumbo_get_attribute(
         &node->v.element.attributes, attrNameString.c_str());
 
-    return QString(attr->value);
+    return attr ? QString::fromUtf8(attr->value) : QString();
 }
 
 

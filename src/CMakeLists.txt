@@ -7,6 +7,7 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/standalone-startup.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/network-security.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/shutdown.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/native-clipper.cpp)
     if(APPLE)
         list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/mac-window-controls.mm)
     endif()
@@ -70,6 +71,7 @@ set(wiznote_SOURCES
     share/WizKMCore.cpp
     share/WizGlobal.cpp
     share/WizNetworkSecurity.cpp
+    api/WizNativeClipperBridge.cpp
 
     database/WizDatabase.cpp
     database/WizIndex.cpp

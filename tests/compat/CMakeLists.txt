@@ -23,6 +23,9 @@ set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_NATIVE_TRANSFER_TESTS)
+add_test(NAME wiznote_native_clipper COMMAND $<TARGET_FILE:WizNotePlus> --native-clipper-self-test)
+set_tests_properties(wiznote_native_clipper PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
 add_test(NAME wiznote_shutdown COMMAND $<TARGET_FILE:WizNotePlus> --shutdown-self-test)
 set_tests_properties(wiznote_shutdown PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)

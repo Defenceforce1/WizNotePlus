@@ -24,6 +24,7 @@
 #include "WizNotePresentation.h"
 #include "WizBuildIdentity.h"
 #include <QFileDialog>
+#include <QProgressDialog>
 #include <QApplication>
 #include <QTabBar>
 #include <QAbstractButton>
@@ -464,7 +465,15 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 && docs->documentIndexFromGUID(unrelated.strGUID) < 0 && !QApplication::activeModalWidget();
             if (ok) capture(&window, "v9-tag-chip.png");
             return ok;
-        }, [&, selectPanelTag] { selectPanelTag(tag.strGUID); });
+        }, [&, selectPanelTag] {
+            // Direct synthetic clicks do not activate a shell-launched Cocoa
+            // process as a real foreground mouse click would. Activate before
+            // the click; keep the subsequent real caret-focus assertion intact.
+            [[NSRunningApplication currentApplication] activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+            [native makeKeyAndOrderFront:nil];
+            window.activateWindow();
+            QTimer::singleShot(100, &window, [&, selectPanelTag] { selectPanelTag(tag.strGUID); });
+        });
         addCheck("filter tokens are inside the search field with keyword space and aligned toolbar", [&] {
             auto* row = window.findChild<QWidget*>("wiz-note-search-chips");
             auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
@@ -973,7 +982,16 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         addCheck("actual main window restores after fullscreen red close", reopened, reopen);
         addCheck("unified header alignment survives fullscreen red close", nativeHeaderAligned);
         addCheck("actual quit preflight confirms synthetic Markdown is saved without preview decoration", [&] {
-            if (!window.prepareForQuit()) return false;
+            bool progressShown = false;
+            QTimer watcher;
+            QObject::connect(&watcher, &QTimer::timeout, &window, [&] {
+                for (QWidget* widget : QApplication::topLevelWidgets())
+                    if (qobject_cast<QProgressDialog*>(widget) && widget->isVisible()) progressShown = true;
+            });
+            watcher.start(1);
+            const bool prepared = window.prepareForQuit();
+            watcher.stop();
+            if (!prepared || progressShown || !window.findChildren<QProgressDialog*>().isEmpty()) return false;
             QString path;
             if (!manager.db().documentToTempHtmlFile(window.docView()->note(), path)) return false;
             QFile file(path);

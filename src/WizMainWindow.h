@@ -78,6 +78,7 @@ class QProgressDialog;
 
 class ApiWizExplorerApp;
 class PublicAPIsServer;
+class WizNativeClipperBridge;
 
 #ifdef Q_OS_MAC
 class WizMacToolBarButtonItem;
@@ -144,6 +145,7 @@ private:
     bool m_quiting;
     bool m_preparingQuit = false;
     bool m_quitPrepared = false;
+    QProgressDialog* m_quitProgress;
 
     WizTrayIcon* m_tray;
     QMenu* m_trayMenu;
@@ -209,12 +211,12 @@ private:
 
     ApiWizExplorerApp* m_IWizExplorerApp;
     PublicAPIsServer *m_publicAPIsServer;
+    WizNativeClipperBridge* m_nativeClipper = nullptr;
     ExternalEditorLauncher *m_externalEditorLauncher;
 
     WizDocumentSaverThread *m_docSaver;
     WizDocumentLoaderThread *m_docLoader;
 
-    QProgressDialog *m_quitProgress;
 
 private:
     void initQuitHandler();
@@ -307,6 +309,7 @@ public Q_SLOTS:
     void on_actionFindReplace_triggered();
     void on_actionSaveAsPDF_triggered();
     void on_actionNoteStyle_triggered();
+    void on_actionConnectNativeClipper_triggered();
     void on_actionSaveAsHtml_triggered();
     void on_actionSaveAsMarkdown_triggered();
     void on_actionImportFile_triggered();

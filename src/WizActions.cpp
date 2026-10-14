@@ -76,6 +76,7 @@ WIZACTION* WizActions::actionsData()
         {"actionNewNoteByTemplate",             QObject::tr("New Note by Template..."),     "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_PDF,          QObject::tr("Save as PDF..."),              "",                                     QKeySequence()},
         {"actionNoteStyle",                    QStringLiteral("笔记样式（CSS）…"),           "",                                     QKeySequence()},
+        {"actionConnectNativeClipper",         QStringLiteral("连接原生网页剪藏器…"),        "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_HTML,         QObject::tr("Save as Html..."),             "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_MARKDOWN,     QObject::tr("Save as Markdown..."),         "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_IMPORT_FILE,          QObject::tr("Import Files..."),             "",                                     QKeySequence()},

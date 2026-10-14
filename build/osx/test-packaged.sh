@@ -9,5 +9,6 @@ exe="$app/Contents/MacOS/WizNotePlus"
 # Final bundles deploy cocoa, not the SDK's optional offscreen test plugin.
 # Exact isolated routes cannot fall through to normal-account startup.
 env QT_QPA_PLATFORM=cocoa "$exe" --shutdown-self-test
+env QT_QPA_PLATFORM=cocoa "$exe" --native-clipper-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --standalone-startup-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --network-security-self-test "${2:-openssl}"

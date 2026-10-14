@@ -20,6 +20,8 @@
 #include <QCheckBox>
 #include <QProgressDialog>
 #include "share/WizNetworkSecurity.h"
+#include "api/WizNativeClipperBridge.h"
+#include <QCryptographicHash>
 #include <QScopedValueRollback>
 #include <QWindow>
 
@@ -208,6 +210,17 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 
     m_publicAPIsServer = isIsolatedWindowControlsTest() ? nullptr : new PublicAPIsServer(
         {{"WizExplorerApp", m_IWizExplorerApp}}, this);
+    if (!isIsolatedWindowControlsTest()) {
+        const QByteArray account = (dbMgr.db().getUserId() + "/" + dbMgr.db().kbGUID()).toUtf8();
+        const QString name = QString::fromLatin1(QCryptographicHash::hash(account, QCryptographicHash::Sha256).toHex());
+        m_nativeClipper = new WizNativeClipperBridge(dbMgr,
+            Utils::WizPathResolve::dataStorePath() + "native-clipper/" + name + ".json",
+            [this] { return m_preparingQuit || m_quiting || m_noteTransferBusy; }, this);
+        m_nativeClipper->start();
+        connect(m_nativeClipper, &WizNativeClipperBridge::noteSaved, this, [this](const QString&) {
+            quickSyncKb(m_dbMgr.db().kbGUID());
+        });
+    }
 
     initSyncQuick();
 
@@ -326,6 +339,19 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 
 bool WizMainWindow::eventFilter(QObject* watched, QEvent* event)
 {
+    // Only the new preflight runs without a modal progress window. The legacy
+    // cleanup dialog retains its own input/cancel behavior unchanged.
+    if (m_preparingQuit) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonDblClick: case QEvent::KeyPress: case QEvent::KeyRelease:
+        case QEvent::Wheel: case QEvent::Shortcut: case QEvent::ShortcutOverride:
+        case QEvent::InputMethod: case QEvent::TouchBegin: case QEvent::TouchUpdate:
+        case QEvent::TouchEnd: case QEvent::TabletPress: case QEvent::TabletRelease:
+            return true;
+        default: break;
+        }
+    }
     // Qt issue: issue? User quit for mac dock send close event to qApp?
     // I was throught close event only send to widget.
     if (watched == qApp) {
@@ -388,15 +414,25 @@ bool WizMainWindow::prepareForQuit()
 {
     if (m_quitPrepared) return true;
     if (m_preparingQuit || m_noteTransferBusy) return false;
+    if (m_nativeClipper && m_nativeClipper->isSaving()) {
+        // Do not destroy a bridge that is writing a local note in a nested loop.
+        QTimer::singleShot(100, this, &WizMainWindow::on_actionExit_triggered);
+        return false;
+    }
     QScopedValueRollback<bool> preparing(m_preparingQuit, true);
-    QProgressDialog progress(this);
-    progress.setWindowTitle(QStringLiteral("退出为知笔记"));
-    progress.setWindowModality(Qt::ApplicationModal);
-    progress.setRange(0, 0);
-    progress.setCancelButton(nullptr);
-    progress.setLabelText(QStringLiteral("正在保存本地笔记…"));
-    progress.setMinimumDuration(0);
-    progress.show();
+    struct ActionGuard {
+        bool& exiting;
+        QList<QPair<QPointer<QAction>, bool>> states;
+        ActionGuard(QWidget* window, bool& state) : exiting(state) {
+            for (QAction* action : window->findChildren<QAction*>()) {
+                states.append(qMakePair(QPointer<QAction>(action), action->isEnabled()));
+                action->setEnabled(false);
+            }
+        }
+        ~ActionGuard() {
+            if (!exiting) for (const auto& state : states) if (state.first) state.first->setEnabled(state.second);
+        }
+    } actions(this, m_quiting);
 
     // Do not stop the saver or discard its queue. Check actual disk writes,
     // not merely the JavaScript callback that enqueues a save.
@@ -418,7 +454,9 @@ bool WizMainWindow::prepareForQuit()
     }
     saved = saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
     if (!saved) {
-        progress.hide();
+        // Only an actionable local-save error is interactive.
+        m_preparingQuit = false;
+        QScopedValueRollback<bool> blockQuit(m_noteTransferBusy, true);
         QMessageBox::critical(this, QStringLiteral("未退出"),
             QStringLiteral("本地笔记尚未确认保存成功，已取消退出。请保留当前窗口，检查磁盘空间并重试保存。"));
         return false;
@@ -428,21 +466,18 @@ bool WizMainWindow::prepareForQuit()
     // sync work. Offline/failed requests do not trigger another attempt.
     if (!qApp->property("wiznoteIsolatedWindowControlsTest").toBool()
         && m_syncFull && m_syncFull->isRunning()) {
-        progress.setLabelText(QStringLiteral("本地已保存，正在进行最后一次同步…（最多等待 20 秒）"));
-        progress.setCancelButtonText(QStringLiteral("仅保存本地并退出"));
-        bool canceled = false;
-        connect(&progress, &QProgressDialog::canceled, &progress, [&] { canceled = true; });
+        QObject syncContext;
         QElapsedTimer deadline; deadline.start();
         while ((!m_syncFull->isIdle() || (m_syncQuick && !m_syncQuick->isIdle()))
-               && !canceled && deadline.elapsed() < 20000) {
+               && deadline.elapsed() < 20000) {
             QApplication::processEvents(); QThread::msleep(10);
         }
-        if (!canceled && deadline.elapsed() < 20000) {
+        if (deadline.elapsed() < 20000) {
             bool finished = false;
             const auto connection = connect(m_syncFull, &WizKMSyncThread::syncFinished,
-                &progress, [&](int, bool, const QString&, bool) { finished = true; });
+                &syncContext, [&](int, bool, const QString&, bool) { finished = true; });
             m_syncFull->startSyncAll(true);
-            while (!finished && !canceled && deadline.elapsed() < 20000) {
+            while (!finished && deadline.elapsed() < 20000) {
                 QApplication::processEvents(); QThread::msleep(10);
             }
             disconnect(connection);
@@ -475,14 +510,12 @@ void WizMainWindow::cleanOnQuit()
     m_quitProgress->setMinimum(0);
     m_quitProgress->setMaximum(11);
     m_quitProgress->setValue(0);
-
     connect(m_quitProgress, &QProgressDialog::canceled, [this] {
         m_syncQuick->stopSync();
         m_syncFull->stopSync();
     });
-
-    // 处理所有标签
     m_quitProgress->setLabelText(tr("Closing opened documents..."));
+    // 处理所有标签
     processAllDocumentViews([=](WizDocumentView* docView){
         if (m_quitPrepared) docView->waitForThread();
         else docView->waitForDone();
@@ -490,54 +523,44 @@ void WizMainWindow::cleanOnQuit()
     for (auto* viewer : m_singleViewMgr->getDocumentViewerMap().values())
         if (viewer) viewer->docView()->waitForThread();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting object downloader host..."));
     WizObjectDownloaderHost::instance()->waitForDone();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Saving category tree expand state..."));
     m_category->saveExpandState();
     saveStatus();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting full sync thread..."));
     m_syncFull->waitForDone();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting quick sync thread..."));
     WizKMSyncThread::setQuickThread(nullptr);
     m_syncQuick->waitForDone();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting search thread..."));
     m_searcher->waitForDone();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting doc loader thread..."));
     if (m_docLoader) {
         m_docLoader->waitForDone();
         m_docLoader = nullptr;
     }
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting doc saver thread..."));
     if (m_docSaver) {
         m_docSaver->waitForDone();
         m_docSaver = nullptr;
     }
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting external editor launcher thread..."));
     m_externalEditorLauncher->waitForDone();
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Shutting mobile file receiver thread..."));
     if (m_mobileFileReceiver)
     {
         m_mobileFileReceiver->waitForDone();
     }
     m_quitProgress->setValue(++i);
-
     m_quitProgress->setLabelText(tr("Clearing thread pool..."));
     WizQueuedThreadsShutdown();
     m_quitProgress->setValue(++i);
@@ -3483,6 +3506,27 @@ void WizMainWindow::on_actionNoteStyle_triggered()
         editor->editNoteStyle();
         for (auto* web : findChildren<WizDocumentWebView*>()) web->applyNoteStyle();
     }
+}
+
+void WizMainWindow::on_actionConnectNativeClipper_triggered()
+{
+    if (m_preparingQuit || m_quiting || m_noteTransferBusy) return;
+    if (!m_nativeClipper || (m_nativeClipper->port() == 0 && !m_nativeClipper->start())) {
+        QMessageBox::warning(this, QStringLiteral("网页剪藏"), QStringLiteral("无法启动本机剪藏连接（8849 端口）。请确认没有同时运行另一个新版客户端。"));
+        return;
+    }
+    const QString code = m_nativeClipper->createPairingCode();
+    if (code.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("网页剪藏"), QStringLiteral("请先登录并完成账号初始化，再连接剪藏器。"));
+        return;
+    }
+    QMessageBox info(this);
+    info.setWindowTitle(QStringLiteral("连接原生网页剪藏器"));
+    info.setTextFormat(Qt::PlainText);
+    info.setTextInteractionFlags(Qt::TextSelectableByMouse);
+    info.setText(QStringLiteral("目的账号：%1\n\n本机连接码：%2\n\n在 Safari 的新版网页剪藏分享窗口输入此码。连接码两分钟有效，仅用于当前 Mac；不需要再输入为知账号密码。\n\n请勿把连接码发给别人。旧剪藏器保持不变。").arg(m_dbMgr.db().getUserId(), code));
+    info.setStandardButtons(QMessageBox::Close);
+    info.exec();
 }
 
 

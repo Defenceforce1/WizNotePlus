@@ -435,6 +435,18 @@ int main(int argc, char *argv[])
         return 0;
     }
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--native-clipper-safari-probe") {
+        extern int wizNativeClipperSafariProbe(int, char**);
+        return wizNativeClipperSafariProbe(argc, argv);
+    }
+    if (argc == 3 && QByteArray(argv[1]) == "--native-clipper-transport-self-test") {
+        extern int wizNativeClipperTransportSelfTest(int, char**);
+        return wizNativeClipperTransportSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--native-clipper-self-test") {
+        extern int wizNativeClipperSelfTest(int, char**);
+        return wizNativeClipperSelfTest(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--shutdown-self-test") {
         extern int wizShutdownSelfTest(int, char**);
         return wizShutdownSelfTest(argc, argv);
