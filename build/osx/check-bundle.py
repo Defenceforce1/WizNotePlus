@@ -6,9 +6,15 @@ import re
 import subprocess
 import sys
 
+if len(sys.argv) != 2:
+    print("Usage: check-bundle.py APP_BUNDLE", file=sys.stderr)
+    sys.exit(2)
 app = pathlib.Path(sys.argv[1]).resolve()
 frameworks = app / "Contents/Frameworks"
 main_dir = app / "Contents/MacOS"
+if not app.is_dir() or not frameworks.is_dir() or not (main_dir / "WizNotePlus").is_file():
+    print(f"Invalid or incomplete application bundle: {app}", file=sys.stderr)
+    sys.exit(1)
 magic = {bytes.fromhex(v) for v in ("feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
 seen = set()
 failures = []
@@ -41,6 +47,8 @@ for directory, _, names in os.walk(app):
                 candidates = [main_dir / dependency[17:], binary.parent / dependency[17:]]
             if not any(path.exists() for path in candidates):
                 failures.append(f"Unresolved/nonportable: {binary.relative_to(app)} -> {dependency}")
+if not seen:
+    failures.append("No Mach-O executable was inspected; refusing an empty audit")
 print(f"Checked {len(seen)} Mach-O files; {len(failures)} architecture/dependency failures")
 for failure in failures:
     print(failure)
