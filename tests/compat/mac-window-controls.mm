@@ -19,6 +19,7 @@
 #include "WizSearchWidget.h"
 #include "share/WizLegacyLightAppearance.h"
 #include "WizNotePresentation.h"
+#include "WizBuildIdentity.h"
 #include <QFileDialog>
 #include <QApplication>
 #include <QDialog>
@@ -139,9 +140,15 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     login.resize(400, 300);
     login.show(); app.processEvents(); login.hide(); app.processEvents();
     WizMainWindow window(manager);
+    const QString productWindowTitle = window.windowTitle();
     window.setWindowTitle(QStringLiteral("WizNotePlus — 隔离主窗口测试"));
     window.resize(1000, 650);
     window.show();
+    // This fixture checks real caret focus. A shell-launched Cocoa application
+    // may remain inactive; activate this isolated test process, not another app.
+    [NSApp activateIgnoringOtherApps:YES];
+    window.raise();
+    window.activateWindow();
     window.init();
     WIZDOCUMENTDATAEX extended;
     extended = note;
@@ -160,6 +167,12 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             << "native key window" << native.keyWindow << "app active" << NSApp.active;
         failures += !ok;
     };
+    check(productWindowTitle == WizBuildIdentity::displayName(), "main-window product title matches trial branding");
+    auto* styleAction = window.findChild<QAction*>("actionNoteStyle");
+    auto* aboutAction = window.findChild<QAction*>("actionAbout");
+    check(styleAction && styleAction->text() == QStringLiteral("笔记样式（CSS）…")
+        && aboutAction && aboutAction->text() == QStringLiteral("关于 WizNotePlus…"),
+        "style and About menu names are consistent with their dialogs");
     const auto fullscreenTransition = std::make_shared<bool>(false);
     const auto minimizeTransition = std::make_shared<bool>(false);
     const auto deminiaturized = std::make_shared<int>(0);
@@ -443,12 +456,19 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 && !completer->popup()->currentIndex().isValid() && docs && !docs->acceptAllSearchItems();
             if (ok) capture(completer->popup(), "v9-tag-suggestions.png");
             return ok;
-        }, [search] {
-            if (search) {
+        }, [&, search] {
+            // Synthetic menu clicks do not model Cocoa's native activation on
+            // return from a popup. Restore the foreground before typing; retain
+            // the real focus/suggestion assertions rather than weakening them.
+            [[NSRunningApplication currentApplication] activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+            [native makeKeyAndOrderFront:nil];
+            window.activateWindow();
+            QTimer::singleShot(100, &window, [search] {
+                if (!search) return;
                 search->setFocus();
                 QInputMethodEvent commit; commit.setCommitString(QStringLiteral("测试标签"));
                 QCoreApplication::sendEvent(search, &commit);
-            }
+            });
         });
         addCheck("explicit suggestion click creates a tag condition and searches real temporary notes", [&] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");

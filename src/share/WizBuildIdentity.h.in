@@ -1,0 +1,16 @@
+#ifndef WIZBUILDIDENTITY_H
+#define WIZBUILDIDENTITY_H
+
+#include <QGuiApplication>
+#include <QString>
+
+namespace WizBuildIdentity {
+constexpr bool appleSiliconTrial = @WIZNOTE_APPLE_SILICON_TRIAL@ != 0;
+inline QString displayName() { return QStringLiteral("@WIZNOTE_MAC_DISPLAY_NAME@"); }
+inline QString trialBuild() { return QStringLiteral("@WIZNOTE_COMPAT_TRIAL_BUILD@"); }
+// Display names must never replace applicationName/organizationName: Qt uses
+// those stable identifiers for settings and persistent browser profiles.
+inline void applyDisplayName() { QGuiApplication::setApplicationDisplayName(displayName()); }
+}
+
+#endif

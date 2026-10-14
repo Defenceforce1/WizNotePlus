@@ -7,6 +7,7 @@
 #include "share/WizSettings.h"
 #include "share/WizAnimateAction.h"
 #include "widgets/WizTableSelector.h"
+#include "WizBuildIdentity.h"
 
 struct WIZACTION
 {
@@ -66,7 +67,7 @@ WIZACTION* WizActions::actionsData()
     static WIZACTION arrayActions[] =
     {
         {"actionPreference",                    QObject::tr("Preference..."),               "",                                     QKeySequence()},
-        {"actionAbout",                         QObject::tr("About WizNote..."),            "",                                     QKeySequence()},
+        {"actionAbout",                         WizBuildIdentity::appleSiliconTrial ? QStringLiteral("关于 WizNotePlus…") : QObject::tr("About WizNote..."), "", QKeySequence()},
         {"actionExit",                          QObject::tr("Exit"),                        "",                                     QKeySequence("Ctrl+Q")},
         {"actionClose",                         QObject::tr("Close"),                       "",                                     QKeySequence()},
         {"actionLogout",                        QObject::tr("Logout..."),                   "",                                     QKeySequence()},
@@ -74,7 +75,7 @@ WIZACTION* WizActions::actionsData()
         {WIZACTION_GLOBAL_NEW_DOCUMENT,         QObject::tr("New Note"),                    "",                                     QKeySequence("Ctrl+N")},
         {"actionNewNoteByTemplate",             QObject::tr("New Note by Template..."),     "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_PDF,          QObject::tr("Save as PDF..."),              "",                                     QKeySequence()},
-        {"actionNoteStyle",                    QStringLiteral("笔记正文 CSS…"),              "",                                     QKeySequence()},
+        {"actionNoteStyle",                    QStringLiteral("笔记样式（CSS）…"),           "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_HTML,         QObject::tr("Save as Html..."),             "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_SAVE_AS_MARKDOWN,     QObject::tr("Save as Markdown..."),         "",                                     QKeySequence()},
         {WIZACTION_GLOBAL_IMPORT_FILE,          QObject::tr("Import Files..."),             "",                                     QKeySequence()},

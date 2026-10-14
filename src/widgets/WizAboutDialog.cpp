@@ -1,5 +1,6 @@
 ﻿#include "WizAboutDialog.h"
 #include "WizDef.h"
+#include "WizBuildIdentity.h"
 
 #include <QApplication>
 #include <QLabel>
@@ -29,6 +30,10 @@ WizAboutDialog::WizAboutDialog(QWidget *parent)
 #endif
 
     QLabel* labelProduct = new QLabel(this);
+    labelProduct->setObjectName("wiz-about-product");
+    if (WizBuildIdentity::appleSiliconTrial)
+        strProduct = QStringLiteral("<span style='font-weight:bold;font-size:14px'>%1</span>")
+            .arg(WizBuildIdentity::displayName().toHtmlEscaped());
     labelProduct->setText(strProduct);
     labelProduct->setTextInteractionFlags(Qt::TextBrowserInteraction);
 
@@ -37,6 +42,12 @@ WizAboutDialog::WizAboutDialog(QWidget *parent)
         tr("<span style='font-size:11px'>Version: %1</span><br/>")).arg(WIZ_CLIENT_VERSION);
     QString devInfo = QString(
         tr("<span style='font-size:11px'>Development Stage: %1</span><br/>").arg(WIZ_DEV_STAGE));
+    if (WizBuildIdentity::appleSiliconTrial) {
+        versionInfo = QStringLiteral("<span style='font-size:11px'>基础版本：WizNotePlus %1</span><br/>")
+            .arg(QString::fromLatin1(WIZ_CLIENT_VERSION));
+        devInfo = QStringLiteral("<span style='font-size:11px'>试用构建：%1（临时签名，未公证）</span><br/>")
+            .arg(WizBuildIdentity::trialBuild());
+    }
     QString qtInfo = QString(
         tr("<span style='font-size:11px'>Build against: Qt %1</span><br/>").arg(QT_VERSION_STR));
     QString buildTime = QString(
@@ -44,6 +55,7 @@ WizAboutDialog::WizAboutDialog(QWidget *parent)
 
     QString buildInfo = "<div style='text-align:center'>" + versionInfo + devInfo + qtInfo + buildTime +"</div>";
     QLabel* labelBuildInfo = new QLabel(this);
+    labelBuildInfo->setObjectName("wiz-about-build-info");
     labelBuildInfo->setText(buildInfo);
     labelBuildInfo->setTextInteractionFlags(Qt::TextBrowserInteraction | Qt::TextSelectableByKeyboard);
 
@@ -87,5 +99,5 @@ WizAboutDialog::WizAboutDialog(QWidget *parent)
 
     mainLayout->addWidget(textCredits);
 
-    setWindowTitle(tr("About WizNote"));
+    setWindowTitle(WizBuildIdentity::appleSiliconTrial ? QStringLiteral("关于 WizNotePlus") : tr("About WizNote"));
 }

@@ -14,6 +14,17 @@ endif()
 
 project(WizNotePlus VERSION 2.12.0)
 
+# Presentation metadata only; keep the upstream version and data identity intact.
+set(WIZNOTE_COMPAT_TRIAL_BUILD "v14.2")
+set(WIZNOTE_APPLE_SILICON_TRIAL 0)
+set(WIZNOTE_MAC_DISPLAY_NAME "WizNotePlus")
+set(WIZNOTE_MAC_BUNDLE_BUILD "${PROJECT_VERSION}")
+if(APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+    set(WIZNOTE_APPLE_SILICON_TRIAL 1)
+    set(WIZNOTE_MAC_DISPLAY_NAME "WizNotePlus — Apple Silicon 试用版")
+    set(WIZNOTE_MAC_BUNDLE_BUILD "14.2")
+endif()
+
 #============================================================================
 # Options and Variables
 #============================================================================

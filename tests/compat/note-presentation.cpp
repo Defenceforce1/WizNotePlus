@@ -3,6 +3,10 @@
 #include "share/WizGlobal.h"
 #include "share/WizWebEngineView.h"
 #include "utils/WizPathResolve.h"
+#include "WizBuildIdentity.h"
+#include "widgets/WizAboutDialog.h"
+#include "WizDef.h"
+#include <QLabel>
 #include <QApplication>
 #include <QCheckBox>
 #include <QDialogButtonBox>
@@ -68,6 +72,24 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
     const auto check = [&](bool ok, const char* label) {
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label; failures += !ok; return ok;
     };
+    const QString originalAppName = app.applicationName();
+    const QString originalOrganization = app.organizationName();
+    const QString originalSettingsPath = QSettings().fileName();
+    WizBuildIdentity::applyDisplayName();
+    check(app.applicationDisplayName() == WizBuildIdentity::displayName()
+        && app.applicationName() == originalAppName && app.organizationName() == originalOrganization
+        && QSettings().fileName() == originalSettingsPath,
+        "display-only branding preserves Qt settings identity and path");
+    WizAboutDialog about(nullptr);
+    auto* product = about.findChild<QLabel*>("wiz-about-product");
+    auto* buildInfo = about.findChild<QLabel*>("wiz-about-build-info");
+    check(!WizBuildIdentity::appleSiliconTrial || (about.windowTitle() == QStringLiteral("关于 WizNotePlus")
+        && product && product->text().contains(WizBuildIdentity::displayName())
+        && buildInfo && buildInfo->text().contains(QString::fromLatin1(WIZ_CLIENT_VERSION))
+        && buildInfo->text().contains(WizBuildIdentity::trialBuild())
+        && buildInfo->text().contains(QStringLiteral("未公证"))
+        && !buildInfo->text().contains(QStringLiteral("stable.0"))),
+        "About distinguishes upstream version from unsigned compatibility trial build");
     using namespace WizNotePresentation;
     const QString tricky = QString::fromUtf8("quotes \" backslash \\ </script> 中文") + QChar(0x2028);
     const QString json = jsonString(tricky);
@@ -86,12 +108,16 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
     bool dialogVisited = false;
     bool presetVisited = false;
     bool scientificPresetVisited = false;
+    bool namingVisited = false;
     QTimer::singleShot(100, [&] {
         auto* dialog = QApplication::activeModalWidget();
         auto* field = dialog ? dialog->findChild<QPlainTextEdit*>("wiz-note-screen-css") : nullptr;
         auto* preview = dialog ? dialog->findChild<QPushButton*>("wiz-note-css-preview") : nullptr;
         auto* math = dialog ? dialog->findChild<QPushButton*>("wiz-note-css-math-preset") : nullptr;
         auto* scientific = dialog ? dialog->findChild<QPushButton*>("wiz-note-css-scientific-preset") : nullptr;
+        namingVisited = dialog && dialog->windowTitle() == QStringLiteral("笔记样式（CSS）")
+            && math && math->text() == QStringLiteral("添加模板：引用块")
+            && scientific && scientific->text() == QStringLiteral("添加模板：数学环境（定理／定义／证明）");
         if (field && preview) { field->setPlainText("body { color:red; }"); preview->click(); dialogVisited = true; }
         if (field && math) {
             math->click(); math->click();
@@ -106,6 +132,7 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         if (dialog) qobject_cast<QDialog*>(dialog)->reject();
     });
     editStyle(nullptr, &settings, [&](const Style& value) { live = value; });
+    check(namingVisited, "style dialog and template names match the user guide without changing control IDs");
     check(dialogVisited && live.screen == custom.screen && loadStyle(&settings).screen == custom.screen,
         "canceling live CSS preview restores saved style");
     check(styleSheet(custom) == custom.screen && !styleSheet(custom).contains("@media"), "one common stylesheet is not restricted to screen media");

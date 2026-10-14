@@ -32,6 +32,7 @@
 #include "share/WizThreads.h"
 #include "share/WizGlobal.h"
 #include "share/WizLegacyLightAppearance.h"
+#include "WizBuildIdentity.h"
 
 #include "core/WizNoteManager.h"
 
@@ -159,6 +160,7 @@ int mainCore(int argc, char *argv[])
     // 设置应用名和组织名用于QSetting
     QApplication::setApplicationName(QObject::tr("WizNotePlus"));
     QApplication::setOrganizationName(QObject::tr("cn.wiz.wiznoteformac"));
+    WizBuildIdentity::applyDisplayName();
 
     QIcon icon;
     icon.addPixmap(QPixmap(":/logo_16.png"));

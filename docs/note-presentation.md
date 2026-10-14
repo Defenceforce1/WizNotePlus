@@ -1,5 +1,12 @@
 # Note presentation CSS and mathematical environments (v14)
 
+## v14.2 display-name normalization
+
+The current menu/dialog is 笔记样式（CSS）. Preset buttons are 添加模板：引用块
+and 添加模板：数学环境（定理／定义／证明）. Only display text changes; saved
+CSS keys, preset comments, selectors, control IDs, rendering/numbering and the
+original PDF exporter are unchanged. See [release-v14.2.md](release-v14.2.md).
+
 ## v14.1 closeout and deferred PDF links
 
 The current implementation remains the v14 baseline. A multi-page synthetic PDF

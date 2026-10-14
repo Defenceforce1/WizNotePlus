@@ -31,8 +31,9 @@ if /usr/sbin/lsof -nP -iTCP:8848 -sTCP:LISTEN -t >/dev/null 2>&1; then
     read -r -p "按回车关闭。" unused_input
     exit 1
 fi
-echo "这是 Apple Silicon v14.1 收尾试用版，临时签名、未公证。"
-echo "将使用新的独立本地试用目录，不读取或复制旧版资料库。"
+echo "WizNotePlus — Apple Silicon 试用版，试用构建 v14.2。"
+echo "基础版本 2.12.0；临时签名、未公证。"
+echo "将使用独立本地试用目录，沿用该目录已有测试设置；不读取或复制旧版资料库。"
 echo "请只登录专用测试账号；本地隔离不能阻止该账号的云端同步。"
 read -r -p "确认只使用测试账号？输入 y 继续，其他输入取消：" account_confirm
 case "$account_confirm" in

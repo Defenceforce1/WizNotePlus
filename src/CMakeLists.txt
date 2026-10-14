@@ -542,6 +542,8 @@ include_directories(
     libs/3rdparty/quzip
 )
 
+configure_file(share/WizBuildIdentity.h.in ${CMAKE_CURRENT_BINARY_DIR}/WizBuildIdentity.h @ONLY)
+
 #============================================================================
 # Compilation
 #============================================================================

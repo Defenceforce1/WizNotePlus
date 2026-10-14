@@ -21,13 +21,15 @@
 	<key>CFBundleName</key>
 	<string>WizNotePlus</string>
 	<key>CFBundleDisplayName</key>
-	<string>WizNotePlus</string>
+	<string>${WIZNOTE_MAC_DISPLAY_NAME}</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.12.0</string>
+	<string>${WIZNOTE_MAC_BUNDLE_BUILD}</string>
+	<key>WizCompatibilityBuild</key>
+	<string>${WIZNOTE_COMPAT_TRIAL_BUILD}</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
 	<key>CSResourcesFileMapped</key>

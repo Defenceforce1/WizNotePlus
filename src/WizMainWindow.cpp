@@ -32,6 +32,7 @@
 
 #include "share/WizGlobal.h"
 #include "widgets/WizAboutDialog.h"
+#include "WizBuildIdentity.h"
 
 #include "WizUpgrade.h"
 #include "WizConsoleDialog.h"
@@ -242,7 +243,7 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
     initToolBar(); // 主菜单工具栏上的组件: <用户信息, 搜索栏...>
     initClient(); // 主界面容器组件: <文件夹树, 笔记列表, 多标签浏览...>
 
-    setWindowTitle(tr("WizNotePlus"));
+    setWindowTitle(WizBuildIdentity::displayName());
 
     restoreStatus(); // 恢复上一次窗口设置
 

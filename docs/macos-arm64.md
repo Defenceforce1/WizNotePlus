@@ -5,7 +5,14 @@ Experimental native port of upstream master
 Target: direct-download macOS app, arm64; macOS 27 validation in progress.
 App Store builds, Intel builds and other platforms are not validated by this port.
 
-## Current closeout status (2026-10-14, v14.1)
+## Current trial status (2026-10-14, v14.2)
+
+V14.2 standardizes display-only naming: WizNotePlus — Apple Silicon 试用版,
+the CSS menu and template labels, and About information separating upstream
+2.12.0 from compatibility trial build v14.2. Executable/bundle data identity,
+settings/profile paths, CSS markers and note formats are unchanged. See
+[release-v14.2.md](release-v14.2.md). V14.1 closeout CI completed successfully:
+https://github.com/Defenceforce1/WizNotePlus/actions/runs/38443120191
 
 The current baseline retains the v11 original PDF exporter, v13 compact inline
 search and v14 optional scientific math blocks/labels. The v10 print window and

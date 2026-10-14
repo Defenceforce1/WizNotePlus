@@ -163,7 +163,7 @@ void editStyle(QWidget* parent, QSettings* settings, const std::function<void(co
     const Style original = loadStyle(settings);
     QDialog dialog(parent);
     dialog.setObjectName("wiz-note-style-dialog");
-    dialog.setWindowTitle(QStringLiteral("笔记正文 CSS"));
+    dialog.setWindowTitle(QStringLiteral("笔记样式（CSS）"));
     dialog.resize(660, 500);
     auto* box = new QVBoxLayout(&dialog);
     auto* hint = new QLabel(QStringLiteral("只改变本机渲染，不修改原始笔记或 Markdown 编辑方式。\n沿用原来的另存为 PDF，同一份 CSS，不另设打印样式。\nCSS 请只使用可信来源；其中的外部资源链接可能联网。"));
@@ -180,7 +180,7 @@ void editStyle(QWidget* parent, QSettings* settings, const std::function<void(co
     screen->setPlainText(original.screen);
     screen->setPlaceholderText(QStringLiteral("/* 阅读/编辑正文的样式，不是整个 App 的主题 */\n.wiz-editor-body { line-height: 1.7; color: #263950; }\n.wiz-editor-body p { font-size: 16px; }"));
     box->addWidget(screen, 1);
-    auto* math = new QPushButton(QStringLiteral("插入数学引用块样式"));
+    auto* math = new QPushButton(QStringLiteral("添加模板：引用块"));
     math->setObjectName("wiz-note-css-math-preset");
     math->setToolTip(QStringLiteral("仅为 Markdown 阅读预览中的 > 引用块提供统一样式；首行可用 **定理名称**。只填入 CSS，点预览或保存才应用。不新增定理语法。"));
     box->addWidget(math);
@@ -189,7 +189,7 @@ void editStyle(QWidget* parent, QSettings* settings, const std::function<void(co
             screen->appendPlainText(mathBlockStyle());
         enabled->setChecked(true);
     });
-    auto* scientific = new QPushButton(QStringLiteral("插入分类数学样式（定理／定义／证明）"));
+    auto* scientific = new QPushButton(QStringLiteral("添加模板：数学环境（定理／定义／证明）"));
     scientific->setObjectName("wiz-note-css-scientific-preset");
     scientific->setToolTip(QStringLiteral("按类型设置颜色、边框和编号。追加到已有 CSS 后，点预览或保存才应用，不执行外部脚本。"));
     box->addWidget(scientific);
