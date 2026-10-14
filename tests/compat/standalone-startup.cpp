@@ -1,0 +1,137 @@
+#include "WizStandaloneStorage.h"
+#include "WizBuildIdentity.h"
+#include "WizNotePresentation.h"
+#include "WizUpgrade.h"
+#include "share/WizWebEngineView.h"
+#include "share/WizGlobal.h"
+#include "utils/WizPathResolve.h"
+#include <QApplication>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QProcess>
+#include <QSettings>
+#include <QTemporaryDir>
+#include <QTimer>
+#include <QDebug>
+#include <QJsonObject>
+#include <QNetworkProxy>
+#include <QWebEngineUrlRequestInterceptor>
+
+class StartupNoRequests final : public QWebEngineUrlRequestInterceptor {
+    void interceptRequest(QWebEngineUrlRequestInfo& info) override { info.block(true); }
+};
+
+int wizStandaloneLockProbe(int argc, char** argv) {
+    QCoreApplication app(argc, argv);
+    if (argc != 4) return 3;
+    WizStandaloneStorage::Session session; QString error;
+    return session.prepare(QString::fromLocal8Bit(argv[2]), QString::fromLocal8Bit(argv[3]), error) ? 0 : 2;
+}
+int wizStandaloneStartupSelfTest(int argc, char** argv) {
+    QApplication app(argc, argv); app.setQuitOnLastWindowClosed(false);
+    app.setApplicationName("WizNotePlus Standalone Regression Test");
+    app.setOrganizationName(WizBuildIdentity::organizationName());
+    QNetworkProxy::setApplicationProxy(QNetworkProxy(QNetworkProxy::HttpProxy, "127.0.0.1", 1));
+    StartupNoRequests requests;
+    QTemporaryDir temporary;
+    if (!temporary.isValid()) return 1;
+    const QString base = QFileInfo(temporary.path()).canonicalFilePath();
+    const QString home = QDir(base).filePath("test-home");
+    QDir().mkpath(home);
+    qputenv("XDG_CACHE_HOME", (base + "/cache").toUtf8());
+    int failures = 0;
+    const auto check = [&](bool ok, const char* name) {
+        qInfo().noquote() << (ok ? "PASS" : "FAIL") << name; failures += !ok; return ok;
+    };
+    using namespace WizStandaloneStorage;
+    const QString root = defaultRoot(home);
+    QString normalized, error;
+    check(root == home + "/Library/Application Support/WizNotePlus-AppleSilicon", "default root is standalone and independent of bundle location");
+    check(validateRoot(home, root + "/", normalized, error) && normalized == root, "normalizes a valid dedicated absolute root");
+    check(!validateRoot(home, QString(), normalized, error), "empty root rejected without fallback");
+    check(!validateRoot(home, "relative-store", normalized, error), "relative root rejected");
+    check(!validateRoot(home, home, normalized, error), "whole home rejected");
+    check(!validateRoot(home, "/", normalized, error), "filesystem root rejected");
+    check(!validateRoot(home, base + "/outside", normalized, error), "outside-home override rejected");
+    check(!validateRoot(home, home + "/.wiznote", normalized, error), "old WizNote default rejected");
+    check(!validateRoot(home, home + "/WizNote/account", normalized, error), "historical WizNote directory rejected");
+    check(!validateRoot(home, home + "/.WIZNOTE/account", normalized, error), "case-insensitive old-data descendants rejected");
+    check(!validateRoot(home, home + "/Library/Containers/cn.wiz.wiznoteformac/Data/Documents", normalized, error), "old sandbox container rejected");
+    check(!validateRoot(home, home + "/Documents", normalized, error), "old sandbox Documents root rejected");
+    check(!validateRoot(home, home + "/safe/../.wiznote", normalized, error), "dot-dot alias of old store rejected");
+    const QString linked = home + "/linked";
+    QFile::link(home, linked);
+    check(!validateRoot(home, linked + "/store", normalized, error), "symlink ancestor rejected");
+    QFile::remove(linked); // Only the synthetic link created above.
+    Session first;
+    check(first.prepare(home, QString(), error) && first.root() == root
+        && qEnvironmentVariable("WIZNOTE_DATA_STORE") == root, "prepare installs safe default before existing path consumers");
+    check(!QFileInfo::exists(home + "/.wiznote"), "default prepare never creates or reads old store");
+    Session second;
+    check(!second.prepare(home, root, error), "same-process duplicate startup blocked");
+    Session emptyOverride;
+    check(!emptyOverride.prepare(home, QStringLiteral(""), error), "explicit empty environment override cannot fall back");
+    QProcess child;
+    child.start(QCoreApplication::applicationFilePath(), {"--standalone-lock-probe", home, root});
+    check(child.waitForFinished(15000) && child.exitCode() == 2, "second process cannot open locked store");
+    QDir().mkpath(root + "/fixture-account");
+    QSettings css(root + "/fixture-account/wiznote.ini", QSettings::IniFormat);
+    const QString cssSource = "/* WizNotePlus scientific math environments v1 */\nbody {color:#263950;}";
+    css.setValue("NotePresentation/screenCss", cssSource); css.setValue("NotePresentation/enabled", true); css.sync();
+    WizGlobal::setSettings(new QSettings(css.fileName(), QSettings::IniFormat));
+    WizGlobal::setGlobalSettings(new QSettings(root + "/wiznote.ini", QSettings::IniFormat));
+    check(!first.hasConsent(), "first launch has no implicit account consent");
+    bool canceledDialog = false;
+    QTimer::singleShot(100, [&] {
+        auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+        if (box) { canceledDialog = box->objectName() == "wiz-standalone-first-launch"
+            && box->defaultButton() == box->button(QMessageBox::Cancel); box->done(QMessageBox::Cancel); }
+    });
+    check(!confirmFirstLaunch(first) && canceledDialog && !first.hasConsent(), "cancel is default and does not authorize account startup");
+    QTimer::singleShot(100, [&] {
+        if (auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) box->done(QMessageBox::Ok);
+    });
+    check(confirmFirstLaunch(first) && first.hasConsent(), "explicit first-launch confirmation is saved locally");
+    check(confirmFirstLaunch(first) && !QApplication::activeModalWidget(), "next launch does not repeat confirmation");
+    check(WizNotePresentation::loadStyle(&css).screen == cssSource, "existing per-user CSS remains unchanged under new organization identity");
+    check(Utils::WizPathResolve::dataStorePath() == root + '/', "actual path resolver uses bootstrap root");
+    check(Utils::WizPathResolve::cachePath() == root + "/cache/", "inherited XDG cache cannot redirect standalone cache to old data");
+    check(Utils::WizPathResolve::tempPath().startsWith(root + "/temp/session-"), "temporary cleanup is per-store and per-process");
+    auto* primary = WizWebEngineProfile();
+    primary->setUrlRequestInterceptor(&requests);
+    check(primary->persistentStoragePath().startsWith(root + "/webengine/")
+        && primary->cachePath().startsWith(root + "/webengine/"), "primary browser cookies and cache stay in the store");
+    QObject object;
+    WizWebEngineInjectObjectCollection objects; objects.insert("testObject", &object);
+    auto* secondary = createWebEngineProfile(objects, &app);
+    if (secondary) secondary->setUrlRequestInterceptor(&requests);
+    check(secondary && secondary->persistentStoragePath() == profileStorage(root, "WizNoteWebEngineProfile")
+        && secondary->cachePath() == profileCache(root, "WizNoteWebEngineProfile"), "secondary service browser profile is isolated too");
+    bool updateFinished = false;
+    WizUpgradeChecker updates;
+    QObject::connect(&updates, &WizUpgradeChecker::checkFinished, [&](QJsonObject stable, QJsonObject test) {
+        updateFinished = stable.isEmpty() && test.isEmpty();
+    });
+    updates.checkUpgrade();
+    check(!WizBuildIdentity::appleSiliconTrial || updateFinished, "trial legacy update check ends synchronously without legacy releases");
+    delete secondary; delete primary;
+    first.release();
+    check(second.prepare(home, root, error) && second.hasConsent(), "normal close releases lock and preserves first-launch confirmation");
+    second.release();
+    child.start(QCoreApplication::applicationFilePath(), {"--standalone-lock-probe", home, root});
+    check(child.waitForFinished(15000) && child.exitCode() == 0, "new process can reopen only after previous lock release");
+    QDir().mkpath(root + "/.standalone-copy-in-progress");
+    check(!validateRoot(home, root, normalized, error), "incomplete data copy blocks account startup");
+    QDir().rmdir(root + "/.standalone-copy-in-progress");
+    QFile::link(home, root + "/unsafe-account");
+    check(!validateRoot(home, root, normalized, error), "link inside existing store rejected before account access");
+    QFile::remove(root + "/unsafe-account");
+    check(validateRoot(home, root, normalized, error), "store can reopen after synthetic unsafe link removal");
+    check(WizNotePresentation::loadStyle(&css).screen == cssSource, "all startup checks retain exact existing CSS");
+    qInfo() << "Standalone startup failures:" << failures;
+    return failures ? 1 : 0;
+}

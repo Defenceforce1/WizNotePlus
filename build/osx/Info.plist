@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>wiznote.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>cn.wiz.wiznoteformac</string>
+	<string>${WIZNOTE_MAC_BUNDLE_ID}</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleShortVersionString</key>
@@ -19,7 +19,7 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>CFBundleName</key>
-	<string>WizNotePlus</string>
+	<string>${WIZNOTE_MAC_BUNDLE_NAME}</string>
 	<key>CFBundleDisplayName</key>
 	<string>${WIZNOTE_MAC_DISPLAY_NAME}</string>
 	<key>CFBundlePackageType</key>
@@ -49,16 +49,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>WizNote url scheme</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>wiz</string>
-			</array>
-		</dict>
-	</array>
+	${WIZNOTE_MAC_URL_TYPES}
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -70,7 +61,7 @@
 			<key>NSMessage</key>
 			<string>serviceCreateNote</string>
 			<key>NSPortName</key>
-			<string>WizNotePlus</string>
+			<string>${WIZNOTE_MAC_BUNDLE_NAME}</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendTypes</key>

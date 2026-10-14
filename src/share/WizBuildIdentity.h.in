@@ -8,8 +8,9 @@ namespace WizBuildIdentity {
 constexpr bool appleSiliconTrial = @WIZNOTE_APPLE_SILICON_TRIAL@ != 0;
 inline QString displayName() { return QStringLiteral("@WIZNOTE_MAC_DISPLAY_NAME@"); }
 inline QString trialBuild() { return QStringLiteral("@WIZNOTE_COMPAT_TRIAL_BUILD@"); }
-// Display names must never replace applicationName/organizationName: Qt uses
-// those stable identifiers for settings and persistent browser profiles.
+inline QString organizationName() { return QStringLiteral("@WIZNOTE_MAC_BUNDLE_ID@"); }
+// v14.3 deliberately isolates the organization identity. Existing explicit
+// per-user INI files retain their keys/content; no applicationName-based move.
 inline void applyDisplayName() { QGuiApplication::setApplicationDisplayName(displayName()); }
 }
 

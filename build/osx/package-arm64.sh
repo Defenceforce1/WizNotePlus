@@ -8,7 +8,7 @@ source_dir=$(cd "$(dirname "$0")/../.." && pwd)
 qt_prefix=$1
 build_dir=$2
 output_dir=$3
-app="$output_dir/WizNotePlus.app"
+app="$output_dir/WizNotePlus Apple Silicon.app"
 if [[ -e "$app" ]]; then
     echo "Refusing to overwrite existing bundle: $app" >&2
     exit 1

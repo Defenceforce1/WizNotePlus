@@ -1,5 +1,13 @@
 # Note presentation CSS and mathematical environments (v14)
 
+## v14.3 standalone storage
+
+The style keys, templates and original PDF renderer are unchanged. The App now
+has an independent default store and organization/bundle identity. Existing
+explicit per-user INI files retain CSS when a complete closed test-store copy
+is prepared; do not reinsert templates just because the App moved. See
+[standalone-startup.md](standalone-startup.md).
+
 ## v14.2 display-name normalization
 
 The current menu/dialog is 笔记样式（CSS）. Preset buttons are 添加模板：引用块

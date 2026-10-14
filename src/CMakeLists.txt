@@ -4,6 +4,7 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     set(native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/native-note-transfer.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/advanced-search.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/note-presentation.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/standalone-startup.cpp)
     if(APPLE)
         list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/mac-window-controls.mm)
     endif()
@@ -113,6 +114,7 @@ set(wiznote_SOURCES
     widgets/WizExternalEditorSettingDialog.cpp
     utils/WizStyleHelper.cpp
     utils/WizPathResolve.cpp
+    WizStandaloneStorage.cpp
     share/WizWindowTitleBar.cpp
     share/WizShadowEffect.cpp
     widgets/WizTagBar.cpp

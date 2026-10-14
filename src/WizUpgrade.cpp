@@ -1,6 +1,7 @@
 ﻿#include "WizUpgrade.h"
 
 #include <QJsonArray>
+#include "WizBuildIdentity.h"
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
 
@@ -30,6 +31,11 @@ QString WizUpgradeChecker::getWhatsNewUrl()
 
 void WizUpgradeChecker::checkUpgrade()
 {
+    // No verified replacement/update channel exists for this native trial.
+    if (WizBuildIdentity::appleSiliconTrial) {
+        Q_EMIT checkFinished({}, {});
+        return;
+    }
     QString releaseUrl = RELEASE_URL;
 
     if (!m_net.get()) {

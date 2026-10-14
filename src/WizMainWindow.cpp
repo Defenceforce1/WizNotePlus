@@ -252,7 +252,7 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 
     // upgrade check
 #ifndef BUILD4APPSTORE
-    if (userSettings().autoCheckUpdate())
+    if (!WizBuildIdentity::appleSiliconTrial && userSettings().autoCheckUpdate())
     {
         checkWizUpdate();
     }

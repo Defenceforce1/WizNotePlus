@@ -23,6 +23,14 @@ set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_NATIVE_TRANSFER_TESTS)
+add_test(NAME wiznote_standalone_startup
+    COMMAND $<TARGET_FILE:WizNotePlus> --standalone-startup-self-test)
+set_tests_properties(wiznote_standalone_startup PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+add_test(NAME wiznote_standalone_bootstrap_cancel
+    COMMAND $<TARGET_FILE:WizNotePlus> --standalone-bootstrap-cancel-probe)
+set_tests_properties(wiznote_standalone_bootstrap_cancel PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 add_test(NAME wiznote_advanced_search
     COMMAND $<TARGET_FILE:WizNotePlus> --advanced-search-self-test)
 set_tests_properties(wiznote_advanced_search PROPERTIES

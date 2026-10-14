@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QDir>
 #include <QDebug>
+#include "WizBuildIdentity.h"
+#include "WizStandaloneStorage.h"
 
 namespace Utils {
 
@@ -116,7 +118,10 @@ if (dataStorePath.isEmpty()) {
 #   ifdef BUILD4APPSTORE
     defaultDataStorePath += "/Documents/";
 #   else
-    defaultDataStorePath += "/.wiznote/";
+    if (WizBuildIdentity::appleSiliconTrial)
+        defaultDataStorePath = WizStandaloneStorage::defaultRoot(defaultDataStorePath);
+    else
+        defaultDataStorePath += "/.wiznote/";
 #   endif
 #else
 #   ifdef Q_OS_WIN
@@ -140,6 +145,11 @@ if (dataStorePath.isEmpty()) {
 
 QString WizPathResolve::cachePath()
 {
+    if (WizBuildIdentity::appleSiliconTrial) {
+        const QString path = dataStorePath() + "cache/";
+        ensurePathExists(path);
+        return path;
+    }
 #ifdef Q_OS_WIN
     QString strCachePath = dataStorePath() + "cache/";
 #else
@@ -196,7 +206,9 @@ QString WizPathResolve::logFile()
 
 QString WizPathResolve::tempPath()
 {
-    QString path = QDir::tempPath() + "/WizNote/";
+    QString path = WizBuildIdentity::appleSiliconTrial
+        ? dataStorePath() + "temp/session-" + QString::number(QCoreApplication::applicationPid()) + "/"
+        : QDir::tempPath() + "/WizNote/";
 
     ensurePathExists(path);
     return path;

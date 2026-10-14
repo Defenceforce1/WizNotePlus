@@ -1,5 +1,6 @@
 ﻿#include "WizPreferenceDialog.h"
 #include "ui_WizPreferenceDialog.h"
+#include "WizBuildIdentity.h"
 
 #include <QMessageBox>
 #include <QFontDialog>
@@ -57,6 +58,13 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
     Qt::CheckState checkState = userSettings().autoCheckUpdate() ? Qt::Checked : Qt::Unchecked;
     ui->checkBox->setCheckState(checkState);
     ui->checkBox->blockSignals(false);
+    if (WizBuildIdentity::appleSiliconTrial) {
+        ui->checkBox->blockSignals(true);
+        ui->checkBox->setChecked(false);
+        ui->checkBox->setEnabled(false);
+        ui->checkBox->setToolTip(QStringLiteral("Apple Silicon 试用版尚无验证过的更新通道，暂不检查或下载旧版更新。"));
+        ui->checkBox->blockSignals(false);
+    }
 
     ui->checkBoxTrayIcon->blockSignals(true);
     checkState = userSettings().showSystemTrayIcon() ? Qt::Checked : Qt::Unchecked;
@@ -432,6 +440,7 @@ void WizPreferenceWindow::updateUIFont(const QFont& font)
 
 void WizPreferenceWindow::on_checkBox_stateChanged(int arg1)
 {
+    if (WizBuildIdentity::appleSiliconTrial) return;
     bool autoUpdate = (arg1 == Qt::Checked);
     m_app.userSettings().setAutoCheckUpdate(autoUpdate);
 

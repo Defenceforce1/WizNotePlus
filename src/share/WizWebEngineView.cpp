@@ -29,6 +29,8 @@
 
 #include "WizMisc.h"
 #include "WizMainWindow.h"
+#include "WizBuildIdentity.h"
+#include "WizStandaloneStorage.h"
 #include "WizDevToolsDialog.h"
 #include "utils/WizPathResolve.h"
 #include "utils/WizStyleHelper.h"
@@ -46,7 +48,8 @@ QWebEngineProfile* WizWebEngineProfile()
     if (!profile) {
         profile = new QWebEngineProfile(QStringLiteral("Default"), qApp);
         // Isolated-data launches must isolate browser state too, not only DBs.
-        const QString isolatedRoot = qEnvironmentVariable("WIZNOTE_DATA_STORE");
+        const QString isolatedRoot = WizBuildIdentity::appleSiliconTrial
+            ? Utils::WizPathResolve::dataStorePath() : qEnvironmentVariable("WIZNOTE_DATA_STORE");
         if (!isolatedRoot.isEmpty()) {
             const QDir root(isolatedRoot);
             profile->setPersistentStoragePath(root.filePath("webengine/Default"));
@@ -91,6 +94,11 @@ QWebEngineProfile* createWebEngineProfile(const WizWebEngineInjectObjectCollecti
 
     // Create a new profile
     QWebEngineProfile *profile = new QWebEngineProfile("WizNoteWebEngineProfile", parent);
+    if (WizBuildIdentity::appleSiliconTrial) {
+        const QString root = Utils::WizPathResolve::dataStorePath();
+        profile->setPersistentStoragePath(WizStandaloneStorage::profileStorage(root, "WizNoteWebEngineProfile"));
+        profile->setCachePath(WizStandaloneStorage::profileCache(root, "WizNoteWebEngineProfile"));
+    }
 
     // Load qtwebchannel library
     QString jsWebChannelFileName = Utils::WizPathResolve::resourcesPath() + "files/webengine/wizwebchannel.js";

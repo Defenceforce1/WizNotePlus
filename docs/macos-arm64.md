@@ -5,7 +5,16 @@ Experimental native port of upstream master
 Target: direct-download macOS app, arm64; macOS 27 validation in progress.
 App Store builds, Intel builds and other platforms are not validated by this port.
 
-## Current trial status (2026-10-14, v14.2)
+## Current trial status (2026-10-14, v14.3)
+
+V14.3 uses a standalone default store, browser/cache/temp paths and bundle identity.
+The deployed bundle is `WizNotePlus Apple Silicon.app`, safe to open directly or
+copy to Applications without a workspace launcher. First-launch consent precedes
+account/profile initialization; one store is protected by a process lock. Legacy
+upstream updates and old Safari shared-account writes are disabled. It does not
+automatically migrate real user data. See [standalone-startup.md](standalone-startup.md)
+and [release-v14.3.md](release-v14.3.md). V14.2 CI succeeded:
+https://github.com/Defenceforce1/WizNotePlus/actions/runs/38491318276
 
 V14.2 standardizes display-only naming: WizNotePlus — Apple Silicon 试用版,
 the CSS menu and template labels, and About information separating upstream

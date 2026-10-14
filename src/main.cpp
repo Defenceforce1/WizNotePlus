@@ -8,6 +8,8 @@
 #include <QTranslator>
 #include <QProcess>
 #include <QSettings>
+#include <QTimer>
+#include <QTemporaryDir>
 #include <QDesktopServices>
 #include <QSslConfiguration>
 #include <QNetworkProxy>
@@ -33,6 +35,7 @@
 #include "share/WizGlobal.h"
 #include "share/WizLegacyLightAppearance.h"
 #include "WizBuildIdentity.h"
+#include "WizStandaloneStorage.h"
 
 #include "core/WizNoteManager.h"
 
@@ -86,7 +89,8 @@ void disableWebengineSandboxIfNeeded()
 // 登录与启动
 //-------------------------------------------------------------------
 
-int mainCore(int argc, char *argv[])
+int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSession, QString& restartExecutable,
+             bool cancelStartupProbe = false)
 {
     // 设置高分屏支持
     //-------------------------------------------------------------------
@@ -129,6 +133,12 @@ int mainCore(int argc, char *argv[])
 
 #endif // Q_OS_LINUX
 
+    if (cancelStartupProbe) {
+        QTimer::singleShot(100, &app, [] {
+            if (auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) box->done(QMessageBox::Cancel);
+        });
+    }
+    if (standaloneSession && !WizStandaloneStorage::confirmFirstLaunch(*standaloneSession)) return 0;
     disableWebengineSandboxIfNeeded();
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QtWebEngine::initialize();
@@ -137,7 +147,7 @@ int mainCore(int argc, char *argv[])
     // Set the same identity before Qt 6 resolves the persistent profile path.
     // Qt 5's profile was created later, after the identity setup below.
     QApplication::setApplicationName(QObject::tr("WizNotePlus"));
-    QApplication::setOrganizationName(QObject::tr("cn.wiz.wiznoteformac"));
+    QApplication::setOrganizationName(WizBuildIdentity::organizationName());
     QWebEngineSettings* webEngineSettings = WizWebEngineProfile()->settings();
 #endif
     webEngineSettings->setAttribute(QWebEngineSettings::FocusOnNavigationEnabled, false);
@@ -159,7 +169,7 @@ int mainCore(int argc, char *argv[])
 
     // 设置应用名和组织名用于QSetting
     QApplication::setApplicationName(QObject::tr("WizNotePlus"));
-    QApplication::setOrganizationName(QObject::tr("cn.wiz.wiznoteformac"));
+    QApplication::setOrganizationName(WizBuildIdentity::organizationName());
     WizBuildIdentity::applyDisplayName();
 
     QIcon icon;
@@ -374,10 +384,11 @@ int mainCore(int argc, char *argv[])
     //start and set safari extension
     WIZUSERINFO userInfo;
     dbMgr.db().getUserInfo(userInfo);
-    WizExecuteOnThread(WIZ_THREAD_DEFAULT, [strUserId, userInfo](){
-        updateShareExtensionAccount(strUserId, userInfo.strUserGUID, userInfo.strMywizEmail ,userInfo.strDisplayName);
-        //readShareExtensionAccount();
-    });
+    if (!WizBuildIdentity::appleSiliconTrial) {
+        WizExecuteOnThread(WIZ_THREAD_DEFAULT, [strUserId, userInfo](){
+            updateShareExtensionAccount(strUserId, userInfo.strUserGUID, userInfo.strMywizEmail ,userInfo.strDisplayName);
+        });
+    }
 #endif
 
     //create introduction note for new register users
@@ -393,7 +404,9 @@ int mainCore(int argc, char *argv[])
     if (window.isLogout()) {
         userSettings.setPassword("");
 #ifndef BUILD4APPSTORE
-        QProcess::startDetached(argv[0], QStringList());
+        // Restart only after browser/database destruction, temp cleanup and
+        // release of the standalone store lock in main(). Never find an old app.
+        restartExecutable = QApplication::applicationFilePath();
 #else
         QString strAppFile = QApplication::applicationDirPath().remove("/Contents/MacOS");
         if (!QProcess::startDetached("/usr/bin/open -W "+strAppFile))
@@ -408,7 +421,42 @@ int mainCore(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    if (WizBuildIdentity::appleSiliconTrial && argc == 2 && QByteArray(argv[1]) == "--check-startup") {
+        QCoreApplication diagnostic(argc, argv);
+        const QString candidate = qEnvironmentVariableIsSet("WIZNOTE_DATA_STORE")
+            ? qEnvironmentVariable("WIZNOTE_DATA_STORE") : WizStandaloneStorage::defaultRoot(QDir::homePath());
+        QString root, error;
+        if (!WizStandaloneStorage::validateRoot(QDir::homePath(), candidate, root, error)) {
+            qWarning().noquote() << error; return 1;
+        }
+        qInfo().noquote() << "独立资料库路径：" << root;
+        qInfo() << "仅校验路径；未打开账号、创建目录或联网。";
+        return 0;
+    }
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--standalone-bootstrap-cancel-probe") {
+        QTemporaryDir fixture;
+        if (!fixture.isValid()) return 1;
+        const QString home = QFileInfo(fixture.path()).canonicalFilePath() + "/home";
+        QDir().mkpath(home);
+        WizStandaloneStorage::Session testSession; QString error, restart;
+        if (!testSession.prepare(home, QString(), error)) return 1;
+        const int ret = mainCore(argc, argv, &testSession, restart, true);
+        const bool isolated = ret == 0 && !testSession.hasConsent() && restart.isEmpty()
+            && !WizGlobal::settings() && !WizGlobal::globalSettings()
+            && !QFileInfo::exists(testSession.root() + "/webengine")
+            && !QFileInfo::exists(home + "/.wiznote");
+        qInfo() << "Production bootstrap cancel before account/profile:" << isolated;
+        return isolated ? 0 : 1;
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--standalone-startup-self-test") {
+        extern int wizStandaloneStartupSelfTest(int, char**);
+        return wizStandaloneStartupSelfTest(argc, argv);
+    }
+    if (argc == 4 && QByteArray(argv[1]) == "--standalone-lock-probe") {
+        extern int wizStandaloneLockProbe(int, char**);
+        return wizStandaloneLockProbe(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--note-presentation-self-test") {
         extern int wizNotePresentationSelfTest(int, char**);
         return wizNotePresentationSelfTest(argc, argv);
@@ -436,11 +484,25 @@ int main(int argc, char *argv[])
     }
 #endif
 #endif
-    int ret = mainCore(argc, argv);
+    WizStandaloneStorage::Session session;
+    if (WizBuildIdentity::appleSiliconTrial) {
+        QString error;
+        const QString overrideRoot = qEnvironmentVariableIsSet("WIZNOTE_DATA_STORE")
+            ? qEnvironmentVariable("WIZNOTE_DATA_STORE") : QString();
+        if (!session.prepare(QDir::homePath(), overrideRoot, error)) {
+            QApplication errorApp(argc, argv);
+            QMessageBox::critical(nullptr, QStringLiteral("无法启动独立资料库"), error);
+            return 1; // No login, old-data fallback, profile or cleanup on failure.
+        }
+    }
+    QString restartExecutable;
+    int ret = mainCore(argc, argv, WizBuildIdentity::appleSiliconTrial ? &session : nullptr, restartExecutable);
 
     // clean up the last temporary files
     QString strTempPath = Utils::WizPathResolve::tempPath();
     ::WizDeleteAllFilesInFolder(strTempPath);
+    session.release();
+    if (!restartExecutable.isEmpty()) QProcess::startDetached(restartExecutable, QStringList());
 
     return ret;
 }
