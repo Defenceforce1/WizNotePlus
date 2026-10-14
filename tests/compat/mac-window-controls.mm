@@ -269,7 +269,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     });
     addCheck("refined search field keeps readable height and reserved icon spacing", [&] {
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
-        if (!search || search->height() != 26 || search->textMargins().left() < 32
+        if (!search || search->height() != 24 || search->textMargins().left() < 32
             || search->textMargins().right() < 28) return false;
         search->setFocus();
         search->setText(QStringLiteral("长关键词与标签搜索 / mathematical notes and references"));
@@ -281,8 +281,12 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     const auto searchAligned = [&] {
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
         auto* newNote = window.findChild<QToolButton*>("btn-newnote");
-        return search && newNote && qAbs(search->mapTo(&window, search->rect().center()).y()
-            - newNote->mapTo(&window, newNote->rect().center()).y()) <= 1;
+        if (!search || !newNote) return false;
+        const int searchY = search->mapTo(&window, search->rect().center()).y();
+        const int newNoteY = newNote->mapTo(&window, newNote->rect().center()).y();
+        if (qAbs(searchY - newNoteY) > 1)
+            qInfo() << "Header center mismatch" << searchY << newNoteY << search->geometry() << newNote->geometry();
+        return qAbs(searchY - newNoteY) <= 1;
     };
     addCheck("search and New Note centers align without filters", searchAligned);
     addCheck("compact neutral header aligns account, sync, search and New Note", [&] {
@@ -294,12 +298,12 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             auto* control = window.findChild<QWidget*>(name);
             if (!control || qAbs(control->mapTo(&window, control->rect().center()).y() - center) > 1) return false;
         }
-        capture(window.titleBar(), "v144rc5-header.png");
+        capture(window.titleBar(), "v144rc7-header.png");
         return true;
     });
-    addCheck("compact search view uses 300 logical pixels", [&] {
+    addCheck("compact search view uses 260 logical pixels", [&] {
         auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
-        return view && view->width() == 300;
+        return view && view->width() == 260;
     });
     addCheck("search stays before New Note and near note-list left edge without covering sync", [&] {
         auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
@@ -463,19 +467,29 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             for (auto* chip : window.findChildren<QPushButton*>("wiz-note-filter-chip"))
                 if (chip->isVisible() && chip->property("filterKind").toString() == kind
                     && (id.isEmpty() || chip->property("filterId").toString() == id)) {
-                    sendClick(chip, chip->rect().center()); return;
+                    sendClick(chip, chip->rect().center()); return true;
                 }
+            return false;
         };
-        addCheck("removing one visible tag reveals folded chips and retains other conditions", [&] {
+        addCheck("removing a visible or folded tag retains all other search conditions", [&] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* docs = window.findChild<WizDocumentListView*>();
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
             return view && !view->queryParams().contains(tag.strGUID) && view->queryParams().contains(secondTag.strGUID)
                 && view->queryParams().contains("folder-path-encoded:") && attachment && attachment->isChecked()
                 && docs && docs->documentCount() == 0 && !QApplication::activeModalWidget();
-        // At the compact width the second tag is folded; cancel the first visible
-        // tag and retain the second, rather than attempting to click a hidden chip.
-        }, [&, menu, clickChip] { if (menu) menu->hide(); clickChip("tag", tag.strGUID); });
+        }, [&, menu, clickChip, clickMagnifier] {
+            if (menu) menu->hide();
+            if (clickChip("tag", tag.strGUID)) return;
+            // At 260 pixels multiple filters can all fold. Remove via the same
+            // user-facing panel; keep the exact query/result assertions above.
+            clickMagnifier();
+            if (auto* tags = window.findChild<QListWidget*>("wiz-note-panel-tags"))
+                for (int i = 0; i < tags->count(); ++i)
+                    if (tags->item(i)->data(Qt::UserRole).toString() == tag.strGUID)
+                        tags->item(i)->setCheckState(Qt::Unchecked);
+            if (menu) menu->hide();
+        });
         addCheck("removing a folded attachment condition restores matching notes without losing tags or folder", [&] {
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");

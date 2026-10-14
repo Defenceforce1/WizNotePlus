@@ -1908,7 +1908,7 @@ void WizMainWindow::layoutTitleBar()
 
     int margin = 4;
 #if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-    margin = 5; // More breathing room around the 26-pixel search capsule.
+    margin = 5; // Keep the compact search capsule centered in the unified header.
 #endif
 
     layoutToolBarContainer->setContentsMargins(0, margin, 0, margin);
@@ -2000,7 +2000,7 @@ void WizMainWindow::initToolBar()
     // Compact single-line search; excess conditions fold without covering keywords.
     m_searchWidget = new WizSearchView(this);
     setHitTestVisible(m_searchWidget);
-    m_searchWidget->setFixedWidth(300);
+    m_searchWidget->setFixedWidth(260);
     m_toolBar->addWidget(m_searchWidget);
 
     connect(m_searchWidget, &WizSearchView::advancedSearchRequest,

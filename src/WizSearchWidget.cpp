@@ -26,12 +26,12 @@
 
 WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     : QWidget(parent)
-    , m_widthHint(300)
+    , m_widthHint(260)
 {
     setObjectName("wiz-note-search-view");
     QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     setSizePolicy(sizePolicy);
-    setContentsMargins(1, 0, 1, 1);
+    setContentsMargins(1, 0, 1, 0);
 
     m_editSearch = new WizSearchEdit(this);
     m_editSearch->setObjectName("wiz-note-search-field");
@@ -40,13 +40,13 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     // Reserve room for both painted controls; long keywords must not overlap
     // the clear icon. Keep drawing and pointer targets in logical coordinates.
     m_editSearch->setTextMargins(32, 0, 28, 0);
-    m_editSearch->setFixedHeight(26);
+    m_editSearch->setFixedHeight(24);
     QFont searchFont = m_editSearch->font();
     searchFont.setPointSizeF(12);
     m_editSearch->setFont(searchFont);
 
     m_editSearch->setStyleSheet(
-        "QLineEdit { color:#34383f; background-color:transparent; border:1px solid #bfc2c8; border-radius:13px;"
+        "QLineEdit { color:#34383f; background-color:transparent; border:1px solid #bfc2c8; border-radius:12px;"
         "padding:0px;"
         "selection-background-color:#3377cc; selection-color:#ffffff; }"
         "QLineEdit:hover { background-color:transparent; border-color:#aeb2b9; }"
@@ -329,7 +329,9 @@ void WizSearchView::rebuildChips()
         button->setProperty("filterKind", chip.kind); button->setProperty("filterId", chip.id);
         QFont tokenFont = m_editSearch->font(); tokenFont.setPointSizeF(11);
         button->setFont(tokenFont);
-        button->setText(button->fontMetrics().elidedText(chip.label, Qt::ElideRight, 70) + QStringLiteral(" ×"));
+        // Keep a single tag readable at compact widths; full names stay in tooltips.
+        const int labelWidth = qBound(20, m_editSearch->width() - 32 - 28 - 132 - 24, 70);
+        button->setText(button->fontMetrics().elidedText(chip.label, Qt::ElideRight, labelWidth) + QStringLiteral(" ×"));
         button->setToolTip(QStringLiteral("取消条件：") + chip.label);
         button->setFixedHeight(20);
         button->setFocusPolicy(Qt::NoFocus);
