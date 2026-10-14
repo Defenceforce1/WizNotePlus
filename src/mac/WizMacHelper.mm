@@ -163,6 +163,14 @@ void toggleFullScreenMode(QMainWindow* mainWindow)
     mainWindow->setWindowState(mainWindow->windowState() ^ Qt::WindowFullScreen);
 }
 
+void wizMacHideNativeWindowTitle(QWidget* window)
+{
+    // Hide only the redundant title text. Preserve Qt's delegate, native button
+    // positions, hit testing and all AppKit window-state transitions.
+    NSView* view = reinterpret_cast<NSView*>(window->winId());
+    view.window.titleVisibility = NSWindowTitleHidden;
+}
+
 QString WizMacGetOSVersion()
 {
     NSString *versionString = [[NSProcessInfo processInfo] operatingSystemVersionString];

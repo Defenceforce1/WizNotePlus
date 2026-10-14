@@ -22,6 +22,31 @@ WizWindowTitleBar QToolBar QToolButton {
   height: 14px;
 }
 
+/* Apple Silicon client header, below the unchanged system title bar. */
+WizMainWindow WizWindowTitleBar[compactHeader="true"] {
+  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 #f5f5f7, stop:1 #ececef);
+  border-bottom: 1px solid #d3d3d8;
+}
+
+WizWindowTitleBar[compactHeader="true"] QToolBar#wiz-main-toolbar {
+  background: transparent;
+  border: none;
+  margin: 0px;
+  padding: 0px;
+  spacing: 6px;
+}
+
+WizWindowTitleBar[compactHeader="true"] QToolButton {
+  color: #6c6e73;
+  padding: 3px 5px;
+}
+
+WizWindowTitleBar[compactHeader="true"] QToolButton#btn-newnote {
+  padding: 3px 7px;
+  border-radius: 7px;
+}
+
 QToolButton {
   border-width: 0px;
   /*font: 14px;*/

@@ -2,6 +2,7 @@
 
 #include <QStyleOptionToolButton>
 #include <QPainter>
+#include <QStyle>
 
 #include "WizDef.h"
 #include "share/WizMisc.h"
@@ -41,5 +42,6 @@ void WizButton::paintEvent(QPaintEvent *event)
     if (opt.state & QStyle::State_On)
         state = QIcon::On;
 
-    opt.icon.paint(&p, opt.rect, Qt::AlignCenter, mode, state);
+    const QRect iconRect = QStyle::alignedRect(opt.direction, Qt::AlignCenter, opt.iconSize, opt.rect);
+    opt.icon.paint(&p, iconRect, Qt::AlignCenter, mode, state);
 }

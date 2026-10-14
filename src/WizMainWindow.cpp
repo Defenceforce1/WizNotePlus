@@ -20,6 +20,7 @@
 #include <QCheckBox>
 #include <QProgressDialog>
 #include <QScopedValueRollback>
+#include <QWindow>
 
 #ifdef Q_OS_MAC
 #include <Carbon/Carbon.h>
@@ -196,6 +197,12 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 
     WizGlobal::setMainWindow(this);
     windowInstance = this;
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    // Extend only the main window's content into the native title bar. Qt keeps
+    // its Cocoa delegate and system controls; no legacy frameless hooks.
+    setWindowFlags(windowFlags() | Qt::ExpandedClientAreaHint | Qt::NoTitleBarBackgroundHint);
+    setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
+#endif
     qRegisterMetaType<WIZGROUPDATA>("WIZGROUPDATA");
 
     m_publicAPIsServer = isIsolatedWindowControlsTest() ? nullptr : new PublicAPIsServer(
@@ -260,6 +267,19 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
 
 #ifdef Q_OS_MAC
     setupFullScreenMode(this);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    wizMacHideNativeWindowTitle(this);
+    // Paint into the title area when windowed, but respect system/menu/notch
+    // safe areas in fullscreen. No hard-coded screen or notch dimensions.
+    const auto updateHeaderSafeArea = [this] {
+        setContentsMargins(isFullScreen() ? windowHandle()->safeAreaMargins() : QMargins());
+    };
+    connect(windowHandle(), &QWindow::safeAreaMarginsChanged, this, updateHeaderSafeArea);
+    connect(windowHandle(), &QWindow::windowStateChanged, this, [this, updateHeaderSafeArea] {
+        QTimer::singleShot(0, this, updateHeaderSafeArea);
+    });
+    updateHeaderSafeArea();
+#endif
 #endif
 
     // 开启同步进程
@@ -1868,6 +1888,10 @@ void WizMainWindow::layoutTitleBar()
     QLayout* layout = new QVBoxLayout();
     layout->setSpacing(0);
     layout->setContentsMargins(0, 0, 0, 0);
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    // Leave the native traffic-light group unobstructed in the unified row.
+    layout->setContentsMargins(80, 0, 0, 0);
+#endif
 
     QHBoxLayout* layoutTitle = new QHBoxLayout();
     layoutTitle->setContentsMargins(0, 0, 0, 0);
@@ -1876,6 +1900,9 @@ void WizMainWindow::layoutTitleBar()
     QLayout* layoutToolBarContainer = new QHBoxLayout();
 
     int margin = 4;
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    margin = 0; // Native controls and toolbar share a compact, centered row.
+#endif
 
     layoutToolBarContainer->setContentsMargins(0, margin, 0, margin);
     layoutToolBarContainer->addWidget(m_toolBar);
@@ -1918,6 +1945,14 @@ void WizMainWindow::layoutTitleBar()
  */
 void WizMainWindow::initToolBar()
 {
+    m_toolBar->setObjectName("wiz-main-toolbar");
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Compact client header; retain Qt/AppKit's native frame and traffic lights.
+    titleBar()->setProperty("compactHeader", true);
+    QFont headerFont = m_toolBar->font(); headerFont.setPointSizeF(12);
+    m_toolBar->setFont(headerFont);
+    m_toolBar->setFixedHeight(34);
+#endif
     // m_toolBar will be added to titleBar
     layoutTitleBar();
     setFrameBorderWidth(1);
@@ -1933,12 +1968,20 @@ void WizMainWindow::initToolBar()
 
     // 用户信息
     WizUserInfoWidget* info = new WizUserInfoWidget(*this, m_toolBar);
+    info->setObjectName("wiz-header-account");
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    info->setFixedHeight(26);
+#endif
     setHitTestVisible(info);
     m_toolBar->addWidget(info);
 
     m_toolBar->addWidget(new WizFixedSpacer(QSize(5, 1), m_toolBar));
     // 同步按钮
     WizButton* buttonSync = new WizButton(m_toolBar);
+    buttonSync->setObjectName("wiz-header-sync");
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    buttonSync->setFixedSize(28, 28);
+#endif
     setHitTestVisible(buttonSync);
     buttonSync->setIconSize(QSize(16,16));
     buttonSync->setAction(m_actions->actionFromName(WIZACTION_GLOBAL_SYNC));
@@ -1995,6 +2038,9 @@ void WizMainWindow::initToolBar()
     buttonNew->setPopupMode(QToolButton::MenuButtonPopup);
     buttonNew->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     buttonNew->setAutoRaise(true);
+#if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    buttonNew->setFixedHeight(28);
+#endif
 
     m_toolBar->addWidget(buttonNew);
     m_toolBar->addWidget(new WizFixedSpacer(QSize(5, 1), m_toolBar));

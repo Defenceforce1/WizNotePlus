@@ -38,6 +38,8 @@
 #include <QListWidget>
 #include <QLineEdit>
 #include <QToolButton>
+#include <QToolBar>
+#include <QWindow>
 #include <QMouseEvent>
 #include <QCompleter>
 #include <QAbstractItemView>
@@ -252,7 +254,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     });
     addCheck("refined search field keeps readable height and reserved icon spacing", [&] {
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
-        if (!search || search->height() != 30 || search->textMargins().left() < 32
+        if (!search || search->height() != 26 || search->textMargins().left() < 32
             || search->textMargins().right() < 28) return false;
         search->setFocus();
         search->setText(QStringLiteral("长关键词与标签搜索 / mathematical notes and references"));
@@ -268,6 +270,18 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             - newNote->mapTo(&window, newNote->rect().center()).y()) <= 1;
     };
     addCheck("search and New Note centers align without filters", searchAligned);
+    addCheck("compact neutral header aligns account, sync, search and New Note", [&] {
+        auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        auto* toolbar = window.findChild<QToolBar*>("wiz-main-toolbar");
+        if (!search || !toolbar || toolbar->height() != 34 || window.titleBar()->height() > 44) return false;
+        const int center = search->mapTo(&window, search->rect().center()).y();
+        for (const QString& name : {QStringLiteral("wiz-header-account"), QStringLiteral("wiz-header-sync"), QStringLiteral("btn-newnote")}) {
+            auto* control = window.findChild<QWidget*>(name);
+            if (!control || qAbs(control->mapTo(&window, control->rect().center()).y() - center) > 1) return false;
+        }
+        capture(window.titleBar(), "v144rc2-compact-header.png");
+        return true;
+    });
     addCheck("compact search view uses 340 logical pixels", [&] {
         auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
         return view && view->width() == 340;
@@ -702,8 +716,38 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         return [native.delegate respondsToSelector:@selector(windowShouldClose:)]
             && ![NSStringFromClass([native.delegate class]) isEqualToString:@"NSWindowProxyDelegate"];
     }, [&] { if (window.docView()) window.docView()->setEditorFocus(); });
-    addCheck("system title bar is separate from the client toolbar",
-        [&] { return !(native.styleMask & NSWindowStyleMaskFullSizeContentView); });
+    addCheck("native title bar and client toolbar share one expanded header",
+        [&] { return native.styleMask & NSWindowStyleMaskFullSizeContentView; });
+    const auto nativeHeaderAligned = [&] {
+        auto* account = window.findChild<QWidget*>("wiz-header-account");
+        auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+        if (!account || !search || window.titleBar()->height() > 36
+            || native.titleVisibility != NSWindowTitleHidden) return false;
+        for (NSWindowButton type : {NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton}) {
+            NSButton* control = button(type);
+            const NSRect rect = [native.contentView convertRect:control.bounds fromView:control];
+            const CGFloat center = native.contentView.flipped ? NSMidY(rect)
+                : NSHeight(native.contentView.bounds) - NSMidY(rect);
+            if (qAbs(center - search->mapTo(&window, search->rect().center()).y()) > 2
+                || NSMaxX(rect) + 8 > account->mapTo(&window, QPoint()).x()) return false;
+        }
+        return true;
+    };
+    addCheck("native traffic lights align with the single header and do not cover account or search", nativeHeaderAligned);
+    addCheck("unified toolbar controls remain reachable through native pointer hit testing", [&] {
+        NSView* qtView = reinterpret_cast<NSView*>(window.winId());
+        NSView* frame = native.contentView.superview;
+        for (const QString& name : {QStringLiteral("wiz-header-account"), QStringLiteral("wiz-header-sync"),
+                                   QStringLiteral("wiz-note-search-field"), QStringLiteral("btn-newnote")}) {
+            auto* control = window.findChild<QWidget*>(name);
+            if (!control) return false;
+            const QPoint center = control->mapTo(&window, control->rect().center());
+            const NSPoint local = NSMakePoint(center.x(), qtView.flipped ? center.y() : NSHeight(qtView.bounds) - center.y());
+            NSView* target = [frame hitTest:[qtView convertPoint:local toView:frame]];
+            if (!target || (target != qtView && ![target isDescendantOf:qtView])) return false;
+        }
+        return true;
+    });
     auto controlsEnabled = [&] {
         return button(NSWindowCloseButton).enabled && button(NSWindowMiniaturizeButton).enabled
             && button(NSWindowZoomButton).enabled;
@@ -768,7 +812,11 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             [&] { return minimizeComplete(true); }, [&] { [button(NSWindowMiniaturizeButton) performClick:nil]; });
         addCheck("actual main window restores after minimize", restoreComplete, restoreWindow);
         addFullscreenCheck(true, "actual main-window green action enters fullscreen");
+        addCheck("fullscreen content respects system safe-area margins", [&] {
+            return window.contentsMargins().top() >= window.windowHandle()->safeAreaMargins().top();
+        });
         addFullscreenCheck(false, "actual main-window green action exits fullscreen");
+        addCheck("unified header alignment survives fullscreen exit", nativeHeaderAligned);
         addCheck("actual main window is blocked by modal dialog", [&] {
             return QApplication::activeModalWidget() == &modal
                 && !button(NSWindowCloseButton).enabled && !button(NSWindowMiniaturizeButton).enabled
@@ -781,6 +829,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         addCheck("actual main-window red action hides the window",
             [&] { return !window.isVisible() && !native.visible; }, [&] { [button(NSWindowCloseButton) performClick:nil]; });
         addCheck("actual main window reopens after red close", reopened, reopen);
+        addCheck("unified header alignment survives red close and reopen", nativeHeaderAligned);
         addCheck("yellow action still works after red close and reopen",
             [&] { return minimizeComplete(true); }, [&] { [button(NSWindowMiniaturizeButton) performClick:nil]; });
         addCheck("final native minimize restoration", restoreComplete, restoreWindow);
@@ -789,6 +838,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return *exitedFullscreen > beforeFull && !window.isVisible() && !native.visible && fullscreenComplete(false);
         }, [&] { beforeFull = *exitedFullscreen; [button(NSWindowCloseButton) performClick:nil]; });
         addCheck("actual main window restores after fullscreen red close", reopened, reopen);
+        addCheck("unified header alignment survives fullscreen red close", nativeHeaderAligned);
     }
     QTimer test;
     QElapsedTimer deadline;

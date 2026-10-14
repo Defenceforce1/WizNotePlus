@@ -29,6 +29,7 @@ float qt_mac_get_scalefactor(QWidget *window);
 
 void setupCocoa();
 void setupFullScreenMode(QMainWindow* mainWindow);
+void wizMacHideNativeWindowTitle(QWidget* window);
 void toggleFullScreenMode(QMainWindow* mainWindow);
 QString WizMacGetOSVersion();
 

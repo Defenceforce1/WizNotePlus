@@ -184,11 +184,15 @@ protected:
             const auto win = this->windowHandle();
             if (win) {
 #if defined(Q_OS_MAC) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-                // Keep Qt's Cocoa delegate, event dispatch and standard title bar.
+                // Keep Qt's Cocoa delegate, event dispatch and native controls.
                 // The legacy helper replaces the native delegate and swizzles its
                 // event methods; relocating title-bar controls is unsafe on Qt 6.
-                // App content/toolbar remains below the system-managed title bar.
-                if (m_titleBar->layout())
+                // An expanded main-window header reserves its own button inset.
+                if (m_titleBar->layout()
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+                    && !this->windowFlags().testFlag(Qt::ExpandedClientAreaHint)
+#endif
+                    )
                     m_titleBar->layout()->setContentsMargins(0, 0, 0, 0);
 #else
                 m_helper->setWindow(win);

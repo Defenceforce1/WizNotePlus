@@ -40,17 +40,17 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     // Reserve room for both painted controls; long keywords must not overlap
     // the clear icon. Keep drawing and pointer targets in logical coordinates.
     m_editSearch->setTextMargins(32, 0, 28, 0);
-    m_editSearch->setFixedHeight(30);
+    m_editSearch->setFixedHeight(26);
     QFont searchFont = m_editSearch->font();
-    searchFont.setPointSizeF(13);
+    searchFont.setPointSizeF(12);
     m_editSearch->setFont(searchFont);
 
     m_editSearch->setStyleSheet(
-        "QLineEdit { color:#263445; background-color:#f5f7fa; border:1px solid #cbd3df; border-radius:9px;"
+        "QLineEdit { color:#34383f; background-color:#f8f8fa; border:1px solid #c2c4c9; border-radius:13px;"
         "padding:0px;"
         "selection-background-color:#3377cc; selection-color:#ffffff; }"
-        "QLineEdit:hover { border-color:#aab8ca; }"
-        "QLineEdit:focus { background-color:#ffffff; border-color:#6b9bd3; }");
+        "QLineEdit:hover { background-color:#fcfcfd; border-color:#aeb2b9; }"
+        "QLineEdit:focus { background-color:#ffffff; border-color:#729bce; }");
     QPalette searchPalette = m_editSearch->palette();
 #if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
     searchPalette.setColor(QPalette::PlaceholderText, QColor("#7b8798"));
@@ -331,11 +331,11 @@ void WizSearchView::rebuildChips()
         button->setFont(tokenFont);
         button->setText(button->fontMetrics().elidedText(chip.label, Qt::ElideRight, 70) + QStringLiteral(" ×"));
         button->setToolTip(QStringLiteral("取消条件：") + chip.label);
-        button->setFixedHeight(22);
+        button->setFixedHeight(20);
         button->setFocusPolicy(Qt::NoFocus);
         button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         button->setStyleSheet("QPushButton { color:#245387; background:#eaf2fc; border:1px solid #c2d5ed;"
-            "border-radius:7px; padding:1px 5px; } QPushButton:hover { background:#d8e8fa; }");
+            "border-radius:10px; padding:0px 5px; } QPushButton:hover { background:#d8e8fa; }");
         m_chipLayout->addWidget(button);
         connect(button, &QPushButton::clicked, this, [this, chip] {
             if (chip.kind == "tag") m_selectedTags.removeAll(chip.id);
@@ -353,8 +353,8 @@ void WizSearchView::rebuildChips()
         more->setFont(tokenFont); more->setFocusPolicy(Qt::NoFocus);
         more->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         more->setStyleSheet("QPushButton { color:#52657d; background:#edf1f6; border:1px solid #d6deea;"
-            "border-radius:7px; padding:1px 7px; } QPushButton:hover { background:#e1e9f3; }");
-        more->setFixedHeight(22); m_chipLayout->addWidget(more);
+            "border-radius:10px; padding:0px 7px; } QPushButton:hover { background:#e1e9f3; }");
+        more->setFixedHeight(20); m_chipLayout->addWidget(more);
         connect(more, &QPushButton::clicked, this, [this] {
             auto* menu = m_editSearch->findChild<QMenu*>("wiz-note-search-menu");
             menu->popup(m_editSearch->mapToGlobal(QPoint(0, m_editSearch->height() + 4)));
@@ -395,7 +395,7 @@ void WizSearchView::layoutChips()
         more->setVisible(hidden > 0);
         if (hidden) used += (visible ? 3 : 0) + more->sizeHint().width();
     }
-    m_chipRow->setGeometry(32, (m_editSearch->height() - 22) / 2, used, 22);
+    m_chipRow->setGeometry(32, (m_editSearch->height() - 20) / 2, used, 20);
     m_chipRow->setVisible(!tokens.isEmpty());
     m_chipLayout->activate();
     m_editSearch->setTextMargins(32 + (used ? used + 8 : 0), 0, 28, 0);
