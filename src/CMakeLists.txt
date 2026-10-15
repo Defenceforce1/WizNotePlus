@@ -585,6 +585,13 @@ if(UNIX)
         # and also macdeployqt will not do this work for us
         # refer to: https://bugreports.qt-project.org/browse/QTBUG-18662
         file(GLOB _qt5_QM ${qt_translations_dir}/qt_*.qm)
+        if(QT_VERSION_MAJOR GREATER_EQUAL 6)
+            # Qt 6 qt_*.qm are dependency indexes, not the widget/menu catalog.
+            # Ship qtbase and load it directly; unused multimedia translations
+            # must not make the standard macOS application menu stay English.
+            file(GLOB _qtbase_QM ${qt_translations_dir}/qtbase_*.qm)
+            list(APPEND _qt5_QM ${_qtbase_QM})
+        endif()
 
         add_executable(WizNotePlus MACOSX_BUNDLE  ${wiznote_HEADERS} ${wiznote_HEADERS_MAC} ${wiznote_FORM_HEADERS} ${wiznote_SOURCES_MAC} ${wiznote_SOURCES} ${wiznote_QM} ${_qt5_QM} ${wiznote_RC} ${wiznote_LOGO})
         set_target_properties(WizNotePlus PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

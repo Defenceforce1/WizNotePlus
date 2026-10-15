@@ -14,6 +14,7 @@ class QStandardItemModel;
 class QListWidget;
 class QComboBox;
 class QCheckBox;
+class QFrame;
 
 // Wrap widget for qt widget and mac native search field
 // refer to mac/wizSearchWidget.mm for osx NSSearchField
@@ -25,7 +26,9 @@ class WizSearchEdit : public QLineEdit
     Q_OBJECT
 public:
     WizSearchEdit(QWidget* parent = 0);
+    ~WizSearchEdit() override;
     void setFilterPanel(QWidget* panel);
+    void showFilterMenu();
     void hideFilterMenu();
 
 public slots:
@@ -33,10 +36,12 @@ public slots:
     void on_addCustomSearch();
 
 signals:
+    void filterPanelAboutToShow();
     void advanceSearchRequest();
     void addCustomSearchRequest();
 
 protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
     void paintEvent(QPaintEvent* event);
     void mousePressEvent(QMouseEvent* event);
     void mouseMoveEvent(QMouseEvent* event);
@@ -47,6 +52,8 @@ private:
     QPixmap m_searchIcon;
     QPixmap m_deleteIcon;
     QMenu* m_menu;
+    QFrame* m_filterPopup = nullptr;
+    QWidget* m_filterPanel = nullptr;
 };
 
 class WizSearchView : public QWidget
@@ -87,7 +94,7 @@ private:
     WizSearchEdit* m_editSearch;
     QWidget* m_chipRow;
     QHBoxLayout* m_chipLayout;
-    QCompleter* m_tagCompleter;
+    QCompleter* m_tagCompleter = nullptr;
     QStandardItemModel* m_tagModel;
     QListWidget* m_panelTags;
     QLineEdit* m_panelTagFilter;

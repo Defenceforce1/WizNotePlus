@@ -244,7 +244,11 @@ QString WizPathResolve::userSettingsFile(const QString strAccountFolderName)
 
 QString WizPathResolve::qtLocaleFileName(const QString &strLocale)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return resourcesPath() + "locales/qtbase_" + strLocale + ".qm";
+#else
     return resourcesPath() + "locales/qt_" + strLocale + ".qm";
+#endif
 }
 
 QString WizPathResolve::localeFileName(const QString &strLocale)

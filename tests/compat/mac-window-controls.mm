@@ -26,6 +26,8 @@
 #include "share/WizLegacyLightAppearance.h"
 #include "WizNotePresentation.h"
 #include "WizBuildIdentity.h"
+#include "utils/WizPathResolve.h"
+#include <QTranslator>
 #include <QFileDialog>
 #include <QProgressDialog>
 #include <QApplication>
@@ -97,6 +99,11 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     qputenv("XDG_CACHE_HOME", isolation.filePath("cache").toUtf8());
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     QApplication app(argc, argv);
+    // Exercise the actual deployed Qt 6 base catalog, not its dependency-only
+    // qt_zh_CN index. Only this isolated process changes language.
+    QTranslator qtChinese;
+    const bool qtChineseLoaded = qtChinese.load(Utils::WizPathResolve::qtLocaleFileName(QStringLiteral("zh_CN")));
+    if (qtChineseLoaded) app.installTranslator(&qtChinese);
     app.setQuitOnLastWindowClosed(false);
     app.setApplicationName("WizNotePlus Window Regression Test");
     app.setProperty("wiznoteIsolatedWindowControlsTest", true);
@@ -198,6 +205,16 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         failures += !ok;
     };
     check(productWindowTitle == WizBuildIdentity::displayName(), "main-window product title matches trial branding");
+    check(qtChineseLoaded && QCoreApplication::translate("MAC_APPLICATION_MENU", "Preferences...") == QStringLiteral("首选项..."),
+          "packaged Qt base catalog translates the native macOS settings role into Chinese");
+    bool nativeSettingsChinese = false;
+    NSMenu* applicationMenu = NSApp.mainMenu.numberOfItems > 0 ? [[NSApp.mainMenu itemAtIndex:0] submenu] : nil;
+    if (applicationMenu) {
+        for (NSMenuItem* item in applicationMenu.itemArray)
+            if ([item.title containsString:@"首选项"] || [item.title containsString:@"设置"])
+                nativeSettingsChinese = true;
+    }
+    check(nativeSettingsChinese, "actual native application menu contains a Chinese settings entry");
     auto* styleAction = window.findChild<QAction*>("actionNoteStyle");
     auto* aboutAction = window.findChild<QAction*>("actionAbout");
     check(styleAction && styleAction->text() == QStringLiteral("笔记样式（CSS）…")
@@ -522,6 +539,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     if (!interactive) {
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
         auto* menu = search ? search->findChild<QMenu*>("wiz-note-search-menu") : nullptr;
+        auto* filterPopup = search ? search->findChild<QWidget*>("wiz-note-filter-popup") : nullptr;
         const auto sendClick = [](QWidget* target, const QPoint& local) {
             if (!target) return;
             const QPoint global = target->mapToGlobal(local);
@@ -535,22 +553,73 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         const auto clickMagnifier = [search, sendClick] {
             if (search) sendClick(search, QPoint(12, search->height() / 2));
         };
-        const auto chooseAdvanced = [menu, sendClick] {
-            if (menu && menu->findChild<QAction*>("actionAdvancedSearch"))
-                QTimer::singleShot(0, menu, [menu, sendClick] {
-                    sendClick(menu, menu->actionGeometry(menu->findChild<QAction*>("actionAdvancedSearch")).center());
+        const auto chooseAdvanced = [filterPopup, sendClick] {
+            if (filterPopup)
+                QTimer::singleShot(0, filterPopup, [filterPopup, sendClick] {
+                    auto* button = filterPopup->findChild<QPushButton*>("actionAdvancedSearchButton");
+                    if (button) sendClick(button, button->rect().center());
                 });
         };
-        addCheck("magnifier opens an inline personal filter panel without a modal dialog or extra toolbar button", [&, menu] {
+        addCheck("magnifier opens an inline personal filter panel without a modal dialog or extra toolbar button", [&, menu, filterPopup] {
             auto* panel = window.findChild<QWidget*>("wiz-note-filter-panel");
             auto* advanced = menu ? menu->findChild<QAction*>("actionAdvancedSearch") : nullptr;
-            if (!menu || !menu->isVisible() || !panel || !panel->isVisible() || !advanced
+            if (!filterPopup || !filterPopup->isVisible() || !panel || !panel->isVisible() || !advanced
                 || QApplication::activeModalWidget()) return false;
             for (auto* tool : window.findChildren<QToolButton*>())
                 if (tool->defaultAction() == advanced && tool->isVisible()) return false;
-            capture(menu, "v9-filter-panel.png");
+            capture(filterPopup, "v9-filter-panel.png");
             return true;
         }, clickMagnifier);
+        addCheck("filter is an IME-capable key tool window instead of a native menu", [&, filterPopup] {
+            auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter");
+            NSWindow* tool = filterPopup ? [(NSView*)filterPopup->winId() window] : nil;
+            return field && field->hasFocus() && field->testAttribute(Qt::WA_InputMethodEnabled)
+                && filterPopup && filterPopup->windowType() == Qt::Tool && tool.canBecomeKeyWindow && tool.keyWindow;
+        });
+        addCheck("tag-filter pinyin preedit stays uncommitted without changing the note query", [&] {
+            auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter");
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            return field && field->hasFocus() && field->text().isEmpty()
+                && field->property("wiz-ime-composing").toBool() && view && !view->hasFilters();
+        }, [&] {
+            auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter");
+            if (field) {
+                QInputMethodEvent input(QStringLiteral("ceshi"), {});
+                QCoreApplication::sendEvent(field, &input);
+            }
+        });
+        addCheck("Chinese IME commit filters tag names without changing content keywords or selecting tags", [&, filterPopup] {
+            auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter");
+            auto* tags = window.findChild<QListWidget*>("wiz-note-panel-tags");
+            auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
+            if (!field || field->text() != QStringLiteral("测试") || !field->hasFocus()
+                || field->property("wiz-ime-composing").toBool() || !tags || !view || view->hasFilters() || !view->keyword().isEmpty()) return false;
+            int visible = 0;
+            for (int i = 0; i < tags->count(); ++i) if (!tags->item(i)->isHidden()) {
+                ++visible;
+                if (tags->item(i)->data(Qt::UserRole).toString() != tag.strGUID) return false;
+            }
+            capture(filterPopup, "v14416-Chinese-tag-filter.png");
+            return visible == 1;
+        }, [&] {
+            if (auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter")) {
+                QInputMethodEvent input;
+                input.setCommitString(QStringLiteral("测试"));
+                QCoreApplication::sendEvent(field, &input);
+            }
+        });
+        addCheck("canceling a second preedit preserves committed Chinese and clearing restores all tags", [&, filterPopup] {
+            auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter");
+            auto* tags = window.findChild<QListWidget*>("wiz-note-panel-tags");
+            if (!field || !tags || field->text() != QStringLiteral("测试")) return false;
+            QInputMethodEvent preedit(QStringLiteral("x"), {}), canceled;
+            QCoreApplication::sendEvent(field, &preedit);
+            QCoreApplication::sendEvent(field, &canceled);
+            const bool retained = field->text() == QStringLiteral("测试") && !field->property("wiz-ime-composing").toBool();
+            field->clear();
+            for (int i = 0; i < tags->count(); ++i) if (tags->item(i)->isHidden()) return false;
+            return retained && filterPopup && filterPopup->isVisible();
+        });
         const auto selectPanelTag = [&, sendClick](const QString& guid) {
             auto* tags = window.findChild<QListWidget*>("wiz-note-panel-tags");
             if (!tags) return;
@@ -645,10 +714,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
             if (attachment) sendClick(attachment, QPoint(8, attachment->height() / 2));
         });
-        addCheck("folded conditions reopen the panel without changing the combined search", [&, menu] {
+        addCheck("folded conditions reopen the panel without changing the combined search", [&, filterPopup] {
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
-            return menu && menu->isVisible() && view && view->queryParams().contains(tag.strGUID)
+            return filterPopup && filterPopup->isVisible() && view && view->queryParams().contains(tag.strGUID)
                 && view->queryParams().contains(secondTag.strGUID) && attachment && attachment->isChecked();
         }, [&, sendClick] {
             auto* more = window.findChild<QPushButton*>("wiz-note-more-filters");
@@ -669,8 +738,8 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return view && !view->queryParams().contains(tag.strGUID) && view->queryParams().contains(secondTag.strGUID)
                 && view->queryParams().contains("folder-path-encoded:") && attachment && attachment->isChecked()
                 && docs && docs->documentCount() == 0 && !QApplication::activeModalWidget();
-        }, [&, menu, clickChip, clickMagnifier] {
-            if (menu) menu->hide();
+        }, [&, filterPopup, clickChip, clickMagnifier] {
+            if (filterPopup) filterPopup->hide();
             if (clickChip("tag", tag.strGUID)) return;
             // At 260 pixels multiple filters can all fold. Remove via the same
             // user-facing panel; keep the exact query/result assertions above.
@@ -679,7 +748,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 for (int i = 0; i < tags->count(); ++i)
                     if (tags->item(i)->data(Qt::UserRole).toString() == tag.strGUID)
                         tags->item(i)->setCheckState(Qt::Unchecked);
-            if (menu) menu->hide();
+            if (filterPopup) filterPopup->hide();
         });
         addCheck("removing a folded attachment condition restores matching notes without losing tags or folder", [&] {
             auto* attachment = window.findChild<QCheckBox*>("wiz-note-panel-attachments");
@@ -765,11 +834,11 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 if (value.strValue.contains(QStringLiteral("name:隔离已保存搜索"))
                     && value.strValue.contains(tag.strGUID)) return true;
             return false;
-        }, [clickMagnifier, menu, sendClick] {
+        }, [clickMagnifier, filterPopup, sendClick] {
             clickMagnifier();
-            if (menu) QTimer::singleShot(0, menu, [menu, sendClick] {
-                auto* save = menu->findChild<QAction*>("actionSaveSearch");
-                if (save) sendClick(menu, menu->actionGeometry(save).center());
+            if (filterPopup) QTimer::singleShot(0, filterPopup, [filterPopup, sendClick] {
+                auto* save = filterPopup->findChild<QPushButton*>("actionSaveSearchButton");
+                if (save) sendClick(save, save->rect().center());
             });
         });
         const auto submitted = std::make_shared<bool>(false);

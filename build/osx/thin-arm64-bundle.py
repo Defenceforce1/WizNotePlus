@@ -84,7 +84,7 @@ def main():
     qt_locales = output / "Contents/Resources/locales"
     if qt_locales.is_dir():
         for locale in qt_locales.iterdir():
-            if locale.is_file() and not locale.is_symlink() and locale.name.startswith(("qt_", "qt_help_")) and locale.suffix == ".qm" and locale.stem.rsplit("_", 1)[-1] not in {"en", "CN", "TW"}:
+            if locale.is_file() and not locale.is_symlink() and locale.name.startswith(("qt_", "qt_help_", "qtbase_")) and locale.suffix == ".qm" and locale.stem.rsplit("_", 1)[-1] not in {"en", "CN", "TW"}:
                 resource_removed.append((str(locale.relative_to(output)), locale.stat().st_size))
                 locale.unlink()
     intel_snapshot = engine / "v8_context_snapshot.x86_64.bin"

@@ -21,6 +21,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QKeyEvent>
+#include <QInputMethodEvent>
 #include <QEventLoop>
 #include <QTimer>
 #include <QStyleFactory>
@@ -258,8 +259,19 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
         });
         focusPoll.start();
         QTimer::singleShot(1500, &activation, &QEventLoop::quit); activation.exec(); focusPoll.stop();
-        edit->setText(QStringLiteral("已改名"));
-        QMetaObject::invokeMethod(edit, "textEdited", Q_ARG(QString, edit->text()));
+        const int beforeComposition = submissions;
+        QInputMethodEvent composing(QStringLiteral("yigaiming"), {});
+        QCoreApplication::sendEvent(edit, &composing);
+        check(edit->text().isEmpty() && edit->property("wiz-ime-composing").toBool()
+            && !completer->popup()->isVisible(), "Chinese keyword preedit stays uncommitted and does not open suggestions");
+        QKeyEvent confirmComposition(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QCoreApplication::sendEvent(edit, &confirmComposition); app.processEvents();
+        check(submissions == beforeComposition, "Return during keyword composition does not submit an unfinished search");
+        QInputMethodEvent committed;
+        committed.setCommitString(QStringLiteral("已改名"));
+        QCoreApplication::sendEvent(edit, &committed);
+        check(edit->text() == QStringLiteral("已改名") && !edit->property("wiz-ime-composing").toBool()
+            && submissions == beforeComposition, "committed Chinese keyword keeps query unchanged until explicit search or tag selection");
         QEventLoop suggestions;
         QTimer poll; poll.setInterval(20);
         QObject::connect(&poll, &QTimer::timeout, &suggestions, [&] {

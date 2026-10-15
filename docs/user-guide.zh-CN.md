@@ -1,6 +1,6 @@
 # WizNotePlus 使用说明：CSS 与数学笔记
 
-适用于 Apple Silicon 14.4.14／14.4.15。重点是改变笔记正文的外观，不改变原来的 Markdown 编辑方式，也不需要安装 TeX。
+适用于 Apple Silicon 14.4.14—14.4.16。重点是改变笔记正文的外观，不改变原来的 Markdown 编辑方式，也不需要安装 TeX。
 
 ## 1. 先试一下 CSS
 
