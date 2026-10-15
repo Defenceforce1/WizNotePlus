@@ -14,6 +14,7 @@
 #include "widgets/WizUserInfoWidget.h"
 #include "gui/documentviewer/WizDocumentView.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
+#include "gui/documentviewer/WizEditorToolBar.h"
 #include "gui/documentviewer/WizTitleEdit.h"
 #include "gui/tabbrowser/WizMainTabBrowser.h"
 #include "gui/tabbrowser/TabButton.h"
@@ -333,7 +334,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         if (!*editorReady && !*queryPending && window.docView()) {
             *queryPending = true;
             window.docView()->web()->page()->runJavaScript(
-                "!!(window.WizEditor && typeof window.WizEditor.focus === 'function')",
+                "!!(window.WizNativeEditorInitialized && window.WizEditor && typeof window.WizEditor.focus === 'function')",
                 [editorReady, queryPending](const QVariant& result) {
                     *editorReady = result.toBool(); *queryPending = false;
                 });
@@ -756,6 +757,60 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         });
     }
     if (!interactive) {
+        const auto fontEditorReady = std::make_shared<bool>(false);
+        addCheck("rich-text editing mode is ready before selecting text for font-size action", [&, fontEditorReady] {
+            if (!*fontEditorReady && !*queryPending) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript(
+                    "!!(window.WizNativeEditorInitialized&&document.querySelector('.wiz-editor-body')"
+                    "&&document.querySelector('.wiz-editor-body').isContentEditable)",
+                    [=](const QVariant& value) { *fontEditorReady = value.toBool(); *queryPending = false; });
+            }
+            return *fontEditorReady;
+        }, [&] {
+            window.docView()->web()->setEditorMode(modeEditor);
+            window.docView()->setEditorMode(modeEditor);
+        });
+        const auto fontApplied = std::make_shared<bool>(false);
+        const auto fontDiagnostic = std::make_shared<QString>();
+        addCheck("actual rich-text font-size signal changes selected text and retains the dirty baseline", [&, fontApplied, fontDiagnostic] {
+            if (!*fontApplied && !*queryPending) {
+                *queryPending = true;
+                window.docView()->web()->page()->runJavaScript(
+                    "(function(){var p=document.querySelector('.wiz-editor-body p');if(!p)return {};"
+                    "var sizes=Array.from(p.querySelectorAll('*')).concat([p]).map(function(e){return getComputedStyle(e).fontSize;});"
+                    "var html=WizEditor.getContentHtml(),dirty=WizEditor.isModified();"
+                    // The original editor normalizes 24pt to 2rem at this
+                    // fixture's 16px root. Verify equivalent persisted sizing,
+                    // actual 32px rendering and a genuinely dirty source.
+                    "return {ok:sizes.indexOf('32px')>=0&&/font-size:\\s*(?:24pt|32px|2rem)\\b/.test(html)&&dirty,"
+                    "sizes:sizes,dirty:dirty,html:p.outerHTML};})()",
+                    [=](const QVariant& value) {
+                        const auto result = value.toMap(); *fontApplied = result.value("ok").toBool(); *queryPending = false;
+                        const QString summary = result.value("html").toString();
+                        if (!*fontApplied && *fontDiagnostic != summary) {
+                            qInfo() << "Synthetic font-size diagnostic" << result; *fontDiagnostic = summary;
+                        }
+                    });
+            }
+            return *fontApplied;
+        }, [&] {
+            auto* web = window.docView()->web();
+            web->setModified(false);
+            web->page()->runJavaScript(
+                "(function(){var p=document.querySelector('.wiz-editor-body p');if(!p)return false;"
+                "document.querySelector('.wiz-editor-body').focus();"
+                "var r=document.createRange();r.selectNodeContents(p);var s=getSelection();s.removeAllRanges();s.addRange(r);return true;})()",
+                [&](const QVariant& selected) {
+                    if (!selected.toBool()) return;
+                    // Several open tabs own toolbars. Target this note's actual
+                    // toolbar, not the first inactive toolbar under the window.
+                    if (auto* combo = window.docView()->editorToolBar()->findChild<QComboBox*>("wiz-editor-font-size")) {
+                        combo->setCurrentIndex(combo->findText("24"));
+                        QMetaObject::invokeMethod(combo, "textActivated", Qt::DirectConnection, Q_ARG(QString, QStringLiteral("24")));
+                    }
+                });
+        });
         const auto originalHtml = std::make_shared<QString>();
         const auto sourceReady = std::make_shared<bool>(false);
         addCheck("original editor source is captured before presentation operations", [&, sourceReady, originalHtml] {

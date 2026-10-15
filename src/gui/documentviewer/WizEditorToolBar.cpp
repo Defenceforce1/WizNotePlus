@@ -1229,6 +1229,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_comboFontFamily->setFixedWidth(122);
 
     m_comboFontSize = new CWizToolComboBox(this);
+    m_comboFontSize->setObjectName("wiz-editor-font-size");
     m_comboFontSize->setMaximumWidth(48);
     WizComboboxStyledItem* fontItems = FontSizes();
 #ifdef Q_OS_MAC

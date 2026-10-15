@@ -24,6 +24,7 @@
 #include <QTcpServer>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QThread>
 
 // Only ephemeral loopback fixtures. No login, account store, external request,
 // permanent CA installation, ignored certificate errors or private user data.
@@ -315,6 +316,41 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
     downloader.queryUserAvatar(QString("https://localhost:%1/avatar").arg(expiredDownloadServer.serverPort()));
     check(downloadSignals == 1 && !downloadSucceeded && expiredDownloadServer.requests == 0 && cachedBytes() == previousAvatar,
           "avatar download validates certificates before any GET and preserves cache");
+    // Reproduce the old manager-affinity failure: the same request helper is
+    // called sequentially from two distinct workers. Requests must not retain a
+    // network manager owned by the first worker. Production is stricter still:
+    // it creates an independent downloader for each job.
+    WizAvatarDownloader changingWorker;
+    changingWorker.m_strCurrentUser = "synthetic-worker-avatar";
+    int workerSignals = 0;
+    bool workerSuccess = true, guiDelivery = true;
+    QObject::connect(&changingWorker, &WizAvatarDownloader::downloaded, &app, [&](const QString&, bool ok) {
+        ++workerSignals; workerSuccess &= ok;
+        guiDelivery &= QThread::currentThread() == app.thread();
+    });
+    server.response = "HTTP/1.1 200 OK\r\nContent-Length: " + QByteArray::number(avatar.size())
+        + "\r\nConnection: close\r\n\r\n" + avatar;
+    const int requestsBeforeWorkers = server.requests;
+    QList<QThread*> workers;
+    for (int i = 0; i < 2; ++i) {
+        auto* worker = QThread::create([&changingWorker, localhost] { changingWorker.queryUserAvatar(localhost.toString()); });
+        workers.append(worker);
+        QEventLoop wait;
+        QTimer deadline; deadline.setSingleShot(true);
+        bool timedOut = false;
+        QObject::connect(&deadline, &QTimer::timeout, &wait, [&] { timedOut = true; worker->requestInterruption(); });
+        QObject::connect(worker, &QThread::finished, &wait, &QEventLoop::quit);
+        deadline.start(10000); worker->start();
+        if (!worker->isFinished()) wait.exec();
+        worker->wait(); app.processEvents();
+        check(!timedOut && workerSignals == i + 1 && workerSuccess,
+              "real avatar request succeeds when execution changes to another worker thread");
+    }
+    check(workers[0] != workers[1] && guiDelivery && server.requests == requestsBeforeWorkers + 2,
+          "distinct avatar workers deliver both actual HTTPS results to the main thread");
+    qDeleteAll(workers);
+    check(QImage(Utils::WizPathResolve::avatarPath() + changingWorker.m_strCurrentUser + ".png").size() == QSize(100, 100),
+          "worker avatar downloads retain the validated image in the isolated cache");
     QSslConfiguration::setDefaultConfiguration(systemConfiguration);
     check(QSslConfiguration::defaultConfiguration().caCertificates() == systemConfiguration.caCertificates(),
           "test trust removed; no persistent system CA installation");
