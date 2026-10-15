@@ -43,10 +43,10 @@ WizAboutDialog::WizAboutDialog(QWidget *parent)
     QString devInfo = QString(
         tr("<span style='font-size:11px'>Development Stage: %1</span><br/>").arg(WIZ_DEV_STAGE));
     if (WizBuildIdentity::appleSiliconTrial) {
-        versionInfo = QStringLiteral("<span style='font-size:11px'>基础版本：WizNotePlus %1</span><br/>")
+        versionInfo = QStringLiteral("<span style='font-size:11px'>版本：%1 · Apple Silicon</span><br/>")
+            .arg(WizBuildIdentity::appVersion());
+        devInfo = QStringLiteral("<span style='font-size:11px'>基于 WizNotePlus %1 · 本地签名，未公证</span><br/>")
             .arg(QString::fromLatin1(WIZ_CLIENT_VERSION));
-        devInfo = QStringLiteral("<span style='font-size:11px'>候选构建：%1（临时签名，未公证）</span><br/>")
-            .arg(WizBuildIdentity::trialBuild());
     }
     QString qtInfo = QString(
         tr("<span style='font-size:11px'>Build against: Qt %1</span><br/>").arg(QT_VERSION_STR));
