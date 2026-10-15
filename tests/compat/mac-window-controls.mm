@@ -19,6 +19,8 @@
 #include "gui/tabbrowser/WizMainTabBrowser.h"
 #include "gui/tabbrowser/TabButton.h"
 #include "gui/doclistviewer/WizDocumentListView.h"
+#include "gui/categoryviewer/WizCategoryView.h"
+#include "gui/categoryviewer/WizCategoryViewGroupItem.h"
 #include "widgets/WizAdvancedSearchDialog.h"
 #include "WizSearchWidget.h"
 #include "share/WizLegacyLightAppearance.h"
@@ -201,6 +203,58 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     check(styleAction && styleAction->text() == QStringLiteral("笔记样式（CSS）…")
         && aboutAction && aboutAction->text() == QStringLiteral("关于 WizNotePlus…"),
         "style and About menu names are consistent with their dialogs");
+    if (!WizBuildIdentity::groupAdministrationEnabled) {
+        auto* category = dynamic_cast<WizCategoryView*>(&window.category());
+        check(category != nullptr, "personal-use build retains the original category and group-note navigation");
+        if (category) {
+            bool noCreateLink = true;
+            for (int i = 0; i < category->topLevelItemCount(); ++i)
+                noCreateLink &= !dynamic_cast<WizCategoryViewCreateGroupLinkItem*>(category->topLevelItem(i));
+            check(noCreateLink, "personal-use build removes the legacy create-team promotion");
+            for (const char* name : {"wiz-group-information", "wiz-group-administration", "wiz-team-administration"}) {
+                auto* action = category->findChild<QAction*>(QString::fromLatin1(name));
+                check(action && !action->isVisible(), name);
+            }
+            auto* originalCategory = category->currentItem();
+            WIZBIZDATA biz;
+            biz.bizGUID = QStringLiteral("synthetic-team-admin-guard");
+            biz.bizName = QStringLiteral("合成团队（非真实账号）");
+            biz.bizUserRole = WIZ_BIZROLE_OWNER;
+            auto* teamRoot = dynamic_cast<WizCategoryViewBizGroupRootItem*>(category->findBizGroupsRootItem(biz));
+            auto* ownRoot = category->findOwnGroupsRootItem();
+            WIZGROUPDATA group;
+            group.strGroupGUID = QStringLiteral("synthetic-existing-group");
+            group.strGroupName = QStringLiteral("既有群组导航（合成）");
+            group.bOwn = true;
+            auto* groupItem = new WizCategoryViewGroupRootItem(window, group);
+            ownRoot->addChild(groupItem);
+            category->setCurrentItem(teamRoot);
+            check(teamRoot && !teamRoot->isExtraButtonUseable(), "legacy team billing button is absent without disabling note navigation");
+            const int widgetsBefore = QApplication::allWidgets().size();
+            category->createGroup();
+            category->viewPersonalGroupInfo(group.strGroupGUID);
+            category->viewBizGroupInfo(group.strGroupGUID, biz.bizGUID);
+            category->managePersonalGroup(group.strGroupGUID);
+            category->manageBizGroup(group.strGroupGUID, biz.bizGUID);
+            category->viewBizInfo(biz.bizGUID);
+            category->manageBiz(biz.bizGUID, true);
+            const bool invoked = QMetaObject::invokeMethod(category, "on_action_manageBiz", Qt::DirectConnection);
+            category->showAdminBizGroupRootContextMenu(QPoint(1, 1));
+            category->showNormalBizGroupRootContextMenu(QPoint(1, 1));
+            check(invoked && QApplication::allWidgets().size() == widgetsBefore && !QApplication::activePopupWidget(),
+                  "direct legacy administration and reported menu slot do not create a token web dialog or popup");
+            check(category->findBizGroupsRootItem(biz, false) == teamRoot
+                    && category->findGroup(group.strGroupGUID) == groupItem
+                    && groupItem->text(0) == group.strGroupName,
+                  "administration removal preserves existing group branches and identifiers");
+            // Initially no category may be selected while the first note loads.
+            // Restore personal navigation before removing fixture-only branches;
+            // Qt otherwise selects their neighbor and opens a synthetic group DB.
+            category->setCurrentItem(originalCategory ? originalCategory : category->findAllFolderItem());
+            delete category->takeTopLevelItem(category->indexOfTopLevelItem(teamRoot));
+            delete category->takeTopLevelItem(category->indexOfTopLevelItem(ownRoot));
+        }
+    }
     auto* avatarAccount = window.findChild<WizUserInfoWidget*>("wiz-header-account");
     auto* avatarRefresh = avatarAccount && avatarAccount->menu()
         ? avatarAccount->menu()->findChild<QAction*>("wiz-refresh-avatar-action") : nullptr;

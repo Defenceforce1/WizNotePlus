@@ -6,6 +6,8 @@
 
 namespace WizBuildIdentity {
 constexpr bool appleSiliconTrial = @WIZNOTE_APPLE_SILICON_TRIAL@ != 0;
+// Personal-use port: keep existing group notes/sync, not legacy web administration.
+constexpr bool groupAdministrationEnabled = !appleSiliconTrial;
 inline QString displayName() { return QStringLiteral("@WIZNOTE_MAC_DISPLAY_NAME@"); }
 inline QString trialBuild() { return QStringLiteral("@WIZNOTE_COMPAT_TRIAL_BUILD@"); }
 inline QString appVersion() { return QStringLiteral("@WIZNOTE_MAC_BUNDLE_BUILD@"); }

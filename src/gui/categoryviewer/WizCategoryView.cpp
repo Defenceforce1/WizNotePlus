@@ -41,6 +41,7 @@
 #include "WizWebSettingsDialog.h"
 #include "WizFileImporter.h"
 #include "WizOEMSettings.h"
+#include "WizBuildIdentity.h"
 #include "widgets/FileExportWizard.h"
 
 
@@ -1388,6 +1389,8 @@ void WizCategoryView::initMenus()
     connect(actionDeleteItem, SIGNAL(triggered()), SLOT(on_action_deleteItem()));
 
     QAction* actionItemAttr = new QAction("ActionItemAttribute", this);
+    actionItemAttr->setObjectName("wiz-group-information");
+    actionItemAttr->setVisible(WizBuildIdentity::groupAdministrationEnabled);
     actionItemAttr->setShortcutContext(Qt::WidgetShortcut);
     actionItemAttr->setData(ActionItemAttribute);
     addAction(actionItemAttr);
@@ -1415,12 +1418,16 @@ void WizCategoryView::initMenus()
     //connect(actionQuitGroup, SIGNAL(triggered()), SLOT(on_action_itemAttribute()));
 
     QAction* actionManageGroup = new QAction("ManageGroup", this);
+    actionManageGroup->setObjectName("wiz-group-administration");
+    actionManageGroup->setVisible(WizBuildIdentity::groupAdministrationEnabled);
     actionManageGroup->setShortcutContext(Qt::WidgetShortcut);
     actionManageGroup->setData(ActionItemManage);
     addAction(actionManageGroup);
     connect(actionManageGroup, SIGNAL(triggered()), SLOT(on_action_manageGroup()));
 
     QAction* actionManageBiz = new QAction("ManageGroup", this);
+    actionManageBiz->setObjectName("wiz-team-administration");
+    actionManageBiz->setVisible(WizBuildIdentity::groupAdministrationEnabled);
     actionManageBiz->setShortcutContext(Qt::WidgetShortcut);
     actionManageBiz->setData(ActionItemManage);
     addAction(actionManageBiz);
@@ -1942,12 +1949,14 @@ void WizCategoryView::showOwnerGroupRootContextMenu(QPoint pos)
 
 void WizCategoryView::showNormalBizGroupRootContextMenu(QPoint pos)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     resetMenu(BizGroupRootItem);
     m_menuNormalBizGroupRoot->popup(pos);
 }
 
 void WizCategoryView::showAdminBizGroupRootContextMenu(QPoint pos, bool usable)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     resetMenu(BizGroupRootItem);
 
     const QList<QAction*>& acts = m_menuAdminBizGroupRoot->actions();
@@ -3232,6 +3241,7 @@ void WizCategoryView::addDocumentToShortcuts(const WIZDOCUMENTDATA& doc)
 
 void WizCategoryView::createGroup()
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString strUrl = WizCommonApiEntry::createGroupUrl(WIZ_TOKEN_IN_URL_REPLACE_PART);
     WizShowWebDialogWithToken(tr("Create Team for Free"), strUrl, window());
 
@@ -3240,6 +3250,7 @@ void WizCategoryView::createGroup()
 
 void WizCategoryView::viewPersonalGroupInfo(const QString& groupGUID)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString extInfo = "kb=" + groupGUID + WizCommonApiEntry::appstoreParam();
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("view_personal_group", WIZ_TOKEN_IN_URL_REPLACE_PART, extInfo);
     WizShowWebDialogWithToken(tr("View group info"), strUrl, window());
@@ -3249,6 +3260,7 @@ void WizCategoryView::viewPersonalGroupInfo(const QString& groupGUID)
 
 void WizCategoryView::viewBizGroupInfo(const QString& groupGUID, const QString& bizGUID)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString extInfo = "kb=" + groupGUID + "&biz=" + bizGUID + WizCommonApiEntry::appstoreParam();
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("view_biz_group", WIZ_TOKEN_IN_URL_REPLACE_PART, extInfo);
     WizShowWebDialogWithToken(tr("View group info"), strUrl, window());
@@ -3258,6 +3270,7 @@ void WizCategoryView::viewBizGroupInfo(const QString& groupGUID, const QString& 
 
 void WizCategoryView::managePersonalGroup(const QString& groupGUID)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString extInfo = "kb=" + groupGUID + WizCommonApiEntry::appstoreParam();
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("manage_personal_group", WIZ_TOKEN_IN_URL_REPLACE_PART, extInfo);
     WizShowWebDialogWithToken(tr("Manage group"), strUrl, window());
@@ -3267,6 +3280,7 @@ void WizCategoryView::managePersonalGroup(const QString& groupGUID)
 
 void WizCategoryView::manageBizGroup(const QString& groupGUID, const QString& bizGUID)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString extInfo = "kb=" + groupGUID + "&biz=" + bizGUID + WizCommonApiEntry::appstoreParam();
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("manage_biz_group", WIZ_TOKEN_IN_URL_REPLACE_PART, extInfo);
     WizShowWebDialogWithToken(tr("Manage group"), strUrl, window());
@@ -3357,6 +3371,7 @@ void WizCategoryView::initTopLevelItems()
 
 void WizCategoryView::viewBizInfo(const QString& bizGUID)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString extInfo = "biz=" + bizGUID + WizCommonApiEntry::appstoreParam();
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("view_biz", WIZ_TOKEN_IN_URL_REPLACE_PART, extInfo);
     WizShowWebDialogWithToken(tr("View team info"), strUrl, window());
@@ -3366,6 +3381,7 @@ void WizCategoryView::viewBizInfo(const QString& bizGUID)
 
 void WizCategoryView::manageBiz(const QString& bizGUID, bool bUpgrade)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) return;
     QString extInfo = "biz=" + bizGUID;
     if (bUpgrade)
     {
@@ -3481,7 +3497,8 @@ void WizCategoryView::resetSections()
                 {
                     pExistingSection = new WizCategoryViewSectionItem(m_app, sectionName, pItem->getSortOrder() - 1);
                     WizOEMSettings oemSettings(m_dbMgr.db().getAccountPath());
-                    if(CATEGORY_TEAM_GROUPS == sectionName && !oemSettings.isForbidCreateBiz())
+                    if(WizBuildIdentity::groupAdministrationEnabled
+                        && CATEGORY_TEAM_GROUPS == sectionName && !oemSettings.isForbidCreateBiz())
                     {
                         QString strIconPath = ::WizGetSkinResourcePath(m_app.userSettings().skin()) + "category_create_group.png";
                         pExistingSection->setExtraButtonIcon(strIconPath);
@@ -3834,6 +3851,10 @@ void WizCategoryView::updateChildTagDocumentCount(WizCategoryViewItemBase* pItem
 
 void WizCategoryView::setBizRootItemExtraButton(WizCategoryViewItemBase* pItem, const WIZBIZDATA& bizData)
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) {
+        if (pItem) pItem->setExtraButtonIcon("");
+        return;
+    }
     if (pItem)
     {
         WizDatabase& db = m_dbMgr.db();
@@ -4653,6 +4674,13 @@ void WizCategoryView::initBiz(const WIZBIZDATA& biz)
 
 void WizCategoryView::resetCreateGroupLink()
 {
+    if (!WizBuildIdentity::groupAdministrationEnabled) {
+        for (int i = topLevelItemCount() - 1; i >= 0; --i) {
+            if (dynamic_cast<WizCategoryViewCreateGroupLinkItem*>(topLevelItem(i)))
+                delete takeTopLevelItem(i);
+        }
+        return;
+    }
     bool hasGroup = false;
     int createLinkIndex = -1;
     for (int i = 0; i < topLevelItemCount(); i++)

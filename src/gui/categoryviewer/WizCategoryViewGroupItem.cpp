@@ -1,6 +1,7 @@
 #include "WizCategoryViewGroupItem.h"
 
 #include "WizDef.h"
+#include "WizBuildIdentity.h"
 #include "utils/WizPinyin.h"
 #include "utils/WizStyleHelper.h"
 #include "share/WizObjectOperator.h"
@@ -327,7 +328,7 @@ QRect WizCategoryViewBizGroupRootItem::getExtraButtonRect(const QRect& itemBorde
 
 bool WizCategoryViewBizGroupRootItem::isExtraButtonUseable() const
 {
-    return !isUnreadButtonUseable();
+    return WizBuildIdentity::groupAdministrationEnabled && !isUnreadButtonUseable();
 }
 
 bool WizCategoryViewBizGroupRootItem::isUnreadButtonUseable() const
