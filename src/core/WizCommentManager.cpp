@@ -5,6 +5,8 @@
 #include <QNetworkReply>
 #include <QDebug>
 #include <QCoreApplication>
+#include <QPointer>
+#include "share/WizNetworkSecurity.h"
 
 #include "share/jsoncpp/json/json.h"
 #include "sync/WizApiEntry.h"
@@ -17,9 +19,11 @@
 
 #define QUERY_DELAY 3
 
-WizCommentQuerier::WizCommentQuerier(WizCommentManager* manager, const QString& kbGUID, const QString& GUID, QObject* parent)
+WizCommentQuerier::WizCommentQuerier(QString commentUrl, const QString& kbGUID, const QString& GUID,
+    std::shared_ptr<std::atomic_bool> canceled, QObject* parent)
     : QObject(parent)
-    , m_manager(manager)
+    , m_commentUrl(std::move(commentUrl))
+    , m_canceled(std::move(canceled))
     , m_kbGUID(kbGUID)
     , m_GUID(GUID)
 {
@@ -33,14 +37,15 @@ void WizCommentQuerier::setCommentsCount(int count)
 
 void WizCommentQuerier::run()
 {
-    QString commentUrl = m_manager->getCommentUrlTemplate();
-    if (commentUrl.isEmpty())
+    if (m_canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
+    if (m_commentUrl.isEmpty())
     {
-        commentUrl = WizCommonApiEntry::commentUrlTemplate();
-        m_manager->setCommentUrlTemplate(commentUrl);
+        m_commentUrl = WizCommonApiEntry::commentUrlTemplate();
     }
+    if (m_canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
     //
     QString token = WizToken::token();
+    if (m_canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
     emit tokenAcquired(token);
     //
     if (token.isEmpty())
@@ -51,7 +56,9 @@ void WizCommentQuerier::run()
     info.strKbGUID = m_kbGUID;
     //
     WIZGROUPDATA group;
-    if (WizDatabaseManager::instance()->db().getGroupData(m_kbGUID, group))
+    auto* database = WizDatabaseManager::instance();
+    if (!database) return;
+    if (database->db().getGroupData(m_kbGUID, group))
     {
         info = WIZUSERINFO(info, group);
     }
@@ -59,6 +66,7 @@ void WizCommentQuerier::run()
     WizKMDatabaseServer server(info);
     int count = 0;
     server.getCommentCount(m_GUID, count);
+    if (m_canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
     //
     setCommentsCount(count);
 }
@@ -70,6 +78,12 @@ WizCommentManager::WizCommentManager(QObject* parent)
 {
     m_timer.setSingleShot(true);
     connect(&m_timer, SIGNAL(timeout()), SLOT(on_timer_timeOut()));
+}
+
+WizCommentManager::~WizCommentManager()
+{
+    m_canceled->store(true);
+    m_timer.stop();
 }
 
 QString WizCommentManager::getCommentUrlTemplate()
@@ -93,6 +107,7 @@ void WizCommentManager::setCommentUrlTemplate(QString url)
  */
 void WizCommentManager::queryCommentCount(const QString& kbGUID, const QString& GUID, bool removeOtherQueryRequest)
 {
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return;
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
     // The isolated main-window fixture has no account or remote comments.
     if (QCoreApplication::instance()->property("wiznoteIsolatedWindowControlsTest").toBool())
@@ -134,19 +149,48 @@ void WizCommentManager::queryCommentCount(const QString& kbGUID, const QString& 
 
 void WizCommentManager::on_timer_timeOut()
 {
+    if (m_busy || WizNetworkSecurity::isNetworkCancellationRequested()) return;
     CountQueryData data;
     pickData(data);
 
     if (data.strGUID.isEmpty())
         return;
 
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=] {
-        m_busy = true;
-        WizCommentQuerier query(this, data.strKBGUID, data.strGUID);
-        connect(&query, SIGNAL(tokenAcquired(QString)), SIGNAL(tokenAcquired(QString)));
-        connect(&query, SIGNAL(commentCountAcquired(QString,int)), SIGNAL(commentCountAcquired(QString,int)));
-        query.run();
-        m_busy = false;
+    enqueueQuery(data, [](WizCommentQuerier& query) { query.run(); });
+}
+
+void WizCommentManager::enqueueQuery(const CountQueryData& data, std::function<void(WizCommentQuerier&)> run)
+{
+    // Reserve on the UI thread, before the task starts, so a timer cannot enqueue
+    // several concurrent queries while the shared network workers are occupied.
+    m_busy = true;
+    const QPointer<WizCommentManager> owner(this);
+    const auto canceled = m_canceled;
+    const QString url = getCommentUrlTemplate();
+    QObject* const dispatcher = QCoreApplication::instance();
+    // QApplication outlives the network pool (drained by cleanOnQuit). Worker
+    // connections target that stable dispatcher, not a possibly closed note.
+    WizExecuteOnThread(WIZ_THREAD_NETWORK, [owner, canceled, dispatcher, url, data, run] {
+        if (canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
+        WizCommentQuerier query(url, data.strKBGUID, data.strGUID, canceled);
+        QObject::connect(&query, &WizCommentQuerier::tokenAcquired, dispatcher,
+            [owner, canceled](const QString& token) {
+                if (canceled->load() || !owner || WizNetworkSecurity::isShuttingDown()) return;
+                Q_EMIT owner->tokenAcquired(token);
+            }, Qt::QueuedConnection);
+        QObject::connect(&query, &WizCommentQuerier::commentCountAcquired, dispatcher,
+            [owner, canceled](const QString& guid, int count) {
+                if (canceled->load() || !owner || WizNetworkSecurity::isShuttingDown()) return;
+                Q_EMIT owner->commentCountAcquired(guid, count);
+            }, Qt::QueuedConnection);
+        run(query);
+        const QString resolvedUrl = query.commentUrlTemplate();
+        QMetaObject::invokeMethod(dispatcher, [owner, canceled, resolvedUrl] {
+            if (canceled->load() || !owner || WizNetworkSecurity::isShuttingDown()) return;
+            if (!resolvedUrl.isEmpty()) owner->setCommentUrlTemplate(resolvedUrl);
+            owner->m_busy = false;
+            if (!owner->m_queryList.isEmpty()) owner->m_timer.start(QUERY_DELAY * 1000);
+        }, Qt::QueuedConnection);
     });
 }
 

@@ -435,6 +435,10 @@ int main(int argc, char *argv[])
         return 0;
     }
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--comment-lifetime-self-test") {
+        extern int wizCommentLifetimeSelfTest(int, char**);
+        return wizCommentLifetimeSelfTest(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--spellcheck-self-test") {
         extern int wizSpellCheckSelfTest(int, char**);
         return wizSpellCheckSelfTest(argc, argv);

@@ -111,7 +111,10 @@ int wizSpellCheckSelfTest(int argc, char** argv) {
         check(evaluate(view.page(), "(function(){var b=document.querySelector('.wiz-editor-body');"
             "return b.isContentEditable&&b.spellcheck&&b.lang==='en-US';})()").toBool(),
               "enabled preference reaches the existing prose editing root");
-        check(evaluate(view.page(), "WizEditor." + exportMethod + "()").toString() == baseline,
+        const QString afterEnabling = evaluate(view.page(), "WizEditor." + exportMethod + "()").toString();
+        if (afterEnabling != baseline)
+            qInfo() << "Synthetic spelling serialization difference:" << baseline << afterEnabling;
+        check(afterEnabling == baseline,
               "spelling attributes do not change saved HTML or Markdown source");
         check(evaluate(view.page(), "WizEditor.isModified()").toBool() == modifiedBefore,
               "enabling spelling cannot mark an untouched note as modified");

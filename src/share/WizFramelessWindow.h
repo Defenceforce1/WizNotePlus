@@ -2,6 +2,7 @@
 #define WIZFRAMELESSWINDOW_H
 
 #include <QWidget>
+#include <QMainWindow>
 #include <QPainter>
 #include <QPaintEngine>
 #include <QMouseEvent>
@@ -30,15 +31,20 @@ public:
     {
         this->setAttribute(Qt::WA_DontCreateNativeAncestors);
 
-        QLayout* windowLayout = new QBoxLayout(QBoxLayout::TopToBottom);
-        this->setLayout(windowLayout);
-        windowLayout->setContentsMargins(0, 0, 0, 0);
-        windowLayout->setSpacing(0);
+        // QMainWindow already owns its layout; its client is installed later
+        // with setCentralWidget. Dialogs still need the original outer layout.
+        QLayout* windowLayout = nullptr;
+        if (!qobject_cast<QMainWindow*>(this)) {
+            windowLayout = new QBoxLayout(QBoxLayout::TopToBottom);
+            this->setLayout(windowLayout);
+            windowLayout->setContentsMargins(0, 0, 0, 0);
+            windowLayout->setSpacing(0);
+        }
 
         m_titleBar = new WizWindowTitleBar(this, this, canResize);
 
         m_clientWidget = new QWidget(this);
-        windowLayout->addWidget(m_clientWidget);
+        if (windowLayout) windowLayout->addWidget(m_clientWidget);
         m_clientLayout = new QBoxLayout(QBoxLayout::TopToBottom);
         m_clientWidget->setLayout(m_clientLayout);
         m_clientLayout->setSpacing(0);

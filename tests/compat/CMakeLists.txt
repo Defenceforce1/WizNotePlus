@@ -23,6 +23,8 @@ set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_NATIVE_TRANSFER_TESTS)
+add_test(NAME wiznote_comment_lifetime COMMAND $<TARGET_FILE:WizNotePlus> --comment-lifetime-self-test)
+set_tests_properties(wiznote_comment_lifetime PROPERTIES TIMEOUT 30)
 add_test(NAME wiznote_spellcheck COMMAND $<TARGET_FILE:WizNotePlus> --spellcheck-self-test)
 set_tests_properties(wiznote_spellcheck PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa" TIMEOUT 120)

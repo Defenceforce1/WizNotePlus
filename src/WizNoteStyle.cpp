@@ -116,7 +116,10 @@ CWizNoteStyle::CWizNoteStyle(const QString& strSkinName)
     //
     m_fontLink.setItalic(true);
     //m_fontLink.setUnderline(true);
-    m_fontLink.setPixelSize(m_fontLink.pixelSize() - 4);
+    // Point-sized fonts report pixelSize() == -1. Keep their existing appearance
+    // instead of passing -5 to Qt; only shrink explicitly pixel-sized fonts.
+    if (m_fontLink.pixelSize() > 0)
+        m_fontLink.setPixelSize(qMax(1, m_fontLink.pixelSize() - 4));
 }
 
 

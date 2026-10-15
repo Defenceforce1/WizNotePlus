@@ -7,6 +7,7 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/standalone-startup.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/network-security.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/shutdown.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/comment-lifetime.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/spellcheck.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/native-clipper.cpp)
     # Legacy 8849 implementation is available only to isolated regression probes;
