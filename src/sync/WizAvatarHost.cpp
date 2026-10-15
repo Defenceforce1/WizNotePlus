@@ -21,6 +21,7 @@
 #include <QPainterPath>
 #include <QBitmap>
 #include <QApplication>
+#include <QPointer>
 #include <algorithm>
 
 #include "WizApiEntry.h"
@@ -35,7 +36,6 @@
 /* ----------------------- AvatarDownloader ----------------------- */
 WizAvatarDownloader::WizAvatarDownloader(QObject* parent)
     : QObject(parent)
-    , m_net(nullptr)
 {
 }
 
@@ -55,7 +55,9 @@ void WizAvatarDownloader::download(const QString& userID, bool isSystemAvatar, c
 
 void WizAvatarDownloader::queryUserAvatar(const QString& strUrl)
 {
-    if (!m_net) m_net = std::make_shared<QNetworkAccessManager>();
+    // Each request owns its manager in the executing worker. The shared network
+    // pool can choose a different thread for the next avatar request.
+    QNetworkAccessManager network;
     QUrl url(strUrl);
     // Ignore stale intermediaries after a web-side change; no credentials here.
     QUrlQuery query(url);
@@ -71,7 +73,7 @@ void WizAvatarDownloader::queryUserAvatar(const QString& strUrl)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     request.setTransferTimeout(20000);
 #endif
-    QNetworkReply* reply = m_net->get(request);
+    QNetworkReply* reply = network.get(request);
     QObject::connect(reply, &QNetworkReply::downloadProgress, reply, [reply](qint64 received, qint64 total) {
         if (received > 4 * 1024 * 1024 || total > 4 * 1024 * 1024) reply->abort();
     });
@@ -118,12 +120,13 @@ bool WizAvatarDownloader::save(const QString& strUserGUID, const QByteArray& byt
 
 WizAvatarHostPrivate::WizAvatarHostPrivate(WizAvatarHost* avatarHost)
     : q(avatarHost)
-    , m_downloader(new WizAvatarDownloader(this))
 {
-    connect(m_downloader, SIGNAL(downloaded(QString, bool)),
-            SLOT(on_downloaded(QString, bool)));
-    connect(m_downloader, &WizAvatarDownloader::failed, q, &WizAvatarHost::loadFailed);
     loadCacheDefault();
+}
+
+WizAvatarHostPrivate::~WizAvatarHostPrivate()
+{
+    m_canceled->store(true);
 }
 
 bool WizAvatarHostPrivate::isLoaded(const QString& strUserID)
@@ -344,6 +347,7 @@ void WizAvatarHostPrivate::setUserGuid(const QString& userID, const QString& use
 
 void WizAvatarHostPrivate::download_impl()
 {
+    if (m_canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
     if (!m_currentDownloadingUser.userID.isEmpty())
         return;
 
@@ -363,8 +367,26 @@ void WizAvatarHostPrivate::download_impl()
         QMutexLocker locker(&m_mutex);
         guid = m_userGuids.value(user.userID);
     }
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        m_downloader->download(user.userID, user.isSystemAvatar, guid);
+    const QPointer<WizAvatarHostPrivate> owner(this);
+    const auto canceled = m_canceled;
+    QObject* const dispatcher = QCoreApplication::instance();
+    // Neither the downloader nor its QNetworkAccessManager is shared between
+    // workers. Only immutable request values cross the thread boundary; cache
+    // updates, queue advancement and outward signals stay on the GUI thread.
+    WizExecuteOnThread(WIZ_THREAD_NETWORK, [owner, canceled, dispatcher, user, guid] {
+        if (canceled->load() || WizNetworkSecurity::isNetworkCancellationRequested()) return;
+        WizAvatarDownloader downloader;
+        QObject::connect(&downloader, &WizAvatarDownloader::failed, dispatcher,
+            [owner, canceled](const QString& userID, const QString& error) {
+                if (canceled->load() || !owner || WizNetworkSecurity::isShuttingDown()) return;
+                Q_EMIT owner->q->loadFailed(userID, error);
+            }, Qt::QueuedConnection);
+        QObject::connect(&downloader, &WizAvatarDownloader::downloaded, dispatcher,
+            [owner, canceled](const QString& userID, bool succeeded) {
+                if (canceled->load() || !owner || WizNetworkSecurity::isShuttingDown()) return;
+                owner->on_downloaded(userID, succeeded);
+            }, Qt::QueuedConnection);
+        downloader.download(user.userID, user.isSystemAvatar, guid);
     });
 }
 

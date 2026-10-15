@@ -6,6 +6,7 @@
 #include <QUrl>
 #include <QMutex>
 #include <QMap>
+#include <atomic>
 #include <memory>
 
 class QNetworkReply;
@@ -23,7 +24,6 @@ public:
 
 private:
     friend int wizNetworkSecuritySelfTest(int, char**);
-    std::shared_ptr<QNetworkAccessManager> m_net;
     QString m_strCurrentUser;
 
     void fetchUserAvatarEnd(bool bSucceed, const QString& error = QString());
@@ -42,6 +42,7 @@ class WizAvatarHostPrivate: public QObject
 
 public:
     explicit WizAvatarHostPrivate(WizAvatarHost* avatarHost);
+    ~WizAvatarHostPrivate() override;
     void load(const QString& strUserID, bool isSystem);
     void reload(const QString& strUserID);
     void setUserGuid(const QString& userID, const QString& userGUID);
@@ -62,7 +63,7 @@ private:
     QThread* m_thread;
     QMutex m_mutex;
     QMap<QString, QString> m_userGuids;
-    WizAvatarDownloader* m_downloader;
+    std::shared_ptr<std::atomic_bool> m_canceled = std::make_shared<std::atomic_bool>(false);
 
 
     struct DownloadingUser

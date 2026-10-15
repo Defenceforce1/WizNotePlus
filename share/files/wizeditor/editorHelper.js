@@ -33,6 +33,7 @@ function WizStopEditorAmend() {
   function for C++ execute
 */
 function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, noteType, enableNightMode) {
+  window.WizNativeEditorInitialized = false;
   return new Promise( (resolve, reject) => {
     // Build web channel to C++ side
     new QWebChannel(qt.webChannelTransport, channel => {
@@ -83,6 +84,7 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
         }
         //
         WizEditor.init(editorOptions);
+        window.WizNativeEditorInitialized = true;
         WizSetSpellCheck(!!window.WizSpellCheckEnabled);
         WizEditor.addListener(WizEditor.ListenerType.SelectionChange, WizOnSelectionChange)
         resolve(true);

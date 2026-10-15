@@ -1283,8 +1283,8 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     {
         m_comboFontSize->addItem(fontItems[i].strText, fontItems[i].strUserData);
     }
-    connect(m_comboFontSize, SIGNAL(activated(const QString&)),
-            SLOT(on_comboFontSize_indexChanged(const QString&)));
+    connect(m_comboFontSize, &QComboBox::textActivated,
+            this, &WizEditorToolBar::on_comboFontSize_indexChanged);
 
     QSize editIconSize = QSize(Utils::WizStyleHelper::editIconHeight(), Utils::WizStyleHelper::editIconHeight());
 

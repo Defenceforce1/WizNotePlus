@@ -140,6 +140,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
     : AbstractDocumentEditor(parent)
     , m_app(app)
     , m_dbMgr(app.databaseManager())
+    , m_currentEditorMode(modeReader)
     , m_bNewNote(false)
     , m_bNewNoteTitleInited(false)
     , m_bContentsChanged(false)
@@ -862,7 +863,8 @@ void WizDocumentWebView::editorResetSpellCheck()
 
 void WizDocumentWebView::editorFocus()
 {
-    page()->runJavaScript("WizEditor.focus();");
+    // Focus may arrive while the blank/loading page has no editor yet.
+    page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.focus();");
     emit focusIn();
 }
 
@@ -874,12 +876,14 @@ void WizDocumentWebView::enableEditor(bool enalbe)
 {
     if (enalbe)
     {
-        page()->runJavaScript("WizEditor.on(null, function(){WizApplyNoteStyle();});");
+        page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) "
+            "WizEditor.on(null, function(){WizApplyNoteStyle();});");
         setFocus();
     }
     else
     {
-        QString code = QString("WizEditor.off({reader: {type:'%1'}}, function(){WizApplyNoteStyle();});").arg(getNoteType());
+        QString code = QString("if(window.WizNativeEditorInitialized && window.WizEditor) "
+            "WizEditor.off({reader: {type:'%1'}}, function(){WizApplyNoteStyle();});").arg(getNoteType());
         //
         page()->runJavaScript(code);
         //
@@ -2451,7 +2455,7 @@ void WizDocumentWebView::isModified(std::function<void(bool modified)> callback)
         return;
     }
     // judge modify through native js edit function
-    page()->runJavaScript(QString("WizEditor.isModified();"), [=](const QVariant& vModified){
+    page()->runJavaScript(QString("window.WizNativeEditorInitialized && window.WizEditor ? WizEditor.isModified() : false;"), [=](const QVariant& vModified){
         //
         callback(vModified.toBool());
 
@@ -2465,17 +2469,19 @@ void WizDocumentWebView::isModified(std::function<void(bool modified)> callback)
 void WizDocumentWebView::setModified(bool b)
 {
     m_bContentsChanged = b;
-    page()->runJavaScript("WizEditor.setUnModified()");
+    // viewDocument clears the C++ flag before loading a page; there is no JS
+    // editor then. Marking content dirty must not reset the editor's baseline.
+    if (!b) page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.setUnModified();");
 }
 
 void WizDocumentWebView::undo()
 {
-    page()->runJavaScript("WizEditor.undo()");
+    page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.undo();");
 }
 
 void WizDocumentWebView::redo()
 {
-    page()->runJavaScript("WizEditor.redo()");
+    page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.redo();");
 }
 
 QString WizDocumentWebView::getUserGuid()
