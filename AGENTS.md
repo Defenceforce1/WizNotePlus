@@ -1,5 +1,7 @@
 # WizNotePlus Apple Silicon project handoff
 
+Latest maintenance request (2026-10-15): user will first use 14.4.14 for a while, then personally remove the old Intel App and revisit naming. Record a future display-name cleanup, but do not rename now, remove the old App/data, change identifiers or share/move the two stores. Clean only redundant generated builds/old SDK/binary archives after exact inventory; preserve current release, one complete previous rollback, source/history/current SDK, private data and deferred clipper. Back up sanitized source/process records on GitHub; never upload raw logs, notes, account data, keys or reports, and retain the public binary redistribution license gate.
+
 Before the next app build or UI/shutdown change, read `docs/next-build-requests.md` completely. It records the user's latest requirements and overrides older release choices where they conflict.
 
 Latest priority (2026-10-14): finish the main client before further clipper work. The user has deferred the clipper's remaining rendering defects and requested push-only behavior without result polling for its next revision. Record these requirements, but do not implement, rebuild, reinstall or test cloud clipper uploads while it is deferred. Main client and clipper remain separately built and packaged; do not make clipper completion a prerequisite for the main client's personal-use release. Read `docs/main-app-finalization.md` for the main-client completion checklist.
