@@ -1,5 +1,7 @@
 # 独立网页剪藏器 0.2.0 候选
 
+**2026-10-15 已迁为独立项目**：[Defenceforce1/WizNotePlus-Clipper](https://github.com/Defenceforce1/WizNotePlus-Clipper)，源码基线 `7b1e284f42fd75242d142b047d2c659c0b73b0cc`。本页以下是历史记录；当前构建、状态和待办以独立仓库 README／ROADMAP 为准。拆分未修改 0.2.0 功能，未修复轮询／图片公式瑕疵。当前主 App 14.4.16 已停用新增 8849，旧可选本机入口不应按下文 rc10 描述视为仍可用。详见 [拆分说明](project-separation.md)。
+
 日期：2026-10-14。此次只修改／构建剪藏器，主客户端保持 rc10，旧官方 Intel 剪藏器不动。
 
 ## 最新反馈与暂缓决定
