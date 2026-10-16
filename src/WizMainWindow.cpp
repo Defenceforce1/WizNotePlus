@@ -445,26 +445,38 @@ bool WizMainWindow::prepareForQuit()
         return false;
     }
 
-    // One final full synchronization, with one deadline including existing
-    // sync work. Offline/failed requests do not trigger another attempt.
+    // Connection/start has a short budget. Once network work is established,
+    // wait for completion while real transfer/stage progress continues. Only
+    // a failed attempt or prolonged inactivity ends that wait; never retry.
     if (!qApp->property("wiznoteIsolatedWindowControlsTest").toBool()
         && m_syncFull && m_syncFull->isRunning()) {
         QObject syncContext;
-        QElapsedTimer deadline; deadline.start();
-        while ((!m_syncFull->isIdle() || (m_syncQuick && !m_syncQuick->isIdle()))
-               && deadline.elapsed() < WizKMSyncThread::quitSyncTimeoutMs) {
-            QApplication::processEvents(); QThread::msleep(10);
-        }
-        if (deadline.elapsed() < WizKMSyncThread::quitSyncTimeoutMs) {
+        const auto waitForSync = [](WizKMSyncThread* worker, const std::function<bool()>& finished) {
+            if (!worker) return true;
+            WizQuitSyncPolicy::Wait policy;
+            QElapsedTimer elapsed; elapsed.start();
+            while (true) {
+                const auto decision = policy.observe(elapsed.elapsed(), worker->hasNetworkStarted(),
+                    worker->networkActivity(), finished());
+                if (decision == WizQuitSyncPolicy::Decision::Finished) return true;
+                if (decision != WizQuitSyncPolicy::Decision::Wait) {
+                    qInfo() << "[Quit] final sync stopped:" << (decision == WizQuitSyncPolicy::Decision::StartTimedOut
+                        ? "connection/start timed out" : "no sync progress for 10 seconds");
+                    return false;
+                }
+                QApplication::processEvents(); QThread::msleep(10);
+            }
+        };
+        const bool existingFinished = waitForSync(m_syncFull, [this] { return m_syncFull->isIdle() || !m_syncFull->isRunning(); })
+            && waitForSync(m_syncQuick, [this] { return !m_syncQuick || m_syncQuick->isIdle() || !m_syncQuick->isRunning(); });
+        if (existingFinished && m_syncFull->isRunning()) {
             bool finished = false;
             // UI errors may deliberately be suppressed after repeated offline
             // attempts. Observe completion of the attempt, not the UI message.
             const auto connection = connect(m_syncFull, &WizKMSyncThread::fullSyncAttemptFinished,
                 &syncContext, [&] { finished = true; });
             m_syncFull->startSyncAll(true);
-            while (!finished && deadline.elapsed() < WizKMSyncThread::quitSyncTimeoutMs) {
-                QApplication::processEvents(); QThread::msleep(10);
-            }
+            waitForSync(m_syncFull, [&] { return finished || !m_syncFull->isRunning(); });
             disconnect(connection);
         }
     }

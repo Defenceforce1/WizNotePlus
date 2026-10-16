@@ -107,7 +107,7 @@ private:
         QString htmlFile;
         int flags;
         bool notify;
-        QObject *requester;
+        QPointer<QObject> requester;
     };
 
     std::vector<SAVEDATA> m_arrayData;
@@ -124,7 +124,7 @@ protected:
     void peekData(SAVEDATA& data);
 
 Q_SIGNALS:
-    void saved(const QString kbGUID, const QString strGUID, bool ok, QObject *requester);
+    void saved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester);
     void saveFailed(const QString kbGUID, const QString strGUID, const QString strTitle);
 
 private:

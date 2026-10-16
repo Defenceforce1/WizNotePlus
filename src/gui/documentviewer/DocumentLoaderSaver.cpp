@@ -139,6 +139,7 @@ WizDocumentSaverThread::WizDocumentSaverThread(WizDatabaseManager &dbMgr, QObjec
     , m_dbMgr(dbMgr)
     , m_stop(false)
 {
+    qRegisterMetaType<QPointer<QObject>>("QPointer<QObject>");
 }
 
 void WizDocumentSaverThread::save(const WIZDOCUMENTDATA& doc, const QString& strHtml,
@@ -247,11 +248,17 @@ void WizDocumentSaverThread::run()
         WIZDOCUMENTDATA doc;
         if (!db.documentFromGuid(data.doc.strGUID, doc))
         {
-            QMutexLocker locker(&m_mutex);
-            m_savingForTransfer = false;
-            m_transferError = true;
-            m_failedSaveNotes.insert(data.doc.strKbGUID + "/" + data.doc.strGUID);
-            qDebug() << "fault error: can't find doc in database: " << doc.strGUID;
+            {
+                QMutexLocker locker(&m_mutex);
+                m_savingForTransfer = false;
+                m_transferError = true;
+                m_failedSaveNotes.insert(data.doc.strKbGUID + "/" + data.doc.strGUID);
+            }
+            qDebug() << "fault error: can't find doc in database: " << data.doc.strGUID;
+            // Every dequeued save must complete, including a deleted/missing
+            // note. Emit outside the mutex so observers cannot deadlock it.
+            emit saveFailed(data.doc.strKbGUID, data.doc.strGUID, data.doc.strTitle);
+            emit saved(data.doc.strKbGUID, data.doc.strGUID, false, data.requester);
             continue;
         }
 

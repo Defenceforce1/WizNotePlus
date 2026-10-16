@@ -256,17 +256,10 @@ void WizDocumentView::setSizeHint(QSize size)
 
 void WizDocumentView::waitForDone()
 {
+    // Reuse the bounded, heap-owned result. A late WebEngine callback must not
+    // write a returned stack variable or keep the GUI spinning indefinitely.
+    if (!waitForSave()) qWarning() << "Document snapshot did not complete during cleanup";
     waitForThread();
-
-    bool done = false;
-    m_web->trySaveDocument(m_note, false, [=, &done](const QVariant& ret){
-        done = true;
-    });
-
-    while (!done)
-    {
-        QApplication::processEvents();
-    }
 }
 
 bool WizDocumentView::waitForSave(bool force)

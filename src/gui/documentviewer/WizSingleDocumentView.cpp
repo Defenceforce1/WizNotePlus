@@ -8,6 +8,8 @@
 #include <QApplication>
 #include <QMessageBox>
 #include <QPointer>
+#include <QCloseEvent>
+#include <QElapsedTimer>
 
 #include "utils/WizStyleHelper.h"
 #include "share/WizMisc.h"
@@ -49,7 +51,6 @@ WizSingleDocumentViewer::WizSingleDocumentViewer(WizExplorerApp& app, const QStr
   , m_guid(guid)
   , m_docView(nullptr)
   , m_containerWgt(nullptr)
-  , saving(false)
 {
     // 创建本部件布局
     setAttribute(Qt::WA_DeleteOnClose);
@@ -90,12 +91,18 @@ WizSingleDocumentViewer::WizSingleDocumentViewer(WizExplorerApp& app, const QStr
 
     connect(m_docView->commentWidget(), SIGNAL(widgetStatusChanged()), SLOT(on_commentWidget_statusChanged()));
     connect(m_docView->commentWidget(), SIGNAL(willShow()), SLOT(on_commentWidget_willShow()));
-    connect(m_docView->web(), &WizDocumentWebView::saveDocumentRequested, [this] {
-        this->saving = true;
+    connect(m_docView->web(), &WizDocumentWebView::saveDocumentRequested, this, [this] {
+        if (!m_pendingSaves) m_saveFailed = false;
+        ++m_pendingSaves;
     });
-    connect(m_docView, &WizDocumentView::documentSaved, [this] {
-        this->saving = false;
-    });
+    auto* mainWindow = qobject_cast<WizMainWindow*>(app.mainWindow());
+    connect(mainWindow->docSaver(), &WizDocumentSaverThread::saved, this,
+        [this](const QString& kb, const QString& guid, bool ok, QPointer<QObject> requester) {
+        const auto& note = m_docView->note();
+        if (requester != m_docView->web() || note.strKbGUID != kb || note.strGUID != guid) return;
+        if (m_pendingSaves) --m_pendingSaves;
+        m_saveFailed = m_saveFailed || !ok;
+    }, Qt::QueuedConnection);
 
     containerLayout->addStretch(0);
     containerLayout->addWidget(m_docView);
@@ -142,11 +149,25 @@ void WizSingleDocumentViewer::resizeEvent(QResizeEvent* ev)
 
 void WizSingleDocumentViewer::closeEvent(QCloseEvent *ev)
 {
-    m_docView->waitForDone();
-
-    while (saving)
+    if (m_closing) { ev->ignore(); return; }
+    m_closing = true;
+    const QPointer<WizSingleDocumentViewer> self(this);
+    const bool captured = m_docView->waitForSave();
+    if (!self) return;
+    QElapsedTimer deadline; deadline.start();
+    while (captured && m_pendingSaves && deadline.elapsed() < 30000) {
         QApplication::processEvents();
-
+        if (!self) return;
+        QThread::msleep(5);
+    }
+    if (!captured || m_pendingSaves || m_saveFailed) {
+        m_closing = false;
+        ev->ignore();
+        if (captured) QMessageBox::warning(this, QStringLiteral("无法关闭笔记"),
+            QStringLiteral("笔记尚未成功保存，请稍后重试。"));
+        return;
+    }
+    m_docView->waitForThread();
     QWidget::closeEvent(ev);
 }
 

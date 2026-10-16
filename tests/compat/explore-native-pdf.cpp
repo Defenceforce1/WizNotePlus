@@ -117,12 +117,15 @@ int main(int argc,char** argv) {
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_PROTOTYPE")) {
         // Diagnostic only: quantify whether a zero-layout anchor can compensate
         // the engine's missing page-margin offset without rewriting the PDF.
+        evaluate(reader.page(),QString("window.WizPdfProxyTransform=%1;true").arg(qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_TRANSFORM")?"true":"false"));
         evaluate(reader.page(),R"JS(window.PreparePdfAnchorProbe=function(marginMm){
           const records=[];
           document.querySelectorAll('.wiz-math-block[id]').forEach(block=>{
             const span=document.createElement('span'),id=block.id,style=block.getAttribute('style');
             const padding=parseFloat(getComputedStyle(block).paddingTop)||0;
-            span.id=id;span.style.cssText='position:absolute;left:0;width:0;height:0;pointer-events:none;top:'+(marginMm*96/25.4+padding)+'px';
+            const shift=marginMm*96/25.4;
+            span.id=id;span.style.cssText='position:absolute;left:0;width:0;height:0;pointer-events:none;top:'+(padding+(WizPdfProxyTransform?0:shift))+'px';
+            if(WizPdfProxyTransform)span.style.transform='translateY('+shift+'px)';
             block.removeAttribute('id');block.style.position='relative';block.prepend(span);records.push({block,span,id,style});
           });
           window.RestorePdfAnchorProbe=()=>{records.forEach(({block,span,id,style})=>{
@@ -145,6 +148,8 @@ int main(int argc,char** argv) {
     failures+=state.value("blocks").toInt()!=2||state.value("errors").toInt()!=0||state.value("jax").toInt()!=1;
     QJsonDocument result(QJsonObject{{"kind","actual installed Qt printToPdf; synthetic original reader, no user data"},
         {"qtRuntime",qVersion()},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
+        {"productionFileHelper",true},{"edgeFixture",qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE")},
+        {"anchorPrototype",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_PROTOTYPE")},{"transformVariant",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_TRANSFORM")},
         {"renderState",QJsonObject::fromVariantMap(state)},{"failures",failures}});
     QFile record(QDir(output).filePath("native-pdf-results.json"));
     if (!record.open(QIODevice::WriteOnly|QIODevice::NewOnly)) return 4;

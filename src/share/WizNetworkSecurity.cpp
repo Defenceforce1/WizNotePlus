@@ -9,6 +9,12 @@
 #include <atomic>
 
 namespace WizNetworkSecurity {
+static thread_local std::function<void()> activityObserver;
+ActivityScope::ActivityScope(std::function<void()> observer) : m_previous(std::move(activityObserver)) {
+    activityObserver = std::move(observer);
+}
+ActivityScope::~ActivityScope() { activityObserver = std::move(m_previous); }
+void noteActivity() { if (activityObserver) activityObserver(); }
 static std::atomic_bool shuttingDown{false};
 void beginShutdown() { shuttingDown.store(true); }
 bool isShuttingDown() { return shuttingDown.load(); }

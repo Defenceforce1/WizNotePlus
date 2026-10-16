@@ -38,7 +38,9 @@ private:
 private:
     WizDocumentView* m_docView;
     QString m_guid;
-    bool saving;
+    int m_pendingSaves = 0;
+    bool m_saveFailed = false;
+    bool m_closing = false;
 
     QWidget* m_containerWgt;
 };

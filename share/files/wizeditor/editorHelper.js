@@ -99,7 +99,7 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
 
 // Native browser spellchecking for both rich text and Markdown source. The
 // existing input engine stays intact; CodeMirror code blocks stay unchecked.
-var WizSpellCheckState = { enabled: false, records: new Map(), observer: null, pending: false };
+var WizSpellCheckState = { enabled: false, records: new Map(), originals: new WeakMap(), bodyOriginals: null, observer: null, pending: false };
 function WizRestoreSpellCheckAttributes() {
   WizSpellCheckState.records.forEach(function (attributes, element) {
     Object.keys(attributes).forEach(function (name) {
@@ -117,11 +117,26 @@ function WizApplySpellCheck() {
     if (!element.isConnected) state.records.delete(element);
   });
   function attribute(element, name, value) {
-    if (element.getAttribute(name) === value) return;
+    // The editor itself also writes spellcheck=false during mode/history
+    // changes. Keep the first attribute value across serialization calls;
+    // otherwise that engine reset can become a new, incorrectly saved value.
+    var current = element.getAttribute(name);
+    var baseline = state.originals.get(element) || {};
+    if (element === document.body) {
+      // The original reader replaces the body during on/off. Those new roots
+      // still belong to the same note, not a new user-provided attribute set.
+      if (!state.bodyOriginals) state.bodyOriginals = {
+        spellcheck: element.getAttribute('spellcheck'), lang: element.getAttribute('lang')
+      };
+      if (!Object.prototype.hasOwnProperty.call(baseline, name)) baseline[name] = state.bodyOriginals[name];
+    }
+    if (!Object.prototype.hasOwnProperty.call(baseline, name)) baseline[name] = current;
+    state.originals.set(element, baseline);
+    if (current === value && current === baseline[name]) return;
     var original = state.records.get(element) || {};
-    if (!Object.prototype.hasOwnProperty.call(original, name)) original[name] = element.getAttribute(name);
+    if (!Object.prototype.hasOwnProperty.call(original, name)) original[name] = baseline[name];
     state.records.set(element, original);
-    element.setAttribute(name, value);
+    if (current !== value) element.setAttribute(name, value);
   }
   // Editor.init/on/off and history restore reset spellcheck=false internally.
   // Track only the actual prose editing root, never URL/title/search fields.
@@ -139,6 +154,7 @@ function WizSetSpellCheck(enabled) {
   state.enabled = !!enabled;
   window.WizSpellCheckEnabled = state.enabled;
   WizRestoreSpellCheckAttributes();
+  state.originals = new WeakMap();
   WizApplySpellCheck();
   if (!state.observer && document.body) {
     state.observer = new MutationObserver(function () {
@@ -163,6 +179,13 @@ function WizSetSpellCheck(enabled) {
   }
 }
 
+function WizPrepareNoteModeChange() {
+  // Let the existing editor capture only source attributes, not temporary
+  // spelling controls or read-only mathematical decoration, before cloning.
+  WizRestoreSpellCheckAttributes();
+  WizClearMathEnvironments();
+}
+
 // Temporary engine style: excluded from saved note HTML by the original editor.
 function WizApplyNoteStyle(css) {
   if (typeof css === 'string') window.WizNoteCss = css;
@@ -175,6 +198,30 @@ function WizApplyNoteStyle(css) {
 // Optional read-only decoration. Never change the editor/parser or saved source.
 // The preset marker is an explicit opt-in; normal quotes and code are untouched.
 var WizMathDecoration = { blocks: [], links: [], splits: [] };
+var WizMathReferenceNavigation = { timer: null, sequence: 0 };
+function WizClearMathReferenceNavigation() {
+  var state = WizMathReferenceNavigation;
+  if (state.timer !== null) clearTimeout(state.timer);
+  state.timer = null; ++state.sequence;
+  if (window.WizEditor && typeof WizEditor.removeStyleById === 'function')
+    WizEditor.removeStyleById('wiz_tmp_style_math_reference_navigation');
+}
+function WizNavigateMathReference(anchor) {
+  var destination = document.getElementById(anchor);
+  if (!destination) return;
+  WizClearMathReferenceNavigation();
+  if (/^wiz-math-[A-Za-z0-9_:./-]{1,128}$/.test(anchor) && window.WizEditor
+      && typeof WizEditor.insertCustomStyle === 'function') {
+    WizEditor.insertCustomStyle('wiz_tmp_style_math_reference_navigation',
+      '@media screen { body.wiz-readonly.markdown-body [id="' + anchor + '"] {'
+      + 'outline:2px solid #4b69c6!important;outline-offset:4px!important;scroll-margin-top:24px!important;}}', true);
+    var sequence = WizMathReferenceNavigation.sequence;
+    WizMathReferenceNavigation.timer = setTimeout(function () {
+      if (WizMathReferenceNavigation.sequence === sequence) WizClearMathReferenceNavigation();
+    }, 1600);
+  }
+  destination.scrollIntoView({block:'start'});
+}
 function WizMathInstallSerializationGuards() {
   if (!window.WizEditor) return;
   if (!WizEditor.wizMathSerializationGuards) {
@@ -192,6 +239,7 @@ function WizMathInstallSerializationGuards() {
   if (window.WizReader && typeof WizReader.closeDocument === 'function' && !WizReader.wizMathSerializationGuard) {
     var closeDocument = WizReader.closeDocument;
     WizReader.closeDocument = function () {
+      WizClearMathReferenceNavigation();
       WizClearMathEnvironments();
       try { return closeDocument.apply(WizReader, arguments); }
       finally { WizApplyMathEnvironments(); }
@@ -288,7 +336,10 @@ function WizApplyMathEnvironments() {
   WizClearMathEnvironments();
   var body = document.body;
   if (!body || !body.classList.contains('markdown-body') || !body.classList.contains('wiz-readonly')
-      || !window.WizNoteCss || window.WizNoteCss.indexOf('/* WizNotePlus scientific math environments v1 */') < 0) return;
+      || !window.WizNoteCss || window.WizNoteCss.indexOf('/* WizNotePlus scientific math environments v1 */') < 0) {
+    WizClearMathReferenceNavigation();
+    return;
+  }
   WizMathInstallSerializationGuards();
   var names = { '定理':'theorem', '引理':'lemma', '命题':'proposition', '推论':'corollary',
     '定义':'definition', '例':'example', '例子':'example', '注':'remark', '注记':'remark', '证明':'proof',
@@ -401,8 +452,7 @@ function WizApplyMathEnvironments() {
         // Native link forwarding opens URLs externally. Keep block references
         // entirely in this page instead of asking macOS to open the note file.
         event.preventDefault();
-        var destination = document.getElementById(this.getAttribute('href').slice(1));
-        if (destination) destination.scrollIntoView({block:'start'});
+        WizNavigateMathReference(this.getAttribute('href').slice(1));
       });
       fragment.appendChild(link); WizMathDecoration.links.push({element:link, source:result[0]});
       offset = pattern.lastIndex; changed = true;

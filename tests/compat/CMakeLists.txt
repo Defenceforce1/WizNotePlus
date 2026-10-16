@@ -20,7 +20,13 @@ target_link_libraries(wiznote_pdf_file_safety PRIVATE Qt${QT_VERSION_MAJOR}::Cor
 add_test(NAME wiznote_pdf_file_safety COMMAND wiznote_pdf_file_safety)
 set_tests_properties(wiznote_pdf_file_safety PROPERTIES TIMEOUT 30)
 
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineCore WebEngineWidgets)
+add_executable(wiznote_document_async document-async.cpp)
+target_include_directories(wiznote_document_async PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_document_async PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::WebEngineCore Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+add_test(NAME wiznote_document_async COMMAND wiznote_document_async)
+set_tests_properties(wiznote_document_async PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+
 add_executable(wiznote_login_recovery_smoke login-window-recovery.cpp)
 target_include_directories(wiznote_login_recovery_smoke PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(wiznote_login_recovery_smoke PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)

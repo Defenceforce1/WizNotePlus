@@ -171,6 +171,16 @@ int wizSpellCheckSelfTest(int argc, char** argv) {
         check(waitFor([&] { return evaluate(view.page(), "!!window.FixtureEditing&&"
             "!!document.querySelector('.wiz-editor-body')&&document.querySelector('.wiz-editor-body').spellcheck").toBool(); }),
               "returning to edit mode restores the selected spelling preference");
+        const QString beforeEngineReset=evaluate(view.page(),"WizEditor.getContentHtml()").toString();
+        evaluate(view.page(),"document.querySelector('.wiz-editor-body').setAttribute('spellcheck','false');WizApplySpellCheck();");
+        check(evaluate(view.page(),"WizEditor.getContentHtml()").toString()==beforeEngineReset,
+              "engine spellcheck reset cannot establish a new serialized attribute baseline");
+        bool repeatedStable=true;
+        for(int cycle=0;cycle<10;++cycle){
+            evaluate(view.page(),"document.querySelector('.wiz-editor-body').setAttribute('spellcheck','false');WizApplySpellCheck();");
+            repeatedStable&=evaluate(view.page(),"WizEditor.getContentHtml()").toString()==beforeEngineReset;
+        }
+        check(repeatedStable,"ten repeated engine resets and serializations retain exact rich HTML");
         evaluate(view.page(), "WizEditor.destroy()");
     }
     qInfo() << "Spelling checks:" << checks << "failures:" << failures;

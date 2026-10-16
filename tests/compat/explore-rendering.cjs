@@ -72,6 +72,7 @@ scenarios.set('long-reference','# Long reference navigation\n\nGo to \\ref{thm:l
   +Array.from({length:22},(_,i)=>`## Prelude ${i}\n\n`+'Synthetic text to exercise vertical scrolling. '.repeat(10)+'\n\n').join('')
   +block('定理','thm:long-target','LONG-TARGET. $x^2\\ge0$.')
   +Array.from({length:8},(_,i)=>`## Following ${i}\n\n`+'Following text. '.repeat(15)+'\n\n').join(''));
+scenarios.set('navigation-lifecycle',scenarios.get('long-reference'));
 scenarios.set('duplicates', '# Duplicate labels\n\n\\ref{duplicate:a}\n\n'
   + block('定理', 'duplicate:a') + block('定义', 'duplicate:a'));
 scenarios.set('formula-boundaries', '# Full-reader boundary compatibility\n\n'
@@ -182,6 +183,34 @@ const server = http.createServer((req, res) => {
       outcome.scenarios.push({name, sourceBytes:Buffer.byteLength(source),...initial});
       check(`${name}: original Markdown unchanged`, initial.markdownEqual);
       check(`${name}: no decoration in serialized HTML`, !initial.htmlContainsDecoration);
+      if(name==='navigation-lifecycle'){
+        const navigation=await page.evaluate(()=>{
+          const beforeHtml=WizEditor.getContentHtml(),beforeModified=WizEditor.isModified(),beforeUrl=location.href;
+          const target=document.getElementById('wiz-math-thm:long-target'),before=target.getBoundingClientRect();
+          document.querySelector('.wiz-math-reference').click();
+          const after=target.getBoundingClientRect();
+          return{outline:getComputedStyle(target).outlineStyle,top:after.top,geometrySame:before.width===after.width&&before.height===after.height,
+            sourceSame:WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSource,htmlSame:WizEditor.getContentHtml()===beforeHtml,
+            modifiedSame:WizEditor.isModified()===beforeModified,urlSame:location.href===beforeUrl};
+        });
+        check('production reference navigation highlights with inset and preserves geometry/source/HTML/modified state',
+          navigation.outline==='solid'&&Math.abs(navigation.top-24)<2&&navigation.geometrySame&&navigation.sourceSame
+          &&navigation.htmlSame&&navigation.modifiedSame&&navigation.urlSame,navigation);
+        await page.screenshot({path:path.join(out,'navigation-production.png')});
+        await page.emulateMedia({media:'print'});
+        check('production reference highlight is absent from print',await page.evaluate(()=>getComputedStyle(document.getElementById('wiz-math-thm:long-target')).outlineStyle==='none'));
+        await page.emulateMedia({media:'screen'});
+        await page.waitForFunction(()=>!document.getElementById('wiz_tmp_style_math_reference_navigation'),null,{timeout:4000});
+        check('reference timeout releases its temporary style and timer',await page.evaluate(()=>WizMathReferenceNavigation.timer===null));
+        check('repeated navigation keeps one style and disabling the preset cancels it',await page.evaluate(()=>{
+          const before=WizEditor.getContentHtml();
+          for(let i=0;i<12;i++)document.querySelector('.wiz-math-reference').click();
+          const one=document.querySelectorAll('#wiz_tmp_style_math_reference_navigation').length===1;
+          WizApplyNoteStyle('body {color:#263950;}');
+          return one&&!document.getElementById('wiz_tmp_style_math_reference_navigation')&&WizMathReferenceNavigation.timer===null
+            &&WizEditor.getContentHtml()===before&&WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSource;
+        }));
+      }
       if(name==='formula-boundaries'){
         outcome.formulaBoundaries=await page.evaluate(()=>({
           links:Array.from(document.querySelectorAll('.wiz-math-reference')).map(a=>({text:a.textContent,parent:a.parentElement.textContent})),

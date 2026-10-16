@@ -589,11 +589,17 @@ void WizTitleBar::setEditButtonEnabled(bool enable)
 
 void WizTitleBar::updateEditButton(WizEditorMode editorMode)
 {
-    m_editor->isModified([=](bool modified) {
+    const QPointer<WizTitleBar> self(this);
+    const auto note = noteView()->note();
+    m_editor->isModified([self, note, editorMode](bool modified) {
+        const auto* owner = self ? self->noteView() : nullptr;
+        if (!owner || owner->note().strGUID != note.strGUID
+            || owner->note().strKbGUID != note.strKbGUID
+            || owner->editorMode() != editorMode) return;
         if (modified){
-            m_editBtn->setState(WizEditButton::Badge);
+            self->m_editBtn->setState(WizEditButton::Badge);
         } else {
-            m_editBtn->setState(editorMode == modeEditor ? WizEditButton::Checked : WizEditButton::Normal);
+            self->m_editBtn->setState(editorMode == modeEditor ? WizEditButton::Checked : WizEditButton::Normal);
         }
     });
 }

@@ -18,7 +18,7 @@
 /* ---------------------------- CWizKMSyncThead ---------------------------- */
 void WizKMSyncEvents::onSyncProgress(int pos)
 {
-    Q_UNUSED(pos);
+    emit progressChanged(pos);
 }
 
 HRESULT WizKMSyncEvents::onText(WizKMSyncProgressMessageType type, const QString& strStatus)
@@ -135,6 +135,11 @@ WizKMSyncThread::WizKMSyncThread(WizDatabase& db, bool quickOnly, QObject* paren
     m_tLastSyncAll = QDateTime::currentDateTime();
 
     m_pEvents = new WizKMSyncEvents();
+    connect(m_pEvents, &WizKMSyncEvents::progressChanged, this,
+        [this, previous = -1](int position) mutable {
+            if (position != previous && m_networkStarted) ++m_networkActivity;
+            previous = position;
+        }, Qt::DirectConnection);
 
     connect(m_pEvents, SIGNAL(messageReady(const QString&)), SIGNAL(processLog(const QString&)));
     connect(m_pEvents, SIGNAL(promptMessageRequest(int, QString, QString)), SIGNAL(promptMessageRequest(int, QString, QString)));
@@ -154,10 +159,14 @@ WizKMSyncThread::~WizKMSyncThread()
 
 void WizKMSyncThread::run()
 {
+    const WizNetworkSecurity::ActivityScope activity([this] {
+        m_networkStarted = true; ++m_networkActivity;
+    });
     while (!m_pEvents->isStop())
     {
         m_mutex.lock();
-        m_wait.wait(&m_mutex, 1000 * 3);
+        if (!m_wakeRequested && !m_pEvents->isStop()) m_wait.wait(&m_mutex, 1000 * 3);
+        m_wakeRequested = false;
         m_mutex.unlock();
 
         if (m_pEvents->isStop())
@@ -172,6 +181,7 @@ void WizKMSyncThread::run()
             m_bBusy = true;
         }
         doSync();
+        m_networkStarted = false;
         {
             QMutexLocker locker(&m_mutex);
             m_bBusy = false;
@@ -192,6 +202,7 @@ void WizKMSyncThread::syncAfterStart()
 void WizKMSyncThread::on_timerOut()
 {
     m_mutex.lock();
+    m_wakeRequested = true;
     m_wait.wakeAll();
     m_mutex.unlock();
 }
@@ -202,7 +213,7 @@ void WizKMSyncThread::startSyncAll(bool bBackground)
     if (m_pEvents->isStop()) { m_mutex.unlock(); return; }
     m_bNeedSyncAll = true;
     m_bBackground = bBackground;
-
+    m_wakeRequested = true;
     m_wait.wakeAll();
     m_mutex.unlock();
 }
@@ -262,7 +273,7 @@ bool WizKMSyncThread::isOnline()
         return false;
     }
     sock.close();
-
+    WizNetworkSecurity::noteActivity();
     return true;
 }
 
@@ -521,6 +532,7 @@ void WizKMSyncThread::stopSync()
     m_pEvents->setStop(true);
     emit stopTimer();
     QMutexLocker locker(&m_mutex);
+    m_wakeRequested = true;
     m_wait.wakeAll();
 }
 
@@ -559,6 +571,7 @@ void WizKMSyncThread::quickDownloadMesages()
     QMutexLocker locker(&m_mutex);
     Q_UNUSED(locker);
     m_bNeedDownloadMessages = true;
+    m_wakeRequested = true;
     m_wait.wakeAll();
 }
 

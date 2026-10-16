@@ -40,6 +40,7 @@
 #include "share/WizObjectDataDownloader.h"
 #include "share/WizThreads.h"
 #include "share/WizPdfExport.h"
+#include "share/WizDocumentPageReady.h"
 
 #include "WizDef.h"
 
@@ -152,6 +153,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 {
     WizDocumentWebViewPage* page = new WizDocumentWebViewPage(this);
     setupPage(page);
+    connect(this, &QWebEngineView::loadStarted, this, [this] { m_documentCallbacks.invalidate(); });
     connect(page, &WizDocumentWebViewPage::linkClicked,
             this, &WizDocumentWebView::onEditorLinkClicked);
 
@@ -199,6 +201,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 
 WizDocumentWebView::~WizDocumentWebView()
 {
+    m_documentCallbacks.cancel();
 }
 
 void WizDocumentWebView::setupWebActions()
@@ -486,15 +489,19 @@ void WizDocumentWebView::handleReloadTriggered()
 
 void WizDocumentWebView::discardChanges()
 {
-    isModified([=](bool modified){
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    const WIZDOCUMENTDATA doc = view()->note();
+    isModified([self, ticket, doc](bool modified){
+        if (!self || !self->acceptsDocumentCallback(ticket, doc)) return;
         // Close rich text editor
-        enableEditor(false);
-        m_currentEditorMode = modeReader;
+        self->enableEditor(false);
+        self->m_currentEditorMode = modeReader;
         // Stop auto save
-        m_timerAutoSave.stop();
+        self->m_timerAutoSave.stop();
         // Reload document if necessary
         if (modified)
-            reloadNoteData(view()->note());
+            self->reloadNoteData(doc);
     });
 }
 
@@ -689,6 +696,7 @@ WizDocumentView* WizDocumentWebView::view() const
 
 void WizDocumentWebView::clear()
 {
+    m_documentCallbacks.invalidate();
     load(QUrl("about:blank"));
 }
 
@@ -706,11 +714,14 @@ void WizDocumentWebView::onTitleEdited(QString strTitle)
     WIZDOCUMENTDATA document = view()->note();
     document.strTitle = strTitle;
     // Only sync when contents unchanged. If contents changed would sync after document saved.
-    isModified([=](bool modified){
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    isModified([self, ticket, document](bool modified){
+        if (!self || !self->acceptsDocumentCallback(ticket, document)) return;
 
         if (modified)
         {
-            WizMainWindow* mainWindow = qobject_cast<WizMainWindow*>(m_app.mainWindow());
+            WizMainWindow* mainWindow = qobject_cast<WizMainWindow*>(self->m_app.mainWindow());
             mainWindow->quickSyncKb(document.strKbGUID);
         }
     });
@@ -731,7 +742,7 @@ void WizDocumentWebView::onDocumentReady(const QString kbGUID, const QString str
     loadDocumentInWeb(editorMode);
 }
 
-void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QObject *requester)
+void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester)
 {
     const auto &note = view()->note();
     if (requester != this || note.strKbGUID != kbGUID || note.strGUID != strGUID)
@@ -752,13 +763,15 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
 
 void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode)
 {
+    m_documentCallbacks.invalidate();
     // set data
     // FIXME: not very well to decide a file is new through create time
     qint64 seconds = doc.tCreated.secsTo(QDateTime::currentDateTime());
     m_bNewNote = (seconds >= 0 && seconds <= 1) ? true : false;
     m_bNewNoteTitleInited = m_bNewNote ? false : true;
     //
-    setModified(false);
+    // Do not queue a baseline reset into the previous document's JS page.
+    m_bContentsChanged = false;
 
     if (m_bNewNote)
     {
@@ -844,9 +857,11 @@ void WizDocumentWebView::replaceDefaultCss(QString& strHtml)
 void WizDocumentWebView::editorResetFont()
 {
     WIZDOCUMENTDATA data = view()->note();
-    trySaveDocument(data, false, [=](const QVariant& vRet){
-        //
-        reloadNoteData(data);
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    trySaveDocument(data, false, [self, ticket, data](const QVariant& vRet){
+        if (self && self->acceptsDocumentCallback(ticket, data) && vRet.toBool())
+            self->reloadNoteData(data);
     });
 }
 
@@ -878,13 +893,13 @@ void WizDocumentWebView::enableEditor(bool enalbe)
     if (enalbe)
     {
         page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) "
-            "WizEditor.on(null, function(){WizApplyNoteStyle();});");
+            "{WizPrepareNoteModeChange();WizEditor.on(null, function(){WizApplyNoteStyle();WizApplySpellCheck();});}");
         setFocus();
     }
     else
     {
         QString code = QString("if(window.WizNativeEditorInitialized && window.WizEditor) "
-            "WizEditor.off({reader: {type:'%1'}}, function(){WizApplyNoteStyle();});").arg(getNoteType());
+            "{WizPrepareNoteModeChange();WizEditor.off({reader: {type:'%1'}}, function(){WizApplyNoteStyle();WizApplySpellCheck();});}").arg(getNoteType());
         //
         page()->runJavaScript(code);
         //
@@ -1085,7 +1100,8 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     QString noteType = getNoteType();
     QString keywords = getHighlightKeywords();
     // Initialize rich text editor
-    QString strCode = "(async function(){\n";
+    const QString setupToken = WizNotePresentation::jsonString(WizGenGUIDLowerCaseLetterOnly());
+    QString strCode;
     strCode += QStringLiteral("window.WizSpellCheckEnabled=%1;\n")
         .arg(m_app.userSettings().isEnableSpellCheck() ? "true" : "false");
     strCode += "window.WizNoteCss=" + WizNotePresentation::jsonString(
@@ -1094,18 +1110,19 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
                                        editorPath, lang, userGUID, userAlias,
                                        ignoreTable ? "true" : "false",
                                        noteType);
+    strCode += "if(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\n";
+    strCode += "WizPrepareNoteModeChange();\n";
     if (m_currentEditorMode == modeEditor) {
         // Open rich text editor when doc is in edit mode
-        strCode += "WizEditor.on();";
+        strCode += "if(!document.body.isContentEditable||document.body.classList.contains('wiz-readonly'))"
+            "await new Promise(resolve=>WizEditor.on(null,resolve));";
     } else {
         // Close rich text editor when doc is in read mode
         if (keywords.isEmpty()) {
-            strCode += "WizEditor.off();";
+            strCode += "await new Promise(resolve=>WizEditor.off(null,resolve));";
         } else {
             // When user open document in search results, highlit key words
-            QString strCodeMarkdown = QString("WizEditor.off(null, function(){\n\
-                WizReader.highlight.on([%1]);\nconsole.log('highlight');\n\
-            });").arg(keywords);
+            QString strCodeMarkdown = QString("await new Promise(resolve=>WizEditor.off(null,function(){WizReader.highlight.on([%1]);resolve();}));").arg(keywords);
             QString strCodeCommon = "await new Promise( (resolve, reject) => {"
                 "WizEditor.off(null, () => {"
                     "resolve();"
@@ -1121,19 +1138,27 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
             }
         }
     }
-    strCode += "\nWizApplyNoteStyle();\n})()";
-    page()->runJavaScript(strCode, [=](const QVariant &v) {
+    strCode += "\nif(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\nWizApplyNoteStyle();WizApplySpellCheck();";
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    const WIZDOCUMENTDATA document = doc;
+    page()->runJavaScript(WizDocumentPageReady::setupScript(setupToken,strCode));
+    WizDocumentPageReady::watch(this, page(),
+        WizDocumentPageReady::stateExpression(setupToken),
+        [self,ticket,document] { return self && self->acceptsDocumentCallback(ticket,document); },
+        [self,keywords,noteType](bool ready) {
+        if(!ready){qWarning()<<"Editor setup failed or timed out";return;}
         if (!keywords.isEmpty()) {
             if (noteType == "common") {
                 //FIXME: This is not the best way, it needs the keyword in search line
                 QString word = keywords.split(",").first()
                                     .section("'", 0, 0, QString::SectionSkipEmpty);
-                findText(word);
+                self->findText(word);
             }
         }
+        // Notify plugins only after asynchronous initialization/reader setup.
+        JSPluginManager::instance().handleDocumentChanged();
     });
-    // Notify all plugins
-    JSPluginManager::instance().handleDocumentChanged();
 }
 
 /**
@@ -1244,62 +1269,35 @@ void getHtmlBodyStyle(const QString& strHtml, QString& strBodyStyle)
  */
 void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bool force, std::function<void(const QVariant &)> callback)
 {
-    //FIXME: remove me, just for find a image losses bug.
     Q_ASSERT(!data.strGUID.isEmpty());
-
-    // check note permission
     if (!m_dbMgr.db(data.strKbGUID).canEditDocument(data)) {
         callback(QVariant(false));
         return;
     }
-
-    WIZDOCUMENTDATA doc = data;
-
-    isModified([=](bool modified) {
-        if (!force)
-        {
-            if (!modified)
-            {
-                // return sucess if not force save and no change 
-                callback(QVariant(true));
-                return;
-            }
+    const auto ticket = m_documentCallbacks.ticket();
+    const QPointer<WizDocumentWebView> self(this);
+    const WIZDOCUMENTDATA doc = data;
+    const QString extractedFile = m_strNoteHtmlFileName;
+    const QString sourceFile = m_mapFile.value(data.strGUID);
+    const quint64 changeSequence = m_contentChangeSequence;
+    if (sourceFile.isEmpty() || extractedFile.isEmpty()) { callback(false); return; }
+    page()->runJavaScript(WizDocumentSaveSnapshot::editorScript(force, m_bContentsChanged),
+        [self, ticket, doc, extractedFile, sourceFile, changeSequence, callback](const QVariant& value) {
+        if (!self || !self->acceptsDocumentCallback(ticket, doc)) { callback(false); return; }
+        const auto result = WizDocumentSaveSnapshot::parse(value);
+        if (result.state == WizDocumentSaveSnapshot::State::Unchanged) { callback(true); return; }
+        if (result.state == WizDocumentSaveSnapshot::State::Failed
+            || !WizDocumentSaveSnapshot::writeHtmlFile(extractedFile, result.html)) {
+            self->reportSnapshotSaveFailure(); callback(false); return;
         }
-        // reset save flag?
-        setModified(false);
-
-        QString strFileName = m_mapFile.value(data.strGUID);
-        QString strScript = "WizEditor.getContentHtml()";
-
-        TOLOG("saving note...");
-        page()->runJavaScript(strScript, [=](const QVariant& ret){
-            bool succeeded = false;
-            if (ret.type() == QVariant::String)
-            {
-                QString html = ret.toString();
-                if (!html.isEmpty())
-                {
-                    succeeded = true;
-                    m_currentNoteHtml = html;
-                    WizSaveUnicodeTextToUtf8File(m_strNoteHtmlFileName, m_currentNoteHtml);
-                    emit currentHtmlChanged();
-                    Q_EMIT saveDocumentRequested(doc, html, strFileName, 0);
-                    TOLOG("save note done...");
-                }
-            }
-
-            if (!succeeded)
-            {
-                setModified(true);
-                TOLOG("save note failed, html is empty");
-                QString message = tr("Failed to save note.");
-                WizMessageBox::warning(this, tr("Error"), message);
-            }
-
-            callback(QVariant(succeeded));
-        });
+        self->m_currentNoteHtml = result.html;
+        if (self->m_contentChangeSequence == changeSequence) self->m_bContentsChanged = false;
+        // This is the existing handoff to the FIFO saver, not a disk-save ack.
+        // Its separate failure signal and the quit-time drain remain required.
+        Q_EMIT self->saveDocumentRequested(doc, result.html, sourceFile, 0);
+        if (self && self->acceptsDocumentCallback(ticket, doc)) Q_EMIT self->currentHtmlChanged();
+        callback(true);
     });
-
 }
 
 /**
@@ -1314,24 +1312,41 @@ void WizDocumentWebView::saveReadingViewDocument(const WIZDOCUMENTDATA &data, bo
     Q_UNUSED(force);
     const WIZDOCUMENTDATA doc = data;
 
-    QString strScript = QString("WizReader.closeDocument();");
-    page()->runJavaScript(strScript, [=](const QVariant& vRet) {
-        // get return note content
-        QString strHtml = vRet.toString();
-        // has made change?
-        if (!strHtml.isEmpty())
-        {
-            if (!doc.strGUID.isEmpty())
-            {   // get save file name
-                QString strFileName = m_mapFile.value(doc.strGUID);
-                if (!strFileName.isEmpty())
-                {
-                    Q_EMIT saveDocumentRequested(doc, strHtml, strFileName, 0);
-                }
-            }
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    const QString sourceFile = m_mapFile.value(doc.strGUID);
+    const quint64 changeSequence = m_contentChangeSequence;
+    page()->runJavaScript(WizDocumentSaveSnapshot::readerScript(m_bContentsChanged),
+        [self, ticket, doc, sourceFile, changeSequence, callback](const QVariant& value) {
+        if (!self || !self->acceptsDocumentCallback(ticket, doc)) { callback(false); return; }
+        const auto result = WizDocumentSaveSnapshot::parse(value);
+        if (result.state == WizDocumentSaveSnapshot::State::Failed
+            || (result.state == WizDocumentSaveSnapshot::State::Changed && sourceFile.isEmpty())) {
+            self->reportSnapshotSaveFailure(); callback(false); return;
         }
-
+        if (result.state == WizDocumentSaveSnapshot::State::Changed) {
+            if (self->m_contentChangeSequence == changeSequence) self->m_bContentsChanged = false;
+            Q_EMIT self->saveDocumentRequested(doc, result.html, sourceFile, 0);
+        }
         callback(true);
+    });
+}
+
+bool WizDocumentWebView::acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& ticket, const WIZDOCUMENTDATA& data) const
+{
+    if (!WizDocumentCallbackEpoch::current(ticket)) return false;
+    const auto* owner = view();
+    return owner && owner->note().strGUID == data.strGUID && owner->note().strKbGUID == data.strKbGUID;
+}
+
+void WizDocumentWebView::reportSnapshotSaveFailure()
+{
+    setModified(true);
+    TOLOG("save note failed: invalid page snapshot or extracted HTML write failure");
+    const auto ticket = m_documentCallbacks.ticket();
+    QTimer::singleShot(0, this, [this, ticket] {
+        if (WizDocumentCallbackEpoch::current(ticket))
+            WizMessageBox::warning(this, tr("Error"), tr("Failed to save note."));
     });
 }
 
@@ -1532,6 +1547,7 @@ void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
     }
 
     m_strNoteHtmlFileName = strFileName;
+    m_documentCallbacks.invalidate();
     load(QUrl::fromLocalFile(strFileName));
 
     onNoteLoadFinished();
@@ -1548,6 +1564,7 @@ void WizDocumentWebView::onNoteLoadFinished()
 */
 void WizDocumentWebView::setEditorMode(WizEditorMode mode)
 {
+    const quint64 requestSequence = ++m_editorModeRequestSequence;
     if (m_currentEditorMode == mode)
         return;
 
@@ -1567,21 +1584,27 @@ void WizDocumentWebView::setEditorMode(WizEditorMode mode)
     if (!db.documentFromGuid(view()->note().strGUID, docData))
         return;
 
-    trySaveDocument(docData, false, [=](const QVariant&){
-        enableEditor(editing);
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    const auto previousMode = m_currentEditorMode;
+    trySaveDocument(docData, false, [self, ticket, docData, editing, mode, previousMode, requestSequence](const QVariant& saved){
+        if (!self || !self->acceptsDocumentCallback(ticket, docData)
+            || self->m_editorModeRequestSequence != requestSequence) return;
+        if (!saved.toBool()) {
+            // Do not switch out of an unsaved editor on a failed snapshot.
+            self->view()->setEditorMode(previousMode);
+            return;
+        }
+        self->m_currentEditorMode = mode;
+        if (mode == modeEditor) self->m_timerAutoSave.start();
+        else self->m_timerAutoSave.stop();
+        self->enableEditor(editing);
         if (editing) {
-            setFocus(Qt::MouseFocusReason);
-            editorFocus();
+            self->setFocus(Qt::MouseFocusReason);
+            self->editorFocus();
         }
     });
 
-    m_currentEditorMode = mode;
-
-    if (m_currentEditorMode == modeEditor) {
-        m_timerAutoSave.start();
-    } else {
-        m_timerAutoSave.stop();
-    }
 }
 
 /**
@@ -2465,11 +2488,13 @@ void WizDocumentWebView::isModified(std::function<void(bool modified)> callback)
         callback(true);
         return;
     }
-    // judge modify through native js edit function
-    page()->runJavaScript(QString("window.WizNativeEditorInitialized && window.WizEditor ? WizEditor.isModified() : false;"), [=](const QVariant& vModified){
-        //
-        callback(vModified.toBool());
-
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    // Failure/unknown is conservative, never a false assertion of clean state.
+    page()->runJavaScript(QString("(function(){try{return window.WizNativeEditorInitialized&&window.WizEditor?!!WizEditor.isModified():null;}catch(e){return null;}})()"),
+        [self, ticket, callback](const QVariant& vModified){
+        callback(!self || !WizDocumentCallbackEpoch::current(ticket) || self->m_bContentsChanged
+            || vModified.userType() != QMetaType::Bool || vModified.toBool());
     });
 }
 
@@ -2479,6 +2504,7 @@ void WizDocumentWebView::isModified(std::function<void(bool modified)> callback)
  */
 void WizDocumentWebView::setModified(bool b)
 {
+    if (b) ++m_contentChangeSequence;
     m_bContentsChanged = b;
     // viewDocument clears the C++ flag before loading a page; there is no JS
     // editor then. Marking content dirty must not reset the editor's baseline.

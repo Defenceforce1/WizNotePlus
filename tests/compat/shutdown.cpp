@@ -36,6 +36,43 @@ int wizShutdownSelfTest(int argc, char** argv)
         return ok;
     };
     {
+        using namespace WizQuitSyncPolicy;
+        Wait neverStarted;
+        check(neverStarted.observe(2999,false,0,false)==Decision::Wait
+            &&neverStarted.observe(3000,false,0,false)==Decision::StartTimedOut,
+            "quit allows three seconds to connect/start, not a three-second upload limit");
+        Wait progressing;
+        bool continued=progressing.observe(0,false,0,false)==Decision::Wait
+            &&progressing.observe(2900,true,1,false)==Decision::Wait;
+        for(int seconds=5;seconds<=120;seconds+=5)
+            continued&=progressing.observe(seconds*1000,true,quint64(seconds),false)==Decision::Wait;
+        check(continued&&progressing.observe(121000,true,120,true)==Decision::Finished,
+            "a sync starting within three seconds may keep progressing for two minutes and finish normally");
+        Wait stalled;
+        check(stalled.observe(100,true,1,false)==Decision::Wait
+            &&stalled.observe(10099,true,1,false)==Decision::Wait
+            &&stalled.observe(10100,true,1,false)==Decision::Stalled,
+            "started sync stops only after ten seconds without progress");
+        Wait refreshed;
+        check(refreshed.observe(100,true,1,false)==Decision::Wait
+            &&refreshed.observe(9000,true,2,false)==Decision::Wait
+            &&refreshed.observe(18000,true,2,false)==Decision::Wait
+            &&refreshed.observe(19000,true,2,false)==Decision::Stalled,
+            "new transfer progress resets inactivity timeout without imposing a total deadline");
+        Wait failure;
+        check(failure.observe(200,true,1,true)==Decision::Finished,
+            "completed failed attempts also end waiting without automatic retry");
+        int outer=0,inner=0;
+        {
+            WizNetworkSecurity::ActivityScope scope([&]{++outer;});
+            WizNetworkSecurity::noteActivity();
+            {WizNetworkSecurity::ActivityScope nested([&]{++inner;});WizNetworkSecurity::noteActivity();}
+            WizNetworkSecurity::noteActivity();
+        }
+        WizNetworkSecurity::noteActivity();
+        check(outer==2&&inner==1,"network activity observation is scoped and restored, with no persistent callback");
+    }
+    {
         WizWaitEvent event;
         QSemaphore checkedEmpty, allowWait, firstReturned, allowSecond;
         std::unique_ptr<QThread> worker(QThread::create([&] {
@@ -146,11 +183,41 @@ int wizShutdownSelfTest(int argc, char** argv)
     }
     WizDocumentSaverThread failingSaver(manager, nullptr);
     WIZDOCUMENTDATA missing = notes[0]; missing.strGUID = "missing-synthetic-note";
+    int missingCompletions=0;bool missingResult=false;
+    QObject::connect(&failingSaver,&WizDocumentSaverThread::saved,&app,
+        [&](const QString& kb,const QString& guid,bool ok,QPointer<QObject> requester){
+            ++missingCompletions;missingResult=kb==missing.strKbGUID&&guid==missing.strGUID&&!ok&&requester.isNull();
+        },Qt::QueuedConnection);
     failingSaver.save(missing, "<html><body>cannot save</body></html>", "", 0);
     failingSaver.waitForDone();
+    app.processEvents();
+    check(missingCompletions==1&&missingResult,"missing-note save completes exactly once with failure and original note identity");
     check(failingSaver.hasTransferError(), "failed disk/database save is not treated as success");
     failingSaver.clearTransferError();
     check(failingSaver.hasTransferError(), "clearing a transfer status cannot conceal an unresolved failed note");
+    {
+        class ObservedSaver final : public WizDocumentSaverThread {
+        public:
+            using WizDocumentSaverThread::WizDocumentSaverThread;
+            QObject* currentSender() const { return sender(); }
+        } ownerSaver(manager,nullptr);
+        auto requester=std::make_unique<QTimer>();
+        bool senderObserved=false,receiptNull=false;int receipts=0;
+        QObject::connect(requester.get(),&QTimer::timeout,&ownerSaver,[&]{
+            senderObserved=ownerSaver.currentSender()==requester.get();
+            ownerSaver.save(notes[0],"<html><body>save-survives-page-close</body></html>","",0);
+        });
+        QObject::connect(&ownerSaver,&WizDocumentSaverThread::saved,&app,
+            [&](const QString&,const QString&,bool ok,QPointer<QObject> owner){
+                ++receipts;receiptNull=ok&&owner.isNull();
+            },Qt::QueuedConnection);
+        QMetaObject::invokeMethod(requester.get(),"timeout",Qt::DirectConnection);
+        requester.reset();ownerSaver.waitForDone();app.processEvents();
+        check(senderObserved&&receipts==1&&receiptNull,"queued save completion cannot retain or address-reuse a destroyed requester");
+        QString path;bool persisted=manager.db().documentToTempHtmlFile(notes[0],path);QFile file(path);
+        check(persisted&&file.open(QIODevice::ReadOnly)&&file.readAll().contains("save-survives-page-close"),
+            "closing a requester still lets its already queued local save finish on disk");
+    }
 
     WizKMSyncThread idle(manager.db(), true);
     idle.stopSync(); idle.addQuickSyncKb("synthetic-shutdown-kb");
@@ -159,7 +226,7 @@ int wizShutdownSelfTest(int argc, char** argv)
     idle.start();
     check(idle.wait(1000), "a stopped worker cannot restart synchronization");
 
-    check(WizKMSyncThread::quitSyncTimeoutMs == 5000, "final sync network-stage budget is five seconds, not twenty");
+    check(WizKMSyncThread::quitSyncTimeoutMs == 3000, "final sync start budget is three seconds, independent of local-save confirmation and active uploads");
     // Empty server means explicit offline, without DNS or any cloud request.
     check(WizCommonApiEntry::server().isEmpty(), "offline completion fixture has no server or credentials");
     WizKMSyncThread offline(manager.db(), false);
@@ -172,10 +239,10 @@ int wizShutdownSelfTest(int argc, char** argv)
     for (int target = 1; target <= 2; ++target) {
         offline.startSyncAll();
         QElapsedTimer attempt; attempt.start();
-        while ((attempts < target || !offline.isIdle()) && attempt.elapsed() < 4500) {
+        while ((attempts < target || !offline.isIdle()) && attempt.elapsed() < 2500) {
             app.processEvents(); QThread::msleep(5);
         }
-        check(attempts == target && attempt.elapsed() < 4500,
+        check(attempts == target && attempt.elapsed() < 2500,
               "each offline final attempt reports completion without exhausting quit budget");
     }
     check(uiErrors == 1 && attempts == 2, "suppressed repeated offline UI errors cannot conceal attempt completion");
@@ -190,7 +257,17 @@ int wizShutdownSelfTest(int argc, char** argv)
             auto* socket = server.nextPendingConnection();
             QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
             QObject::connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
-                socket->readAll(); ++requests;
+                const auto request=socket->readAll(); ++requests;
+                if(request.startsWith("GET /slow ")) {
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n");
+                    auto* chunks=new QTimer(socket);
+                    auto remaining=std::make_shared<int>(8);
+                    QObject::connect(chunks,&QTimer::timeout,socket,[socket,chunks,remaining]{
+                        socket->write("x");
+                        if(!--*remaining){chunks->stop();socket->disconnectFromHost();}
+                    });
+                    chunks->start(500);return;
+                }
                 if (respond) {
                     socket->write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK");
                     socket->disconnectFromHost();
@@ -206,6 +283,23 @@ int wizShutdownSelfTest(int argc, char** argv)
         loop.exec();
         check(loop.error() == QNetworkReply::NoError && loop.result() == "OK",
               "successful network operation still completes normally before shutdown");
+    }
+    {
+        QNetworkAccessManager net;
+        QUrl slow=url;slow.setPath("/slow");
+        WizAutoTimeOutEventLoop loop(net.get(QNetworkRequest(slow)));
+        bool started=false;quint64 activity=0;
+        const WizNetworkSecurity::ActivityScope observe([&]{started=true;++activity;});
+        WizQuitSyncPolicy::Wait policy;QElapsedTimer elapsed;elapsed.start();
+        QTimer monitor;
+        QObject::connect(&monitor,&QTimer::timeout,&app,[&]{
+            const auto decision=policy.observe(elapsed.elapsed(),started,activity,loop.isFinished());
+            if(decision!=WizQuitSyncPolicy::Decision::Wait&&decision!=WizQuitSyncPolicy::Decision::Finished)
+                loop.networkReply()->abort();
+        });
+        monitor.start(25);loop.exec();monitor.stop();
+        check(loop.error()==QNetworkReply::NoError&&loop.result()=="xxxxxxxx"&&elapsed.elapsed()>3000&&activity>1,
+            "actual slow loopback download keeps progressing past three seconds and saves the complete response");
     }
     respond = false;
     std::atomic_bool workerCanceled{false};

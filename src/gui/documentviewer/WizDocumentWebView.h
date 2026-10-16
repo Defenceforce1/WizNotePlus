@@ -18,6 +18,7 @@
 #include "api/ApiWizHtmlEditorApp.h"
 #include "DocumentLoaderSaver.h"
 #include "AbstractDocumentView.h"
+#include "share/WizDocumentAsync.h"
 
 class WizObjectDownloaderHost;
 class WizEditorInsertLinkForm;
@@ -180,6 +181,8 @@ private:
 
     void saveEditingViewDocument(const WIZDOCUMENTDATA& data, bool force, const std::function<void(const QVariant &)> callback);
     void saveReadingViewDocument(const WIZDOCUMENTDATA& data, bool force, std::function<void(const QVariant &)> callback);
+    bool acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& ticket, const WIZDOCUMENTDATA& data) const;
+    void reportSnapshotSaveFailure();
 
     void createReadModeContextMenu(QContextMenuEvent *event);
     bool acceptUrlAsAttachment(const QUrl &url);
@@ -211,6 +214,9 @@ private:
     QString m_currentNoteHtml;
 
     bool m_bContentsChanged;
+    quint64 m_contentChangeSequence = 0;
+    quint64 m_editorModeRequestSequence = 0;
+    WizDocumentCallbackEpoch m_documentCallbacks;
 
     bool m_ignoreActiveWindowEvent;
 
@@ -243,7 +249,7 @@ public Q_SLOTS:
     void onTitleEdited(QString strTitle) override;
 
     void onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode);
-    void onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QObject *requester);
+    void onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester);
 
     void on_editorCommandExecuteLinkInsert_accepted();
 

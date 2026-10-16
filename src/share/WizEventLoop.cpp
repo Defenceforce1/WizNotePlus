@@ -27,6 +27,7 @@ WizAutoTimeOutEventLoop::WizAutoTimeOutEventLoop(QNetworkReply* pReply, QObject 
 #endif
     connect(pReply, SIGNAL(downloadProgress(qint64,qint64)), SLOT(on_downloadProgress(qint64,qint64)));
     connect(pReply, SIGNAL(uploadProgress(qint64,qint64)), SLOT(on_uploadProgress(qint64,qint64)));
+    connect(pReply, &QNetworkReply::encrypted, this, [] { WizNetworkSecurity::noteActivity(); });
     connect(&m_timer, SIGNAL(timeout()), SLOT(on_timeOut()));
     m_cancelTimer.setInterval(50);
     connect(&m_cancelTimer, &QTimer::timeout, this, [this] {
@@ -84,6 +85,7 @@ void WizAutoTimeOutEventLoop::doFinished(QNetworkReply* reply)
             return;
         }
         m_result = reply->readAll();
+        WizNetworkSecurity::noteActivity();
     }
 }
 
@@ -154,11 +156,13 @@ void WizAutoTimeOutEventLoop::on_timeOut()
 
 void WizAutoTimeOutEventLoop::on_downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
+    if (bytesReceived > m_downloadBytes) WizNetworkSecurity::noteActivity();
     m_downloadBytes = bytesReceived;
     emit downloadProgress(m_url, bytesReceived, bytesTotal);
 }
 
 void WizAutoTimeOutEventLoop::on_uploadProgress(qint64 bytesSent, qint64 bytesTotal)
 {
+    if (bytesSent > m_uploadBytes) WizNetworkSecurity::noteActivity();
     m_uploadBytes = bytesSent;
 }

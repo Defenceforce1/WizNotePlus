@@ -9,6 +9,7 @@
 
 #include "WizSync.h"
 #include "WizKMServer.h"
+#include "share/WizQuitSyncPolicy.h"
 
 
 class WizDatabase;
@@ -35,6 +36,7 @@ class WizKMSyncEvents : public QObject , public IWizKMSyncEvents
     virtual void onEndKb(const QString& strKbGUID);
 
 Q_SIGNALS:
+    void progressChanged(int position);
     void messageReady(const QString& strStatus);
     void promptMessageRequest(int nType, const QString& strTitle, const QString& strMsg);
     void bubbleNotificationRequest(const QVariant& param);
@@ -49,8 +51,10 @@ class WizKMSyncThread : public QThread
 
 public:
     WizKMSyncThread(WizDatabase& db, bool quickOnly, QObject* parent = 0);
-    // Network stage only; local-save confirmation and original cleanup remain.
-    static constexpr int quitSyncTimeoutMs = 5000;
+    // Only connection/start is limited to 3 s; active sync may finish later.
+    static constexpr int quitSyncTimeoutMs = WizQuitSyncPolicy::startTimeoutMs;
+    bool hasNetworkStarted() const { return m_networkStarted.load(); }
+    quint64 networkActivity() const { return m_networkActivity.load(); }
     ~WizKMSyncThread();
     void startSyncAll(bool bBackground = true);
     bool isBackground() const;
@@ -102,6 +106,9 @@ private:
     bool m_bBusy;
     bool m_bPause;
     bool m_quickOnly;
+    bool m_wakeRequested = false;
+    std::atomic_bool m_networkStarted{false};
+    std::atomic<quint64> m_networkActivity{0};
 
     QMutex m_mutex;
     QWaitCondition m_wait;
