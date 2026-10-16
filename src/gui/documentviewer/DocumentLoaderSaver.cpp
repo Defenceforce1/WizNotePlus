@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QMessageBox>
+#include <algorithm>
 
 #include "database/WizDatabaseManager.h"
 #include "database/WizDatabase.h"
@@ -11,14 +12,13 @@
 WizDocumentLoaderThread::WizDocumentLoaderThread(WizDatabaseManager &dbMgr, QObject *parent)
     : QThread(parent)
     , m_dbMgr(dbMgr)
-    , m_editorMode(modeReader)
     , m_stop(false)
 {
 }
 
 void WizDocumentLoaderThread::load(const WIZDOCUMENTDATA &doc, WizEditorMode editorMode)
 {
-    setCurrentDoc(doc.strKbGUID, doc.strGUID, editorMode);
+    setCurrentDoc(doc.strKbGUID, doc.strGUID, editorMode, sender());
 
     if (!isRunning())
     {
@@ -86,15 +86,19 @@ void WizDocumentLoaderThread::run()
     }
 }
 
-void WizDocumentLoaderThread::setCurrentDoc(QString kbGUID, QString docGUID, WizEditorMode editorMode)
+void WizDocumentLoaderThread::setCurrentDoc(QString kbGUID, QString docGUID, WizEditorMode editorMode, QObject* requester)
 {
     {
         QMutexLocker locker(&m_mutex);
         Q_UNUSED(locker);
 
-        m_strCurrentKbGUID = kbGUID;
-        m_strCurrentDocGUID = docGUID;
-        m_editorMode = editorMode;
+        // Keep independent pages' requests. Only supersede a pending request
+        // from the same live view, preserving rapid navigation's latest choice.
+        LoadRequest request{kbGUID, docGUID, editorMode, requester, requester != nullptr};
+        auto pending = requester ? std::find_if(m_pendingLoads.begin(), m_pendingLoads.end(),
+            [requester](const LoadRequest& item) { return item.hasRequester && item.requester == requester; }) : m_pendingLoads.end();
+        if (pending != m_pendingLoads.end()) *pending = request;
+        else m_pendingLoads.push_back(request);
     }
 
     m_waitEvent.wakeAll();
@@ -105,26 +109,25 @@ bool WizDocumentLoaderThread::isEmpty()
     QMutexLocker locker(&m_mutex);
     Q_UNUSED(locker);
 
-    return m_strCurrentDocGUID.isEmpty();
+    return m_pendingLoads.empty();
 }
 
 void WizDocumentLoaderThread::peekCurrentDocGuid(QString& kbGUID, QString& docGUID, WizEditorMode& editorMode)
 {
-    if (isEmpty())
+    while (true)
     {
-        m_waitEvent.wait();
-    }
-
-    {
+        if (isEmpty()) m_waitEvent.wait();
         QMutexLocker locker(&m_mutex);
         Q_UNUSED(locker);
-
-        kbGUID = m_strCurrentKbGUID;
-        docGUID = m_strCurrentDocGUID;
-        editorMode = m_editorMode;
-
-        m_strCurrentKbGUID.clear();
-        m_strCurrentDocGUID.clear();
+        while (!m_pendingLoads.empty()) {
+            const auto request = m_pendingLoads.front(); m_pendingLoads.pop_front();
+            if (request.hasRequester && request.requester.isNull()) continue;
+            kbGUID = request.kbGuid;
+            docGUID = request.docGuid;
+            editorMode = request.editorMode;
+            return;
+        }
+        if (m_stop) return;
     }
 }
 

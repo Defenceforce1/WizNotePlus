@@ -47,6 +47,7 @@ void WizDocumentEditStatusSyncThread::startEditingDocument(const QString& strUse
         m_doneMap.remove(strObjID);
     }
     m_editingMap.insert(strObjID, strUserAlias);
+    m_sendNow = true;
     m_wait.wakeAll();
     m_mutex.unlock();
 }
@@ -72,6 +73,7 @@ void WizDocumentEditStatusSyncThread::stopEditingDocument(const QString& strKbGU
         }
         m_editingMap.remove(strObjID);
     }
+    m_sendNow = true;
     m_wait.wakeAll();
     m_mutex.unlock();
 }
@@ -89,6 +91,7 @@ void WizDocumentEditStatusSyncThread::documentSaved(const QString& strUserAlias,
         m_doneMap.remove(strObjID);
     }
     m_modifiedMap.insert(strObjID, strUserAlias);
+    m_sendNow = true;
     m_wait.wakeAll();
     m_mutex.unlock();
 }
@@ -108,24 +111,22 @@ void WizDocumentEditStatusSyncThread::documentUploaded(const QString& strKbGUID,
         }
         m_modifiedMap.remove(strObjID);
     }
+    m_sendNow = true;
     m_wait.wakeAll();
     m_mutex.unlock();
 }
 
 void WizDocumentEditStatusSyncThread::on_timerOut()
 {
-    m_mutex.lock();
+    QMutexLocker locker(&m_mutex);
+    if (m_stop) return;
+    m_sendNow = true;
     m_wait.wakeAll();
-    m_mutex.unlock();
 }
 
 void WizDocumentEditStatusSyncThread::stop()
 {
     requestInterruption();
-    //If thread wasn't running, no need to stop. Otherwise will start running ,and cause crash at destructor of program.
-    if (!isRunning())
-        return;
-
     m_mutex.lock();
     m_stop = true;
     m_wait.wakeAll();
@@ -136,24 +137,27 @@ void WizDocumentEditStatusSyncThread::waitForDone()
 {
     stop();
     //
-    WizWaitForThread(this);
+    // Network loops observe interruption themselves; do not re-enter a partially
+    // closing document view by processing arbitrary GUI events while joining.
+    wait();
+    if (m_timer.thread() == QThread::currentThread()) m_timer.stop();
 }
 
 void WizDocumentEditStatusSyncThread::run()
 {
-    while (!m_stop)
+    struct NetworkCleanup {
+        QPointer<QNetworkAccessManager>& manager;
+        ~NetworkCleanup() { delete manager.data(); manager.clear(); }
+    } cleanup{m_netManager}; // Lazy network manager is destroyed on its worker.
+    while (true)
     {
-        m_mutex.lock();
-        m_wait.wait(&m_mutex);
-
-        emit stopTimer();
-
-        if (m_stop)
         {
-            m_mutex.unlock();
-            return;
+            QMutexLocker locker(&m_mutex);
+            while (!m_stop && !m_sendNow) m_wait.wait(&m_mutex);
+            if (m_stop) return;
+            m_sendNow = false;
         }
-        m_mutex.unlock();
+        emit stopTimer();
         //
         sendEditingMessage();
         sendDoneMessage();
@@ -273,9 +277,11 @@ bool WizDocumentEditStatusSyncThread::sendDoneMessage(const QString& strUserAlia
 
 
 WizDocumentStatusChecker::WizDocumentStatusChecker(QObject* parent)
-    : m_timeOutTimer(0)
+    : QObject(parent)
+    , m_timeOutTimer(0)
     //, m_loopCheckTimer(0)
     , m_stop(false)
+    , m_networkError(false)
 {
 
 }
@@ -341,6 +347,7 @@ void WizDocumentStatusChecker::recheck()
 
 void WizDocumentStatusChecker::initialise()
 {
+    if (m_timeOutTimer) return;
 //    qDebug() << "CWizDocumentStatusChecker thread id : ";
     m_timeOutTimer = new QTimer(this);
     connect(m_timeOutTimer, SIGNAL(timeout()), SLOT(onTimeOut()));
@@ -351,7 +358,7 @@ void WizDocumentStatusChecker::initialise()
 
 void WizDocumentStatusChecker::clearTimers()
 {
-    m_timeOutTimer->stop();
+    if (m_timeOutTimer) m_timeOutTimer->stop();
 //    m_loopCheckTimer->stop();
 }
 

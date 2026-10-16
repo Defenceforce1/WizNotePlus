@@ -14,6 +14,12 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 add_test(NAME wiznote_compat_smoke COMMAND wiznote_compat_smoke)
 
+add_executable(wiznote_pdf_file_safety pdf-file-safety.cpp)
+target_include_directories(wiznote_pdf_file_safety PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_pdf_file_safety PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
+add_test(NAME wiznote_pdf_file_safety COMMAND wiznote_pdf_file_safety)
+set_tests_properties(wiznote_pdf_file_safety PROPERTIES TIMEOUT 30)
+
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 add_executable(wiznote_login_recovery_smoke login-window-recovery.cpp)
 target_include_directories(wiznote_login_recovery_smoke PRIVATE ${PROJECT_SOURCE_DIR}/src)

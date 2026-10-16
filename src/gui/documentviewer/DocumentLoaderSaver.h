@@ -6,6 +6,8 @@
 #include <QSet>
 #include <QMutex>
 #include <QWaitCondition>
+#include <QPointer>
+#include <deque>
 
 #include "share/WizObject.h"
 
@@ -17,6 +19,9 @@ class WizWaitEvent
 private:
     QMutex m_mutex;
     QWaitCondition m_waitForData;
+    // Each loader/saver owns one event and has exactly one consumer. Remember
+    // an early notification until consumed, closing its empty-check/wait gap.
+    bool m_signaled = false;
 
 public:
     void wait()
@@ -24,7 +29,8 @@ public:
         QMutexLocker locker(&m_mutex);
         Q_UNUSED(locker);
 
-        m_waitForData.wait(&m_mutex);
+        while (!m_signaled) m_waitForData.wait(&m_mutex);
+        m_signaled = false;
     }
 
     void wakeAll()
@@ -32,6 +38,7 @@ public:
         QMutexLocker locker(&m_mutex);
         Q_UNUSED(locker);
 
+        m_signaled = true;
         m_waitForData.wakeAll();
     }
 };
@@ -49,7 +56,7 @@ public:
 
 protected:
     virtual void run();
-    void setCurrentDoc(QString kbGuid, QString docGuid, WizEditorMode editorMode);
+    void setCurrentDoc(QString kbGuid, QString docGuid, WizEditorMode editorMode, QObject* requester = nullptr);
     void peekCurrentDocGuid(QString& kbGUID, QString& docGUID, WizEditorMode& editorMode);
 
 public Q_SLOTS:
@@ -64,9 +71,14 @@ private:
 
 private:
     WizDatabaseManager& m_dbMgr;
-    QString m_strCurrentKbGUID;
-    QString m_strCurrentDocGUID;
-    WizEditorMode m_editorMode;
+    struct LoadRequest {
+        QString kbGuid;
+        QString docGuid;
+        WizEditorMode editorMode;
+        QPointer<QObject> requester;
+        bool hasRequester;
+    };
+    std::deque<LoadRequest> m_pendingLoads;
     QMutex m_mutex;
     WizWaitEvent m_waitEvent;
     std::atomic_bool m_stop;

@@ -205,7 +205,12 @@ function WizClearMathEnvironments() {
   });
   WizMathDecoration.blocks.forEach(function (record) {
     Object.keys(record.attrs).forEach(function (name) {
-      if (record.attrs[name] === null) record.element.removeAttribute(name);
+      if (record.attrs[name] === null) {
+        // Flush pending CSSOM serialization before restoring an absent style
+        // attribute; otherwise Blink can materialize style="" after removal.
+        if (name === 'style') record.element.getAttribute(name);
+        record.element.removeAttribute(name);
+      }
       else record.element.setAttribute(name, record.attrs[name]);
     });
     if (record.heading) {
@@ -218,6 +223,66 @@ function WizClearMathEnvironments() {
     record.created.forEach(function (element) { element.remove(); });
   });
   WizMathDecoration = { blocks: [], links: [], splits: [] };
+}
+// Reference recognition must not consume TeX belonging to the original engine.
+// Protection flags are built once per logical text scope, before DOM changes;
+// their Maps/arrays live only for this decoration pass, not for the page lifetime.
+function WizMathProtectedPositions(source) {
+  var flags = new Uint8Array(source.length + 1);
+  var delimiter = null, braces = 0, environments = [];
+  for (var i = 0; i < source.length;) {
+    var before = delimiter !== null || environments.length !== 0;
+    var c = source[i], next = source[i+1], length = 1;
+    if (c === '\\') {
+      if (next === '\\' || next === '$' || next === '{' || next === '}') length = 2;
+      else {
+        var environment = source.slice(i).match(/^\\(begin|end)\{([^{}]+)\}/);
+        if (environment) {
+          if (environment[1] === 'begin') environments.push(environment[2]);
+          else if (environments[environments.length-1] === environment[2]) environments.pop();
+          length = environment[0].length;
+        } else if (!delimiter && (next === '(' || next === '[')) {
+          delimiter = next === '(' ? ')' : ']'; length = 2;
+        } else if (!braces && !environments.length && delimiter === next && (next === ')' || next === ']')) {
+          delimiter = null; length = 2;
+        }
+      }
+    } else if (delimiter && c === '{') ++braces;
+    else if (delimiter && c === '}' && braces) --braces;
+    else if (c === '$' && !environments.length) {
+      var token = next === '$' ? '$$' : '$';
+      if (!delimiter) delimiter = token;
+      else if (delimiter === token && !braces) delimiter = null;
+      length = token.length;
+    }
+    flags[i] = before ? 1 : 0;
+    // A delimiter's interior cannot start another inline-reference wrapper.
+    var inside = before || delimiter !== null || environments.length !== 0;
+    for (var j = 1; j < length && i+j < source.length; ++j) flags[i+j] = inside ? 1 : 0;
+    i += length;
+  }
+  flags[source.length] = delimiter !== null || environments.length !== 0 ? 1 : 0;
+  return flags;
+}
+function WizMathTextContexts(nodes, body) {
+  var contexts = new Map(), scopes = new Set();
+  var selector = 'p,li,td,th,blockquote,h1,h2,h3,h4,h5,h6,div';
+  var excluded = 'pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading';
+  nodes.forEach(function (text) { scopes.add(text.parentElement.closest(selector) || body); });
+  scopes.forEach(function (scope) {
+    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {acceptNode:function (node) {
+      return node.parentElement && !node.parentElement.closest(excluded)
+        && (node.parentElement.closest(selector) || body) === scope
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }});
+    var parts = [], offsets = [], length = 0, node;
+    while ((node = walker.nextNode())) {
+      offsets.push({node:node, offset:length}); parts.push(node.nodeValue); length += node.nodeValue.length;
+    }
+    var protectedPositions = WizMathProtectedPositions(parts.join(''));
+    offsets.forEach(function (entry) { contexts.set(entry.node, {protectedPositions:protectedPositions, offset:entry.offset}); });
+  });
+  return contexts;
 }
 function WizApplyMathEnvironments() {
   WizClearMathEnvironments();
@@ -314,8 +379,10 @@ function WizApplyMathEnvironments() {
   });
   var nodes = [], node;
   while ((node = walker.nextNode())) nodes.push(node);
+  var mathContexts = WizMathTextContexts(nodes, body);
   nodes.forEach(function (text) {
     var source = text.nodeValue;
+    var mathContext = mathContexts.get(text);
     // A complete standalone inline reference is allowed; compound formulas are
     // left to the original MathJax engine. Ordinary prose references need no $.
     var pattern = /\$\s*\\ref\{([A-Za-z0-9_:.\/-]{1,128})\}\s*\$|\\\(\s*\\ref\{([A-Za-z0-9_:.\/-]{1,128})\}\s*\\\)|\\ref\{([A-Za-z0-9_:.\/-]{1,128})\}/g;
@@ -323,8 +390,10 @@ function WizApplyMathEnvironments() {
     while ((result = pattern.exec(source))) {
       var key = result[1] || result[2] || result[3], target = labels[key];
       if (!target || duplicates[key] || !target.anchor) continue;
-      if (result[3] && (source.slice(0, result.index).replace(/\\\$/g,'').match(/\$/g) || []).length % 2) continue;
-      fragment.appendChild(document.createTextNode(source.slice(offset, result.index)));
+      if (!mathContext || mathContext.protectedPositions[mathContext.offset + result.index]) continue;
+      // Serializers clear and rebuild these links. Avoid accumulating two empty
+      // text nodes per reference on every read/save/style refresh.
+      if (result.index > offset) fragment.appendChild(document.createTextNode(source.slice(offset, result.index)));
       var link = document.createElement('a'); link.href = '#' + target.anchor;
       link.className = 'wiz-math-reference'; link.textContent = target.number || display[target.kind];
       link.title = target.element.getAttribute('data-wiz-math-heading');
@@ -338,7 +407,7 @@ function WizApplyMathEnvironments() {
       fragment.appendChild(link); WizMathDecoration.links.push({element:link, source:result[0]});
       offset = pattern.lastIndex; changed = true;
     }
-    if (changed) { fragment.appendChild(document.createTextNode(source.slice(offset))); text.replaceWith(fragment); }
+    if (changed) { if (offset < source.length) fragment.appendChild(document.createTextNode(source.slice(offset))); text.replaceWith(fragment); }
   });
 }
 

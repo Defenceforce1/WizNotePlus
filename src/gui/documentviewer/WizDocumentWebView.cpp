@@ -39,6 +39,7 @@
 #include "share/WizMessageBox.h"
 #include "share/WizObjectDataDownloader.h"
 #include "share/WizThreads.h"
+#include "share/WizPdfExport.h"
 
 #include "WizDef.h"
 
@@ -2239,21 +2240,31 @@ void WizDocumentWebView::saveAsPDF()
     //
     strInitPath = Utils::WizMisc::extractFilePath(strFileName);
     //
-    if (::WizPathFileExists(strFileName))
-    {
-        ::WizDeleteFile(strFileName);
-    }
-    //
-    QPrinter::Unit marginUnit =  (QPrinter::Unit)m_app.userSettings().printMarginUnit();
+    const int marginUnit = m_app.userSettings().printMarginUnit();
     double marginTop = m_app.userSettings().printMarginValue(wizPositionTop);
     double marginBottom = m_app.userSettings().printMarginValue(wizPositionBottom);
     double marginLeft = m_app.userSettings().printMarginValue(wizPositionLeft);
     double marginRight = m_app.userSettings().printMarginValue(wizPositionRight);
     QMarginsF margins(marginLeft, marginTop, marginRight, marginBottom);
     //
-    const QPageLayout layout = QPageLayout(QPageSize(QPageSize::A4), QPageLayout::Portrait, margins);
-    //
-    page()->printToPdf(strFileName, layout);
+    const QPageLayout layout = WizPdfExport::pageLayout(marginUnit, margins);
+    if (!layout.isValid()) {
+        QMessageBox::critical(this, tr("Error"), QStringLiteral("PDF 页边距设置无效，请在设置中检查单位和数值。"));
+        return;
+    }
+    // Keep the same renderer and CSS. Commit only complete output, preserving an
+    // existing destination on cancellation, page destruction or write failure.
+    const QPointer<WizDocumentWebView> guard(this);
+    page()->printToPdf([guard, strFileName](const QByteArray& bytes) {
+        QString error;
+        if (WizPdfExport::writeFile(strFileName, bytes, error)) return;
+        qWarning() << "PDF export failed:" << error;
+        // A print callback can run while the page/view is being destroyed. Do
+        // not touch either here; a queued receiver is cancelled on destruction.
+        if (guard) QTimer::singleShot(0, guard.data(), [guard, error] {
+            if (guard) QMessageBox::critical(guard.data(), QObject::tr("Error"), QStringLiteral("无法导出 PDF：\n") + error);
+        });
+    }, layout);
 }
 
 void WizDocumentWebView::applyNoteStyle()

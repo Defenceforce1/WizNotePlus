@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QApplication>
 #include <QMessageBox>
+#include <QPointer>
 
 #include "utils/WizStyleHelper.h"
 #include "share/WizMisc.h"
@@ -236,9 +237,14 @@ void WizSingleDocumentViewManager::viewDocument(const WIZDOCUMENTDATA& doc)
 
         connect(webView, &WizDocumentWebView::loadDocumentRequested, mainWindow->docLoader(), &WizDocumentLoaderThread::load);
         connect(mainWindow->docLoader(), &WizDocumentLoaderThread::loaded, webView, &WizDocumentWebView::onDocumentReady, Qt::QueuedConnection);
-        connect(mainWindow->docLoader(), &WizDocumentLoaderThread::loadFailed, [wgt] {
-            QMessageBox::critical(wgt, tr("Error"), tr("Can't view note: (Can't unzip note data)"));
-        });
+        const QPointer<WizSingleDocumentViewer> owner(wgt);
+        connect(mainWindow->docLoader(), &WizDocumentLoaderThread::loadFailed, docView,
+            [owner, docView](const QString& kbGuid, const QString& docGuid, const QString&, const QString&) {
+                if (!owner) return;
+                const auto& note = docView->note();
+                if (note.strKbGUID != kbGuid || note.strGUID != docGuid) return;
+                QMessageBox::critical(owner.data(), tr("Error"), tr("Can't view note: (Can't unzip note data)"));
+            }, Qt::QueuedConnection);
 
         connect(webView, &WizDocumentWebView::saveDocumentRequested, mainWindow->docSaver(), &WizDocumentSaverThread::save);
         connect(mainWindow->docSaver(), &WizDocumentSaverThread::saved, webView, &WizDocumentWebView::onDocumentSaved, Qt::QueuedConnection);

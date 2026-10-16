@@ -216,7 +216,7 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     // 编辑状态同步线程
     m_editStatusSyncThread->start(QThread::IdlePriority);
 
-    m_editStatusChecker = new WizDocumentStatusChecker(this);
+    m_editStatusChecker = new WizDocumentStatusChecker();
     connect(this, SIGNAL(checkDocumentEditStatusRequest(QString,QString)), m_editStatusChecker,
             SLOT(checkEditStatus(QString,QString)));
     connect(this, SIGNAL(stopCheckDocumentEditStatusRequest(QString,QString)),
@@ -230,9 +230,10 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     connect(m_editStatusChecker, SIGNAL(checkDocumentChangedFinished(QString,bool)), \
             SLOT(on_checkDocumentChanged_finished(QString,bool)));
 
-    QThread* checkThread = new QThread(this);
+    QThread* checkThread = m_editStatusCheckerThread = new QThread(this);
     connect(checkThread, SIGNAL(started()), m_editStatusChecker, SLOT(initialise()));
     connect(checkThread, SIGNAL(finished()), m_editStatusChecker, SLOT(clearTimers()));
+    connect(checkThread, &QThread::finished, m_editStatusChecker.data(), &QObject::deleteLater);
     m_editStatusChecker->moveToThread(checkThread);
     checkThread->start();
 
@@ -240,8 +241,7 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
 
 WizDocumentView::~WizDocumentView()
 {
-    if (m_editStatusChecker)
-       delete m_editStatusChecker;
+    waitForThread();
 }
 
 QSize WizDocumentView::sizeHint() const
@@ -256,8 +256,7 @@ void WizDocumentView::setSizeHint(QSize size)
 
 void WizDocumentView::waitForDone()
 {
-    m_editStatusChecker->thread()->quit();
-    m_editStatusSyncThread->waitForDone();
+    waitForThread();
 
     bool done = false;
     m_web->trySaveDocument(m_note, false, [=, &done](const QVariant& ret){
@@ -290,8 +289,12 @@ bool WizDocumentView::waitForSave(bool force)
 
 void WizDocumentView::waitForThread()
 {
-    m_editStatusChecker->thread()->quit();
+    if (m_editStatusCheckerThread) {
+        m_editStatusCheckerThread->requestInterruption();
+        m_editStatusCheckerThread->quit();
+    }
     m_editStatusSyncThread->waitForDone();
+    if (m_editStatusCheckerThread) m_editStatusCheckerThread->wait();
 }
 
 void WizDocumentView::RequestClose(bool force /*= false*/)

@@ -3,6 +3,7 @@
 #include "database/WizDatabaseManager.h"
 #include "database/WizDatabase.h"
 #include "gui/documentviewer/DocumentLoaderSaver.h"
+#include "gui/documentviewer/WizDocumentEditStatus.h"
 #include "sync/WizKMSync.h"
 #include "sync/WizApiEntry.h"
 #include <QApplication>
@@ -14,6 +15,7 @@
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QFile>
+#include <QSemaphore>
 #include <atomic>
 #include <memory>
 
@@ -33,6 +35,51 @@ int wizShutdownSelfTest(int argc, char** argv)
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label;
         return ok;
     };
+    {
+        WizWaitEvent event;
+        QSemaphore checkedEmpty, allowWait, firstReturned, allowSecond;
+        std::unique_ptr<QThread> worker(QThread::create([&] {
+            checkedEmpty.release();allowWait.acquire();event.wait();
+            firstReturned.release();allowSecond.acquire();event.wait();
+        }));
+        worker->start();
+        const bool started=checkedEmpty.tryAcquire(1,2000);
+        event.wakeAll(); // Deterministically before this worker registers wait.
+        allowWait.release();
+        const bool received=firstReturned.tryAcquire(1,2000);
+        check(started&&received,"loader/saver event remembers a notification before wait registration");
+        allowSecond.release();
+        check(received&&!worker->wait(50),"one notification is consumed once, without busy-waiting");
+        event.wakeAll();
+        QElapsedTimer rescue;rescue.start();
+        while(!worker->wait(10)&&rescue.elapsed()<2000)event.wakeAll();
+        check(worker->isFinished(),"subsequent notification completes and joins the isolated worker");
+        if(!worker->isFinished()){worker.release();return 1;}
+    }
+    {
+        bool joined=true,cleared=true;
+        const auto correctOwner=std::make_shared<std::atomic_bool>(true);
+        for(int i=0;i<32;++i){
+            auto thread=std::make_unique<QThread>();
+            QPointer<WizDocumentStatusChecker> checker=new WizDocumentStatusChecker;
+            QObject::connect(thread.get(),&QThread::started,checker.data(),&WizDocumentStatusChecker::initialise);
+            QObject::connect(thread.get(),&QThread::finished,checker.data(),&WizDocumentStatusChecker::clearTimers);
+            QObject::connect(thread.get(),&QThread::finished,checker.data(),&QObject::deleteLater);
+            QObject::connect(checker.data(),&QObject::destroyed,[owner=thread.get(),correctOwner]{
+                if(QThread::currentThread()!=owner)*correctOwner=false;
+            });
+            checker->moveToThread(thread.get());thread->start();thread->requestInterruption();thread->quit();
+            joined&=thread->wait(2000);cleared&=checker.isNull();
+            if(!joined){thread.release();return 1;}
+        }
+        check(joined&&cleared&&correctOwner->load(),"32 rapid checker starts/closes join and destroy timers on the owning worker");
+        bool syncStopped=true;
+        for(int i=0;i<32;++i){WizDocumentEditStatusSyncThread status;
+            if(i%2)status.on_timerOut();status.start();status.waitForDone();syncStopped&=!status.isRunning();}
+        check(syncStopped,"32 edit-status starts/stops retain early notification and complete without GUI reentry");
+        QObject owner;WizDocumentStatusChecker child(&owner);
+        check(child.parent()==&owner,"status checker respects an explicit QObject parent outside the worker-owned path");
+    }
     WizDatabaseManager manager("synthetic-shutdown-account");
     if (!check(manager.open(), "fresh isolated database opens")) return 1;
     manager.db().setKbGUID("synthetic-shutdown-kb");
@@ -57,6 +104,45 @@ int wizShutdownSelfTest(int argc, char** argv)
         ok = ok && file.open(QIODevice::ReadOnly)
             && file.readAll().contains(QString("saved-before-exit-%1").arg(i).toUtf8());
         check(ok, "each queued note retains its changed content on disk");
+    }
+    {
+        class PendingLoader final : public WizDocumentLoaderThread {
+        public:
+            using WizDocumentLoaderThread::WizDocumentLoaderThread;
+            void publish(const WIZDOCUMENTDATA& doc,WizEditorMode mode,QObject* owner) {
+                setCurrentDoc(doc.strKbGUID,doc.strGUID,mode,owner);
+            }
+        } loader(manager,nullptr);
+        QObject firstPage,secondPage;
+        auto* closedPage=new QObject;
+        QStringList loaded;QMap<QString,QString> files;QMap<QString,WizEditorMode> modes;
+        bool mainThread=true;
+        QObject::connect(&loader,&WizDocumentLoaderThread::loaded,&app,
+            [&](const QString& kb,const QString& guid,const QString& file,WizEditorMode mode){
+                mainThread&=QThread::currentThread()==app.thread()&&kb==notes[0].strKbGUID;
+                loaded.append(guid);files.insert(guid,file);modes.insert(guid,mode);
+            },Qt::QueuedConnection);
+        // Publish before starting the consumer: deterministic single-slot overwrite counterexample.
+        loader.publish(notes[0],modeReader,&firstPage);
+        loader.publish(notes[1],modeEditor,&secondPage);
+        loader.publish(notes[2],modeEditor,&firstPage);
+        loader.publish(notes[3],modeReader,nullptr);
+        loader.publish(notes[4],modeEditor,nullptr);
+        loader.publish(notes[5],modeReader,closedPage);delete closedPage;
+        loader.start();
+        QElapsedTimer pending;pending.start();
+        while(loaded.size()<4&&pending.elapsed()<5000){app.processEvents();QThread::msleep(2);}
+        loader.waitForDone();app.processEvents();
+        check(loaded==QStringList{notes[2].strGUID,notes[1].strGUID,notes[3].strGUID,notes[4].strGUID},
+            "independent pages and direct loads retain FIFO requests; same page keeps its latest pending note");
+        check(!loaded.contains(notes[0].strGUID)&&!loaded.contains(notes[5].strGUID),
+            "superseded and destroyed-page requests do not load stale content");
+        check(modes.value(notes[2].strGUID)==modeEditor&&modes.value(notes[3].strGUID)==modeReader&&mainThread,
+            "loaded results retain note mode and reach the application thread");
+        bool extracted=loaded.size()==4;
+        for(int index:{1,2,3,4}){QFile file(files.value(notes[index].strGUID));
+            extracted&=file.open(QIODevice::ReadOnly)&&file.readAll().contains(QString("saved-before-exit-%1").arg(index).toUtf8());}
+        check(extracted,"actual queued loader extracts the correct synthetic saved note for each request");
     }
     WizDocumentSaverThread failingSaver(manager, nullptr);
     WIZDOCUMENTDATA missing = notes[0]; missing.strGUID = "missing-synthetic-note";

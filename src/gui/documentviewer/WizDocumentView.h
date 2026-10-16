@@ -3,6 +3,7 @@
 
 #include <QSharedPointer>
 #include <QWidget>
+#include <QPointer>
 #include <QStackedWidget>
 
 #include "share/WizObject.h"
@@ -11,6 +12,7 @@
 #include "AbstractDocumentView.h"
 
 class QScrollArea;
+class QThread;
 class QLineEdit;
 class QLabel;
 
@@ -84,7 +86,8 @@ protected:
 
     WizUserCipherForm* m_passwordView;
     WizDocumentEditStatusSyncThread* m_editStatusSyncThread;
-    WizDocumentStatusChecker* m_editStatusChecker;
+    QPointer<WizDocumentStatusChecker> m_editStatusChecker;
+    QThread* m_editStatusCheckerThread = nullptr;
 
     virtual void showEvent(QShowEvent *event);
     virtual void resizeEvent(QResizeEvent* ev);
