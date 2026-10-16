@@ -962,6 +962,9 @@ bool WizKMDatabaseServer::getCommentCount(const QString& strDocumentGuid, int& c
 void WizKMDatabaseServer::onDocumentObjectDownloadProgress(QUrl url, qint64 downloadSize, qint64 totalSize)
 {
     QString urlString = url.toString();
+    // Resource replies run in their own pool. This queued slot belongs to the
+    // sync worker, so credit only its owned resources, not unrelated traffic.
+    if (downloadSize > m_objectDownloadedSize[urlString]) WizNetworkSecurity::noteActivity();
     m_objectDownloadedSize[urlString] = downloadSize;
     //
     qint64 totalDownloadedSize = 0;
@@ -1147,12 +1150,13 @@ bool WizKMDatabaseServer::document_downloadDataNew(const QString& strDocumentGUI
     {
         while (true)
         {
-            if (totalWaitForDownload == totalDownloaded + totalFailed)
             {
-                if (totalFailed == 0)
-                    break;
-
-                return false;
+                QMutexLocker locker(&mutex);
+                if (totalWaitForDownload == totalDownloaded + totalFailed)
+                {
+                    if (totalFailed == 0) break;
+                    return false;
+                }
             }
 
             QEventLoop loop;

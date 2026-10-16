@@ -34,6 +34,7 @@ inline QString editorScript(bool force, bool nativeDirty)
     return QString::fromLatin1(R"JS((function(){try{
         if(!window.WizNativeEditorInitialized || !window.WizEditor ||
             (window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready')) return {ok:false};
+        if(!document.body || !document.body.isContentEditable || document.body.classList.contains('wiz-readonly')) return {ok:false};
         if(!%1 && !%2 && !WizEditor.isModified()) return {ok:true,changed:false};
         var html=WizEditor.getContentHtml();
         if(typeof html!=='string' || !html.length) return {ok:false};
@@ -51,6 +52,7 @@ inline QString readerScript(bool nativeDirty = false)
         if(!window.WizNativeEditorInitialized ||
             (window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready') || !window.WizReader ||
             typeof WizReader.closeDocument!=='function') return {ok:false};
+        if(!document.body || document.body.isContentEditable) return {ok:false};
         var html=WizReader.closeDocument();
         if(html==null || html==='') {
             if(!%1) return {ok:true,changed:false};

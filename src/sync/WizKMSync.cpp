@@ -136,9 +136,8 @@ WizKMSyncThread::WizKMSyncThread(WizDatabase& db, bool quickOnly, QObject* paren
 
     m_pEvents = new WizKMSyncEvents();
     connect(m_pEvents, &WizKMSyncEvents::progressChanged, this,
-        [this, previous = -1](int position) mutable {
-            if (position != previous && m_networkStarted) ++m_networkActivity;
-            previous = position;
+        [this](int position) {
+            if (position != m_lastSyncProgress.exchange(position) && m_networkStarted) ++m_networkActivity;
         }, Qt::DirectConnection);
 
     connect(m_pEvents, SIGNAL(messageReady(const QString&)), SIGNAL(processLog(const QString&)));

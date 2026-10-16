@@ -45,12 +45,16 @@ int main(int argc, char** argv) {
         "uninitialized editor is not mistaken for an unchanged saved note");
     check(parse(evaluate(page,readerScript())).state==State::Failed,
         "missing reader is not mistaken for successful saving");
-    evaluate(page, "window.WizNativeEditorInitialized=true;window.text='old';window.baseline='old';window.captures=0;"
+    evaluate(page, "document.body.contentEditable='true';window.WizNativeEditorInitialized=true;window.text='old';window.baseline='old';window.captures=0;"
         "window.WizEditor={isModified:()=>text!==baseline,getContentHtml:()=>{++captures;return text;},setUnModified:()=>{baseline=text;}};");
     check(parse(evaluate(page,editorScript(false,false))).state==State::Unchanged
         &&evaluate(page,"captures").toInt()==0,"clean editor avoids unnecessary HTML capture");
     const auto forced=parse(evaluate(page,editorScript(true,false)));
     check(forced.state==State::Changed&&forced.html=="old","forced save captures unchanged content");
+    evaluate(page,"document.body.contentEditable='false';");
+    check(parse(evaluate(page,editorScript(true,false))).state==State::Failed,
+        "stale native editor mode cannot serialize a rendered preview as editable source");
+    evaluate(page,"document.body.contentEditable='true';");
     evaluate(page,"window.WizNativeEditorSetup={state:'pending'};");
     check(parse(evaluate(page,editorScript(true,false))).state==State::Failed,
         "partially initialized reader/editor cannot be saved as a finished document");
@@ -70,6 +74,9 @@ int main(int argc, char** argv) {
     check(parse(evaluate(page,editorScript(true,false))).state==State::Failed,
         "throwing editor reports failure explicitly");
     evaluate(page,"window.WizReader={closeDocument:()=>null};");
+    check(parse(evaluate(page,readerScript())).state==State::Failed,
+        "stale native reader mode cannot acknowledge an active editable page as saved");
+    evaluate(page,"document.body.contentEditable='false';");
     check(parse(evaluate(page,readerScript())).state==State::Unchanged,
         "original reader null return is a valid unchanged result");
     evaluate(page,"WizEditor.getContentHtml=()=>text;");

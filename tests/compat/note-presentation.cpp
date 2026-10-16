@@ -1,5 +1,9 @@
 #include "WizNotePresentation.h"
 #include "share/WizDocumentAsync.h"
+#include "share/WizMisc.h"
+#include "database/WizDatabaseManager.h"
+#include "database/WizDatabase.h"
+#include "gui/documentviewer/DocumentLoaderSaver.h"
 #include "share/WizSettings.h"
 #include "share/WizGlobal.h"
 #include "share/WizWebEngineView.h"
@@ -55,6 +59,24 @@ QVariant evaluate(QWebEnginePage* page, const QString& code) {
     page->runJavaScript(code, [result](const QVariant& value) { result->value = value; result->received = true; });
     waitFor([&] { return result->received; }, 10000); return result->value;
 }
+QString bootstrapSavedReader(QString html, const QString& type, const QString& css) {
+    const QString resource=Utils::WizPathResolve::resourcesPath()+"files/wizeditor/";
+    using WizNotePresentation::jsonString;
+    const QString scripts="<script name='wiz_inner_script' wiz_style='unsave' src=\""
+        +QUrl::fromLocalFile(resource+"wizEditorForMac.js").toString().toHtmlEscaped()+"\"></script>"
+        "<script name='wiz_inner_script' wiz_style='unsave' src=\""
+        +QUrl::fromLocalFile(resource+"editorHelper.js").toString().toHtmlEscaped()+"\"></script>"
+        "<script name='wiz_inner_script' wiz_style='unsave'>window.WizNoteCss="+jsonString(css)+";"
+        "WizEditor.init({document:document,lang:'zh-cn',clientType:'web',noteType:"+jsonString(type)
+        +",dependencyUrl:"+jsonString(QUrl::fromLocalFile(resource+"dependency").toString())
+        +",reader:{type:"+jsonString(type)+",callback:{markdown:()=>WizApplyNoteStyle(),mathJax:()=>WizApplyNoteStyle()}}});"
+        "window.WizNativeEditorInitialized=true;WizSetSpellCheck(false);WizPrepareNoteModeChange();"
+        "WizEditor.off(null,function(){var done=()=>{WizApplyNoteStyle();window.FixtureReady=true;};"
+        "if(window.MathJax&&MathJax.Hub)MathJax.Hub.Queue(done);else done();});</script>";
+    const int end=html.lastIndexOf("</body>", -1, Qt::CaseInsensitive);
+    if(end<0)return {};
+    html.insert(end,scripts);return html;
+}
 }
 
 int wizNotePresentationSelfTest(int argc, char** argv) {
@@ -72,6 +94,44 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
     int failures = 0;
     const auto check = [&](bool ok, const char* label) {
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label; failures += !ok; return ok;
+    };
+    std::unique_ptr<WizDatabaseManager> savedNotes;
+    if(qEnvironmentVariableIntValue("WIZNOTE_VERIFY_PERSISTED_RENDERING")){
+        savedNotes=std::make_unique<WizDatabaseManager>("synthetic-persisted-render-account");
+        if(!check(savedNotes->open(),"open isolated synthetic saved-render database"))return 1;
+        savedNotes->db().setKbGUID("synthetic-persisted-render-kb");
+    }
+    const auto persistAndReopen=[&](QWebEnginePage* source,const QString& type,const QString& sourceFile){
+        if(!savedNotes)return;
+        const QString query=type=="markdown"?"WizEditor.getMarkdownSrc({unEscapeHtml:true})":"WizEditor.getBodyText()";
+        const QString expected=evaluate(source,query).toString();
+        const QString expectedMath=evaluate(source,"JSON.stringify(window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().map(j=>j.originalText):[])").toString();
+        evaluate(source,"window.SaveEditingReady=false;WizPrepareNoteModeChange();WizEditor.on(null,function(){WizApplyNoteStyle();WizApplySpellCheck();window.SaveEditingReady=true;});");
+        if(!check(waitFor([&]{return evaluate(source,"!!window.SaveEditingReady&&document.body.isContentEditable").toBool();}),
+            "enter the actual editor before requesting an editor save snapshot"))return;
+        const auto snapshot=WizDocumentSaveSnapshot::parse(evaluate(source,WizDocumentSaveSnapshot::editorScript(true,false)));
+        if(!check(snapshot.state==WizDocumentSaveSnapshot::State::Changed,"capture production save snapshot for persisted rendering"))return;
+        WIZDOCUMENTDATA note;
+        if(!check(savedNotes->db().createDocumentAndInit("<html><body>before synthetic save</body></html>","",0,
+            type=="markdown"?"Synthetic saved.md":"Synthetic saved rich text","synthetic.html","/Rendering/","",note),
+            "create a fresh synthetic note in the original database format"))return;
+        WizDocumentSaverThread saver(*savedNotes,nullptr);
+        saver.save(note,snapshot.html,sourceFile,0);saver.waitForDone();
+        if(!check(saver.isIdleForTransfer()&&!saver.hasTransferError(),"original saver commits the rendered snapshot to its native note archive"))return;
+        QString extracted;
+        QString saved;
+        if(!check(savedNotes->db().documentToTempHtmlFile(note,extracted)&&WizLoadUnicodeTextFromFile(extracted,saved),
+            "re-extract the committed note through the original database reader"))return;
+        check(!saved.contains("window.FixtureReady")&&!saved.contains("window.EditingReady"),
+            "fixture bootstrap is excluded using the production unsaved-script markers");
+        const QString boot=bootstrapSavedReader(saved,type,WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(&settings)));
+        if(!check(WizDocumentSaveSnapshot::writeHtmlFile(extracted,boot),"prepare only the temporary extraction for a fresh reader"))return;
+        QWebEnginePage reopened(WizWebEngineProfile());reopened.load(QUrl::fromLocalFile(extracted));
+        const bool ready=waitFor([&]{return evaluate(&reopened,"!!window.FixtureReady").toBool();});
+        if(!check(ready,"fresh original reader opens the actually persisted native note offline"))return;
+        check(evaluate(&reopened,query).toString()==expected,"native note save and fresh reopen preserve the exact source or rich-text content");
+        check(evaluate(&reopened,"JSON.stringify(window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().map(j=>j.originalText):[])").toString()==expectedMath,
+            "native note save and fresh reopen preserve formula source and count");
     };
     const QString originalAppName = app.applicationName();
     const QString originalOrganization = app.organizationName();
@@ -183,9 +243,9 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         const QString resource = Utils::WizPathResolve::resourcesPath() + "files/wizeditor/";
         QString source = sources[index].toHtmlEscaped(); source.replace('\n', "<br>");
         const QString html = "<html><head><meta charset='utf-8'></head><body>" + source
-            + "<script src=\"" + QUrl::fromLocalFile(resource + "wizEditorForMac.js").toString().toHtmlEscaped() + "\"></script>"
-            + "<script src=\"" + QUrl::fromLocalFile(resource + "editorHelper.js").toString().toHtmlEscaped() + "\"></script>"
-            + "<script>window.WizNoteCss=" + jsonString(styleSheet(loadStyle(&settings)))
+            + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "wizEditorForMac.js").toString().toHtmlEscaped() + "\"></script>"
+            + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "editorHelper.js").toString().toHtmlEscaped() + "\"></script>"
+            + "<script name='wiz_inner_script' wiz_style='unsave'>window.WizNoteCss=" + jsonString(styleSheet(loadStyle(&settings)))
             + ";WizEditor.init({document:document,lang:'zh-cn',clientType:'web',noteType:'markdown',dependencyUrl:"
             + jsonString(QUrl::fromLocalFile(resource + "dependency").toString())
             + ",reader:{type:'markdown',callback:{markdown:function(){WizApplyNoteStyle();},mathJax:function(){WizApplyNoteStyle();}}}});"
@@ -278,14 +338,21 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         }
         const QString query = "WizEditor.getMarkdownSrc({unEscapeHtml:true})";
         const QString before = evaluate(reader.page(), query).toString();
-        const QString originalHtml = evaluate(reader.page(), "WizEditor.getContentHtml()").toString();
+        QString originalHtml = evaluate(reader.page(), "WizEditor.getContentHtml()").toString();
         evaluate(reader.page(), "window.WizNativeEditorInitialized=true");
+        evaluate(reader.page(),"window.SaveEditingReady=false;WizPrepareNoteModeChange();WizEditor.on(null,function(){WizApplyNoteStyle();WizApplySpellCheck();window.SaveEditingReady=true;});");
+        const bool editingReady=waitFor([&]{return evaluate(reader.page(),"!!window.SaveEditingReady&&document.body.isContentEditable").toBool();});
+        const QString editingHtml=evaluate(reader.page(),"WizEditor.getContentHtml()").toString();
         const auto snapshot = WizDocumentSaveSnapshot::parse(evaluate(reader.page(),
             WizDocumentSaveSnapshot::editorScript(true, false)));
-        check(snapshot.state == WizDocumentSaveSnapshot::State::Changed && snapshot.html == originalHtml
+        check(editingReady && snapshot.state == WizDocumentSaveSnapshot::State::Changed && snapshot.html == editingHtml
             && !evaluate(reader.page(), "WizEditor.isModified()").toBool()
             && evaluate(reader.page(), query).toString() == before,
             "actual original Markdown editor snapshot preserves HTML, source and clean baseline");
+        evaluate(reader.page(),"window.SaveReadingReady=false;WizPrepareNoteModeChange();WizEditor.off(null,function(){WizApplyNoteStyle();WizApplySpellCheck();"
+            "if(window.MathJax&&MathJax.Hub)MathJax.Hub.Queue(()=>{window.SaveReadingReady=true;});else window.SaveReadingReady=true;});");
+        if(!waitFor([&]{return evaluate(reader.page(),"!!window.SaveReadingReady").toBool();}))return 1;
+        originalHtml=evaluate(reader.page(),"WizEditor.getContentHtml()").toString();
         const auto readerSnapshot = WizDocumentSaveSnapshot::parse(evaluate(reader.page(),
             WizDocumentSaveSnapshot::readerScript()));
         check(readerSnapshot.state != WizDocumentSaveSnapshot::State::Failed
@@ -302,10 +369,17 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         evaluate(reader.page(), "WizApplyNoteStyle(" + jsonString(styleSheet(loadStyle(&settings))) + ")");
         check(!before.isEmpty() && before == evaluate(reader.page(), query).toString(),
             "applying/resetting common CSS leaves original Markdown source unchanged");
-        if (index == 3) check(before.contains("\\label{thm:positive}")
-            && originalHtml == evaluate(reader.page(), "WizEditor.getContentHtml()").toString()
-            && !originalHtml.contains("wiz-math-block") && !originalHtml.contains("data-wiz-math-heading"),
-            "label decoration is excluded from saved HTML and preserves original Markdown labels");
+        if (index == 3) {
+            const QString savedHtml=evaluate(reader.page(),"WizEditor.getContentHtml()").toString();
+            if(originalHtml!=savedHtml){
+                int diff=0;while(diff<savedHtml.size()&&diff<originalHtml.size()&&savedHtml[diff]==originalHtml[diff])++diff;
+                qInfo()<<"Original reader HTML changes across style toggles"<<diff
+                    <<originalHtml.mid(qMax(0,diff-50),140)<<savedHtml.mid(qMax(0,diff-50),140);
+            }
+            check(before.contains("\\label{thm:positive}")&&evaluate(reader.page(),query).toString()==before
+                &&!savedHtml.contains("wiz-math-block")&&!savedHtml.contains("data-wiz-math-heading"),
+                "label decoration is excluded from saved HTML and preserves original Markdown labels");
+        }
         if (index == 3) check(evaluate(reader.page(),
             "(function(){var html=WizReader.closeDocument()||'';return html.indexOf('wiz-math-block')<0"
             "&&html.indexOf('data-wiz-math-heading')<0&&WizEditor.getMarkdownSrc({unEscapeHtml:true}).indexOf('\\\\label{thm:positive}')>=0;})()").toBool(),
@@ -383,6 +457,7 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
             qInfo()<<"Native Markdown mode cycles:"<<completed<<"raw HTML byte-equal cycles:"<<rawEqual;
             check(stable&&completed==15,"15 actual Qt editor/reader cycles preserve exact Markdown, mathematics, references and clean saved attributes");
         }
+        persistAndReopen(reader.page(),"markdown",path);
         reader.close();
     }
     {
@@ -391,9 +466,9 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
             "<p id='synthetic-rich-p'>富文本 <strong>bold</strong> &amp; plain</p>"
             "<ul><li>first</li><li>second</li></ul><table><tbody><tr><td>cell</td></tr></tbody></table>"
             "<pre><code>int value = 42;</code></pre>"
-            "<script src=\""+QUrl::fromLocalFile(resource+"wizEditorForMac.js").toString().toHtmlEscaped()+"\"></script>"
-            "<script src=\""+QUrl::fromLocalFile(resource+"editorHelper.js").toString().toHtmlEscaped()+"\"></script>"
-            "<script>WizEditor.init({document:document,lang:'zh-cn',clientType:'web',noteType:'common',dependencyUrl:"
+            "<script name='wiz_inner_script' wiz_style='unsave' src=\""+QUrl::fromLocalFile(resource+"wizEditorForMac.js").toString().toHtmlEscaped()+"\"></script>"
+            "<script name='wiz_inner_script' wiz_style='unsave' src=\""+QUrl::fromLocalFile(resource+"editorHelper.js").toString().toHtmlEscaped()+"\"></script>"
+            "<script name='wiz_inner_script' wiz_style='unsave'>WizEditor.init({document:document,lang:'zh-cn',clientType:'web',noteType:'common',dependencyUrl:"
             +jsonString(QUrl::fromLocalFile(resource+"dependency").toString())+",reader:{type:'common'}});"
             "window.WizNativeEditorInitialized=true;"
             "WizEditor.off(null,function(){window.FixtureReady=true;});</script></body></html>";
@@ -404,16 +479,21 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         const bool ready=waitFor([&]{return evaluate(&reader,"!!window.FixtureReady").toBool();});
         check(ready,"original rich-text reader supports the awaited off callback offline");
         if(ready){
+            evaluate(&reader,"window.SaveEditingReady=false;WizPrepareNoteModeChange();WizEditor.on(null,function(){WizApplySpellCheck();window.SaveEditingReady=true;});");
+            if(!waitFor([&]{return evaluate(&reader,"!!window.SaveEditingReady&&document.body.isContentEditable").toBool();}))return 1;
             const QString original=evaluate(&reader,"WizEditor.getContentHtml()").toString();
             const auto snapshot=WizDocumentSaveSnapshot::parse(evaluate(&reader,WizDocumentSaveSnapshot::editorScript(true,false)));
             check(snapshot.state==WizDocumentSaveSnapshot::State::Changed&&snapshot.html==original
                 &&snapshot.html.contains("synthetic-rich-p")&&snapshot.html.contains("int value = 42;"),
                 "actual rich-text save snapshot preserves the original serializer and code content");
             check(!evaluate(&reader,"WizEditor.isModified()").toBool(),"rich-text snapshot keeps a clean baseline without changing editor engine");
+            evaluate(&reader,"window.SaveReadingReady=false;WizPrepareNoteModeChange();WizEditor.off(null,function(){WizApplySpellCheck();window.SaveReadingReady=true;});");
+            if(!waitFor([&]{return evaluate(&reader,"!!window.SaveReadingReady").toBool();}))return 1;
             const auto close=WizDocumentSaveSnapshot::parse(evaluate(&reader,WizDocumentSaveSnapshot::readerScript()));
             check(close.state!=WizDocumentSaveSnapshot::State::Failed
                 &&(close.state==WizDocumentSaveSnapshot::State::Unchanged||close.html==original),
                 "actual rich-text reader close distinguishes valid unchanged content from failure");
+            persistAndReopen(&reader,"common",path);
         }
     }
     check(requests.blocked == 0, "Markdown and rich-text snapshot tests require no remote resources");

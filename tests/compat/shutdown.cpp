@@ -71,6 +71,23 @@ int wizShutdownSelfTest(int argc, char** argv)
         }
         WizNetworkSecurity::noteActivity();
         check(outer==2&&inner==1,"network activity observation is scoped and restored, with no persistent callback");
+        {
+            WIZUSERINFOBASE user;user.strKbServer="https://example.invalid/no-network";
+            WizKMDatabaseServer resources(user);
+            int ownedActivity=0;
+            const WizNetworkSecurity::ActivityScope scope([&]{++ownedActivity;});
+            auto publisher=std::unique_ptr<QThread>(QThread::create([&]{
+                WizNetworkSecurity::noteActivity(); // Unrelated worker has no observer.
+                for(qint64 bytes:{qint64(0),qint64(64),qint64(64),qint64(128)})
+                    QMetaObject::invokeMethod(&resources,"onDocumentObjectDownloadProgress",Qt::QueuedConnection,
+                        Q_ARG(QUrl,QUrl("https://example.invalid/resource")),Q_ARG(qint64,bytes),Q_ARG(qint64,qint64(256)));
+            }));
+            publisher->start();const bool joined=publisher->wait(2000);
+            if(!joined){publisher.release();return 1;}
+            const bool isolated=ownedActivity==0;app.processEvents();
+            check(isolated&&ownedActivity==2,
+                "owned parallel resource progress extends its sync wait; other workers and duplicate/zero-byte heartbeats do not");
+        }
     }
     {
         WizWaitEvent event;

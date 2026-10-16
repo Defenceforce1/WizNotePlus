@@ -69,4 +69,4 @@ set_tests_properties(wiznote_native_note_transfer PROPERTIES
 add_test(NAME wiznote_note_presentation
     COMMAND $<TARGET_FILE:WizNotePlus> --note-presentation-self-test)
 set_tests_properties(wiznote_note_presentation PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 180)
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;WIZNOTE_VERIFY_PERSISTED_RENDERING=1" TIMEOUT 300)

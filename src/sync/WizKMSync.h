@@ -109,6 +109,7 @@ private:
     bool m_wakeRequested = false;
     std::atomic_bool m_networkStarted{false};
     std::atomic<quint64> m_networkActivity{0};
+    std::atomic<int> m_lastSyncProgress{-1};
 
     QMutex m_mutex;
     QWaitCondition m_wait;
