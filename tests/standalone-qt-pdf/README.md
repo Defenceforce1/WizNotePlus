@@ -23,6 +23,22 @@ python3 tests/compat/explore-reference-pdf.py /absolute/new/output --engine qt
 
 用户文件及其截图、内容、路径和诊断结果只留本机，不加入源码备份。不要将测试 PDF 后处理成“通过”，或因一个样本变好就更新正式运行库。
 
+## 不依赖主程序的坐标复现
+
+同一工程另有 `anchor-geometry`，不包含／链接任何 Wiz 代码、编辑器、数学库或页面脚本。它用合成三页彩色目标和普通内部链接，改变纸型、方向、API 页边距、正文宽度和 CSS 命名页。运行前要求一个新建的空输出目录：
+
+```sh
+cmake --build /absolute/build-directory --target anchor-geometry
+QT_QPA_PLATFORM=cocoa /absolute/build-directory/anchor-geometry \
+  /absolute/matching/Qt/macos /absolute/new/empty/output
+python3 tests/standalone-qt-pdf/audit-anchor-geometry.py \
+  /absolute/new/empty/output --output /absolute/new/empty/output/audit.json
+```
+
+SDK／helper／资源路径必须在 WebEngine 创建前规范为绝对路径并验证可读。首次诊断曾因相对资源路径崩溃，不能再以当前工作目录中“文件存在”作为运行时路径有效的证明。不注册 App、不用正常用户 profile、不启动主程序。审计只读，区分 PDF `/Dests` 字典的 NameObject 与 Names tree 的字符串，不把 `/` 语法误报为目标缺失。
+
+九份 PDF 的生成不变量通过，仅说明测试跑完；七种定位错误被成功复现并不等于修复。源点击矩形与目标具名点也必须分开检查；CSS 页边距对照会改变页面尺寸／排版，不能直接代替产品方案。见 [第十九轮](../../docs/exploration-2026-10-18-phase19.md)。
+
 ## SVG／打印变换隔离实验
 
 仅测试进程设置 `WIZNOTE_PDF_SVG_TARGET_PROTOTYPE=1`，在原三份输出外再生成五份：修改 XLink 地址编码、移动目标到 HTML 容器，以及补充无命名空间的 SVG2 `href`（保留编码／原始片段各一份）。每个变体都恢复原属性命名空间、值和目标，并核对原文、HTML、修改状态、容器几何。仅改地址拼写或容器不能视作完整修复。SVG2 使用无命名空间的 `href`，并优先于 XLink 版本，见 [W3C 链接规范](https://www.w3.org/TR/SVG2/linking.html#XLinkRefAttrs)。
