@@ -21,19 +21,37 @@ const cases = files.map(file => {
     const probe = JSON.parse(reports[0].slice('MEMORY_PROBE '.length));
     const opened = probe.samples.filter(x => x.phase === 'four-open');
     const closed = probe.samples.filter(x => x.phase === 'all-closed');
+    const expectedClosedProcesses = probe.expectedClosedProcessCount ?? 1;
+    if (expectedClosedProcesses !== (probe.retainedNote ? 2 : 1))
+        throw Error('Invalid retained-page process expectation: ' + file);
     if (!opened.length || opened.length !== closed.length
         || opened.some((x, i) => x.batch !== i || x.processCount < 1)
-        || closed.some((x, i) => x.batch !== i || x.processCount !== 1 || !x.available))
+        || closed.some((x, i) => x.batch !== i || x.processCount !== expectedClosedProcesses || !x.available))
         throw Error('Incomplete batches or remaining child process: ' + file);
     const delayed = probe.samples.find(x => x.phase === 'all-closed-after-ten-seconds');
+    const finallyClosed = probe.samples.find(x => x.phase === 'retained-tab-finally-closed');
+    const afterPool = probe.samples.filter(x => x.phase === 'after-native-batch-pool');
+    if (probe.nativeBatchPool && (afterPool.length !== closed.length
+        || afterPool.some((x, i) => x.batch !== i || x.processCount !== expectedClosedProcesses)))
+        throw Error('Incomplete native pool observations: ' + file);
+    if (probe.retainedNote && (!delayed || delayed.processCount !== 2
+        || !finallyClosed || finallyClosed.processCount !== 1))
+        throw Error('Retained page did not remain alive or finish cleanup: ' + file);
     return {log: path.basename(file), batches: closed.length, pageOpenings: closed.length * 4,
         emptyControl: !!opened[0].emptyControl, visibleCocoa: !!opened[0].visibleCocoa,
         visibleOffscreen: !!opened[0].visibleOffscreen, sharedHost: probe.sharedHost ?? null,
         nestedLoopControl: probe.nestedLoopControl ?? null,
+        retainedNote: probe.retainedNote ?? false, releaseGraphics: probe.releaseGraphics ?? false,
+        nativeBatchPool: probe.nativeBatchPool ?? false,
+        rhiControl: probe.rhiControl ?? '',
+        stockView: probe.stockView ?? false,
+        expectedClosedProcessCount: expectedClosedProcesses,
         namedPassChecks: lines.filter(x => x.startsWith('PASS ')).length,
         closedWidgetCounts: [...new Set(closed.map(x => x.widgetCount ?? null))],
         closedProfileObjectCounts: [...new Set(closed.map(x => x.profileDescendantObjects ?? null))],
+        closedWindowCounts: [...new Set(closed.map(x => x.windowCount ?? null))],
         mainRss: metric(closed, 'mainRssKiB'), mainFootprint: metric(closed, 'mainFootprintKiB'),
+        afterNativePoolFootprint: afterPool.length ? metric(afterPool, 'mainFootprintKiB') : null,
         delayedMainRssMiB: typeof delayed?.mainRssKiB === 'number' ? delayed.mainRssKiB / 1024 : null,
         delayedMainFootprintMiB: typeof delayed?.mainFootprintKiB === 'number' ? delayed.mainFootprintKiB / 1024 : null};
 });

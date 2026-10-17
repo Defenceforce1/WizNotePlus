@@ -35,6 +35,15 @@ set_tests_properties(wiznote_login_recovery_smoke PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_NATIVE_TRANSFER_TESTS)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS QuickWidgets)
+target_link_libraries(WizNotePlus Qt${QT_VERSION_MAJOR}::QuickWidgets)
+if(APPLE AND QT_VERSION_MAJOR EQUAL 6 AND Qt6Core_VERSION VERSION_GREATER_EQUAL "6.6" AND TARGET Qt6::GuiPrivate)
+    add_library(wiznote_memory_rhi STATIC native-memory-rhi.cpp)
+    target_link_libraries(wiznote_memory_rhi PRIVATE Qt6::QuickWidgets Qt6::GuiPrivate)
+    target_link_libraries(WizNotePlus wiznote_memory_rhi)
+    set_property(SOURCE ${PROJECT_SOURCE_DIR}/tests/compat/native-editor-runtime.cpp TARGET_DIRECTORY WizNotePlus
+        APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_MEMORY_RHI_TESTS)
+endif()
 add_test(NAME wiznote_comment_lifetime COMMAND $<TARGET_FILE:WizNotePlus> --comment-lifetime-self-test)
 set_tests_properties(wiznote_comment_lifetime PROPERTIES TIMEOUT 30)
 add_test(NAME wiznote_spellcheck COMMAND $<TARGET_FILE:WizNotePlus> --spellcheck-self-test)

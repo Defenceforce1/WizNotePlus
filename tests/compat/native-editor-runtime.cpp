@@ -15,16 +15,24 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QProcess>
+#include <QQuickWidget>
+#include <QQuickWindow>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QTabWidget>
 #include <QTimer>
 #include <QWebEngineProfile>
 #include <QWebEngineUrlRequestInterceptor>
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <vector>
 #ifdef Q_OS_MAC
 #include <mach/mach.h>
+int wizNativeMemoryBatchPool(const std::function<int()>& action);
+#endif
+#ifdef WIZNOTE_MEMORY_RHI_TESTS
+bool wizNativeMemoryRhiControl(QQuickWindow* window, bool finish);
 #endif
 
 // Real QWebChannel + unmodified mac client engine; only the native account/
@@ -85,10 +93,10 @@ void settle(int ms) { QEventLoop loop;QTimer::singleShot(ms,&loop,&QEventLoop::q
 using WizNotePresentation::jsonString;
 struct Session {
     SyntheticEditorBridge editor,explorer;
-    std::unique_ptr<WizWebEngineView> view;
+    std::unique_ptr<QWebEngineView> view;
     WizDocumentCallbackEpoch epoch;
     QString source,path;
-    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr) {
+    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr,bool stockView=false) {
         source="# Native bridge fixture\n\nReference \\ref{thm:local}.\n\n";
         for(int i=0;i<blocks;++i)source+=QString("> **定理** \\label{thm:%1}\n>\n> Synthetic $x^2\\ge0$.\n\n<!-- -->\n\n").arg(i?QString::number(i):"local");
         source+="```text\n\\ref{code:unchanged}\n```\n";
@@ -105,11 +113,19 @@ struct Session {
         WizWebEngineInjectObjectCollection objects;
         if(completeBridge)objects.insert("WizQtEditor",&editor);
         objects.insert("WizExplorerApp",&explorer);
-        view=std::make_unique<WizWebEngineView>(objects,host);
-        if(host)static_cast<QGridLayout*>(host->layout())->addWidget(view.get(),index%4/2,index%2);
+        if(stockView) {
+            view=std::make_unique<QWebEngineView>(host);
+            view->setPage(new QWebEnginePage(WizWebEngineProfile(),view.get()));
+        } else view=std::make_unique<WizWebEngineView>(objects,host);
+        if(auto* tabs=qobject_cast<QTabWidget*>(host)) {
+            tabs->addTab(view.get(),QString("Synthetic %1").arg(index));tabs->setCurrentWidget(view.get());
+        } else if(host)static_cast<QGridLayout*>(host->layout())->addWidget(view.get(),index%4/2,index%2);
         if(showView){view->resize(900,600);view->show();}
         bool loaded=false,ok=false;
-        const auto connection=QObject::connect(view.get(),&WizWebEngineView::loadFinishedEx,[&](bool success){loaded=true;ok=success;});
+        QMetaObject::Connection connection;
+        const auto finished=[&](bool success){loaded=true;ok=success;};
+        if(stockView)connection=QObject::connect(view.get(),&QWebEngineView::loadFinished,finished);
+        else connection=QObject::connect(static_cast<WizWebEngineView*>(view.get()),&WizWebEngineView::loadFinishedEx,finished);
         view->load(QUrl::fromLocalFile(path));
         const bool ready=waitFor([&]{return loaded;});QObject::disconnect(connection);
         return ready&&ok&&evaluate(view->page(),emptyControl?"document.body.textContent==='Synthetic empty control'":"typeof WizEditorInit==='function'&&typeof qt==='object'").toBool();
@@ -166,6 +182,7 @@ QJsonObject processMemory() {
 #endif
     result.insert("profileDescendantObjects",WizWebEngineProfile()->findChildren<QObject*>().size());
     result.insert("widgetCount",QApplication::allWidgets().size());
+    result.insert("windowCount",QGuiApplication::allWindows().size());
     return result;
 }
 }
@@ -188,16 +205,35 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         const bool empty=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_EMPTY_CONTROL")==1;
         const bool nestedControl=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_NESTED_LOOP_CONTROL")==1;
         const bool sharedHost=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_SHARED_HOST")==1;
+        const bool keepNote=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_KEEP_NOTE")==1;
+        const bool releaseGraphics=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_RELEASE_GRAPHICS")==1;
+        const bool batchPool=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_BATCH_POOL")==1;
+        const QString rhiControl=qEnvironmentVariable("WIZNOTE_MEMORY_RHI_CONTROL");
+        const bool stockView=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_STOCK_VIEW")==1;
         // Offscreen visibility cannot accidentally open desktop windows.
         // Actual Cocoa windows need a separate, explicit test-only opt-in.
         if(batches<1||batches>30||(visible&&QGuiApplication::platformName()!="offscreen")
             ||(nativeVisible&&QGuiApplication::platformName()!="cocoa")||(visible&&nativeVisible)
-            ||(sharedHost&&!nativeVisible))return 4;
+            ||(sharedHost&&!nativeVisible)||(keepNote&&(!sharedHost||nestedControl))
+            ||(releaseGraphics&&!keepNote)||(batchPool&&(!nativeVisible||nestedControl))
+            ||(!rhiControl.isEmpty()&&(!keepNote||(rhiControl!="finish"&&rhiControl!="cache")))
+            ||(stockView&&(!empty||!keepNote)))return 4;
+#ifndef WIZNOTE_MEMORY_RHI_TESTS
+        if(!rhiControl.isEmpty())return 4;
+#endif
         std::unique_ptr<QWidget> host;
+        QTabWidget* tabs=nullptr;
         if(sharedHost) {
             host=std::make_unique<QWidget>();host->setWindowTitle("WizNotePlus — synthetic memory test (no account)");
             auto* layout=new QGridLayout(host.get());layout->setContentsMargins(0,0,0,0);
+            if(keepNote){tabs=new QTabWidget(host.get());layout->addWidget(tabs,0,0);}
             host->resize(900,600);host->show();
+        }
+        std::unique_ptr<Session> retained;
+        if(keepNote) {
+            retained=std::make_unique<Session>();
+            if(!retained->load(root.path(),10000,16,true,true,empty,tabs,stockView)
+                ||(!empty&&!retained->start("memory-retained")))return 2;
         }
         QJsonArray samples;
         const auto runBatch=[&](int batch)->int {
@@ -205,7 +241,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             QElapsedTimer elapsed;elapsed.start();
             for(int i=0;i<4;++i) {
                 auto session=std::make_unique<Session>();
-                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible,empty,host.get())
+                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible,empty,tabs?static_cast<QWidget*>(tabs):host.get(),stockView)
                     ||(!empty&&!session->start(QString("memory-%1-%2").arg(batch).arg(i))))return 2;
                 pages.push_back(std::move(session));
             }
@@ -215,21 +251,61 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             for(const auto& page:pages) {
                 content&=evaluate(page->view->page(),empty?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==page->source;
                 if(!empty)content&=evaluate(page->view->page(),"MathJax.Hub.getAllJax().length").toInt()==16;
+                if(stockView)content&=QByteArray(page->view->metaObject()->className())=="QWebEngineView"
+                    &&QByteArray(page->view->page()->metaObject()->className())=="QWebEnginePage"
+                    &&page->view->page()->webChannel()==nullptr
+                    &&evaluate(page->view->page(),"document.scripts.length===0&&typeof WizEditor==='undefined'&&typeof MathJax==='undefined'").toBool();
                 visibility.append(evaluate(page->view->page(),"document.visibilityState").toString());
             }
-            if(!check(content,empty?"all four native empty controls retain only synthetic placeholder text":"all four synthetic native pages retain source and render all sixteen formulas"))return 5;
+            if(!check(content,stockView?"all four stock Qt controls preserve plain text without app page subclasses, channel or editor scripts":
+                empty?"all four native empty controls retain only synthetic placeholder text":"all four synthetic native pages retain source and render all sixteen formulas"))return 5;
             opened.insert("visibilityStates",visibility);opened.insert("visibleOffscreen",visible);
             opened.insert("visibleCocoa",nativeVisible);
             opened.insert("emptyControl",empty);
             samples.replace(samples.size()-1,opened);
             qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(opened).toJson(QJsonDocument::Compact));
-            QList<QPointer<WizWebEngineView>> views;
+            QList<QPointer<QWebEngineView>> views;
             QList<QPointer<QWebEnginePage>> webPages;
-            for(const auto& page:pages){views.append(page->view.get());webPages.append(page->view->page());}
-            pages.clear();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);settle(1000);
+            QList<QPointer<QQuickWindow>> quickWindows;
+            for(const auto& page:pages){
+                views.append(page->view.get());webPages.append(page->view->page());
+                for(auto* widget:page->view->findChildren<QQuickWidget*>())quickWindows.append(widget->quickWindow());
+            }
+            pages.clear();
+            if(retained)tabs->setCurrentWidget(retained->view.get());
+            QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);settle(1000);
             bool gone=true;for(const auto& view:views)gone&=view.isNull();
             for(const auto& page:webPages)gone&=page.isNull();
-            if(!check(gone,"all four native views and pages are released after closing the synthetic batch"))return 3;
+            for(const auto& window:quickWindows)gone&=window.isNull();
+            if(!check(gone&&quickWindows.size()==4,"all four native views, pages and Quick windows are released after closing the synthetic batch"))return 3;
+            if(retained) {
+#ifdef WIZNOTE_MEMORY_RHI_TESTS
+                if(!rhiControl.isEmpty()) {
+                    int completed=0;
+                    for(auto* widget:retained->view->findChildren<QQuickWidget*>())
+                        completed+=wizNativeMemoryRhiControl(widget->quickWindow(),rhiControl=="finish");
+                    if(!check(completed==1,"optional Metal diagnostic completes on exactly one retained native graphics context"))return 9;
+                    settle(250);
+                }
+#endif
+                if(releaseGraphics) {
+                    int released=0;
+                    for(auto* widget:retained->view->findChildren<QQuickWidget*>()) {
+                        if(auto* window=widget->quickWindow()) {
+                            // Diagnostic only: public scene-graph resource
+                            // release request, never browser cache/DOM/data.
+                            window->releaseResources();widget->update();++released;
+                        }
+                    }
+                    if(!check(released==1,"diagnostic releases cached graphics through the retained page's single native Quick widget"))return 8;
+                    settle(250);
+                }
+                const bool intact=tabs->count()==1&&tabs->currentWidget()==retained->view.get()
+                    &&evaluate(retained->view->page(),empty?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==retained->source
+                    &&(empty||evaluate(retained->view->page(),"MathJax.Hub.getAllJax().length").toInt()==16)
+                    &&evaluate(retained->view->page(),"document.visibilityState==='visible'").toBool();
+                if(!check(intact,"retained current tab remains visible with exact source and formulas after other pages close"))return 6;
+            }
             auto closed=processMemory();closed.insert("batch",batch);closed.insert("phase","all-closed");samples.append(closed);
             qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(closed).toJson(QJsonDocument::Compact));
             return 0;
@@ -245,7 +321,19 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             std::function<void()> next;
             next=[&] {
                 if(batch==batches){app.exit(0);return;}
-                if(const int status=runBatch(batch++)){app.exit(status);return;}
+                const auto action=[&]{return runBatch(batch++);};
+                int status=0;
+#ifdef Q_OS_MAC
+                status=batchPool?wizNativeMemoryBatchPool(action):action();
+#else
+                status=action();
+#endif
+                if(status){app.exit(status);return;}
+                if(batchPool) {
+                    settle(100);auto drained=processMemory();drained.insert("phase","after-native-batch-pool");
+                    drained.insert("batch",batch-1);samples.append(drained);
+                    qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(drained).toJson(QJsonDocument::Compact));
+                }
                 QTimer::singleShot(100,&app,next);
             };
             QTimer::singleShot(0,&app,next);
@@ -253,8 +341,22 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         }
         settle(10000);auto settled=processMemory();settled.insert("phase","all-closed-after-ten-seconds");samples.append(settled);
         qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(settled).toJson(QJsonDocument::Compact));
-        qInfo().noquote()<<"MEMORY_PROBE"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"engine","native Qt mac bridge; synthetic views, not full main-window workload"},
-            {"rssIsNotUniquePhysicalMemory",true},{"nestedLoopControl",nestedControl},{"sharedHost",sharedHost},{"samples",samples}}).toJson(QJsonDocument::Compact));
+        if(retained) {
+            const QPointer<QWebEngineView> view=retained->view.get();
+            const QPointer<QWebEnginePage> page=retained->view->page();
+            retained.reset();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);settle(1000);
+            if(!check(view.isNull()&&page.isNull()&&tabs->count()==0,"retained tab is released only at the explicit end of the isolated test"))return 7;
+            auto final=processMemory();final.insert("phase","retained-tab-finally-closed");samples.append(final);
+            qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(final).toJson(QJsonDocument::Compact));
+        }
+        qInfo().noquote()<<"MEMORY_PROBE"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},
+            {"engine",stockView?"stock Qt views/pages without editor or app bridge; shared isolated profile":"native Qt mac bridge; synthetic views, not full main-window workload"},
+            {"rssIsNotUniquePhysicalMemory",true},{"nestedLoopControl",nestedControl},{"sharedHost",sharedHost},
+            {"retainedNote",keepNote},{"releaseGraphics",releaseGraphics},
+            {"nativeBatchPool",batchPool},
+            {"rhiControl",rhiControl},
+            {"stockView",stockView},
+            {"expectedClosedProcessCount",keepNote?2:1},{"samples",samples}}).toJson(QJsonDocument::Compact));
     } else {
         {
             Session session;if(!check(session.load(root.path(),0),"native editor fixture loads original engine helper and actual Qt transport"))return 1;
