@@ -1,0 +1,161 @@
+diff --git a/chromium/third_party/blink/renderer/core/page/print_context.cc b/chromium/third_party/blink/renderer/core/page/print_context.cc
+index da93d60..21195d6 100644
+--- a/chromium/third_party/blink/renderer/core/page/print_context.cc
++++ b/chromium/third_party/blink/renderer/core/page/print_context.cc
+@@ -26,6 +26,7 @@
+ #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
+ #include "third_party/blink/renderer/core/frame/local_frame.h"
+ #include "third_party/blink/renderer/core/frame/local_frame_view.h"
++#include "third_party/blink/renderer/core/frame/pagination_state.h"
+ #include "third_party/blink/renderer/core/frame/settings.h"
+ #include "third_party/blink/renderer/core/layout/layout_view.h"
+ #include "third_party/blink/renderer/core/layout/pagination_utils.h"
+@@ -179,9 +180,18 @@ void PrintContext::OutputLinkedDestinations(
+     GraphicsContext& context,
+     const PropertyTreeStateOrAlias& property_tree_state,
+     const gfx::Rect& page_rect) {
++  // The content-area node owns the current page translation, shrink-to-fit,
++  // and margins. Named destinations must use the same state as painted content.
++  const auto* pagination_state = GetFrame()->View()->GetPaginationState();
++  PropertyTreeStateOrAlias destination_properties(property_tree_state);
++  if (pagination_state) {
++    destination_properties =
++        pagination_state->ContentAreaPropertyTreeStateForCurrentPage(
++            *GetFrame()->GetDocument()->GetLayoutView());
++  }
+   DEFINE_STATIC_DISPLAY_ITEM_CLIENT(client, "PrintedLinkedDestinations");
+   ScopedPaintChunkProperties scoped_paint_chunk_properties(
+-      context.GetPaintController(), property_tree_state, *client,
++      context.GetPaintController(), destination_properties, *client,
+       DisplayItem::kPrintedContentDestinationLocations);
+   DrawingRecorder line_boundary_recorder(
+       context, *client, DisplayItem::kPrintedContentDestinationLocations);
+@@ -199,12 +209,13 @@ void PrintContext::OutputLinkedDestinations(
+       continue;
+     gfx::Point anchor_point = layout_object->AbsoluteBoundingBoxRect().origin();
+     if (page_rect.Contains(anchor_point)) {
+-      // The linked destination location is relative to the current page (in
+-      // fact just like everything else that's painted, but the linked
+-      // destination code is tacked on the outside of the paint code, so extra
+-      // awareness is required).
++      // Paginated content properties already subtract the stitched-page
++      // offset. Subtracting page_rect again would double-translate later pages.
++      // Non-paginated captures retain their existing page-relative coordinates.
+       context.SetURLDestinationLocation(
+-          entry.key, anchor_point - page_rect.OffsetFromOrigin());
++          entry.key, pagination_state
++                         ? anchor_point
++                         : anchor_point - page_rect.OffsetFromOrigin());
+     }
+   }
+ }
+diff --git a/chromium/third_party/blink/renderer/core/page/print_context_test.cc b/chromium/third_party/blink/renderer/core/page/print_context_test.cc
+index 98c9274..6bc12fe 100644
+--- a/chromium/third_party/blink/renderer/core/page/print_context_test.cc
++++ b/chromium/third_party/blink/renderer/core/page/print_context_test.cc
+@@ -6,6 +6,7 @@
+ 
+ #include <memory>
+ #include <ranges>
++#include <string>
+ #include <string_view>
+ 
+ #include "base/containers/span.h"
+@@ -53,6 +54,7 @@ class MockPageContextCanvas : public SkCanvas {
+   struct Operation {
+     OperationType type;
+     SkRect rect;
++    std::string destination = {};
+   };
+ 
+   MockPageContextCanvas() : SkCanvas(kPageWidth, kPageHeight) {}
+@@ -71,9 +73,13 @@ class MockPageContextCanvas : public SkCanvas {
+       SkPoint point = getTotalMatrix().mapXY(rect.x(), rect.y());
+       Operation operation = {kDrawPoint,
+                              SkRect::MakeXYWH(point.x(), point.y(), 0, 0)};
++      operation.destination.assign(static_cast<const char*>(value->data()),
++                                   value->size() ? value->size() - 1 : 0);
+       recorded_operations_.push_back(operation);
+     } else {
+       Operation operation = {kDrawRect, rect};
++      operation.destination.assign(static_cast<const char*>(value->data()),
++                                   value->size() ? value->size() - 1 : 0);
+       getTotalMatrix().mapRect(&operation.rect);
+       recorded_operations_.push_back(operation);
+     }
+@@ -134,12 +140,14 @@ class PrintContextTest : public PaintTestConfigurations, public RenderingTest {
+     GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(body_content);
+   }
+ 
+-  gfx::Rect PrintSinglePage(SkCanvas& canvas, int page_index = 0) {
++  gfx::Rect PrintSinglePage(SkCanvas& canvas, int page_index = 0,
++                           const WebPrintParams* custom_params = nullptr) {
+     GetDocument().SetPrinting(Document::kBeforePrinting);
+     Event* event = MakeGarbageCollected<BeforePrintEvent>();
+     GetPrintContext().GetFrame()->DomWindow()->DispatchEvent(*event);
+     GetPrintContext().BeginPrintMode(
+-        WebPrintParams(gfx::SizeF(kPageWidth, kPageHeight)));
++        custom_params ? *custom_params
++                      : WebPrintParams(gfx::SizeF(kPageWidth, kPageHeight)));
+     GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+         DocumentUpdateReason::kTest);
+ 
+@@ -672,6 +680,58 @@ TEST_P(PrintContextTest, LinkedTargetSecondPage) {
+   EXPECT_SKRECT_EQ(0, 50, 0, 0, (*operations)[0].rect);
+ }
+ 
++TEST_P(PrintContextTest, LinkedTargetUsesCurrentPageContentTransform) {
++  struct Scenario {
++    int width;
++    float margin;
++    float scale;
++  };
++  const Scenario scenarios[] = {
++      {400, 20, 1}, {1200, 20, 1}, {1200, 40, 1},
++      {400, 20, .75f}, {1200, 20, 1.25f}};
++  for (const auto& scenario : scenarios) {
++    SCOPED_TRACE(testing::Message() << scenario.width << " " << scenario.margin
++                                  << " " << scenario.scale);
++    StringBuilder html;
++    html << "<style>body{width:" << scenario.width
++         << "px}article{break-before:page;padding-top:100px}"
++            "a{display:block;width:80px;height:30px;margin-left:40px}"
++            "</style><article><a id='one' href='#one'>one</a></article>"
++            "<article><a id='two' href='#two'>two</a></article>";
++    SetBodyInnerHTML(html.ReleaseString());
++    WebPrintParams params(gfx::SizeF(kPageWidth, kPageHeight));
++    params.default_page_description.margin_top = scenario.margin;
++    params.default_page_description.margin_left = scenario.margin + 10;
++    params.default_page_description.margin_right = scenario.margin;
++    params.default_page_description.margin_bottom = scenario.margin + 5;
++    params.scale_factor = scenario.scale;
++    params.ignore_css_margins = true;
++    for (int page_index = 0; page_index < 2; ++page_index) {
++      SCOPED_TRACE(page_index);
++      testing::NiceMock<MockPageContextCanvas> canvas;
++      PrintSinglePage(canvas, page_index, &params);
++      const std::string name = page_index ? "two" : "one";
++      const MockPageContextCanvas::Operation* source = nullptr;
++      const MockPageContextCanvas::Operation* destination = nullptr;
++      for (const auto& operation : canvas.RecordedOperations()) {
++        if (operation.destination != name)
++          continue;
++        if (operation.type == MockPageContextCanvas::kDrawPoint) {
++          ASSERT_FALSE(destination);
++          destination = &operation;
++        } else {
++          ASSERT_FALSE(source);
++          source = &operation;
++        }
++      }
++      ASSERT_TRUE(source);
++      ASSERT_TRUE(destination);
++      EXPECT_NEAR(destination->rect.x(), source->rect.x(), 1);
++      EXPECT_NEAR(destination->rect.y(), source->rect.y(), 1);
++    }
++  }
++}
++
+ TEST_P(PrintContextTest, LinkedTargetRootMargin) {
+   ScopedLayoutBoxVisualLocationForTest scoped_feature(true);
+   SetBodyInnerHTML(R"HTML(

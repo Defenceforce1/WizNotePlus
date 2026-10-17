@@ -39,6 +39,8 @@ SDK／helper／资源路径必须在 WebEngine 创建前规范为绝对路径并
 
 九份 PDF 的生成不变量通过，仅说明测试跑完；七种定位错误被成功复现并不等于修复。源点击矩形与目标具名点也必须分开检查；CSS 页边距对照会改变页面尺寸／排版，不能直接代替产品方案。见 [第十九轮](../../docs/exploration-2026-10-18-phase19.md)。
 
+候选引擎必须用 `audit-anchor-geometry.py OUTPUT --require-accurate --output NEW_AUDIT.json` 做全部九组验收；定位／页码或源点击矩形左边及垂直中心对齐失败则返回非零。`--cases` 只用于正负对照，输出明确标记 `subsetOnly`，子集不能接受引擎。现有原版完整验收应失败，不能为得到绿灯而放宽容差。待编译的精确源码补丁及要求见 [engine-patches](engine-patches/README.md) 和 [第二十轮](../../docs/exploration-2026-10-18-phase20.md)；它还不是已验证修复。
+
 ## SVG／打印变换隔离实验
 
 仅测试进程设置 `WIZNOTE_PDF_SVG_TARGET_PROTOTYPE=1`，在原三份输出外再生成五份：修改 XLink 地址编码、移动目标到 HTML 容器，以及补充无命名空间的 SVG2 `href`（保留编码／原始片段各一份）。每个变体都恢复原属性命名空间、值和目标，并核对原文、HTML、修改状态、容器几何。仅改地址拼写或容器不能视作完整修复。SVG2 使用无命名空间的 `href`，并优先于 XLink 版本，见 [W3C 链接规范](https://www.w3.org/TR/SVG2/linking.html#XLinkRefAttrs)。

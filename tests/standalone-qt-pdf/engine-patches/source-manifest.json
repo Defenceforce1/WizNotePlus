@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "status": "draft-not-engine-compiled",
+  "sdkVersion": "6.11.3",
+  "moduleCommit": "8c73295524f3ce6a2e10ad2f71141c695376c876",
+  "chromiumSubmoduleCommit": "7927ce61b5a302a3da8172eefbe260ec17484bcd",
+  "patch": "current-page-destinations.patch",
+  "patchSha256": "2e5ada9e0aba814615c3bdf599fdc59a7fc2e649fa3f247d5fe6207bca623b6c",
+  "files": [
+    {
+      "path": "chromium/third_party/blink/renderer/core/page/print_context.cc",
+      "originalSha256": "785b6796d4b737de55b71502a21c61a25d562502fa24fef13d59d19bb50c9240",
+      "candidateSha256": "5a2e07af90df914bc6452f18136572ff671f1c83e3c78036dfaaba844dd1b3ab"
+    },
+    {
+      "path": "chromium/third_party/blink/renderer/core/page/print_context_test.cc",
+      "originalSha256": "50c7709b0b4ae33e3c5067075782b5ef408c5dc34df6aa27d0a6d66711a793e4",
+      "candidateSha256": "a512648f5a5dd17e91da7c364ae4c5919dc0af8c1d5153777e5c67c351dc3c73"
+    }
+  ],
+  "productionIntegration": false
+}

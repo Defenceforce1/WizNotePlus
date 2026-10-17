@@ -17,6 +17,9 @@ logging.getLogger("pdfminer").setLevel(logging.ERROR)
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", type=Path)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--require-accurate", action="store_true",
+                    help="Fail acceptance if any target differs by >1 pt/page or source link is misaligned")
+parser.add_argument("--cases", nargs="+", help="Audit an explicit subset; all cases are required for engine acceptance")
 args = parser.parse_args()
 manifest = json.loads((args.directory / "anchor-geometry-results.json").read_text())
 if manifest["failures"] or not manifest["offTheRecord"] or manifest["registeredScripts"] or manifest["blockedRequests"]:
@@ -31,7 +34,11 @@ def same_color(item, color):
 
 colors = ((.8, .2, .2), (.2, .6, .2), (.2, .2, .8))
 records = []
+if args.cases and set(args.cases) - {x["name"] for x in manifest["records"]}:
+    raise ValueError("Unknown geometry case")
 for sample in manifest["records"]:
+    if args.cases and sample["name"] not in args.cases:
+        continue
     path = args.directory / sample["file"]
     reader = PdfReader(path)
     # /Dests dictionary keys can be PDF NameObjects (leading slash is syntax),
@@ -78,8 +85,11 @@ for sample in manifest["records"]:
                         if same_color(item, (230/255, 230/255, 230/255))]
                 contained = any(box[0] >= item["x0"] - 1 and box[2] <= item["x1"] + 1
                                 and box[1] >= item["top"] - 1 and box[3] <= item["bottom"] + 1 for item in navs)
+                aligned = any(abs(box[0] - item["x0"]) <= 1
+                              and abs((box[1] + box[3] - item["top"] - item["bottom"]) / 2) <= 1
+                              for item in navs)
                 links.append({"page": page_index + 1, "name": name, "rectanglePt": box,
-                              "containedInPaintedNav": contained})
+                              "containedInPaintedNav": contained, "alignedWithPaintedNav": aligned})
         if len(links) != 3:
             raise RuntimeError(f"Expected three source links, got {len(links)} in {sample['file']}")
         matrices = [[float(x) for x in operands] for operands, op in ContentStream(reader.pages[0].get_contents(), reader).operations
@@ -94,8 +104,15 @@ result = {"readOnly": True, "kind": "standalone native anchor geometry, no edito
           "warning": "Error reproduction is NOT a repair; no PDF was rewritten.",
           "records": records,
           "allSourceLinksContained": all(link["containedInPaintedNav"] for r in records for link in r["sourceLinks"]),
+          "allSourceLinksAligned": all(link["alignedWithPaintedNav"] for r in records for link in r["sourceLinks"]),
           "casesWithPositionError": sum(r["positionalFailureObserved"] for r in records)}
+result["acceptanceRequested"] = args.require_accurate
+result["subsetOnly"] = bool(args.cases)
+result["acceptancePassed"] = (result["casesWithPositionError"] == 0
+                              and result["allSourceLinksContained"] and result["allSourceLinksAligned"])
 with args.output.open("x", encoding="utf-8") as output:
     json.dump(result, output, ensure_ascii=False, indent=2)
     output.write("\n")
 print(json.dumps({k: v for k, v in result.items() if k != "records"}, ensure_ascii=False))
+if args.require_accurate and not result["acceptancePassed"]:
+    raise SystemExit(1)
