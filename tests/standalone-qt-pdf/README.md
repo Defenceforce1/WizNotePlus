@@ -41,6 +41,16 @@ SDK／helper／资源路径必须在 WebEngine 创建前规范为绝对路径并
 
 候选引擎必须用 `audit-anchor-geometry.py OUTPUT --require-accurate --output NEW_AUDIT.json` 做全部九组验收；定位／页码或源点击矩形左边及垂直中心对齐失败则返回非零。`--cases` 只用于正负对照，输出明确标记 `subsetOnly`，子集不能接受引擎。现有原版完整验收应失败，不能为得到绿灯而放宽容差。待编译的精确源码补丁及要求见 [engine-patches](engine-patches/README.md) 和 [第二十轮](../../docs/exploration-2026-10-18-phase20.md)；它还不是已验证修复。
 
+验收工具本身可用保留的**未修补九组语料**做 18 项正负检查，不启动 WebEngine、不生成或改写 PDF：
+
+```sh
+node tests/standalone-qt-pdf/audit-tool-regression.cjs \
+  /absolute/python/with-pypdf-pdfplumber \
+  /absolute/unpatched/geometry-output /absolute/new/check-report.json
+```
+
+完整原版应检出七组偏移，准确子集的 `acceptancePassed` 可为真但 `engineAccepted` 必须为假。工具还拒绝不完整／重复清单、隔离失败和缺失 PDF，不替换已有报告，最后核对九份 PDF 与输入清单均未变化。只显式完整验收成功才能得到 `engineAccepted: true`；回归工具通过也不代表引擎修复通过。
+
 ## SVG／打印变换隔离实验
 
 仅测试进程设置 `WIZNOTE_PDF_SVG_TARGET_PROTOTYPE=1`，在原三份输出外再生成五份：修改 XLink 地址编码、移动目标到 HTML 容器，以及补充无命名空间的 SVG2 `href`（保留编码／原始片段各一份）。每个变体都恢复原属性命名空间、值和目标，并核对原文、HTML、修改状态、容器几何。仅改地址拼写或容器不能视作完整修复。SVG2 使用无命名空间的 `href`，并优先于 XLink 版本，见 [W3C 链接规范](https://www.w3.org/TR/SVG2/linking.html#XLinkRefAttrs)。

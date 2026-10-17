@@ -61,8 +61,11 @@ same build configuration when applying the draft incrementally afterward.
 - Put the task-local CMake/Ninja bin directory on the build process's `PATH`
   too. The separate GN bootstrap configures another CMake project and does not
   inherit the outer `CMAKE_MAKE_PROGRAM`; without `PATH` it stops before Chromium.
-- Set `NINJAFLAGS='-j3 -l6'` **at CMake configure time**, not merely at build time;
-  this module embeds the flags in generated custom commands.
+- Set `NINJAFLAGS='-j3'` **at CMake configure time**, not merely at build time;
+  this module embeds the flags in generated custom commands. Keep the outer
+  build capped at three too and use a lower process priority (`nice -n 10`).
+  Earlier load limits of 6, then 16 effectively serialized this busy machine;
+  bounded jobs plus lower priority keep the limit without unbounded parallelism.
 - Set `CMAKE_OSX_DEPLOYMENT_TARGET` explicitly. The Qt 6.11.3 SDK's WebEngine
   arm64 binary reports minimum 13.0, so the isolated baseline uses 13.0 too.
   Leaving it empty propagated `-mmacos-version-min=` into Chromium and failed;
@@ -101,6 +104,8 @@ duplicate, missing, unsaved or HTML-mismatched cases fail before PDF analysis.
 Source links must cover all three distinct targets, not merely count to three. The
 unmodified baseline's full acceptance deliberately fails seven cases. The two
 known accurate controls pass, confirming the checker can distinguish outcomes.
+Only explicit full `--require-accurate` success sets `engineAccepted: true`;
+`acceptancePassed` describes the selected checks, not a subset engine approval.
 
 Then repeat the original editor/MathJax/scientific-CSS corpus (including SVG2
 equation references, pagination edges and ordinary labels), check exact source

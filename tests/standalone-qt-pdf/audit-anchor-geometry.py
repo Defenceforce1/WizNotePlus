@@ -124,6 +124,8 @@ result["acceptanceRequested"] = args.require_accurate
 result["subsetOnly"] = bool(args.cases)
 result["acceptancePassed"] = (result["casesWithPositionError"] == 0
                               and result["allSourceLinksContained"] and result["allSourceLinksAligned"])
+result["engineAccepted"] = (args.require_accurate and result["acceptancePassed"]
+                            and not result["subsetOnly"])
 with args.output.open("x", encoding="utf-8") as output:
     json.dump(result, output, ensure_ascii=False, indent=2)
     output.write("\n")
