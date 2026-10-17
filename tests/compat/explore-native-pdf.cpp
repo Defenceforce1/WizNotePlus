@@ -7,8 +7,10 @@
 #include <QtWebEngineCore/QWebEngineProfile>
 #include <QtWebEngineCore/QWebEngineSettings>
 #include <QtWebEngineCore/QWebEngineUrlRequestInterceptor>
+#include <QtWebEngineCore/qtwebenginecoreglobal.h>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QDir>
 #include <QtCore/QTimer>
 #include <QtCore/QEventLoop>
@@ -42,15 +44,22 @@ static QVariant evaluate(QWebEnginePage* page, const QString& source) {
     return state->result;
 }
 int main(int argc,char** argv) {
-    if (argc!=4) { std::fprintf(stderr,"Usage: native-pdf APP_BUNDLE SYNTHETIC_HTML OUTPUT_DIR\n"); return 2; }
-    const QString bundle=QString::fromLocal8Bit(argv[1]),input=QString::fromLocal8Bit(argv[2]),output=QString::fromLocal8Bit(argv[3]);
+    if (argc!=4) { std::fprintf(stderr,"Usage: native-pdf APP_BUNDLE_OR_MATCHING_QT_SDK SYNTHETIC_HTML OUTPUT_DIR\n"); return 2; }
+    const QString bundle=QDir(QString::fromLocal8Bit(argv[1])).absolutePath(),input=QFileInfo(QString::fromLocal8Bit(argv[2])).absoluteFilePath(),output=QDir(QString::fromLocal8Bit(argv[3])).absolutePath();
     if (!QFile::exists(input) || !QDir(output).exists() || !input.endsWith("native-pdf-fixture.html")) return 2;
     QTemporaryDir temporary; if (!temporary.isValid()) return 2;
     qputenv("XDG_CACHE_HOME",temporary.path().toUtf8());
-    qputenv("QTWEBENGINEPROCESS_PATH",QFile::encodeName(bundle+"/Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"));
-    qputenv("QTWEBENGINE_RESOURCES_PATH",QFile::encodeName(bundle+"/Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Resources"));
+    const bool sdk=QDir(bundle+"/lib/QtWebEngineCore.framework").exists();
+    const QString core=bundle+(sdk?"/lib/QtWebEngineCore.framework/Versions/A":"/Contents/Frameworks/QtWebEngineCore.framework/Versions/A");
+    const QString plugins=bundle+(sdk?"/plugins":"/Contents/PlugIns");
+    const QString helper=core+"/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess";
+    if(!QFile::exists(helper)||!QDir(core+"/Resources").exists()||!QDir(plugins).exists()) {
+        qCritical()<<"A matching complete Qt SDK or App runtime is required";return 2;
+    }
+    qputenv("QTWEBENGINEPROCESS_PATH",QFile::encodeName(helper));
+    qputenv("QTWEBENGINE_RESOURCES_PATH",QFile::encodeName(core+"/Resources"));
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-    QCoreApplication::setLibraryPaths({bundle+"/Contents/PlugIns"});
+    QCoreApplication::setLibraryPaths({plugins});
     QApplication app(argc,argv); app.setApplicationName("WizNoteIsolatedPdfProbe");
     LocalOnly requests;
     QWebEngineProfile profile; // off-the-record, never the user's profile
@@ -60,7 +69,10 @@ int main(int argc,char** argv) {
     QWebEngineView reader;
     reader.setPage(new QWebEnginePage(&profile,&reader));
     reader.settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls,false);
-    reader.resize(850,660); reader.show(); reader.load(QUrl::fromLocalFile(input));
+    int viewportWidth=qEnvironmentVariableIntValue("WIZNOTE_PDF_VIEWPORT_WIDTH");
+    if(!viewportWidth)viewportWidth=850;
+    if(viewportWidth<400||viewportWidth>1200)return 2;
+    reader.resize(viewportWidth,660); reader.show(); reader.load(QUrl::fromLocalFile(input));
     bool ready=false; QEventLoop readyLoop; QTimer poll,deadline;
     QObject::connect(&poll,&QTimer::timeout,&readyLoop,[&]{
         ready=evaluate(reader.page(),"window.FixtureReady===true").toBool(); if (ready) readyLoop.quit();
@@ -71,6 +83,21 @@ int main(int argc,char** argv) {
     const bool sourceBefore=evaluate(reader.page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSource").toBool();
     const auto htmlBefore=evaluate(reader.page(),"WizEditor.getContentHtml()").toString();
     const auto modifiedBefore=evaluate(reader.page(),"WizEditor.isModified()");
+    const int expectedJax=evaluate(reader.page(),"window.FixtureExpectedJax||1").toInt();
+    const auto referenceDom=evaluate(reader.page(),R"JS((()=>{
+      const links=Array.from(document.querySelectorAll('a')).flatMap(a=>{
+        const href=a.getAttribute('href')||a.getAttributeNS('http://www.w3.org/1999/xlink','href');
+        if(!href||!href.includes('#'))return [];
+        const raw=href.slice(href.indexOf('#')+1);
+        let id;try{id=decodeURIComponent(raw);}catch(_){id=raw;}
+        const target=document.getElementById(id)||Array.from(document.getElementsByName(id))[0];
+        const rect=target&&target.getBoundingClientRect();
+        return [{id,raw,href,linkNamespace:a.namespaceURI,found:!!target,tag:target&&target.tagName,targetNamespace:target&&target.namespaceURI,
+          css:target&&getComputedStyle(target).display,rect:rect&&{x:rect.x,y:rect.y,width:rect.width,height:rect.height}}];
+      });return {mathJaxVersion:MathJax.version,jax:MathJax.Hub.getAllJax().length,links,
+        viewport:{width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth},
+        equationTargets:Array.from(document.querySelectorAll('[id]')).filter(e=>e.id.startsWith('mjx-eqn-')).map(e=>({id:e.id,tag:e.tagName,namespace:e.namespaceURI,html:e.outerHTML.slice(0,1600)}))};
+    })())JS").toMap();
     evaluate(reader.page(),R"JS((()=>{
       const link=document.createElement('a');link.href='#control-target';link.textContent='Heading control';document.body.prepend(link);
       const heading=document.createElement('h2');heading.id='control-target';heading.textContent='CONTROL-TARGET';document.body.appendChild(heading);
@@ -121,6 +148,57 @@ int main(int argc,char** argv) {
     })())JS");
     failures+=!print("references-visible-heading.pdf",5);
     evaluate(reader.page(),"RestorePdfHeadingProbe();true");
+    QVariantMap svgTrials;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_SVG_TARGET_PROTOTYPE")) {
+        // Test only: independently vary SVG target namespace and fragment
+        // encoding. Reuse an existing HTML box; add no print layout/style.
+        evaluate(reader.page(),R"JS((()=>{
+          window.FixtureSvgTrials=[];
+          window.PreparePdfSvgTrial=function(moveToHtml,rawHref,modernHref){
+            const target=document.querySelector('svg [id^="mjx-eqn-"]');
+            if(!target)return false;
+            const id=target.getAttribute('id'),box=target.closest('.MathJax_SVG_Display');
+            if(!box||box.namespaceURI!=='http://www.w3.org/1999/xhtml'||box.hasAttribute('id'))return false;
+            const rect=()=>{const r=box.getBoundingClientRect();return [r.x,r.y,r.width,r.height];};
+            const before=rect(),links=[];
+            for(const a of document.querySelectorAll('a')){
+              const attr=Array.from(a.attributes).find(x=>x.localName==='href'||x.name==='xlink:href');
+              const href=attr&&attr.value;if(!href||!href.includes('#'))continue;
+              let decoded;try{decoded=decodeURIComponent(href.slice(href.indexOf('#')+1));}catch(_){continue;}
+              if(decoded!==id)continue;
+              const set=value=>attr.namespaceURI?a.setAttributeNS(attr.namespaceURI,attr.name,value):a.setAttribute(attr.name,value);
+              const oldModern=a.getAttributeNS(null,'href'),hadModern=a.hasAttributeNS(null,'href');
+              links.push({set,href,name:attr.name,namespace:attr.namespaceURI,
+                restore:()=>{if(modernHref){if(hadModern)a.setAttributeNS(null,'href',oldModern);else a.removeAttributeNS(null,'href');}else set(href);}});
+              if(modernHref)a.setAttributeNS(null,'href',rawHref?'#'+id:href);
+              else if(rawHref)set('#'+id);
+            }
+            if(moveToHtml){target.id='wiz-isolated-svg-target';box.id=id;}
+            const record={moveToHtml,rawHref,modernHref,id,links:links.length,hrefAttributes:links.map(x=>({name:x.name,namespace:x.namespace})),targetTag:document.getElementById(id).tagName,
+              namespace:document.getElementById(id).namespaceURI,before,after:rect()};
+            FixtureSvgTrials.push(record);
+            window.RestorePdfSvgTrial=()=>{
+              if(moveToHtml){box.removeAttribute('id');target.id=id;}
+              for(const x of links)x.restore();
+              record.restoredRect=rect();
+            };
+            return links.length===1&&JSON.stringify(before)===JSON.stringify(record.after);
+          };return true;
+        })())JS");
+        const auto trial=[&](const QString& filename,bool html,bool raw,bool modern=false){
+            const bool prepared=evaluate(reader.page(),QString("PreparePdfSvgTrial(%1,%2,%3)")
+                .arg(html?"true":"false",raw?"true":"false",modern?"true":"false")).toBool();
+            failures+=!prepared;
+            if(prepared)failures+=!print(filename,5);
+            evaluate(reader.page(),"if(window.RestorePdfSvgTrial)RestorePdfSvgTrial();true");
+        };
+        trial("references-svg-raw.pdf",false,true);
+        trial("references-html-encoded.pdf",true,false);
+        trial("references-html-raw.pdf",true,true);
+        trial("references-svg2-encoded.pdf",false,false,true);
+        trial("references-svg2-raw.pdf",false,true,true);
+        svgTrials=evaluate(reader.page(),"({trials:FixtureSvgTrials})").toMap();
+    }
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_PROTOTYPE")) {
         // Diagnostic only: quantify whether a zero-layout anchor can compensate
         // the engine's missing page-margin offset without rewriting the PDF.
@@ -152,10 +230,14 @@ int main(int argc,char** argv) {
     const bool modifiedSame=evaluate(reader.page(),"WizEditor.isModified()")==modifiedBefore;
     const auto state=evaluate(reader.page(),"({blocks:document.querySelectorAll('.wiz-math-block').length,jax:MathJax.Hub.getAllJax().length,errors:document.querySelectorAll('.MathJax_Error,merror').length})").toMap();
     failures+=!sourceBefore||!sourceAfter||!htmlSame||!modifiedSame||requests.blocked.load()!=0;
-    failures+=state.value("blocks").toInt()!=2||state.value("errors").toInt()!=0||state.value("jax").toInt()!=1;
+    failures+=state.value("blocks").toInt()!=2||state.value("errors").toInt()!=0||state.value("jax").toInt()!=expectedJax;
     QJsonDocument result(QJsonObject{{"kind","actual Qt printToPdf; synthetic original reader, no user data"},
-        {"qtRuntime",qVersion()},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
+        {"qtRuntime",qVersion()},{"webEngine",qWebEngineVersion()},{"chromium",qWebEngineChromiumVersion()},
+        {"chromiumSecurityPatch",qWebEngineChromiumSecurityPatchVersion()},
+        {"sdkRuntime",sdk},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
         {"productionFileHelper",true},{"cssPageMarginsProbe",qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS")},
+        {"referenceDom",QJsonObject::fromVariantMap(referenceDom)},
+        {"svgTrials",QJsonObject::fromVariantMap(svgTrials)},
         {"edgeFixture",qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE")},
         {"anchorPrototype",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_PROTOTYPE")},{"transformVariant",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_TRANSFORM")},
         {"renderState",QJsonObject::fromVariantMap(state)},{"failures",failures}});

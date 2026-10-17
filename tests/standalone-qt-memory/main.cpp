@@ -19,6 +19,7 @@
 #include <QWebEngineProfile>
 #include <QWebEngineUrlRequestInterceptor>
 #include <QWebEngineView>
+#include <QtWebEngineCore/qtwebenginecoreglobal.h>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -247,7 +248,10 @@ private:
             sample("retained-tab-finally-closed");
             qInfo().noquote() << "MEMORY_PROBE" << QString::fromUtf8(QJsonDocument(QJsonObject{
                 {"schema", 1}, {"engine", "fully standalone Qt; no Wiz code or resources"},
-                {"qtVersion", qVersion()}, {"platform", QGuiApplication::platformName()},
+                {"qtVersion", qVersion()}, {"webEngine", qWebEngineVersion()},
+                {"chromium", qWebEngineChromiumVersion()},
+                {"chromiumSecurityPatch", qWebEngineChromiumSecurityPatchVersion()},
+                {"platform", QGuiApplication::platformName()},
                 {"quickBackend", qEnvironmentVariable("QT_QUICK_BACKEND", "default")},
                 {"graphicsApi", actualGraphicsApi},
                 {"sceneGraphBackend", QQuickWindow::sceneGraphBackend()},
