@@ -22,6 +22,8 @@
 #include <memory>
 #include <cstdio>
 #include "share/WizPdfExport.h"
+#include "share/WizPdfSvgLinks.h"
+#include "share/WizPdfPageOperations.h"
 
 class LocalOnly final : public QWebEngineUrlRequestInterceptor {
 public:
@@ -33,12 +35,12 @@ public:
         }
     }
 };
-static QVariant evaluate(QWebEnginePage* page, const QString& source) {
+static QVariant evaluate(QWebEnginePage* page, const QString& source,quint32 world=0) {
     struct State {QVariant result;bool completed=false;};
     auto state=std::make_shared<State>();QEventLoop loop;QTimer deadline;QPointer<QEventLoop> guard(&loop);
     deadline.setSingleShot(true);
     QObject::connect(&deadline,&QTimer::timeout,&loop,&QEventLoop::quit);
-    page->runJavaScript(source,[state,guard](const QVariant& value){state->result=value;state->completed=true;if(guard)guard->quit();});
+    page->runJavaScript(source,world,[state,guard](const QVariant& value){state->result=value;state->completed=true;if(guard)guard->quit();});
     deadline.start(10000); if (!state->completed) loop.exec();
     if (!state->completed) qCritical()<<"Synthetic JavaScript evaluation timed out";
     return state->result;
@@ -72,6 +74,7 @@ int main(int argc,char** argv) {
     int viewportWidth=qEnvironmentVariableIntValue("WIZNOTE_PDF_VIEWPORT_WIDTH");
     if(!viewportWidth)viewportWidth=850;
     if(viewportWidth<400||viewportWidth>1200)return 2;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS"))WizPdfSvgLinks::install(reader.page());
     reader.resize(viewportWidth,660); reader.show(); reader.load(QUrl::fromLocalFile(input));
     bool ready=false; QEventLoop readyLoop; QTimer poll,deadline;
     QObject::connect(&poll,&QTimer::timeout,&readyLoop,[&]{
@@ -110,6 +113,7 @@ int main(int argc,char** argv) {
       window.RestorePdfEdgeProbe=()=>{spacer.remove();WizEditor.removeStyleById('wiz_tmp_style_pdf_edge_probe');};return true;
     })())JS");
     int failures=0;
+    WizPdfPageOperations operations;
     const auto print=[&](const QString& name,double margin) {
         if (QFile::exists(QDir(output).filePath(name))) {qCritical()<<"Refusing to overwrite synthetic output";return false;}
         struct State {bool done=false,valid=false;};
@@ -122,14 +126,17 @@ int main(int argc,char** argv) {
         })())JS").arg(margin));
         const QPageLayout layout=WizPdfExport::pageLayout(0,cssMargins?QMarginsF(0,0,0,0):QMarginsF(margin,margin,margin,margin));
         const QString destination=QDir(output).filePath(name);
-        reader.page()->printToPdf([state,guard,destination](const QByteArray& bytes){
+        const auto completed=[state,guard,destination](const QByteArray& bytes){
             state->done=true;
             if (guard && bytes.startsWith("%PDF-")) {
                 QString error;state->valid=WizPdfExport::writeFile(destination,bytes,error);
                 if(!state->valid)qWarning()<<"Synthetic PDF helper failure:"<<error;
             }
             if(guard)guard->quit();
-        },layout);
+        };
+        if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS"))
+            operations.print(reader.page(),[]{return true;},layout,completed);
+        else reader.page()->printToPdf(completed,layout);
         if (!state->done) loop.exec();
         if(cssMargins) evaluate(reader.page(),"document.getElementById('wiz_tmp_style_pdf_page_margin_probe')?.remove();true");
         qInfo().noquote()<<(state->valid?"PASS":"FAIL")<<name<<"requested margin mm"<<margin
@@ -231,6 +238,12 @@ int main(int argc,char** argv) {
     const auto state=evaluate(reader.page(),"({blocks:document.querySelectorAll('.wiz-math-block').length,jax:MathJax.Hub.getAllJax().length,errors:document.querySelectorAll('.MathJax_Error,merror').length})").toMap();
     failures+=!sourceBefore||!sourceAfter||!htmlSame||!modifiedSame||requests.blocked.load()!=0;
     failures+=state.value("blocks").toInt()!=2||state.value("errors").toInt()!=0||state.value("jax").toInt()!=expectedJax;
+    QVariantMap eventLinks;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS")){
+        eventLinks=evaluate(reader.page(),"globalThis.__wizPdfSvgLinks?.status()",QWebEngineScript::ApplicationWorld).toMap();
+        failures+=eventLinks.isEmpty()||eventLinks.value("active").toBool()||eventLinks.value("pending").toInt()!=0
+            ||eventLinks.value("prepares").toInt()!=3||eventLinks.value("restores").toInt()!=3||eventLinks.value("errors").toInt()!=0;
+    }
     QJsonDocument result(QJsonObject{{"kind","actual Qt printToPdf; synthetic original reader, no user data"},
         {"qtRuntime",qVersion()},{"webEngine",qWebEngineVersion()},{"chromium",qWebEngineChromiumVersion()},
         {"chromiumSecurityPatch",qWebEngineChromiumSecurityPatchVersion()},
@@ -238,6 +251,7 @@ int main(int argc,char** argv) {
         {"productionFileHelper",true},{"cssPageMarginsProbe",qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS")},
         {"referenceDom",QJsonObject::fromVariantMap(referenceDom)},
         {"svgTrials",QJsonObject::fromVariantMap(svgTrials)},
+        {"eventLinks",QJsonObject::fromVariantMap(eventLinks)},
         {"edgeFixture",qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE")},
         {"anchorPrototype",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_PROTOTYPE")},{"transformVariant",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_TRANSFORM")},
         {"renderState",QJsonObject::fromVariantMap(state)},{"failures",failures}});

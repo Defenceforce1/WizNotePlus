@@ -5,6 +5,8 @@
 #include <QTimer>
 #include <QPointer>
 #include "share/WizDocumentLinkRequest.h"
+#include "share/WizPdfExportRequest.h"
+#include "share/WizPdfPageOperations.h"
 #include <QMutex>
 #include <QColorDialog>
 #include <QProcess>
@@ -230,6 +232,8 @@ private:
 
     QPointer<WizEditorInsertLinkForm> m_editorInsertLinkForm;
     WizDocumentLinkRequest m_linkRequest;
+    WizPdfExportRequest m_pdfExportRequest;
+    WizPdfPageOperations m_pdfPageOperations;
     void invalidateDocumentCallbacks();
 
     WizSearchReplaceWidget* m_searchReplaceWidget;
@@ -241,6 +245,7 @@ private:
 public:
     // Close only transient link UI; do not cancel required save callbacks.
     void cancelLinkInsert();
+    void cancelPdfExport();
     void onNoteLoadFinished(); // editor callback
     void discardChanges();
 

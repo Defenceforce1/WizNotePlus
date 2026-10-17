@@ -21,6 +21,12 @@ add_test(NAME wiznote_pdf_file_safety COMMAND wiznote_pdf_file_safety)
 set_tests_properties(wiznote_pdf_file_safety PROPERTIES TIMEOUT 30)
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineCore WebEngineWidgets)
+add_executable(wiznote_pdf_export_lifecycle pdf-export-lifecycle.cpp)
+target_include_directories(wiznote_pdf_export_lifecycle PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_pdf_export_lifecycle PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::WebEngineCore Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+add_test(NAME wiznote_pdf_export_lifecycle COMMAND wiznote_pdf_export_lifecycle)
+set_tests_properties(wiznote_pdf_export_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 180)
+
 add_executable(wiznote_document_async document-async.cpp)
 target_include_directories(wiznote_document_async PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(wiznote_document_async PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::WebEngineCore Qt${QT_VERSION_MAJOR}::WebEngineWidgets)

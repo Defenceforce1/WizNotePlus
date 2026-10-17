@@ -40,6 +40,7 @@
 #include "share/WizObjectDataDownloader.h"
 #include "share/WizThreads.h"
 #include "share/WizPdfExport.h"
+#include "share/WizPdfSvgLinks.h"
 #include "share/WizDocumentPageReady.h"
 
 #include "WizDef.h"
@@ -153,6 +154,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 {
     WizDocumentWebViewPage* page = new WizDocumentWebViewPage(this);
     setupPage(page);
+    WizPdfSvgLinks::install(page);
     connect(this, &QWebEngineView::loadStarted, this, [this] { invalidateDocumentCallbacks(); });
     connect(page, &WizDocumentWebViewPage::linkClicked,
             this, &WizDocumentWebView::onEditorLinkClicked);
@@ -202,6 +204,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 WizDocumentWebView::~WizDocumentWebView()
 {
     cancelLinkInsert();
+    cancelPdfExport();
     m_documentCallbacks.cancel();
 }
 
@@ -1287,7 +1290,8 @@ void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bo
     const QString sourceFile = m_mapFile.value(data.strGUID);
     const quint64 changeSequence = m_contentChangeSequence;
     if (sourceFile.isEmpty() || extractedFile.isEmpty()) { callback(false); return; }
-    page()->runJavaScript(WizDocumentSaveSnapshot::editorScript(force, m_bContentsChanged),
+    m_pdfPageOperations.snapshot(page(),[self,ticket,doc]{return self && self->acceptsDocumentCallback(ticket,doc);},
+        WizDocumentSaveSnapshot::editorScript(force, m_bContentsChanged),
         [self, ticket, doc, extractedFile, sourceFile, changeSequence, callback](const QVariant& value) {
         if (!self || !self->acceptsDocumentCallback(ticket, doc)) { callback(false); return; }
         const auto result = WizDocumentSaveSnapshot::parse(value);
@@ -1322,7 +1326,8 @@ void WizDocumentWebView::saveReadingViewDocument(const WIZDOCUMENTDATA &data, bo
     const auto ticket = m_documentCallbacks.ticket();
     const QString sourceFile = m_mapFile.value(doc.strGUID);
     const quint64 changeSequence = m_contentChangeSequence;
-    page()->runJavaScript(WizDocumentSaveSnapshot::readerScript(m_bContentsChanged),
+    m_pdfPageOperations.snapshot(page(),[self,ticket,doc]{return self && self->acceptsDocumentCallback(ticket,doc);},
+        WizDocumentSaveSnapshot::readerScript(m_bContentsChanged),
         [self, ticket, doc, sourceFile, changeSequence, callback](const QVariant& value) {
         if (!self || !self->acceptsDocumentCallback(ticket, doc)) { callback(false); return; }
         const auto result = WizDocumentSaveSnapshot::parse(value);
@@ -1577,6 +1582,7 @@ void WizDocumentWebView::setEditorMode(WizEditorMode mode)
     cancelLinkInsert();
 
     bool editing = mode == modeEditor;
+    cancelPdfExport();
 
     // show editor toolbar properly
     if (!editing && hasFocus()) {
@@ -1792,6 +1798,12 @@ void WizDocumentWebView::invalidateDocumentCallbacks()
 {
     m_documentCallbacks.invalidate();
     cancelLinkInsert();
+    cancelPdfExport();
+}
+
+void WizDocumentWebView::cancelPdfExport()
+{
+    m_pdfExportRequest.cancel();
 }
 
 void WizDocumentWebView::on_editorCommandExecuteLinkInsert_accepted()
@@ -2262,6 +2274,10 @@ void WizDocumentWebView::editorCommandExecuteScreenShot()
 
 void WizDocumentWebView::saveAsPDF()
 {
+    if (!view()->noteLoaded()) return;
+    const QPointer<WizDocumentWebView> guard(this);
+    const auto request=m_pdfExportRequest.begin(this,page(),m_documentCallbacks.ticket());
+    if (!WizPdfExportRequest::current(request)) return;
     CString strTitle = view()->note().strTitle;
     WizMakeValidFileNameNoPath(strTitle);
     static QString strInitPath = QDir::homePath();
@@ -2271,8 +2287,13 @@ void WizDocumentWebView::saveAsPDF()
                                                        strInitFileName,
                                                        tr("PDF Files (*.pdf)"));
     //
-    if (strFileName.isEmpty())
+    // A native modal dialog can dispatch close/navigation events. Check weak
+    // context before accessing this, settings, or the replacement document.
+    if (!guard || !WizPdfExportRequest::current(request)) return;
+    if (strFileName.isEmpty()) {
+        WizPdfExportRequest::cancel(request);
         return;
+    }
     //
     strInitPath = Utils::WizMisc::extractFilePath(strFileName);
     //
@@ -2285,22 +2306,25 @@ void WizDocumentWebView::saveAsPDF()
     //
     const QPageLayout layout = WizPdfExport::pageLayout(marginUnit, margins);
     if (!layout.isValid()) {
+        WizPdfExportRequest::cancel(request);
         QMessageBox::critical(this, tr("Error"), QStringLiteral("PDF 页边距设置无效，请在设置中检查单位和数值。"));
         return;
     }
     // Keep the same renderer and CSS. Commit only complete output, preserving an
     // existing destination on cancellation, page destruction or write failure.
-    const QPointer<WizDocumentWebView> guard(this);
-    page()->printToPdf([guard, strFileName](const QByteArray& bytes) {
+    const auto document=m_documentCallbacks.ticket();
+    m_pdfPageOperations.print(page(),[request]{return WizPdfExportRequest::current(request);},layout,
+        [guard, request, strFileName](const QByteArray& bytes) {
         QString error;
-        if (WizPdfExport::writeFile(strFileName, bytes, error)) return;
+        const auto result=WizPdfExportRequest::complete(request,strFileName,bytes,error);
+        if (result!=WizPdfExportRequest::Result::Failed) return;
         qWarning() << "PDF export failed:" << error;
         // A print callback can run while the page/view is being destroyed. Do
         // not touch either here; a queued receiver is cancelled on destruction.
-        if (guard) QTimer::singleShot(0, guard.data(), [guard, error] {
-            if (guard) QMessageBox::critical(guard.data(), QObject::tr("Error"), QStringLiteral("无法导出 PDF：\n") + error);
+        if (guard) QTimer::singleShot(0, guard.data(), [guard, request, error] {
+            if (guard && WizPdfExportRequest::ownsContext(request)) QMessageBox::critical(guard.data(), QObject::tr("Error"), QStringLiteral("无法导出 PDF：\n") + error);
         });
-    }, layout);
+    },[guard,document]{return guard && WizDocumentCallbackEpoch::current(document);});
 }
 
 void WizDocumentWebView::applyNoteStyle()

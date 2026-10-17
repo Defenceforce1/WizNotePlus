@@ -31,7 +31,15 @@ python3 tests/compat/explore-reference-pdf.py /absolute/new/output --engine qt
 
 坐标审计同时记录内容流矩阵，并对本夹具的科学样式背景框做**只读**比较。统一 A4 页面的首面打印原点／缩放假设能解释样本，不代表可用于任意 PDF。后续页流的平移含全篇分页偏移，不能再次加到已经页内化的目标上。不要把矩阵估值写回 PDF、用于混合纸型或真实标题变体的背景框补偿。阶段结论见 [第十七轮](../../docs/exploration-2026-10-17-phase17.md)。
 
-## Qt 6.12 配套版本核对
+## 受控打印与保存隔离候选
+
+2026-10-18 的源码候选可用 `WIZNOTE_PDF_EVENT_LINKS=1` 测试。探针通过与主程序相同的 `WizPdfPageOperations` 调用原生 `printToPdf`，在隔离 world 显式准备／结束临时 SVG2 链接；不加此变量仍走原始对照。不要同时开启其他会增加打印次数的 SVG／锚点变体，当前事件计数验收为三次准备／三次恢复。
+
+主程序所有笔记保存快照必须经同一页面的 FIFO，不能在打印时直接读取 HTML。`wiznote_pdf_export_lifecycle` 保留能读到临时属性的失败机制对照，另外检查实际生产保存脚本、取消输出后仍保持屏障、回调重入、销毁、恢复失败保护和重新载入。不能靠最终 HTML 恢复就推断并发保存安全。原生入口会确保当前文档的 helper，不能只相信上一文档的 DocumentReady 注入。
+
+见 [第十八轮](../../docs/exploration-2026-10-18-phase18.md)。目的地存在不等于纵向坐标准确；这不是正式包验收，也没有 PDF 后处理。
+
+## Qt 6.12 配套版本核对（历史对照）
 
 2026-10-17 官方仓库同时保留旧 `extensions/qtwebengine/6120/clang_64`（7 月试验包）与新 `extensions/qtwebengine/6120/61400/clang_64`。现有 aqt 3.3.0 选到前者，不能直接作为新版 WebEngine 的对照。新路径的 `Updates.xml` 明确用 `Replaces` 替代旧包。
 
