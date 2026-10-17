@@ -10,6 +10,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QGridLayout>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -22,6 +23,9 @@
 #include <atomic>
 #include <memory>
 #include <vector>
+#ifdef Q_OS_MAC
+#include <mach/mach.h>
+#endif
 
 // Real QWebChannel + unmodified mac client engine; only the native account/
 // persistence endpoints are synthetic. Never construct a real account window.
@@ -84,7 +88,7 @@ struct Session {
     std::unique_ptr<WizWebEngineView> view;
     WizDocumentCallbackEpoch epoch;
     QString source,path;
-    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool visibleOffscreen=false,bool emptyControl=false) {
+    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr) {
         source="# Native bridge fixture\n\nReference \\ref{thm:local}.\n\n";
         for(int i=0;i<blocks;++i)source+=QString("> **定理** \\label{thm:%1}\n>\n> Synthetic $x^2\\ge0$.\n\n<!-- -->\n\n").arg(i?QString::number(i):"local");
         source+="```text\n\\ref{code:unchanged}\n```\n";
@@ -101,8 +105,9 @@ struct Session {
         WizWebEngineInjectObjectCollection objects;
         if(completeBridge)objects.insert("WizQtEditor",&editor);
         objects.insert("WizExplorerApp",&explorer);
-        view=std::make_unique<WizWebEngineView>(objects);
-        if(visibleOffscreen){view->resize(900,600);view->show();}
+        view=std::make_unique<WizWebEngineView>(objects,host);
+        if(host)static_cast<QGridLayout*>(host->layout())->addWidget(view.get(),index%4/2,index%2);
+        if(showView){view->resize(900,600);view->show();}
         bool loaded=false,ok=false;
         const auto connection=QObject::connect(view.get(),&WizWebEngineView::loadFinishedEx,[&](bool success){loaded=true;ok=success;});
         view->load(QUrl::fromLocalFile(path));
@@ -144,8 +149,24 @@ QJsonObject processMemory() {
     QSet<qint64> members{QCoreApplication::applicationPid()};
     bool changed=true;while(changed){changed=false;for(const auto& row:rows)
         if(members.contains(row.parent)&&!members.contains(row.pid)){members.insert(row.pid);changed=true;}}
-    qint64 rss=0;int count=0;for(const auto& row:rows)if(members.contains(row.pid)&&row.pid!=observerPid){rss+=row.rss;++count;}
-    return {{"available",true},{"rssKiBSum",rss},{"processCount",count}};
+    qint64 rss=0,mainRss=0;int count=0;for(const auto& row:rows)if(members.contains(row.pid)&&row.pid!=observerPid){
+        rss+=row.rss;++count;if(row.pid==QCoreApplication::applicationPid())mainRss=row.rss;
+    }
+    QJsonObject result{{"available",true},{"rssKiBSum",rss},{"mainRssKiB",mainRss},{"processCount",count}};
+#ifdef Q_OS_MAC
+    // Own-task accounting needs no access to another application. Footprint
+    // includes compressed/private memory and must not be equated with RSS.
+    task_vm_info_data_t info{};mach_msg_type_number_t size=TASK_VM_INFO_COUNT;
+    if(task_info(mach_task_self(),TASK_VM_INFO,reinterpret_cast<task_info_t>(&info),&size)==KERN_SUCCESS) {
+        result.insert("mainFootprintKiB",qint64(info.phys_footprint/1024));
+        result.insert("mainInternalKiB",qint64(info.internal/1024));
+        result.insert("mainCompressedKiB",qint64(info.compressed/1024));
+        result.insert("mainExternalKiB",qint64(info.external/1024));
+    }
+#endif
+    result.insert("profileDescendantObjects",WizWebEngineProfile()->findChildren<QObject*>().size());
+    result.insert("widgetCount",QApplication::allWidgets().size());
+    return result;
 }
 }
 
@@ -163,17 +184,28 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
     if(argc==2&&QByteArray(argv[1])=="--editor-memory-probe") {
         const int batches=qEnvironmentVariableIsSet("WIZNOTE_MEMORY_BATCHES")?qEnvironmentVariableIntValue("WIZNOTE_MEMORY_BATCHES"):5;
         const bool visible=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_VISIBLE_OFFSCREEN")==1;
+        const bool nativeVisible=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_VISIBLE_COCOA")==1;
         const bool empty=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_EMPTY_CONTROL")==1;
-        // Visible here means only the offscreen platform's virtual surface,
-        // never opening/activating a window on the user's real desktop.
-        if(batches<1||batches>10||(visible&&QGuiApplication::platformName()!="offscreen"))return 4;
+        const bool nestedControl=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_NESTED_LOOP_CONTROL")==1;
+        const bool sharedHost=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_SHARED_HOST")==1;
+        // Offscreen visibility cannot accidentally open desktop windows.
+        // Actual Cocoa windows need a separate, explicit test-only opt-in.
+        if(batches<1||batches>30||(visible&&QGuiApplication::platformName()!="offscreen")
+            ||(nativeVisible&&QGuiApplication::platformName()!="cocoa")||(visible&&nativeVisible)
+            ||(sharedHost&&!nativeVisible))return 4;
+        std::unique_ptr<QWidget> host;
+        if(sharedHost) {
+            host=std::make_unique<QWidget>();host->setWindowTitle("WizNotePlus — synthetic memory test (no account)");
+            auto* layout=new QGridLayout(host.get());layout->setContentsMargins(0,0,0,0);
+            host->resize(900,600);host->show();
+        }
         QJsonArray samples;
-        for(int batch=0;batch<batches;++batch) {
+        const auto runBatch=[&](int batch)->int {
             std::vector<std::unique_ptr<Session>> pages;
             QElapsedTimer elapsed;elapsed.start();
             for(int i=0;i<4;++i) {
                 auto session=std::make_unique<Session>();
-                if(!session->load(root.path(),batch*4+i,16,true,visible,empty)
+                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible,empty,host.get())
                     ||(!empty&&!session->start(QString("memory-%1-%2").arg(batch).arg(i))))return 2;
                 pages.push_back(std::move(session));
             }
@@ -187,19 +219,42 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             }
             if(!check(content,empty?"all four native empty controls retain only synthetic placeholder text":"all four synthetic native pages retain source and render all sixteen formulas"))return 5;
             opened.insert("visibilityStates",visibility);opened.insert("visibleOffscreen",visible);
+            opened.insert("visibleCocoa",nativeVisible);
             opened.insert("emptyControl",empty);
             samples.replace(samples.size()-1,opened);
             qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(opened).toJson(QJsonDocument::Compact));
             QList<QPointer<WizWebEngineView>> views;
-            for(const auto& page:pages)views.append(page->view.get());
+            QList<QPointer<QWebEnginePage>> webPages;
+            for(const auto& page:pages){views.append(page->view.get());webPages.append(page->view->page());}
             pages.clear();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);settle(1000);
             bool gone=true;for(const auto& view:views)gone&=view.isNull();
-            if(!check(gone,"all four native views are released after closing the synthetic batch"))return 3;
+            for(const auto& page:webPages)gone&=page.isNull();
+            if(!check(gone,"all four native views and pages are released after closing the synthetic batch"))return 3;
             auto closed=processMemory();closed.insert("batch",batch);closed.insert("phase","all-closed");samples.append(closed);
             qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(closed).toJson(QJsonDocument::Compact));
+            return 0;
+        };
+        if(nestedControl) {
+            for(int batch=0;batch<batches;++batch)if(const int status=runBatch(batch))return status;
+        } else {
+            // Return to the real application event loop between batches, like
+            // separate user actions. A single long synchronous test callback
+            // can retain native autoreleased window/graphics resources and
+            // misrepresent the application's steady-state memory behaviour.
+            int batch=0;
+            std::function<void()> next;
+            next=[&] {
+                if(batch==batches){app.exit(0);return;}
+                if(const int status=runBatch(batch++)){app.exit(status);return;}
+                QTimer::singleShot(100,&app,next);
+            };
+            QTimer::singleShot(0,&app,next);
+            if(const int status=app.exec())return status;
         }
+        settle(10000);auto settled=processMemory();settled.insert("phase","all-closed-after-ten-seconds");samples.append(settled);
+        qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(settled).toJson(QJsonDocument::Compact));
         qInfo().noquote()<<"MEMORY_PROBE"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"engine","native Qt mac bridge; synthetic views, not full main-window workload"},
-            {"rssIsNotUniquePhysicalMemory",true},{"samples",samples}}).toJson(QJsonDocument::Compact));
+            {"rssIsNotUniquePhysicalMemory",true},{"nestedLoopControl",nestedControl},{"sharedHost",sharedHost},{"samples",samples}}).toJson(QJsonDocument::Compact));
     } else {
         {
             Session session;if(!check(session.load(root.path(),0),"native editor fixture loads original engine helper and actual Qt transport"))return 1;
