@@ -24,6 +24,18 @@ args = parser.parse_args()
 manifest = json.loads((args.directory / "anchor-geometry-results.json").read_text())
 if manifest["failures"] or not manifest["offTheRecord"] or manifest["registeredScripts"] or manifest["blockedRequests"]:
     raise RuntimeError("The independent generator did not pass its isolation invariants")
+expected_cases = {
+    "a4-zero-narrow", "a4-5mm-narrow", "a4-20mm-narrow", "a4-5mm-wide",
+    "a4-asymmetric-wide", "letter-5mm-wide", "a4-landscape-5mm",
+    "a4-css20-api0", "css-mixed-api5",
+}
+names = [sample["name"] for sample in manifest["records"]]
+if len(names) != len(expected_cases) or set(names) != expected_cases:
+    raise RuntimeError("All nine unique geometry cases are required, even for subset controls")
+for sample in manifest["records"]:
+    if (not sample["htmlSame"] or not sample["saved"] or not sample["layoutValid"]
+            or sample["file"] != sample["name"] + ".pdf"):
+        raise RuntimeError("Incomplete/invalid geometry case: " + sample["name"])
 
 
 def same_color(item, color):
@@ -92,6 +104,8 @@ for sample in manifest["records"]:
                               "containedInPaintedNav": contained, "alignedWithPaintedNav": aligned})
         if len(links) != 3:
             raise RuntimeError(f"Expected three source links, got {len(links)} in {sample['file']}")
+        if {link["name"] for link in links} != {f"target-{i}" for i in range(1, 4)}:
+            raise RuntimeError(f"Source links do not cover all three targets: {sample['file']}")
         matrices = [[float(x) for x in operands] for operands, op in ContentStream(reader.pages[0].get_contents(), reader).operations
                     if op == b"cm"][:4]
         records.append({"name": sample["name"], "file": sample["file"], "pages": pages,

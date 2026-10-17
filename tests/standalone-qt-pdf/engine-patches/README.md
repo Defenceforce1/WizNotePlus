@@ -81,7 +81,10 @@ same build configuration when applying the draft incrementally afterward.
   release's tested SDK. Do not silence it or imply future-system validation.
 
 No build has yet produced a patched engine. After a valid baseline build,
-apply the candidate only in the isolated source tree. Run the standalone
+first verify its complete runtime reproduces the original SDK's nine-case
+geometry, pagination and raster output. If it does not, investigate build
+configuration differences before attributing any improvement to this patch.
+Then apply the candidate only in the isolated source tree. Run the standalone
 geometry generator with each corresponding complete runtime, then require:
 
 ```sh
@@ -92,7 +95,10 @@ python3 tests/standalone-qt-pdf/audit-anchor-geometry.py \
 
 All nine scenarios/27 destinations must be within one point on the correct
 page, with source rectangles contained and aligned. `--cases` is for explicit
-positive/negative controls only; a subset can never accept an engine. The
+positive/negative controls only; a subset can never accept an engine. Even
+subset controls require an intact nine-case generator manifest: empty,
+duplicate, missing, unsaved or HTML-mismatched cases fail before PDF analysis.
+Source links must cover all three distinct targets, not merely count to three. The
 unmodified baseline's full acceptance deliberately fails seven cases. The two
 known accurate controls pass, confirming the checker can distinguish outcomes.
 
