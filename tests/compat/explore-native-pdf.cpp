@@ -88,7 +88,12 @@ int main(int argc,char** argv) {
         struct State {bool done=false,valid=false;};
         auto state=std::make_shared<State>();QEventLoop loop;QTimer timer;QPointer<QEventLoop> guard(&loop);
         QObject::connect(&timer,&QTimer::timeout,&loop,&QEventLoop::quit);timer.setSingleShot(true);timer.start(30000);
-        const QPageLayout layout=WizPdfExport::pageLayout(0,QMarginsF(margin,margin,margin,margin));
+        const bool cssMargins=qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS");
+        if(cssMargins) evaluate(reader.page(),QString(R"JS((()=>{
+          const style=document.createElement('style');style.id='wiz_tmp_style_pdf_page_margin_probe';
+          style.textContent='@page {size:A4 portrait; margin:%1mm;}';document.head.appendChild(style);return true;
+        })())JS").arg(margin));
+        const QPageLayout layout=WizPdfExport::pageLayout(0,cssMargins?QMarginsF(0,0,0,0):QMarginsF(margin,margin,margin,margin));
         const QString destination=QDir(output).filePath(name);
         reader.page()->printToPdf([state,guard,destination](const QByteArray& bytes){
             state->done=true;
@@ -99,7 +104,9 @@ int main(int argc,char** argv) {
             if(guard)guard->quit();
         },layout);
         if (!state->done) loop.exec();
-        qInfo().noquote()<<(state->valid?"PASS":"FAIL")<<name<<"explicit margin mm"<<margin;
+        if(cssMargins) evaluate(reader.page(),"document.getElementById('wiz_tmp_style_pdf_page_margin_probe')?.remove();true");
+        qInfo().noquote()<<(state->valid?"PASS":"FAIL")<<name<<"requested margin mm"<<margin
+            <<"margin path"<<(cssMargins?"CSS @page with zero API margins":"QPageLayout API");
         return state->valid;
     };
     failures+=!print("references-5mm.pdf",5);
@@ -146,9 +153,10 @@ int main(int argc,char** argv) {
     const auto state=evaluate(reader.page(),"({blocks:document.querySelectorAll('.wiz-math-block').length,jax:MathJax.Hub.getAllJax().length,errors:document.querySelectorAll('.MathJax_Error,merror').length})").toMap();
     failures+=!sourceBefore||!sourceAfter||!htmlSame||!modifiedSame||requests.blocked.load()!=0;
     failures+=state.value("blocks").toInt()!=2||state.value("errors").toInt()!=0||state.value("jax").toInt()!=1;
-    QJsonDocument result(QJsonObject{{"kind","actual installed Qt printToPdf; synthetic original reader, no user data"},
+    QJsonDocument result(QJsonObject{{"kind","actual Qt printToPdf; synthetic original reader, no user data"},
         {"qtRuntime",qVersion()},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
-        {"productionFileHelper",true},{"edgeFixture",qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE")},
+        {"productionFileHelper",true},{"cssPageMarginsProbe",qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS")},
+        {"edgeFixture",qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE")},
         {"anchorPrototype",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_PROTOTYPE")},{"transformVariant",qEnvironmentVariableIsSet("WIZNOTE_PDF_ANCHOR_TRANSFORM")},
         {"renderState",QJsonObject::fromVariantMap(state)},{"failures",failures}});
     QFile record(QDir(output).filePath("native-pdf-results.json"));

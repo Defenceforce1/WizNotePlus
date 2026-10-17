@@ -452,7 +452,7 @@ bool WizMainWindow::prepareForQuit()
                 if (decision == WizQuitSyncPolicy::Decision::Finished) return true;
                 if (decision != WizQuitSyncPolicy::Decision::Wait) {
                     qInfo() << "[Quit] final sync stopped:" << (decision == WizQuitSyncPolicy::Decision::StartTimedOut
-                        ? "connection/start timed out" : "no sync progress for 10 seconds");
+                        ? "connection/start timed out" : "no sync progress for 3 seconds; skip this quit attempt without retry");
                     return false;
                 }
                 QApplication::processEvents(); QThread::msleep(10);

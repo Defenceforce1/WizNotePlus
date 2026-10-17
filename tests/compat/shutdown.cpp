@@ -45,21 +45,27 @@ int wizShutdownSelfTest(int argc, char** argv)
         Wait progressing;
         bool continued=progressing.observe(0,false,0,false)==Decision::Wait
             &&progressing.observe(2900,true,1,false)==Decision::Wait;
-        for(int seconds=5;seconds<=120;seconds+=5)
+        for(int seconds=3;seconds<=120;++seconds)
             continued&=progressing.observe(seconds*1000,true,quint64(seconds),false)==Decision::Wait;
         check(continued&&progressing.observe(121000,true,120,true)==Decision::Finished,
             "a sync starting within three seconds may keep progressing for two minutes and finish normally");
         Wait stalled;
         check(stalled.observe(100,true,1,false)==Decision::Wait
-            &&stalled.observe(10099,true,1,false)==Decision::Wait
-            &&stalled.observe(10100,true,1,false)==Decision::Stalled,
-            "started sync stops only after ten seconds without progress");
+            &&stalled.observe(3099,true,1,false)==Decision::Wait
+            &&stalled.observe(3100,true,1,false)==Decision::Stalled,
+            "started sync stops at three seconds without progress, not before");
         Wait refreshed;
         check(refreshed.observe(100,true,1,false)==Decision::Wait
-            &&refreshed.observe(9000,true,2,false)==Decision::Wait
-            &&refreshed.observe(18000,true,2,false)==Decision::Wait
-            &&refreshed.observe(19000,true,2,false)==Decision::Stalled,
+            &&refreshed.observe(2900,true,2,false)==Decision::Wait
+            &&refreshed.observe(5899,true,2,false)==Decision::Wait
+            &&refreshed.observe(5900,true,2,false)==Decision::Stalled,
             "new transfer progress resets inactivity timeout without imposing a total deadline");
+        check(noProgressTimeoutMs==3000,
+            "quit no-progress limit is three seconds independently of the local-save confirmation");
+        check(stalled.observe(3101,true,2,false)==Decision::Stalled
+            &&stalled.observe(3200,true,3,true)==Decision::Stalled
+            &&neverStarted.observe(3001,true,1,false)==Decision::StartTimedOut,
+            "late network activity cannot revive a timed-out quit attempt or trigger a retry");
         Wait failure;
         check(failure.observe(200,true,1,true)==Decision::Finished,
             "completed failed attempts also end waiting without automatic retry");
@@ -330,6 +336,14 @@ int wizShutdownSelfTest(int argc, char** argv)
             QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
             QObject::connect(socket, &QTcpSocket::readyRead, socket, [&, socket] {
                 const auto request=socket->readAll(); ++requests;
+                if(request.startsWith("GET /silent ")) return;
+                if(request.startsWith("GET /stall-after-progress ")) {
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n");
+                    // Let Qt's progress-notification coalescing interval pass
+                    // before a real body byte arrives, then deliberately stall.
+                    QTimer::singleShot(250,socket,[socket]{socket->write("x");});
+                    return;
+                }
                 if(request.startsWith("GET /slow ")) {
                     socket->write("HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n");
                     auto* chunks=new QTimer(socket);
@@ -372,6 +386,36 @@ int wizShutdownSelfTest(int argc, char** argv)
         monitor.start(25);loop.exec();monitor.stop();
         check(loop.error()==QNetworkReply::NoError&&loop.result()=="xxxxxxxx"&&elapsed.elapsed()>3000&&activity>1,
             "actual slow loopback download keeps progressing past three seconds and saves the complete response");
+    }
+    for (const QString& path : {QStringLiteral("/silent"), QStringLiteral("/stall-after-progress")}) {
+        QNetworkAccessManager net;
+        QUrl pending=url;pending.setPath(path);
+        const int beforeRequests=requests;
+        WizAutoTimeOutEventLoop loop(net.get(QNetworkRequest(pending)));
+        bool started=false;quint64 activity=0;
+        const WizNetworkSecurity::ActivityScope observe([&]{started=true;++activity;});
+        WizQuitSyncPolicy::Wait policy;QElapsedTimer elapsed;elapsed.start();
+        WizQuitSyncPolicy::Decision cutoff=WizQuitSyncPolicy::Decision::Wait;
+        QTimer monitor;
+        QObject::connect(&monitor,&QTimer::timeout,&app,[&]{
+            const auto decision=policy.observe(elapsed.elapsed(),started,activity,loop.isFinished());
+            if(decision!=WizQuitSyncPolicy::Decision::Wait&&decision!=WizQuitSyncPolicy::Decision::Finished) {
+                cutoff=decision;loop.networkReply()->abort();
+            }
+        });
+        monitor.start(25);loop.exec();monitor.stop();
+        const auto expected=path==QStringLiteral("/silent")?WizQuitSyncPolicy::Decision::StartTimedOut
+            :WizQuitSyncPolicy::Decision::Stalled;
+        qInfo()<<"Synthetic quit cutoff"<<path<<"decision"<<int(cutoff)<<"elapsed ms"<<elapsed.elapsed()
+            <<"activity count"<<activity<<"requests"<<(requests-beforeRequests);
+        check(cutoff==expected&&loop.error()==QNetworkReply::OperationCanceledError
+            &&elapsed.elapsed()>=3000&&elapsed.elapsed()<4500,
+            path==QStringLiteral("/silent")
+                ?"actual unresponsive loopback request stops at the three-second start cutoff"
+                :"actual loopback transfer that stops progressing is canceled after three seconds of inactivity");
+        app.processEvents();
+        check(requests-beforeRequests==1&&policy.observe(elapsed.elapsed(),true,activity+1,false)==expected,
+            "quit cutoff sends no retry and late activity cannot restart the attempt");
     }
     respond = false;
     std::atomic_bool workerCanceled{false};

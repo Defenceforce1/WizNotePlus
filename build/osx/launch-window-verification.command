@@ -6,7 +6,10 @@ app=${1:-"$script_dir/WizNotePlus Apple Silicon.app"}
 [[ -d "$app" && ! -L "$app" ]] || { echo '找不到同目录的候选 App；未启动任何程序。'; exit 1; }
 app=$(cd "$app" && pwd)
 [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist") == io.github.defenceforce1.wiznoteplus.applesilicon ]] || exit 1
-[[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist") == 14.4.17 ]] || exit 1
+case $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist") in
+    14.4.17|14.4.18) ;;
+    *) echo '不是此诊断脚本已验证的候选版本；未启动应用。'; exit 1 ;;
+esac
 codesign --verify --deep --strict "$app"
 artifacts=$(mktemp -d "${TMPDIR:-/tmp}/wiznote-window-check.XXXXXX")
 echo '这只验证临时合成笔记，不登录账号，不打开现有资料。'
