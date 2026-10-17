@@ -30,6 +30,7 @@
 #include <QTranslator>
 #include <QFileDialog>
 #include <QProgressDialog>
+#include <QImage>
 #include <QApplication>
 #include <QTabBar>
 #include <QAbstractButton>
@@ -575,7 +576,9 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             NSWindow* tool = filterPopup ? [(NSView*)filterPopup->winId() window] : nil;
             return field && field->hasFocus() && field->testAttribute(Qt::WA_InputMethodEnabled)
                 && filterPopup && filterPopup->windowType() == Qt::Tool && tool.canBecomeKeyWindow && tool.keyWindow;
-        });
+        // Real foreground activation may require a native user click on newer
+        // macOS. Allow that precondition without bypassing actual key/focus.
+        }, {}, 30000);
         addCheck("tag-filter pinyin preedit stays uncommitted without changing the note query", [&] {
             auto* field = window.findChild<QLineEdit*>("wiz-note-panel-tag-filter");
             auto* view = window.findChild<WizSearchView*>("wiz-note-search-view");
@@ -1037,7 +1040,6 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                         if (*ready) *markdown = result.value("source").toString(); *queryPending = false;
                     });
             }
-            if (*ready) capture(&window, "v14-native-math-labels.png");
             return *ready && markdown->contains("\\label{thm:native}");
         }, [&] {
             QString error;
@@ -1051,6 +1053,33 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                 WIZDOCUMENTDATAEX note; note = data; window.viewDocument(note);
             }
         }, 20000);
+        const auto paintStarted = std::make_shared<QElapsedTimer>();
+        const auto paintReady = std::make_shared<bool>(false);
+        addCheck("native Markdown formula reader paints actual content after asynchronous readiness", [&, paintStarted, paintReady] {
+            if (paintStarted->elapsed() < 250) return false;
+            auto* web = window.docView()->web();
+            if (!*paintReady && !*queryPending) {
+                *queryPending = true;
+                web->page()->runJavaScript(
+                    "(function(){if(!window.WizNativeEditorSetup||WizNativeEditorSetup.state!=='ready'||!window.MathJax||!MathJax.Hub)return false;"
+                    "if(!window.WizFixturePaintQueued){window.WizFixturePaintQueued=true;MathJax.Hub.Queue(function(){"
+                    "requestAnimationFrame(()=>requestAnimationFrame(()=>window.WizFixturePaintReady=true));});}"
+                    "return !!window.WizFixturePaintReady&&!document.body.isContentEditable&&MathJax.Hub.getAllJax().length===1"
+                    "&&document.querySelectorAll('.wiz-math-block').length===2;})()",
+                    [paintReady, queryPending](const QVariant& value) {*paintReady=value.toBool();*queryPending=false;});
+            }
+            if (!*paintReady || !web->isVisible()) return false;
+            const QImage frame=web->grab().toImage().convertToFormat(QImage::Format_RGB32);
+            int ink=0;
+            for (int y=12;y<qMin(frame.height()-12,600);y+=3)
+                for (int x=12;x<frame.width()-12;x+=3) {
+                    const QRgb pixel=frame.pixel(x,y);
+                    if(qRed(pixel)<110&&qGreen(pixel)<110&&qBlue(pixel)<110)++ink;
+                }
+            if(ink<120)return false;
+            capture(&window, "main-math-reader-painted.png");
+            return true;
+        }, [paintStarted] {paintStarted->start();}, 10000);
         const auto editing = std::make_shared<bool>(false);
         const auto editDiagnostic = std::make_shared<QString>();
         addCheck("native Markdown editing retains original labels and contains no preview decoration", [&, editing, markdown, editDiagnostic] {
