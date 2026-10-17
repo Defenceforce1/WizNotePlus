@@ -20,6 +20,7 @@
 #include <QCheckBox>
 #include <QProgressDialog>
 #include "share/WizNetworkSecurity.h"
+#include "share/WizQuitUiGuard.h"
 #include <QCryptographicHash>
 #include <QScopedValueRollback>
 #include <QWindow>
@@ -403,47 +404,37 @@ bool WizMainWindow::prepareForQuit()
     if (m_quitPrepared) return true;
     if (m_preparingQuit || m_noteTransferBusy) return false;
     QScopedValueRollback<bool> preparing(m_preparingQuit, true);
-    struct ActionGuard {
-        bool& exiting;
-        QList<QPair<QPointer<QAction>, bool>> states;
-        ActionGuard(QWidget* window, bool& state) : exiting(state) {
-            for (QAction* action : window->findChildren<QAction*>()) {
-                states.append(qMakePair(QPointer<QAction>(action), action->isEnabled()));
-                action->setEnabled(false);
-            }
+    WizQuitUiGuard actions(this, m_quiting);
+    const auto saveLocally = [&](bool force) {
+        QList<QPointer<WizDocumentView>> views;
+        processAllDocumentViews([&](WizDocumentView* view) { views.append(view); });
+        for (auto* viewer : m_singleViewMgr->getDocumentViewerMap().values())
+            if (viewer) views.append(viewer->docView());
+        for (const auto& view : views) if (view) actions.freeze(view);
+        actions.freeze(centralWidget());
+        // Do not stop/discard the saver. Verify actual disk writes, not just
+        // the JavaScript callback that hands a snapshot to its queue.
+        QElapsedTimer deadline; deadline.start();
+        while (m_docSaver && !m_docSaver->isIdleForTransfer() && deadline.elapsed()<30000) {
+            QApplication::processEvents(); QThread::msleep(5);
         }
-        ~ActionGuard() {
-            if (!exiting) for (const auto& state : states) if (state.first) state.first->setEnabled(state.second);
+        bool saved=!m_docSaver || m_docSaver->isIdleForTransfer();
+        if (saved && m_docSaver) m_docSaver->clearTransferError();
+        for (const auto& view : views) if (saved && view) saved=view->waitForSave(force);
+        deadline.restart();
+        while (m_docSaver && !m_docSaver->isIdleForTransfer() && deadline.elapsed()<30000) {
+            QApplication::processEvents(); QThread::msleep(5);
         }
-    } actions(this, m_quiting);
-
-    // Do not stop the saver or discard its queue. Check actual disk writes,
-    // not merely the JavaScript callback that enqueues a save.
-    QElapsedTimer saveDeadline; saveDeadline.start();
-    while (m_docSaver && !m_docSaver->isIdleForTransfer() && saveDeadline.elapsed() < 30000) {
-        QApplication::processEvents(); QThread::msleep(5);
-    }
-    bool saved = !m_docSaver || m_docSaver->isIdleForTransfer();
-    if (saved && m_docSaver) m_docSaver->clearTransferError();
-    QList<QPointer<WizDocumentView>> views;
-    processAllDocumentViews([&](WizDocumentView* view) { views.append(view); });
-    for (auto* viewer : m_singleViewMgr->getDocumentViewerMap().values())
-        if (viewer) views.append(viewer->docView());
-    for (const auto& view : views)
-        if (saved && view) saved = view->waitForSave(true);
-    saveDeadline.restart();
-    while (m_docSaver && !m_docSaver->isIdleForTransfer() && saveDeadline.elapsed() < 30000) {
-        QApplication::processEvents(); QThread::msleep(5);
-    }
-    saved = saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
-    if (!saved) {
+        return saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
+    };
+    const auto reportLocalFailure = [&] {
         // Only an actionable local-save error is interactive.
         m_preparingQuit = false;
         QScopedValueRollback<bool> blockQuit(m_noteTransferBusy, true);
         QMessageBox::critical(this, QStringLiteral("未退出"),
             QStringLiteral("本地笔记尚未确认保存成功，已取消退出。请保留当前窗口，检查磁盘空间并重试保存。"));
-        return false;
-    }
+    };
+    if (!saveLocally(true)) { reportLocalFailure(); return false; }
 
     // Connection/start has a short budget. Once network work is established,
     // wait for completion while real transfer/stage progress continues. Only
@@ -480,6 +471,10 @@ bool WizMainWindow::prepareForQuit()
             disconnect(connection);
         }
     }
+    // Catch a late async/native edit or a newly loaded page before committing
+    // to exit. Do not start a second cloud attempt; any late local update can
+    // sync next time. A failure still cancels quit and restores ordinary input.
+    if (!saveLocally(false)) { reportLocalFailure(); return false; }
     m_quitPrepared = true;
     m_quiting = true;
     WizNetworkSecurity::beginShutdown();

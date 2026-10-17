@@ -1,5 +1,6 @@
 #include "share/WizDocumentAsync.h"
 #include "share/WizDocumentPageReady.h"
+#include "share/WizQuitUiGuard.h"
 #include <QApplication>
 #include <QDebug>
 #include <QEventLoop>
@@ -8,6 +9,7 @@
 #include <QTimer>
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
+#include <QWebEngineView>
 
 namespace {
 QVariant evaluate(QWebEnginePage& page, const QString& script) {
@@ -34,6 +36,28 @@ int main(int argc, char** argv) {
     const auto check=[&](bool ok,const char* label){
         ++count; failures+=!ok; qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;
     };
+    {
+        QWidget window,editor(&window),disabled(&window),parent(&window),inherited(&parent);
+        QAction enabledAction(&window),disabledAction(&window);
+        disabledAction.setEnabled(false);disabled.setEnabled(false);parent.setEnabled(false);
+        bool committed=false;
+        {
+            WizQuitUiGuard guard(&window,committed);
+            guard.freeze(&editor);guard.freeze(&disabled);guard.freeze(&inherited);
+            guard.freeze(&window);guard.freeze(&editor);
+            check(!editor.isEnabled()&&!enabledAction.isEnabled(),
+                "quit preparation freezes ordinary editor input and actions while async work continues");
+            auto disappearing=std::make_unique<QWidget>();guard.freeze(disappearing.get());disappearing.reset();
+        }
+        check(editor.isEnabled()&&!disabled.isEnabled()&&enabledAction.isEnabled()&&!disabledAction.isEnabled(),
+            "failed/canceled quit restores original editor and action enabled states");
+        parent.setEnabled(true);
+        check(inherited.isEnabled(),"quit input restoration preserves parent-inherited disabled state without making it permanent");
+        {
+            WizQuitUiGuard guard(&window,committed);guard.freeze(&editor);committed=true;
+        }
+        check(!editor.isEnabled()&&!enabledAction.isEnabled(),"committed quit cannot accept new typing after final local-save confirmation");
+    }
     QEventLoop loaded;
     QTimer deadline; deadline.setSingleShot(true);
     QObject::connect(&deadline,&QTimer::timeout,&loaded,&QEventLoop::quit);
@@ -51,6 +75,18 @@ int main(int argc, char** argv) {
         &&evaluate(page,"captures").toInt()==0,"clean editor avoids unnecessary HTML capture");
     const auto forced=parse(evaluate(page,editorScript(true,false)));
     check(forced.state==State::Changed&&forced.html=="old","forced save captures unchanged content");
+    {
+        QWebEngineView view;
+        view.setPage(&page);
+        bool committed=false;
+        {
+            WizQuitUiGuard guard(&view,committed);guard.freeze(&view);
+            const auto frozen=parse(evaluate(page,editorScript(true,false)));
+            check(!view.isEnabled()&&frozen.state==State::Changed&&frozen.html=="old",
+                "disabled native WebEngine input still permits final JavaScript save snapshots");
+        }
+        check(view.isEnabled(),"canceled quit restores native WebEngine input without changing its editor mode");
+    }
     evaluate(page,"document.body.contentEditable='false';");
     check(parse(evaluate(page,editorScript(true,false))).state==State::Failed,
         "stale native editor mode cannot serialize a rendered preview as editable source");
