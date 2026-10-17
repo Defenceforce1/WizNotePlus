@@ -15,10 +15,16 @@ function metric(samples, field) {
 const cases = files.map(file => {
     const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
     const reports = lines.filter(x => x.startsWith('MEMORY_PROBE '));
-    if (reports.length !== 1 || lines.some(x => x.startsWith('FAIL '))
-        || !lines.some(x => /^Native editor runtime checks: \d+ failures: 0$/.test(x)))
+    if (reports.length !== 1 || lines.some(x => x.startsWith('FAIL ')))
         throw Error('Missing, failed or incomplete probe: ' + file);
     const probe = JSON.parse(reports[0].slice('MEMORY_PROBE '.length));
+    const completion = probe.standalone
+        ? /^Standalone Qt memory checks: \d+ passed, 0 failed$/
+        : /^Native editor runtime checks: \d+ failures: 0$/;
+    if (!lines.some(x => completion.test(x)))
+        throw Error('Missing matching probe completion: ' + file);
+    if (probe.standalone && !lines.includes('PASS temporary profile removed after QApplication shutdown'))
+        throw Error('Standalone profile cleanup not confirmed: ' + file);
     const opened = probe.samples.filter(x => x.phase === 'four-open');
     const closed = probe.samples.filter(x => x.phase === 'all-closed');
     const expectedClosedProcesses = probe.expectedClosedProcessCount ?? 1;
@@ -38,13 +44,19 @@ const cases = files.map(file => {
         || !finallyClosed || finallyClosed.processCount !== 1))
         throw Error('Retained page did not remain alive or finish cleanup: ' + file);
     return {log: path.basename(file), batches: closed.length, pageOpenings: closed.length * 4,
-        emptyControl: !!opened[0].emptyControl, visibleCocoa: !!opened[0].visibleCocoa,
+        emptyControl: !!(probe.emptyControl ?? opened[0].emptyControl),
+        visibleCocoa: !!(probe.visibleCocoa ?? opened[0].visibleCocoa),
         visibleOffscreen: !!opened[0].visibleOffscreen, sharedHost: probe.sharedHost ?? null,
         nestedLoopControl: probe.nestedLoopControl ?? null,
         retainedNote: probe.retainedNote ?? false, releaseGraphics: probe.releaseGraphics ?? false,
         nativeBatchPool: probe.nativeBatchPool ?? false,
         rhiControl: probe.rhiControl ?? '',
         stockView: probe.stockView ?? false,
+        standalone: probe.standalone ?? false,
+        qtVersion: probe.qtVersion ?? null,
+        quickBackend: probe.quickBackend ?? null,
+        graphicsApi: probe.graphicsApi ?? null,
+        sceneGraphBackend: probe.sceneGraphBackend ?? null,
         expectedClosedProcessCount: expectedClosedProcesses,
         namedPassChecks: lines.filter(x => x.startsWith('PASS ')).length,
         closedWidgetCounts: [...new Set(closed.map(x => x.widgetCount ?? null))],
