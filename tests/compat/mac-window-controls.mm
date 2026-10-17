@@ -14,6 +14,7 @@
 #include "widgets/WizUserInfoWidget.h"
 #include "gui/documentviewer/WizDocumentView.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
+#include "gui/documentviewer/WizEditorInsertLinkForm.h"
 #include "gui/documentviewer/WizEditorToolBar.h"
 #include "gui/documentviewer/WizTitleEdit.h"
 #include "gui/tabbrowser/WizMainTabBrowser.h"
@@ -449,6 +450,111 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             settings.setEnableSpellCheck(false);
             QMetaObject::invokeMethod(&window, "on_options_settingsChanged", Qt::DirectConnection,
                 Q_ARG(WizOptionsType, wizoptionsSpellCheck));
+        });
+    }
+    // Extra synthetic lifecycle checks are explicit opt-in so the already
+    // delivered candidate's 93-check launcher contract remains unchanged.
+    if (!interactive && qEnvironmentVariableIntValue("WIZNOTE_TEST_LINK_LIFETIME") == 1) {
+        struct LinkState {
+            QPointer<WizEditorInsertLinkForm> dialog;
+            std::unique_ptr<WizDocumentView> closing;
+            QString expected;
+            bool ready=false, pending=false, acted=false;
+        };
+        const auto link=std::make_shared<LinkState>();
+        const auto linkResult=[&,link](const QString& script) {
+            if (!link->ready&&!link->pending) {
+                link->pending=true;
+                window.docView()->web()->page()->runJavaScript(script,[link](const QVariant& value) {
+                    link->ready=value.toBool();link->pending=false;
+                });
+            }
+            return link->ready;
+        };
+        addCheck("actual link dialog belongs to its editor and remains application modal without nested exec", [&,link] {
+            auto* web=window.docView()->web();
+            link->dialog=web->findChild<WizEditorInsertLinkForm*>();
+            return link->dialog&&link->dialog->isVisible()&&link->dialog->parentWidget()==web
+                &&link->dialog->windowModality()==Qt::ApplicationModal&&link->dialog->getUrl()=="http://";
+        }, [&] {
+            auto* web=window.docView()->web();
+            web->page()->runJavaScript("window.NativeOriginalLink=WizEditor.link;window.NativeLinkCalls=[];window.NativeLinkReads=0;"
+                "WizEditor.link={getCurrentLink:()=>{++NativeLinkReads;return '';},"
+                "setCurrentLink:url=>NativeLinkCalls.push(url),removeSelectedLink:()=>NativeLinkCalls.push('removed')};",
+                [web](const QVariant&) {web->editorCommandExecuteLinkInsert();web->editorCommandExecuteLinkInsert();});
+        });
+        addCheck("repeated insert-link action reuses its visible dialog without another lookup", [&,link,linkResult] {
+            return link->dialog&&link->dialog->isVisible()
+                &&window.docView()->web()->findChildren<WizEditorInsertLinkForm*>().size()==1
+                &&linkResult("NativeLinkReads===2");
+        }, [&,link] {link->ready=false;window.docView()->web()->editorCommandExecuteLinkInsert();});
+        addCheck("actual link dialog transports quotes and Unicode and cannot submit twice", [&,link,linkResult] {
+            return link->dialog&&!link->dialog->isVisible()
+                &&linkResult("NativeLinkCalls.length===1&&NativeLinkCalls[0]==="+WizNotePresentation::jsonString(link->expected));
+        }, [&,link] {
+            link->ready=false;
+            link->dialog->setUrl(QStringLiteral("https://example.test/a'b?q=中文"));
+            link->expected=QUrl(link->dialog->getUrl()).toString();
+            link->dialog->accept();
+            window.docView()->web()->on_editorCommandExecuteLinkInsert_accepted();
+        });
+        addCheck("canceling the actual link dialog invalidates later accepted delivery", [&,link,linkResult] {
+            if (!link->acted&&link->dialog&&link->dialog->isVisible()) {
+                link->acted=true;link->dialog->setUrl("https://example.test/canceled");link->dialog->reject();
+                window.docView()->web()->on_editorCommandExecuteLinkInsert_accepted();
+            }
+            return link->acted&&linkResult("NativeLinkCalls.length===1");
+        }, [&,link] {link->ready=false;link->acted=false;window.docView()->web()->editorCommandExecuteLinkInsert();});
+        addCheck("switching to reader cancels a pending actual link query", [&,link,linkResult] {
+            return !window.docView()->web()->isEditing()&&link->dialog&&!link->dialog->isVisible()
+                &&linkResult("NativeLinkCalls.length===1");
+        }, [&,link] {
+            link->ready=false;
+            window.docView()->web()->editorCommandExecuteLinkInsert();
+            window.docView()->setEditorMode(modeReader);
+        });
+        addCheck("actual link fixture returns to the original editable engine", [&,link,linkResult] {
+            return window.docView()->web()->isEditing()&&linkResult(
+                "document.body.isContentEditable&&!!window.NativeOriginalLink");
+        }, [&,link] {link->ready=false;window.docView()->setEditorMode(modeEditor);});
+        addCheck("separate real document view loads a synthetic note before close-during-link test", [&,link] {
+            if (!link->closing||!link->closing->noteLoaded()||!link->closing->web()->isEditing()) return false;
+            if (!link->ready&&!link->pending) {
+                link->pending=true;
+                link->closing->web()->page()->runJavaScript("!!window.WizNativeEditorInitialized&&!!WizEditor.link",[link](const QVariant& v) {
+                    link->ready=v.toBool();link->pending=false;
+                });
+            }
+            return link->ready;
+        }, [&,link] {
+            link->ready=false;
+            link->closing=std::make_unique<WizDocumentView>(window,&window);
+            // A bare document widget does not wire the main window's loader.
+            // Use the same real loader and queued delivery as createDocumentView.
+            if (auto* loader=window.findChild<WizDocumentLoaderThread*>()) {
+                auto* web=link->closing->web();
+                QObject::connect(web,&WizDocumentWebView::loadDocumentRequested,loader,&WizDocumentLoaderThread::load);
+                QObject::connect(loader,&WizDocumentLoaderThread::loaded,web,&WizDocumentWebView::onDocumentReady,Qt::QueuedConnection);
+            }
+            link->closing->viewNote(extended,true);
+        },15000);
+        addCheck("closing actual document during pending link lookup destroys its editor and dialog safely", [&,link,linkResult] {
+            return link->acted&&linkResult("true");
+        }, [&,link] {
+            link->ready=false;link->acted=false;
+            const QPointer<WizDocumentWebView> closingWeb=link->closing->web();
+            closingWeb->editorCommandExecuteLinkInsert();
+            const QPointer<WizEditorInsertLinkForm> closingDialog=closingWeb->findChild<WizEditorInsertLinkForm*>();
+            const bool owned=closingDialog&&closingDialog->parentWidget()==closingWeb;
+            link->closing->RequestClose(); // Normal close still confirms the local snapshot.
+            link->closing.reset();
+            link->acted=owned&&closingWeb.isNull()&&closingDialog.isNull();
+        });
+        addCheck("link lifecycle fixture restores original link methods without changing note contents", [&,link,linkResult] {
+            return linkResult("WizEditor.link===NativeOriginalLink&&typeof WizEditor.link.getCurrentLink==='function'");
+        }, [&,link] {
+            link->ready=false;
+            window.docView()->web()->page()->runJavaScript("WizEditor.link=NativeOriginalLink;");
         });
     }
     auto capture = [&](QWidget* widget, const QString& name) {
@@ -1116,6 +1222,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     }, [&] { if (window.docView()) window.docView()->setEditorFocus(); });
     addCheck("native title bar and client toolbar share one expanded header",
         [&] { return native.styleMask & NSWindowStyleMaskFullSizeContentView; });
+    QString headerDiagnostic;
     const auto nativeHeaderAligned = [&] {
         auto* account = window.findChild<QWidget*>("wiz-header-account");
         auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
@@ -1126,8 +1233,15 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             const NSRect rect = [native.contentView convertRect:control.bounds fromView:control];
             const CGFloat center = native.contentView.flipped ? NSMidY(rect)
                 : NSHeight(native.contentView.bounds) - NSMidY(rect);
-            if (qAbs(center - search->mapTo(&window, search->rect().center()).y()) > 2
-                || NSMaxX(rect) + 8 > account->mapTo(&window, QPoint()).x()) return false;
+            const int searchY=search->mapTo(&window, search->rect().center()).y();
+            const int accountX=account->mapTo(&window, QPoint()).x();
+            if (qAbs(center-searchY)>2 || NSMaxX(rect)+8>accountX) {
+                const QString current=QString("button=%1 centerY=%2 searchY=%3 maxX=%4 accountX=%5 window=%6x%7")
+                    .arg(int(type)).arg(center).arg(searchY).arg(NSMaxX(rect)).arg(accountX)
+                    .arg(window.width()).arg(window.height());
+                if (headerDiagnostic!=current) {qInfo().noquote()<<"Synthetic header geometry:"<<current;headerDiagnostic=current;}
+                return false;
+            }
         }
         return true;
     };

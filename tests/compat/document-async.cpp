@@ -1,5 +1,6 @@
 #include "share/WizDocumentAsync.h"
 #include "share/WizDocumentPageReady.h"
+#include "share/WizDocumentLinkRequest.h"
 #include "share/WizQuitUiGuard.h"
 #include <QApplication>
 #include <QDebug>
@@ -64,6 +65,87 @@ int main(int argc, char** argv) {
     QObject::connect(&page,&QWebEnginePage::loadFinished,&loaded,&QEventLoop::quit);
     page.setHtml("<!doctype html><meta charset='utf-8'><p>Isolated save snapshot fixture</p>");
     deadline.start(10000);loaded.exec();
+    {
+        // Exercise the exact production helper with real WebEngine callbacks,
+        // not a separate model of its cancellation/serialization logic.
+        QObject owner;
+        WizDocumentCallbackEpoch document;
+        WizDocumentLinkRequest request;
+        int delivered = 0;
+        QString link;
+        evaluate(page, "window.linkCalls=[];window.linkRemoved=0;window.WizEditor={link:{"
+            "getCurrentLink:()=>'',setCurrentLink:url=>linkCalls.push(url),removeSelectedLink:()=>++linkRemoved}};");
+        const auto barrier = [&] { evaluate(page, "true"); };
+        request.query(&owner, &page, document.ticket(), [&](const QString& url) { ++delivered; link=url; });
+        barrier();
+        check(delivered==1 && link.isEmpty() && request.current(&page),
+            "actual link query accepts a valid empty string once without blocking in a dialog");
+        auto command=request.takeCommand(&page,"example.test/path");
+        evaluate(page,command);
+        check(evaluate(page,"linkCalls[0]").toString()=="http://example.test/path",
+            "link command preserves the existing default HTTP scheme");
+        check(request.takeCommand(&page,"example.test/duplicate").isEmpty(),
+            "accepted link request can be consumed only once");
+        for (const auto& url : {QString(),QString("http://")}) {
+            request.query(&owner,&page,document.ticket(),[](const QString&){});barrier();
+            evaluate(page,request.takeCommand(&page,url));
+        }
+        check(evaluate(page,"linkRemoved").toInt()==2,
+            "empty URL and the unchanged HTTP placeholder still remove the selected link");
+        const QString unusual=QStringLiteral("https://example.test/中文?q='quoted'&double=\"x\"&slash=\\value");
+        // The original form returns QUrl::toEncoded(); preserve that interface.
+        const QString formValue=QString::fromUtf8(QUrl(unusual).toEncoded());
+        const QString normalized=QUrl(formValue).toString();
+        evaluate(page,"window.legacyLink='not-delivered';WizEditor.link.setCurrentLink=url=>legacyLink=url;");
+        evaluate(page,QString("WizEditor.link.setCurrentLink('%1');").arg(normalized));
+        check(evaluate(page,"legacyLink").toString()!=normalized,
+            "old single-quoted link construction reproduces quote-bearing URL transport failure");
+        request.query(&owner,&page,document.ticket(),[](const QString&){});barrier();
+        evaluate(page,request.takeCommand(&page,formValue));
+        check(evaluate(page,"legacyLink").toString()==normalized,
+            "JSON link argument preserves normalized Unicode quotes and backslashes exactly");
+        delivered=0;
+        request.query(&owner,&page,document.ticket(),[&](const QString&){++delivered;});
+        request.cancel();barrier();
+        check(delivered==0&&!request.current(&page),"canceled pending link query cannot reopen a dialog");
+        request.query(&owner,&page,document.ticket(),[&](const QString&){++delivered;});
+        const QString premature=request.takeCommand(&page,"example.test/premature");barrier();
+        check(premature.isEmpty()&&delivered==0,
+            "link cannot be accepted before its pending lookup returns a valid string");
+        int oldCalls=0,newCalls=0;
+        request.query(&owner,&page,document.ticket(),[&](const QString&){++oldCalls;});
+        request.query(&owner,&page,document.ticket(),[&](const QString&){++newCalls;});barrier();
+        check(oldCalls==0&&newCalls==1,"only the latest pending link query may complete");
+        request.query(&owner,&page,document.ticket(),[&](const QString&){++delivered;});
+        document.invalidate();barrier();
+        check(delivered==0&&request.takeCommand(&page,"example.test/stale").isEmpty(),
+            "navigation invalidates both pending link lookup and later dialog acceptance");
+        request.query(&owner,&page,document.ticket(),[](const QString&){});barrier();
+        document.invalidate();
+        check(request.takeCommand(&page,"example.test/old-dialog").isEmpty(),
+            "already opened link dialog cannot submit into a replacement document");
+        auto closingOwner=std::make_unique<QObject>();
+        request.query(closingOwner.get(),&page,document.ticket(),[&](const QString&){++delivered;});
+        closingOwner.reset();barrier();
+        check(delivered==0&&!request.current(&page),"destroyed link owner suppresses actual JS callback delivery");
+        auto closingPage=std::make_unique<QWebEnginePage>(&profile);
+        request.query(&owner,closingPage.get(),document.ticket(),[&](const QString&){++delivered;});
+        closingPage.reset();app.processEvents();
+        check(delivered==0,"page destruction cannot turn an invalid callback into an empty-link dialog");
+        auto closingRequest=std::make_unique<WizDocumentLinkRequest>();
+        closingRequest->query(&owner,&page,document.ticket(),[&](const QString&){++delivered;});
+        closingRequest.reset();barrier();
+        check(delivered==0,"destroyed link request is not retained by a pending WebEngine callback");
+        QWebEnginePage other(&profile);
+        request.query(&owner,&page,document.ticket(),[](const QString&){});barrier();
+        check(request.takeCommand(&other,"example.test/wrong-page").isEmpty(),
+            "link request refuses a different renderer page");
+        evaluate(page,"WizEditor.link.getCurrentLink=()=>undefined;");
+        request.query(&owner,&page,document.ticket(),[&](const QString&){++delivered;});barrier();
+        check(delivered==0&&request.takeCommand(&page,"example.test/undefined").isEmpty(),
+            "undefined link result cannot open a dialog or authorize a later submission");
+        evaluate(page,"delete window.WizEditor;delete window.linkCalls;delete window.linkRemoved;delete window.legacyLink;");
+    }
     {
         const QString alias=QStringLiteral("\";window.initializerInjected=true;//\n中文\\alias");
         const QString path=QStringLiteral("/synthetic/quoted \"path\"/back\\slash/");

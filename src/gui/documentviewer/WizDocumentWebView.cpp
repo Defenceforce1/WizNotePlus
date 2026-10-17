@@ -153,7 +153,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 {
     WizDocumentWebViewPage* page = new WizDocumentWebViewPage(this);
     setupPage(page);
-    connect(this, &QWebEngineView::loadStarted, this, [this] { m_documentCallbacks.invalidate(); });
+    connect(this, &QWebEngineView::loadStarted, this, [this] { invalidateDocumentCallbacks(); });
     connect(page, &WizDocumentWebViewPage::linkClicked,
             this, &WizDocumentWebView::onEditorLinkClicked);
 
@@ -201,6 +201,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 
 WizDocumentWebView::~WizDocumentWebView()
 {
+    cancelLinkInsert();
     m_documentCallbacks.cancel();
 }
 
@@ -697,7 +698,7 @@ WizDocumentView* WizDocumentWebView::view() const
 void WizDocumentWebView::clear()
 {
     m_loadSequence.next();
-    m_documentCallbacks.invalidate();
+    invalidateDocumentCallbacks();
     load(QUrl("about:blank"));
 }
 
@@ -770,7 +771,7 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
 
 void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode)
 {
-    m_documentCallbacks.invalidate();
+    invalidateDocumentCallbacks();
     // set data
     // FIXME: not very well to decide a file is new through create time
     qint64 seconds = doc.tCreated.secsTo(QDateTime::currentDateTime());
@@ -798,7 +799,7 @@ void WizDocumentWebView::reloadNoteData(const WIZDOCUMENTDATA& data)
         return;
 
     // reload may triggered when update from server or locally reflected by modify
-    m_documentCallbacks.invalidate();
+    invalidateDocumentCallbacks();
     Q_EMIT loadDocumentRequested(data, m_currentEditorMode, m_loadSequence.next());
 }
 
@@ -1552,7 +1553,7 @@ void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
     }
 
     m_strNoteHtmlFileName = strFileName;
-    m_documentCallbacks.invalidate();
+    invalidateDocumentCallbacks();
     load(QUrl::fromLocalFile(strFileName));
 
     onNoteLoadFinished();
@@ -1572,6 +1573,8 @@ void WizDocumentWebView::setEditorMode(WizEditorMode mode)
     const quint64 requestSequence = ++m_editorModeRequestSequence;
     if (m_currentEditorMode == mode)
         return;
+
+    cancelLinkInsert();
 
     bool editing = mode == modeEditor;
 
@@ -1748,52 +1751,57 @@ void WizDocumentWebView::editorCommandExecuteOutdent()
 
 void WizDocumentWebView::editorCommandExecuteLinkInsert()
 {
-    if (!m_editorInsertLinkForm) {
-        m_editorInsertLinkForm = new WizEditorInsertLinkForm(window());
-        connect(m_editorInsertLinkForm, SIGNAL(accepted()), SLOT(on_editorCommandExecuteLinkInsert_accepted()));
+    if (!isEnabled() || !isEditing() || !view() || !view()->noteLoaded()) return;
+    if (m_editorInsertLinkForm && m_editorInsertLinkForm->isVisible()) {
+        m_editorInsertLinkForm->raise();
+        m_editorInsertLinkForm->activateWindow();
+        return;
     }
-    //
-    page()->runJavaScript("WizEditor.link.getCurrentLink();", [=](const QVariant& vLink){
-        //
-        QString strUrl = vLink.toString();
-        if (strUrl.isEmpty()) {
-            strUrl = "http://";
+    if (!m_editorInsertLinkForm) {
+        m_editorInsertLinkForm = new WizEditorInsertLinkForm(this);
+        connect(m_editorInsertLinkForm, SIGNAL(accepted()), SLOT(on_editorCommandExecuteLinkInsert_accepted()));
+        connect(m_editorInsertLinkForm, &QDialog::rejected, this, [this] { m_linkRequest.cancel(); });
+    }
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = m_documentCallbacks.ticket();
+    const auto doc = view()->note();
+    m_linkRequest.query(this, page(), ticket, [self, ticket, doc](const QString& url) {
+        if (!self) return;
+        if (!self->acceptsDocumentCallback(ticket, doc) || !self->isEnabled()
+            || !self->isEditing() || !self->m_editorInsertLinkForm) {
+            self->m_linkRequest.cancel();
+            return;
         }
-        //
-        m_editorInsertLinkForm->setUrl(strUrl);
-
-        m_editorInsertLinkForm->exec();
-
-        WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
-        analyzer.logAction("linkInsert");
-        //
+        self->m_editorInsertLinkForm->setUrl(url.isEmpty() ? "http://" : url);
+        // Preserve the existing application-modal UI, without a nested event
+        // loop inside a WebEngine callback that can outlive its document.
+        self->m_editorInsertLinkForm->show();
+        self->m_editorInsertLinkForm->raise();
+        self->m_editorInsertLinkForm->activateWindow();
+        WizAnalyzer::getAnalyzer().logAction("linkInsert");
     });
+}
+
+void WizDocumentWebView::cancelLinkInsert()
+{
+    m_linkRequest.cancel();
+    if (m_editorInsertLinkForm) m_editorInsertLinkForm->reject();
+}
+
+void WizDocumentWebView::invalidateDocumentCallbacks()
+{
+    m_documentCallbacks.invalidate();
+    cancelLinkInsert();
 }
 
 void WizDocumentWebView::on_editorCommandExecuteLinkInsert_accepted()
 {
-    // append http if not exist
-    QString strUrl = m_editorInsertLinkForm->getUrl();
-    if (strUrl.isEmpty() || strUrl == "http://") {
-        //
-        QString code = "WizEditor.link.removeSelectedLink();";
-        page()->runJavaScript(code);
-        //
-    } else {
-        QUrl url(strUrl);
-        if (url.scheme().isEmpty())
-        {
-            strUrl = "http://" + strUrl;
-        }
-        else
-        {
-            strUrl = url.toString();
-        }
-        //
-        QString code = QString("WizEditor.link.setCurrentLink('%1');").arg(strUrl);
-        //
-        page()->runJavaScript(code);
+    if (!m_editorInsertLinkForm || !isEnabled() || !isEditing()) {
+        m_linkRequest.cancel();
+        return;
     }
+    const QString code = m_linkRequest.takeCommand(page(), m_editorInsertLinkForm->getUrl());
+    if (!code.isEmpty()) page()->runJavaScript(code);
 }
 
 void WizDocumentWebView::editorCommandExecuteLinkRemove()

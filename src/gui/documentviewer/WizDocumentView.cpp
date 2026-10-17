@@ -241,6 +241,7 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
 
 WizDocumentView::~WizDocumentView()
 {
+    m_web->cancelLinkInsert();
     waitForThread();
 }
 
@@ -256,6 +257,7 @@ void WizDocumentView::setSizeHint(QSize size)
 
 void WizDocumentView::waitForDone()
 {
+    m_web->cancelLinkInsert();
     // Reuse the bounded, heap-owned result. A late WebEngine callback must not
     // write a returned stack variable or keep the GUI spinning indefinitely.
     if (!waitForSave()) qWarning() << "Document snapshot did not complete during cleanup";
@@ -292,6 +294,7 @@ void WizDocumentView::waitForThread()
 
 void WizDocumentView::RequestClose(bool force /*= false*/)
 {
+    m_web->cancelLinkInsert();
     if (force) {
         // Force to close when Chromium process no response.
         handleWindowCloseRequest();
@@ -304,6 +307,7 @@ void WizDocumentView::RequestClose(bool force /*= false*/)
 
 void WizDocumentView::handleWindowCloseRequest()
 {
+    m_web->cancelLinkInsert();
     // We Should exit all thread after user confirmed to close page.
     waitForThread();
     emit pageCloseRequested();
@@ -470,6 +474,7 @@ void WizDocumentView::initStat(const WIZDOCUMENTDATA& data, bool forceEdit)
  */
 void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
 {
+    m_web->cancelLinkInsert();
     WIZDOCUMENTDATAEX dataTemp = wizDoc;
 
     m_web->trySaveDocument(m_note, false, [=](const QVariant& ret){

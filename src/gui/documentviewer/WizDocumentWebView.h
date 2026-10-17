@@ -4,6 +4,7 @@
 #include <QWebEngineView>
 #include <QTimer>
 #include <QPointer>
+#include "share/WizDocumentLinkRequest.h"
 #include <QMutex>
 #include <QColorDialog>
 #include <QProcess>
@@ -228,6 +229,8 @@ private:
     int m_nWindowID;
 
     QPointer<WizEditorInsertLinkForm> m_editorInsertLinkForm;
+    WizDocumentLinkRequest m_linkRequest;
+    void invalidateDocumentCallbacks();
 
     WizSearchReplaceWidget* m_searchReplaceWidget;
 
@@ -236,6 +239,8 @@ private:
     QList<WizExternalEditorData> m_extEditorTask;
 
 public:
+    // Close only transient link UI; do not cancel required save callbacks.
+    void cancelLinkInsert();
     void onNoteLoadFinished(); // editor callback
     void discardChanges();
 
