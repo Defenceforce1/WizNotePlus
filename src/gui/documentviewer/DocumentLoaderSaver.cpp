@@ -14,11 +14,12 @@ WizDocumentLoaderThread::WizDocumentLoaderThread(WizDatabaseManager &dbMgr, QObj
     , m_dbMgr(dbMgr)
     , m_stop(false)
 {
+    qRegisterMetaType<QPointer<QObject>>("QPointer<QObject>");
 }
 
-void WizDocumentLoaderThread::load(const WIZDOCUMENTDATA &doc, WizEditorMode editorMode)
+void WizDocumentLoaderThread::load(const WIZDOCUMENTDATA &doc, WizEditorMode editorMode, quint64 sequence)
 {
-    setCurrentDoc(doc.strKbGUID, doc.strGUID, editorMode, sender());
+    setCurrentDoc(doc.strKbGUID, doc.strGUID, editorMode, sender(), sequence);
 
     if (!isRunning())
     {
@@ -57,10 +58,10 @@ void WizDocumentLoaderThread::run()
         //if (m_stop)
         //    return;
         //
-        QString kbGuid;
-        QString docGuid;
-        WizEditorMode editorMode = modeReader;
-        peekCurrentDocGuid(kbGuid, docGuid, editorMode);
+        LoadRequest request;
+        if (!peekCurrentDoc(request)) continue;
+        const auto& kbGuid = request.kbGuid;
+        const auto& docGuid = request.docGuid;
         //if (m_stop)
         //    return;
         //
@@ -71,22 +72,23 @@ void WizDocumentLoaderThread::run()
         WIZDOCUMENTDATA data;
         if (!db.documentFromGuid(docGuid, data))
         {
+            emit loadFailed(kbGuid, docGuid, {}, {}, request.requester, request.sequence);
             continue;
         }
         //
         QString strHtmlFile;
         if (db.documentToTempHtmlFile(data, strHtmlFile))
         {
-            emit loaded(kbGuid, docGuid, strHtmlFile, editorMode);
+            emit loaded(kbGuid, docGuid, strHtmlFile, request.editorMode, request.requester, request.sequence);
         }
         else
         {
-            emit loadFailed(kbGuid, docGuid, strHtmlFile, data.strTitle);
+            emit loadFailed(kbGuid, docGuid, strHtmlFile, data.strTitle, request.requester, request.sequence);
         }
     }
 }
 
-void WizDocumentLoaderThread::setCurrentDoc(QString kbGUID, QString docGUID, WizEditorMode editorMode, QObject* requester)
+void WizDocumentLoaderThread::setCurrentDoc(QString kbGUID, QString docGUID, WizEditorMode editorMode, QObject* requester, quint64 sequence)
 {
     {
         QMutexLocker locker(&m_mutex);
@@ -94,7 +96,7 @@ void WizDocumentLoaderThread::setCurrentDoc(QString kbGUID, QString docGUID, Wiz
 
         // Keep independent pages' requests. Only supersede a pending request
         // from the same live view, preserving rapid navigation's latest choice.
-        LoadRequest request{kbGUID, docGUID, editorMode, requester, requester != nullptr};
+        LoadRequest request{kbGUID, docGUID, editorMode, requester, requester != nullptr, sequence};
         auto pending = requester ? std::find_if(m_pendingLoads.begin(), m_pendingLoads.end(),
             [requester](const LoadRequest& item) { return item.hasRequester && item.requester == requester; }) : m_pendingLoads.end();
         if (pending != m_pendingLoads.end()) *pending = request;
@@ -112,7 +114,7 @@ bool WizDocumentLoaderThread::isEmpty()
     return m_pendingLoads.empty();
 }
 
-void WizDocumentLoaderThread::peekCurrentDocGuid(QString& kbGUID, QString& docGUID, WizEditorMode& editorMode)
+bool WizDocumentLoaderThread::peekCurrentDoc(LoadRequest& result)
 {
     while (true)
     {
@@ -122,12 +124,10 @@ void WizDocumentLoaderThread::peekCurrentDocGuid(QString& kbGUID, QString& docGU
         while (!m_pendingLoads.empty()) {
             const auto request = m_pendingLoads.front(); m_pendingLoads.pop_front();
             if (request.hasRequester && request.requester.isNull()) continue;
-            kbGUID = request.kbGuid;
-            docGUID = request.docGuid;
-            editorMode = request.editorMode;
-            return;
+            result = request;
+            return true;
         }
-        if (m_stop) return;
+        if (m_stop) return false;
     }
 }
 

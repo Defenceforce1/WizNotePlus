@@ -33,22 +33,25 @@ function WizStopEditorAmend() {
   function for C++ execute
 */
 function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, noteType, enableNightMode) {
+  const setup = window.WizNativeEditorSetup;
   window.WizNativeEditorInitialized = false;
   return new Promise( (resolve, reject) => {
     // Build web channel to C++ side
     new QWebChannel(qt.webChannelTransport, channel => {
-      // Init WizNotePlus APIs
-      const objectNames = ["WizExplorerApp", "WizQtEditor"];
-      for (let i = 0; i < objectNames.length; i++) {
-          const key = objectNames[i];
-          window[key] = channel.objects[key];
-      }
-      // Init WizEditor
       try {
-        if (!WizEditor) {
-          alert("WizEditor is null!");
+        // Native readiness polling alone cannot prevent a late channel
+        // callback from modifying an already superseded initialization.
+        if (setup && window.WizNativeEditorSetup !== setup) {
+          reject(new Error('Obsolete editor initialization'));
           return;
         }
+        const objectNames = ["WizExplorerApp", "WizQtEditor"];
+        if (!channel || !channel.objects || objectNames.some(key => !channel.objects[key]))
+          throw new Error('Native editor bridge is unavailable');
+        if (!window.WizEditor || typeof WizEditor.init !== 'function')
+          throw new Error('Editor engine is unavailable');
+        objectNames.forEach(key => { window[key] = channel.objects[key]; });
+        // Init the existing editor only after validating the current bridge.
         var user = {
           user_guid: userGUID,
           user_name: userAlias
@@ -90,8 +93,9 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
         resolve(true);
       }
       catch (e) {
+        window.WizNativeEditorInitialized = false;
         console.log(e.toString());
-        reject(false);
+        reject(e);
       }
     });
   });

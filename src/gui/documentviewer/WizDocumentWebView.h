@@ -217,6 +217,7 @@ private:
     quint64 m_contentChangeSequence = 0;
     quint64 m_editorModeRequestSequence = 0;
     WizDocumentCallbackEpoch m_documentCallbacks;
+    WizDocumentLoadSequence m_loadSequence;
 
     bool m_ignoreActiveWindowEvent;
 
@@ -248,7 +249,9 @@ public Q_SLOTS:
 
     void onTitleEdited(QString strTitle) override;
 
-    void onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode);
+    bool acceptsLoadResult(const QString& kbGUID, const QString& guid, QPointer<QObject> requester, quint64 sequence) const;
+    void onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode,
+                         QPointer<QObject> requester, quint64 sequence);
     void onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester);
 
     void on_editorCommandExecuteLinkInsert_accepted();
@@ -319,7 +322,7 @@ public Q_SLOTS:
     void onViewMindMap(bool on);
 
 Q_SIGNALS:
-    void loadDocumentRequested(const WIZDOCUMENTDATA& doc, WizEditorMode mode);
+    void loadDocumentRequested(const WIZDOCUMENTDATA& doc, WizEditorMode mode, quint64 sequence);
     void saveDocumentRequested(const WIZDOCUMENTDATA& doc, const QString& strHtml,
                                const QString& strHtmlFile, int nFlags, bool bNotify = false);
     // signals for notify command reflect status, triggered when selection, focus, editing mode changed

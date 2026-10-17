@@ -56,15 +56,16 @@ public:
 
 protected:
     virtual void run();
-    void setCurrentDoc(QString kbGuid, QString docGuid, WizEditorMode editorMode, QObject* requester = nullptr);
-    void peekCurrentDocGuid(QString& kbGUID, QString& docGUID, WizEditorMode& editorMode);
+    void setCurrentDoc(QString kbGuid, QString docGuid, WizEditorMode editorMode, QObject* requester = nullptr, quint64 sequence = 0);
 
 public Q_SLOTS:
-    void load(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode);
+    void load(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode, quint64 sequence = 0);
 
 Q_SIGNALS:
-    void loaded(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode);
-    void loadFailed(const QString kbGUID, const QString strGUID, const QString strFileName, const QString strTitle);
+    void loaded(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode,
+                QPointer<QObject> requester, quint64 sequence);
+    void loadFailed(const QString kbGUID, const QString strGUID, const QString strFileName, const QString strTitle,
+                    QPointer<QObject> requester, quint64 sequence);
 
 private:
     bool isEmpty();
@@ -77,7 +78,9 @@ private:
         WizEditorMode editorMode;
         QPointer<QObject> requester;
         bool hasRequester;
+        quint64 sequence;
     };
+    bool peekCurrentDoc(LoadRequest& request);
     std::deque<LoadRequest> m_pendingLoads;
     QMutex m_mutex;
     WizWaitEvent m_waitEvent;

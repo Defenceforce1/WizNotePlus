@@ -1,5 +1,6 @@
 #include "share/WizEventLoop.h"
 #include "share/WizNetworkSecurity.h"
+#include "share/WizDocumentAsync.h"
 #include "database/WizDatabaseManager.h"
 #include "database/WizDatabase.h"
 #include "gui/documentviewer/DocumentLoaderSaver.h"
@@ -197,6 +198,60 @@ int wizShutdownSelfTest(int argc, char** argv)
         for(int index:{1,2,3,4}){QFile file(files.value(notes[index].strGUID));
             extracted&=file.open(QIODevice::ReadOnly)&&file.readAll().contains(QString("saved-before-exit-%1").arg(index).toUtf8());}
         check(extracted,"actual queued loader extracts the correct synthetic saved note for each request");
+    }
+    {
+        class SequencedLoader final : public WizDocumentLoaderThread {
+        public:
+            using WizDocumentLoaderThread::WizDocumentLoaderThread;
+            void publish(const WIZDOCUMENTDATA& doc,WizEditorMode mode,QObject* owner,quint64 sequence) {
+                setCurrentDoc(doc.strKbGUID,doc.strGUID,mode,owner,sequence);
+            }
+        } loader(manager,nullptr);
+        QObject firstPage,secondPage;
+        WizDocumentLoadSequence firstSequence,secondSequence;
+        QSemaphore produced;
+        int delivered=0,firstAccepted=0,secondAccepted=0,oldRejected=0,deadRejected=0;
+        bool correctModes=true,mainThread=true;
+        QObject::connect(&loader,&WizDocumentLoaderThread::loaded,&app,[&](const QString&,const QString&,const QString&,WizEditorMode){produced.release();},Qt::DirectConnection);
+        QObject::connect(&loader,&WizDocumentLoaderThread::loaded,&app,
+            [&](const QString&,const QString&,const QString&,WizEditorMode mode,QPointer<QObject> requester,quint64 sequence){
+                ++delivered;mainThread&=QThread::currentThread()==app.thread();
+                if(firstSequence.accepts(&firstPage,requester,sequence)){++firstAccepted;correctModes&=mode==modeEditor;}
+                else if(requester==&firstPage)++oldRejected;
+                if(secondSequence.accepts(&secondPage,requester,sequence)){++secondAccepted;correctModes&=mode==modeReader;}
+                if(!requester)++deadRejected;
+            },Qt::QueuedConnection);
+        // Deliberately hold the GUI queue until an older extraction has
+        // completed, then request the SAME note again and in another view.
+        loader.publish(notes[0],modeReader,&firstPage,firstSequence.next());loader.start();
+        const bool firstReady=produced.tryAcquire(1,5000);
+        loader.publish(notes[0],modeEditor,&firstPage,firstSequence.next());
+        loader.publish(notes[0],modeReader,&secondPage,secondSequence.next());
+        const bool latestReady=produced.tryAcquire(2,5000);
+        app.processEvents();
+        check(firstReady&&latestReady&&delivered==3&&mainThread,"real loader queues same-note results with GUI-thread delivery");
+        check(firstAccepted==1&&secondAccepted==1&&correctModes,
+            "two views of one note accept only their own current result and requested editor mode");
+        check(oldRejected==1,"already completed but delayed old same-note result is rejected after a newer request");
+        int failed=0;bool failureAddressed=false;
+        QSemaphore failedProduced;
+        QObject::connect(&loader,&WizDocumentLoaderThread::loadFailed,&app,[&]{failedProduced.release();},Qt::DirectConnection);
+        WIZDOCUMENTDATA missing=notes[0];missing.strGUID="missing-synthetic-load";
+        QObject::connect(&loader,&WizDocumentLoaderThread::loadFailed,&app,
+            [&](const QString& kb,const QString& guid,const QString&,const QString&,QPointer<QObject> requester,quint64 sequence){
+                ++failed;failureAddressed=kb==missing.strKbGUID&&guid==missing.strGUID
+                    &&firstSequence.accepts(&firstPage,requester,sequence)&&!secondSequence.accepts(&secondPage,requester,sequence);
+            },Qt::QueuedConnection);
+        loader.publish(missing,modeReader,&firstPage,firstSequence.next());
+        const bool missingReady=failedProduced.tryAcquire(1,5000);app.processEvents();
+        check(missingReady&&failed==1&&failureAddressed,"missing-note load reports one failure only to its requesting view and generation");
+        auto closing=std::make_unique<QObject>();
+        const QPointer<QObject> closed=closing.get();
+        loader.publish(notes[0],modeReader,closing.get(),1);
+        const bool closedReady=produced.tryAcquire(1,5000);closing.reset();app.processEvents();
+        check(closedReady&&closed.isNull()&&deadRejected==1,
+            "destroying a view after extraction clears the queued requester instead of targeting a replacement view");
+        loader.waitForDone();
     }
     WizDocumentSaverThread failingSaver(manager, nullptr);
     WIZDOCUMENTDATA missing = notes[0]; missing.strGUID = "missing-synthetic-note";

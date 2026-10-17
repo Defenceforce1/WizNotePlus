@@ -64,6 +64,20 @@ int main(int argc, char** argv) {
     QObject::connect(&page,&QWebEnginePage::loadFinished,&loaded,&QEventLoop::quit);
     page.setHtml("<!doctype html><meta charset='utf-8'><p>Isolated save snapshot fixture</p>");
     deadline.start(10000);loaded.exec();
+    {
+        const QString alias=QStringLiteral("\";window.initializerInjected=true;//\n中文\\alias");
+        const QString path=QStringLiteral("/synthetic/quoted \"path\"/back\\slash/");
+        evaluate(page,"window.WizEditorInit=function(...args){window.encodedInitializerArgs=args;return Promise.resolve(true);};");
+        evaluate(page,WizDocumentPageReady::setupScript("'encoded-arguments'",
+            WizDocumentPageReady::initializeEditorScript(path,"zh-cn","synthetic-guid",alias,true,"markdown")));
+        const auto args=evaluate(page,"encodedInitializerArgs").toList();
+        check(args.size()==7&&args[0].toString()==path&&args[3].toString()==alias
+            &&args[4].userType()==QMetaType::Bool&&args[4].toBool()&&!args[6].toBool(),
+            "native initializer JSON arguments preserve quotes backslashes Unicode newlines and booleans exactly");
+        check(evaluate(page,"WizNativeEditorSetup.state==='ready'&&!window.initializerInjected").toBool(),
+            "account display data cannot become executable initializer JavaScript");
+        evaluate(page,"delete window.WizEditorInit;delete window.WizNativeEditorSetup;");
+    }
     using namespace WizDocumentSaveSnapshot;
     check(parse(evaluate(page,editorScript(false,false))).state==State::Failed,
         "uninitialized editor is not mistaken for an unchanged saved note");

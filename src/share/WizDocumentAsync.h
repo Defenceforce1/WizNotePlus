@@ -4,6 +4,7 @@
 #include <QSaveFile>
 #include <QString>
 #include <QVariant>
+#include <QPointer>
 #include <memory>
 
 // GUI-thread-only tickets. A navigation or owner destruction invalidates every
@@ -21,6 +22,19 @@ public:
     static bool current(const Ticket& ticket) { return !ticket.expired(); }
 private:
     std::shared_ptr<const char> m_token;
+};
+
+// GUI-owned sequence for loader results. Note IDs alone cannot distinguish
+// two open views of the same note or repeated requests from one view.
+class WizDocumentLoadSequence final
+{
+public:
+    quint64 next() { return ++m_sequence; }
+    bool accepts(const QObject* owner, const QPointer<QObject>& requester, quint64 sequence) const {
+        return owner && requester == owner && sequence != 0 && sequence == m_sequence;
+    }
+private:
+    quint64 m_sequence = 0;
 };
 
 namespace WizDocumentSaveSnapshot {

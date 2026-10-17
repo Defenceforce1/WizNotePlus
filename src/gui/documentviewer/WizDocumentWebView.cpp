@@ -696,6 +696,7 @@ WizDocumentView* WizDocumentWebView::view() const
 
 void WizDocumentWebView::clear()
 {
+    m_loadSequence.next();
     m_documentCallbacks.invalidate();
     load(QUrl("about:blank"));
 }
@@ -727,10 +728,16 @@ void WizDocumentWebView::onTitleEdited(QString strTitle)
     });
 }
 
-void WizDocumentWebView::onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode)
+bool WizDocumentWebView::acceptsLoadResult(const QString& kbGUID, const QString& guid, QPointer<QObject> requester, quint64 sequence) const
 {
     const auto &note = view()->note();
-    if (note.strKbGUID != kbGUID || note.strGUID != strGUID)
+    return m_loadSequence.accepts(this, requester, sequence) && note.strKbGUID == kbGUID && note.strGUID == guid;
+}
+
+void WizDocumentWebView::onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode,
+                                       QPointer<QObject> requester, quint64 sequence)
+{
+    if (!acceptsLoadResult(kbGUID, strGUID, requester, sequence))
         return;
 
     m_mapFile.insert(strGUID, strFileName);
@@ -779,7 +786,7 @@ void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode 
     }
 
     // ask extract and load
-    Q_EMIT loadDocumentRequested(doc, editorMode);
+    Q_EMIT loadDocumentRequested(doc, editorMode, m_loadSequence.next());
 }
 
 void WizDocumentWebView::reloadNoteData(const WIZDOCUMENTDATA& data)
@@ -791,7 +798,8 @@ void WizDocumentWebView::reloadNoteData(const WIZDOCUMENTDATA& data)
         return;
 
     // reload may triggered when update from server or locally reflected by modify
-    Q_EMIT loadDocumentRequested(data, m_currentEditorMode);
+    m_documentCallbacks.invalidate();
+    Q_EMIT loadDocumentRequested(data, m_currentEditorMode, m_loadSequence.next());
 }
 
 
@@ -1106,10 +1114,7 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
         .arg(m_app.userSettings().isEnableSpellCheck() ? "true" : "false");
     strCode += "window.WizNoteCss=" + WizNotePresentation::jsonString(
         WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()))) + ";\n";
-    strCode += WizFormatString6("await WizEditorInit(\"%1\", \"%2\", \"%3\", \"%4\", %5, \"%6\", false);",
-                                       editorPath, lang, userGUID, userAlias,
-                                       ignoreTable ? "true" : "false",
-                                       noteType);
+    strCode += WizDocumentPageReady::initializeEditorScript(editorPath, lang, userGUID, userAlias, ignoreTable, noteType);
     strCode += "if(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\n";
     strCode += "WizPrepareNoteModeChange();\n";
     if (m_currentEditorMode == modeEditor) {
