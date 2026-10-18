@@ -1,5 +1,6 @@
 #include "share/WizDocumentAsync.h"
 #include "share/WizEditorFontQuery.h"
+#include "share/WizDocumentUiQuery.h"
 #include "share/WizDocumentPageReady.h"
 #include "share/WizDocumentLinkRequest.h"
 #include "share/WizQuitUiGuard.h"
@@ -7,6 +8,8 @@
 #include <QDebug>
 #include <QEventLoop>
 #include <QFile>
+#include <QDir>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QWebEnginePage>
@@ -430,6 +433,82 @@ int main(int argc, char** argv) {
         closingPage.reset();
         check(waitFor([completion]{return completion->count>0;})&&!completion->ready&&completion->count==1,
             "destroyed renderer page ends the readiness wait without calling its methods");
+    }
+    {
+        QObject owner;
+        WizDocumentCallbackEpoch document;
+        const auto barrier = [&] { evaluate(page, "true"); };
+        evaluate(page, "window.WizReader={getWordCount:()=>'{\"nWords\":17}'};");
+        int legacyCalls = 0;
+        page.runJavaScript("WizReader.getWordCount()", [&](const QVariant& result) {
+            if (result.userType() == QMetaType::QString) ++legacyCalls;
+        });
+        document.invalidate(); barrier();
+        check(legacyCalls==1,
+            "old word-count callback still delivers after its originating document generation ends");
+        int received = 0;
+        QString value;
+        const auto completed = [&](const QString& result) { ++received; value=result; };
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"WizReader.getWordCount()",completed);
+        barrier();
+        check(received==1&&value=="{\"nWords\":17}",
+            "guarded word-count query preserves the original JSON string exactly once");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"WizReader.getWordCount()",completed);
+        document.invalidate(); barrier();
+        check(received==1,"document navigation drops only the pending transient UI string result");
+        auto closing = std::make_unique<QObject>();
+        WizDocumentUiQuery::string(closing.get(),&page,document.ticket(),"'closed owner'",completed);
+        closing.reset(); barrier();
+        check(received==1,"closed UI owner cannot receive a pending browser string query");
+        auto closingPage = std::make_unique<QWebEnginePage>(&profile);
+        WizDocumentUiQuery::string(&owner,closingPage.get(),document.ticket(),"undefined",completed,true);
+        closingPage.reset(); app.processEvents();
+        check(received==1,"destroyed page cannot become a valid empty mail-sender result");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"(function(){throw Error('fixture');})()",completed,true);
+        barrier();
+        check(received==1,"throwing UI query cannot trigger the mail-title fallback");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"undefined",completed,true);
+        barrier();
+        check(received==2&&value.isEmpty(),"absent mail sender remains a valid empty value for the original title fallback");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"'reply@example.test';",completed,true);
+        barrier();
+        check(received==3&&value=="reply@example.test",
+            "trusted mail script with a trailing semicolon preserves its string sender");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"undefined",completed);
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),"42",completed);
+        barrier();
+        check(received==3,"missing or numeric word-count output cannot be treated as original JSON");
+        WizDocumentUiQuery::string(&owner,&page,{},"'empty generation'",completed);
+        barrier();
+        check(received==3,"UI query rejects an absent originating document generation");
+        auto selfClosing = std::make_unique<QObject>();
+        WizDocumentUiQuery::string(selfClosing.get(),&page,document.ticket(),"'close receiver'",
+            [&](const QString&){++received;selfClosing.reset();});
+        barrier();
+        check(received==4&&!selfClosing,"string query completion may close its receiver without subsequent access");
+        QFile senderFile(QFileInfo(QString::fromUtf8(__FILE__)).absoluteDir()
+            .absoluteFilePath("../../share/files/scripts/GetMailSender.js"));
+        const bool senderRead=senderFile.open(QIODevice::ReadOnly);
+        const QString senderScript=QString::fromUtf8(senderFile.readAll());
+        check(senderRead&&!senderScript.isEmpty(),"mail UI regression reads the unchanged shipped sender script");
+        evaluate(page,"document.body.innerHTML='<input type=hidden value=\"wiz_mail_from/from@example.test\">'"
+            "+'<input type=hidden value=\"wiz_mail_reply_to/reply@example.test\">';");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),senderScript,completed,true);
+        barrier();
+        check(received==5&&value=="reply@example.test",
+            "unchanged shipped mail script retains reply-to priority through the guarded query");
+        evaluate(page,"document.body.innerHTML='<input type=hidden value=\"wiz_mail_from/from@example.test\">';");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),senderScript,completed,true);
+        barrier();
+        check(received==6&&value=="from@example.test","unchanged shipped mail script still returns its original from field");
+        evaluate(page,"document.body.innerHTML='';");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),senderScript,completed,true);
+        barrier();
+        check(received==7&&value.isEmpty(),"unchanged mail script without metadata still permits the original title fallback");
+        WizDocumentUiQuery::string(&owner,&page,document.ticket(),QString(),completed,true);
+        barrier();
+        check(received==8&&value.isEmpty(),"missing sender-script resource preserves the old empty-result fallback");
+        evaluate(page,"delete window.WizReader;");
     }
     qInfo()<<"Document async checks:"<<count<<"failures:"<<failures;
     return failures?1:0;

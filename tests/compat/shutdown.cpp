@@ -19,6 +19,7 @@
 #include <QSemaphore>
 #include <atomic>
 #include <memory>
+#include <functional>
 #include <ctime>
 
 // Override only disk work, not the actual production waitForDone methods.
@@ -264,9 +265,23 @@ int wizShutdownSelfTest(int argc, char** argv)
         QObject firstPage,secondPage;
         WizDocumentLoadSequence firstSequence,secondSequence;
         QSemaphore produced;
+        QSemaphore continuePosting;
+        std::atomic_bool pausePosting{false}, postingGateTimedOut{false};
         int delivered=0,firstAccepted=0,secondAccepted=0,oldRejected=0,deadRejected=0;
         bool correctModes=true,mainThread=true;
-        QObject::connect(&loader,&WizDocumentLoaderThread::loaded,&app,[&](const QString&,const QString&,const QString&,WizEditorMode){produced.release();},Qt::DirectConnection);
+        QObject::connect(&loader,&WizDocumentLoaderThread::loaded,&app,
+            [&](const QString&,const QString&,const QString&,WizEditorMode){
+                const bool paused=pausePosting.load();
+                produced.release();
+                // This DIRECT observer runs before the queued connection below.
+                // Bound the fixture gate so a failed assertion cannot deadlock cleanup.
+                if(paused&&!continuePosting.tryAcquire(1,5000)) postingGateTimedOut=true;
+            },Qt::DirectConnection);
+        const auto awaitDelivery=[&](const std::function<bool()>& complete){
+            QElapsedTimer pending;pending.start();
+            while(!complete()&&pending.elapsed()<5000){app.processEvents();QThread::msleep(1);}
+            return complete();
+        };
         QObject::connect(&loader,&WizDocumentLoaderThread::loaded,&app,
             [&](const QString&,const QString&,const QString&,WizEditorMode mode,QPointer<QObject> requester,quint64 sequence){
                 ++delivered;mainThread&=QThread::currentThread()==app.thread();
@@ -282,8 +297,8 @@ int wizShutdownSelfTest(int argc, char** argv)
         loader.publish(notes[0],modeEditor,&firstPage,firstSequence.next());
         loader.publish(notes[0],modeReader,&secondPage,secondSequence.next());
         const bool latestReady=produced.tryAcquire(2,5000);
-        app.processEvents();
-        check(firstReady&&latestReady&&delivered==3&&mainThread,"real loader queues same-note results with GUI-thread delivery");
+        const bool deliveredAll=awaitDelivery([&]{return delivered==3;});
+        check(firstReady&&latestReady&&deliveredAll&&mainThread,"real loader queues same-note results with GUI-thread delivery");
         check(firstAccepted==1&&secondAccepted==1&&correctModes,
             "two views of one note accept only their own current result and requested editor mode");
         check(oldRejected==1,"already completed but delayed old same-note result is rejected after a newer request");
@@ -297,13 +312,19 @@ int wizShutdownSelfTest(int argc, char** argv)
                     &&firstSequence.accepts(&firstPage,requester,sequence)&&!secondSequence.accepts(&secondPage,requester,sequence);
             },Qt::QueuedConnection);
         loader.publish(missing,modeReader,&firstPage,firstSequence.next());
-        const bool missingReady=failedProduced.tryAcquire(1,5000);app.processEvents();
-        check(missingReady&&failed==1&&failureAddressed,"missing-note load reports one failure only to its requesting view and generation");
+        const bool missingReady=failedProduced.tryAcquire(1,5000);
+        const bool failedDelivered=awaitDelivery([&]{return failed==1;});
+        check(missingReady&&failedDelivered&&failureAddressed,"missing-note load reports one failure only to its requesting view and generation");
         auto closing=std::make_unique<QObject>();
         const QPointer<QObject> closed=closing.get();
+        pausePosting=true;
         loader.publish(notes[0],modeReader,closing.get(),1);
         const bool closedReady=produced.tryAcquire(1,5000);closing.reset();app.processEvents();
-        check(closedReady&&closed.isNull()&&deadRejected==1,
+        check(closedReady&&closed.isNull()&&deadRejected==0&&!postingGateTimedOut,
+            "direct extraction notification is not proof that its later queued GUI delivery has been posted");
+        continuePosting.release();
+        const bool closedDelivered=awaitDelivery([&]{return deadRejected==1;});
+        check(closedReady&&closed.isNull()&&closedDelivered&&!postingGateTimedOut,
             "destroying a view after extraction clears the queued requester instead of targeting a replacement view");
         loader.waitForDone();
     }

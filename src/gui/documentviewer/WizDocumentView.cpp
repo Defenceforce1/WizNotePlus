@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "share/WizGlobal.h"
+#include "share/WizDocumentUiQuery.h"
 #include "share/WizObjectDataDownloader.h"
 #include "database/WizDatabaseManager.h"
 #include "share/WizSettings.h"
@@ -738,12 +739,8 @@ void WizDocumentView::showCoachingTips()
 
 void WizDocumentView::wordCount(std::function<void(const QString&)> callback)
 {
-    m_web->page()->runJavaScript("WizReader.getWordCount()", [=](const QVariant& vRet){
-        if (vRet.type() == QVariant::String) {
-            QString json = vRet.toString();
-            callback(json);
-        }
-    });
+    WizDocumentUiQuery::string(this, m_web->page(), m_web->documentCallbackTicket(),
+        QStringLiteral("WizReader.getWordCount()"), std::move(callback));
 }
 
 void WizDocumentView::setEditorFocus()
@@ -1208,23 +1205,24 @@ void WizDocumentView::getMailSender(std::function<void(QString)> callback)
     QString code;
     ::WizLoadUnicodeTextFromFile(scriptFileName, code);
 
-    m_web->page()->runJavaScript(code, [=](const QVariant& vRet){
-        QString mailSender = vRet.toString();
+    const QString title = note().strTitle;
+    WizDocumentUiQuery::string(this, m_web->page(), m_web->documentCallbackTicket(), code,
+        [title, callback](const QString& sender){
+        QString mailSender = sender;
 
         if (mailSender.isEmpty())
         {
             QRegExp rxlen("\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,4}\\b");
             rxlen.setCaseSensitivity(Qt::CaseInsensitive);
             rxlen.setPatternSyntax(QRegExp::RegExp);
-            QString strTitle = note().strTitle;
-            int pos = rxlen.indexIn(strTitle);
+            int pos = rxlen.indexIn(title);
             if (pos > -1) {
                 mailSender = rxlen.cap(0);
             }
         }
 
         callback(mailSender);
-    });
+    }, true);
 }
 
 void WizDocumentView::shareNoteByLink()
