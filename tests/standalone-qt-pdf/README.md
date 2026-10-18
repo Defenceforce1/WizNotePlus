@@ -69,6 +69,21 @@ python3 tests/standalone-qt-pdf/audit-reader-geometry.py \
 
 原版的十二个块顶负对照应全部检出偏差；候选通过不等于已证明公式目的地的精确位置或任意 HTML 排版兼容。
 
+### 公式编号的独立精度检查
+
+仅合成探针额外设置 `WIZNOTE_PDF_EQUATION_GEOMETRY=1`，在编号 SVG 组原有 bbox 中画标记矩形；要求插入前后目标边界完全不变，并在导出后删除标记、核对原文／HTML／修改状态。须同时启用受控 `WIZNOTE_PDF_EVENT_LINKS=1`，不混入其他打印次数／补偿变体。它不是产品效果，也不修改已导出的 PDF。
+
+```sh
+python3 tests/standalone-qt-pdf/audit-equation-geometry.py \
+  /absolute/new/marked-output --require-accurate \
+  --output /absolute/new/equation-audit.json
+python3 tests/standalone-qt-pdf/audit-equation-regression.py \
+  /absolute/original/marked-output /absolute/candidate/marked-output \
+  /absolute/new/auditor-controls.json
+```
+
+只读比较实际编号矩形与精确具名 GoTo 目的地，要求正确页且横纵误差均不超过 1 pt。不能用链接存在／解码后相似冒充正确目的地。第二十五轮普通／边界／eq1 九份候选通过，原引擎普通样本纵向偏差约 34.3 pt；十五项审计器正负对照保持原始语料不变。带色页与正常 57 页同图对照分别记录，不声称任意公式都已覆盖。
+
 仅测试进程设置 `WIZNOTE_PDF_SVG_TARGET_PROTOTYPE=1`，在原三份输出外再生成五份：修改 XLink 地址编码、移动目标到 HTML 容器，以及补充无命名空间的 SVG2 `href`（保留编码／原始片段各一份）。每个变体都恢复原属性命名空间、值和目标，并核对原文、HTML、修改状态、容器几何。仅改地址拼写或容器不能视作完整修复。SVG2 使用无命名空间的 `href`，并优先于 XLink 版本，见 [W3C 链接规范](https://www.w3.org/TR/SVG2/linking.html#XLinkRefAttrs)。
 
 生成器可加 `--plain-equation-label`，把合成公式编号从含冒号的 `eq:pdf-eq` 改为 `eq1`。`WIZNOTE_PDF_VIEWPORT_WIDTH` 可设置 400–1200 的初始测试窗口宽度；默认仍为 850，不在打印过程中改用户窗口。

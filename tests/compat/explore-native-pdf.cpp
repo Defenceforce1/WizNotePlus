@@ -123,6 +123,29 @@ int main(int argc,char** argv) {
         viewport:{width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth},
         equationTargets:Array.from(document.querySelectorAll('[id]')).filter(e=>e.id.startsWith('mjx-eqn-')).map(e=>({id:e.id,tag:e.tagName,namespace:e.namespaceURI,html:e.outerHTML.slice(0,1600)}))};
     })())JS").toMap();
+    QVariantMap equationMarker;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EQUATION_GEOMETRY")) {
+        equationMarker=evaluate(reader.page(),R"JS((()=>{
+          const targets=Array.from(document.querySelectorAll('[id]')).filter(e=>e.id.startsWith('mjx-eqn-'));
+          if(targets.length!==1||targets[0].namespaceURI!=='http://www.w3.org/2000/svg')return {valid:false};
+          const target=targets[0],box=target.getBBox(),before=target.getBoundingClientRect();
+          const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+          for(const name of ['x','y','width','height'])rect.setAttribute(name,box[name]);
+          rect.setAttribute('fill','rgb(250,13,204)');rect.setAttribute('stroke','none');
+          target.prepend(rect);
+          const after=target.getBoundingClientRect();
+          const same=['x','y','width','height'].every(name=>Math.abs(before[name]-after[name])<.00001);
+          window.RestorePdfEquationGeometry=()=>rect.remove();
+          return {valid:same&&box.width>0&&box.height>0,id:target.id,
+            bbox:{x:box.x,y:box.y,width:box.width,height:box.height},
+            rectBefore:{x:before.x,y:before.y,width:before.width,height:before.height},
+            rectAfter:{x:after.x,y:after.y,width:after.width,height:after.height},
+            rgb:[250,13,204]};
+        })())JS").toMap();
+        if(!equationMarker.value("valid").toBool()) {
+            qCritical()<<"FAIL synthetic equation marker changed geometry or target missing";return 3;
+        }
+    }
     evaluate(reader.page(),R"JS((()=>{
       const link=document.createElement('a');link.href='#control-target';link.textContent='Heading control';document.body.prepend(link);
       const heading=document.createElement('h2');heading.id='control-target';heading.textContent='CONTROL-TARGET';document.body.appendChild(heading);
@@ -253,6 +276,7 @@ int main(int argc,char** argv) {
         evaluate(reader.page(),"RestorePdfAnchorProbe();true");
     }
     evaluate(reader.page(),"RestorePdfControl();true");
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EQUATION_GEOMETRY"))evaluate(reader.page(),"RestorePdfEquationGeometry();true");
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE"))evaluate(reader.page(),"RestorePdfEdgeProbe();true");
     const bool sourceAfter=evaluate(reader.page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSource").toBool();
     const bool htmlSame=evaluate(reader.page(),"WizEditor.getContentHtml()").toString()==htmlBefore;
@@ -273,6 +297,7 @@ int main(int argc,char** argv) {
         {"sdkRuntime",sdk},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
         {"productionFileHelper",true},{"cssPageMarginsProbe",qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS")},
         {"referenceDom",QJsonObject::fromVariantMap(referenceDom)},
+        {"equationGeometryMarker",QJsonObject::fromVariantMap(equationMarker)},
         {"svgTrials",QJsonObject::fromVariantMap(svgTrials)},
         {"eventLinks",QJsonObject::fromVariantMap(eventLinks)},
         {"edgeFixture",qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE")},

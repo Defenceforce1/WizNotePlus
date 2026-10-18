@@ -1,4 +1,4 @@
-# Metal final-texture ownership: isolated prototype, NOT integrated
+# Metal final-texture ownership: isolated candidates, NOT integrated
 
 These files are not included in the main App build. Never apply them to the
 installed SDK or an application. Source module, three-file hashes and separate
@@ -57,3 +57,19 @@ release calls, NOT GPU safety. Keep Metal API validation, resize/hide/switch/
 close stress, ordinary product rendering/export/lifetime/full/native-window
 tests, and package verification separate. Do not claim an integrated fix or
 ship this experimental gate based only on a lower footprint.
+
+## Matched-feature narrow candidate (continuing)
+
+After the guarded positive/negative controls, the separate
+`activate-final-owner-candidate.patch` removes only the experimental environment
+condition. It still requires this exact offscreen-widget identity, both object
+lifetimes and the pinned completion semantics; it does not change a graphics
+backend or extend to ordinary Qt Quick. The installed SDK/App is untouched.
+The continuing isolated build also turns WebDriver off to match both original
+public/private SDK feature headers. Do not use an earlier prototype's binary
+or tests as evidence that this fresh candidate has finished compilation.
+
+The checker's `candidate` state validates all three candidate hashes and reverse
+applicability of the activation patch. Keep earlier logging/prototype snapshots
+and results independent. Foreground UI acceptance currently waits for an
+unlocked session; do not bypass it or change system protection to finish a run.

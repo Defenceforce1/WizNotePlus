@@ -1,10 +1,9 @@
 {
   "schema": 1,
-  "status": "explicit-test-prototype-not-integrated",
+  "status": "narrow-candidate-under-matched-feature-validation",
   "sdkVersion": "6.11.3",
   "moduleCommit": "8c73295524f3ce6a2e10ad2f71141c695376c876",
   "scope": "QQuickWidgetOffscreenWindow ONLY; requires explicit test environment",
-  "enabledBy": "WIZNOTE_QT_METAL_FINAL_OWNER_PROTOTYPE",
   "diagnosticEnabledBy": "WIZNOTE_METAL_LIFETIME_DIAGNOSTIC",
   "productIntegrated": false,
   "gpuSafetyClaimed": false,
@@ -13,19 +12,22 @@
       "path": "src/core/compositor/native_skia_output_device_mac.mm",
       "originalSha256": "4ab54cb65729fe86d3678bae97fcdbdb1fe09dae7bd8954ae18de2bbb3acd23e",
       "diagnosticSha256": "917493705e354d60d2aac55bb6642b2023c103b85c4738430f976c910a08da51",
-      "prototypeSha256": "917493705e354d60d2aac55bb6642b2023c103b85c4738430f976c910a08da51"
+      "prototypeSha256": "917493705e354d60d2aac55bb6642b2023c103b85c4738430f976c910a08da51",
+      "candidateSha256": "917493705e354d60d2aac55bb6642b2023c103b85c4738430f976c910a08da51"
     },
     {
       "path": "src/core/compositor/native_skia_output_device_metal.cpp",
       "originalSha256": "cdf9f5c6542422b49bc12a9c9d880db89ac1f457c7dd6d7f4659ab91c2ad5b13",
       "diagnosticSha256": "83a327ba2cedaabdff8414e0e8d68dd2f6f6a572634dff496e02687dfa09900a",
-      "prototypeSha256": "99cdb1f87c1629ae3f63312593212c7c02f953f3d0e2a39b729858260dc5a648"
+      "prototypeSha256": "99cdb1f87c1629ae3f63312593212c7c02f953f3d0e2a39b729858260dc5a648",
+      "candidateSha256": "d02abe82cafd942afb8e273f43d5ad71ef28ed6157762618dc704ba5471877f3"
     },
     {
       "path": "src/core/compositor/native_skia_output_device_metal.h",
       "originalSha256": "d8a3f34b3a1272b29837ecc21bace93c186e5e224559160f1d2458195519020d",
       "diagnosticSha256": "d8a3f34b3a1272b29837ecc21bace93c186e5e224559160f1d2458195519020d",
-      "prototypeSha256": "48320ddf90f66abd78b11c4e395ae5884aca99b92c20be532d7eb18dd75f0899"
+      "prototypeSha256": "48320ddf90f66abd78b11c4e395ae5884aca99b92c20be532d7eb18dd75f0899",
+      "candidateSha256": "48320ddf90f66abd78b11c4e395ae5884aca99b92c20be532d7eb18dd75f0899"
     }
   ],
   "patches": [
@@ -36,6 +38,12 @@
     {
       "path": "final-owner-prototype.patch",
       "sha256": "88e10a79a97f0474a165469fc4082528e704ff09b1c81e1f76246ff4783e6136"
+    },
+    {
+      "path": "activate-final-owner-candidate.patch",
+      "sha256": "8829e77c9053fddcbdfd486f7495d8481891e874a04bd220c2428afabdd8fb25"
     }
-  ]
+  ],
+  "prototypeEnabledBy": "WIZNOTE_QT_METAL_FINAL_OWNER_PROTOTYPE",
+  "candidateEnabledBy": "pinned QQuickWidgetOffscreenWindow identity; no production installation"
 }
