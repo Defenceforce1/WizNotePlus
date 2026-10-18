@@ -7,10 +7,17 @@
 #include <QWaitCondition>
 #include <QDateTime>
 #include <QTimer>
+#include <QCoreApplication>
 
 #include <deque>
 #include <vector>
 #include <map>
+#include <atomic>
+
+#ifdef WIZNOTE_THREAD_POOL_TEST_HOOKS
+// Test-only scheduling barrier, absent from the production executable.
+extern void wizThreadPoolBeforeWaitForTest();
+#endif
 
 class CWizTaskWorkThread;
 class CWizThreadPool;
@@ -30,8 +37,8 @@ protected:
     WizRecursiveMutex m_cs;
     QMutex m_csEvent;
     QWaitCondition m_event;
-    bool m_bShuttingDown;
-    IWizThreadPoolEvents* m_pEvents;
+    std::atomic_bool m_bShuttingDown;
+    std::atomic<IWizThreadPoolEvents*> m_pEvents;
 public:
     virtual void addTask(IWizRunable* task);
     virtual void clearTasks();
@@ -70,7 +77,7 @@ public:
 protected:
     CWizThreadPool* m_pool;
     int m_nThreadIndex;
-    bool n_bWorking;
+    std::atomic_bool n_bWorking;
 protected:
     virtual void run()
     {
@@ -137,40 +144,51 @@ CWizThreadPool::~CWizThreadPool()
         thread->quit();
     }
     m_threads.clear();
+    clearTasks();
 }
 //
 void CWizThreadPool::addTask(IWizRunable* task)
 {
-    QMutexLocker lock(&m_cs);
-    //
     QString strTaskId = task->getTaskID();
-    if (!strTaskId.isEmpty())
+    std::deque<IWizRunable*> discarded;
+    bool queued = false;
     {
-        //remove exists tasks
-        intptr_t count = m_tasks.size();
-        for (intptr_t i = count - 1; i >= 0; i--)
+        QMutexLocker lock(&m_cs);
+        if (m_bShuttingDown) discarded.push_back(task);
+        else
         {
-            IWizRunable* t = m_tasks[i];
-            if (t->getTaskID() == strTaskId)
+            if (std::find(m_tasks.begin(), m_tasks.end(), task) != m_tasks.end()) return;
+            if (!strTaskId.isEmpty())
             {
-                m_tasks.erase(m_tasks.begin() + i);
+                for (auto it = m_tasks.begin(); it != m_tasks.end();)
+                {
+                    if ((*it)->getTaskID() == strTaskId) {
+                        discarded.push_back(*it);
+                        it = m_tasks.erase(it);
+                    } else ++it;
+                }
             }
+            m_tasks.push_back(task);
+            queued = true;
         }
     }
-    //
-    m_tasks.push_back(task);
-    //
-    lock.unlock();
-    //
-    QMutexLocker lockEvent(&m_csEvent);
-    m_event.wakeAll();
+    if (queued) {
+        QMutexLocker lockEvent(&m_csEvent);
+        m_event.wakeAll();
+    }
+    // Canceled work must release captured resources, but never execute it.
+    // Destructors may reenter the pool; do not call them under either mutex.
+    for (auto* old : discarded) old->destroy();
 }
 
 void CWizThreadPool::clearTasks()
 {
-    QMutexLocker lock(&m_cs);
-    //
-    m_tasks.clear();
+    std::deque<IWizRunable*> discarded;
+    {
+        QMutexLocker lock(&m_cs);
+        discarded.swap(m_tasks);
+    }
+    for (auto* task : discarded) task->destroy();
 }
 
 IWizRunable* CWizThreadPool::peekOne()    //execute on worker
@@ -199,23 +217,26 @@ IWizRunable* CWizThreadPool::peekOne()    //execute on worker
         return task;
     //
     {
+#ifdef WIZNOTE_THREAD_POOL_TEST_HOOKS
+        wizThreadPoolBeforeWaitForTest();
+#endif
         QMutexLocker locker(&m_csEvent);
-        m_event.wait(&m_csEvent);
-        //
-        if (m_bShuttingDown)
-            return nullptr;
-    }
-    //
-    //
-    {
-        QMutexLocker lock(&m_cs);
-        //
-        if (!m_tasks.empty())
+        while (true)
         {
-            task = *m_tasks.begin();
-            m_tasks.pop_front();
+            // Recheck the queue while holding the notification mutex. A
+            // producer cannot notify between this predicate and wait's atomic
+            // unlock, even if its first notification arrived before this lock.
+            {
+                QMutexLocker lock(&m_cs);
+                if (m_bShuttingDown) return nullptr;
+                if (!m_tasks.empty()) {
+                    task = m_tasks.front();
+                    m_tasks.pop_front();
+                    return task;
+                }
+            }
+            m_event.wait(&m_csEvent);
         }
-        //
     }
     //
     return task;
@@ -241,6 +262,7 @@ void CWizThreadPool::shutdown(int timeout)
     //while ((int)WizGetTickCount() - start >= timeout)
     while (true)
     {
+        QMutexLocker lock(&m_cs);
         int count = (int)m_threads.size();
         for (int i = count - 1; i >= 0; i--)
         {
@@ -260,9 +282,11 @@ void CWizThreadPool::shutdown(int timeout)
 
         if (m_threads.empty())
         {
+            lock.unlock();
             delete this;
             return;
         }
+        lock.unlock();
         //
         //WizProcessMessages();
 #ifdef Q_OS_LINUX
@@ -299,6 +323,7 @@ void CWizThreadPool::getTaskCount(int* pnWorking, int* pnWaiting)
 //
 int CWizThreadPool::GetWorkingTaskCount()
 {
+    QMutexLocker lock(&m_cs);
     int count = 0;
     //
     for (auto it = m_threads.begin(); it != m_threads.end(); it++)
@@ -315,6 +340,7 @@ int CWizThreadPool::GetWorkingTaskCount()
 //
 bool CWizThreadPool::isIdle()
 {
+    QMutexLocker lock(&m_cs);
     if (GetWaitingTaskCount() > 0)
         return false;
     //
@@ -345,15 +371,17 @@ int CWizThreadPool::GetWaitingTaskCount()
 
 void CWizThreadPool::beforeTask(IWizRunable* task)
 {
-    if (!m_pEvents)
+    auto* events = m_pEvents.load();
+    if (!events)
         return;
-    m_pEvents->beforeTask(task);
+    events->beforeTask(task);
 }
 void CWizThreadPool::afterTask(IWizRunable* task)
 {
-    if (!m_pEvents)
+    auto* events = m_pEvents.load();
+    if (!events)
         return;
-    m_pEvents->afterTask(task);
+    events->afterTask(task);
 }
 
 
@@ -491,25 +519,45 @@ IWizDelayedThreadPool* WizCreateDelayedThreadPool(int threadCount, QThread::Prio
 ///////////////////////////////////////////////////////////////////////////////////
 
 WizMainQueuedThread::WizMainQueuedThread()
-    : m_bShutingDown(false)
+    : QObject(QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()
+                  ? QCoreApplication::instance() : nullptr)
+    , m_bShutingDown(false)
 {
     connect(this, SIGNAL(taskAdded()), this, SLOT(executeAllActions()), Qt::QueuedConnection);
 }
+WizMainQueuedThread::~WizMainQueuedThread()
+{
+    m_bShutingDown = true;
+    clearTasks();
+}
+void WizMainQueuedThread::shutdown(int timeout)
+{
+    Q_UNUSED(timeout);
+    m_bShutingDown = true;
+    clearTasks();
+}
 void WizMainQueuedThread::addTask(IWizRunable* task)
 {
-    //
+    bool accepted = false;
     {
         QMutexLocker lock(&m_cs);
-        m_tasks.push_back(task);
+        if (!m_bShutingDown) {
+            m_tasks.push_back(task);
+            accepted = true;
+        }
     }
-    //
-    emit taskAdded();
+    if (accepted) emit taskAdded();
+    else task->destroy();
 }
 //
 void WizMainQueuedThread::clearTasks()
 {
-    QMutexLocker lock(&m_cs);
-    m_tasks.clear();
+    std::deque<IWizRunable*> discarded;
+    {
+        QMutexLocker lock(&m_cs);
+        discarded.swap(m_tasks);
+    }
+    for (auto* task : discarded) task->destroy();
 }
 
 //
@@ -539,14 +587,11 @@ void WizMainQueuedThread::executeAllActions()
     std::deque<IWizRunable*> tasks;
     getAllTasks(tasks);
     //
-    for (auto it = tasks.begin();
-        it != tasks.end();
-        it++)
+    while (!tasks.empty())
     {
-        if (isShuttingDown())
-            return;
-        IWizRunable* pRunable = *it;
-        pRunable->run(WIZ_THREAD_MAIN, this, NULL);
+        IWizRunable* pRunable = tasks.front();
+        tasks.pop_front();
+        if (!isShuttingDown()) pRunable->run(WIZ_THREAD_MAIN, this, NULL);
         pRunable->destroy();
 
     }
@@ -614,14 +659,24 @@ private:
     //
     static IWizThreadPool* GetMainThreadPool()
     {
-        static IWizThreadPool* pool = new WizMainQueuedThread();
-        return pool;
+        // Retired queues remain application-owned while an executing slot
+        // unwinds; explicit reinitialization receives a fresh main queue.
+        return new WizMainQueuedThread();
     }
-public:
-    static IWizThreadPool* getThreadPool(int threadID, int threadCount = 1)
+    static bool& Closing() { static bool value = false; return value; }
+    static bool& Clearing() { static bool value = false; return value; }
+    static int& Submissions() { static int value = 0; return value; }
+    static QWaitCondition& SubmissionFinished() { static QWaitCondition value; return value; }
+    struct SubmissionLease {
+        ~SubmissionLease() {
+            QMutexLocker lock(&GetCriticalSection());
+            --Submissions();
+            SubmissionFinished().wakeAll();
+        }
+    };
+    // Caller holds the registry lock.
+    static IWizThreadPool* getThreadPoolLocked(int threadID, int threadCount = 1)
     {
-        QMutex& cs = GetCriticalSection();
-        QMutexLocker lock(&cs);
         //
         std::map<int, IWizThreadPool*>& threads = GetThreads();
         //
@@ -642,12 +697,43 @@ public:
     }
     //
 
+public:
+    static void initialize()
+    {
+        QMutexLocker lock(&GetCriticalSection());
+        if (Clearing()) return;
+        Closing() = false;
+        getThreadPoolLocked(WIZ_THREAD_MAIN);
+        getThreadPoolLocked(WIZ_THREAD_DOWNLOAD_RESOURCES, 5);
+        getThreadPoolLocked(WIZ_THREAD_NETWORK, 2);
+    }
+    static void addAction(int threadID, IWizRunable* action)
+    {
+        IWizThreadPool* pool = nullptr;
+        {
+            QMutexLocker lock(&GetCriticalSection());
+            if (!Closing()) {
+                pool = getThreadPoolLocked(threadID);
+                ++Submissions();
+            }
+        }
+        if (!pool) { action->destroy(); return; }
+        // Keep the pool alive through enqueue/discard callbacks, without
+        // holding the registry mutex across those reentrant callbacks.
+        SubmissionLease lease;
+        pool->addTask(action);
+    }
     static void ClearThreadPool()
     {
-        QMutex& cs = GetCriticalSection();
-        QMutexLocker lock(&cs);
-        //
-        std::map<int, IWizThreadPool*>& threads = GetThreads();
+        std::map<int, IWizThreadPool*> threads;
+        {
+            QMutexLocker lock(&GetCriticalSection());
+            if (Clearing()) return;
+            Clearing() = true;
+            Closing() = true;
+            while (Submissions()) SubmissionFinished().wait(&GetCriticalSection());
+            threads.swap(GetThreads());
+        }
         qDebug() << "clear thread pool, threads count : " << threads.size();
         std::map<int, IWizThreadPool*>::const_iterator it;
         for (it = threads.begin(); it != threads.end(); it++)
@@ -655,29 +741,26 @@ public:
             IWizThreadPool* threadPool = it->second;
             threadPool->shutdown(5);
         }
-        threads.clear();
+        // A finishing worker may submit a completion: do not hold the registry
+        // mutex while waiting for it. Closing submissions release their work.
+        QMutexLocker lock(&GetCriticalSection());
+        Clearing() = false;
     }
 };
 
 void WizQueuedThreadsInit()
 {
-    CWizQueuedThreads::getThreadPool(WIZ_THREAD_MAIN);
-    CWizQueuedThreads::getThreadPool(WIZ_THREAD_DOWNLOAD_RESOURCES, 5);
-    CWizQueuedThreads::getThreadPool(WIZ_THREAD_NETWORK, 2);
+    CWizQueuedThreads::initialize();
 }
 
 void WizQueuedThreadAddAction(int threadID, IWizRunable* action)
 {
-    IWizThreadPool* thread = CWizQueuedThreads::getThreadPool(threadID);
-    //
-    thread->addTask(action);
+    CWizQueuedThreads::addAction(threadID, action);
 }
 
 void WizQueuedThreadAddAction(int threadID, IWizRunable* action, int milliseconds, int nTimeoutThreadId, IWizRunable* timeoutAction)
 {
-    IWizThreadPool* thread = CWizQueuedThreads::getThreadPool(threadID);
-    //
-    thread->addTask(new WizTimeoutRunable(action, milliseconds, nTimeoutThreadId, timeoutAction));
+    CWizQueuedThreads::addAction(threadID, new WizTimeoutRunable(action, milliseconds, nTimeoutThreadId, timeoutAction));
 }
 
 

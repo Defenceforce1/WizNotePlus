@@ -11,6 +11,8 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QGridLayout>
+#include <QImage>
+#include <QPainter>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -91,15 +93,32 @@ QVariant evaluate(QWebEnginePage* page,const QString& script) {
 }
 void settle(int ms) { QEventLoop loop;QTimer::singleShot(ms,&loop,&QEventLoop::quit);loop.exec(); }
 using WizNotePresentation::jsonString;
+bool createSyntheticLargeImages(const QString& folder) {
+    for(int index=0;index<2;++index) {
+        QImage image(2048,1536,QImage::Format_ARGB32_Premultiplied);
+        image.fill(QColor(225,235,245));
+        QPainter painter(&image);
+        for(int y=0;y<image.height();y+=64)for(int x=0;x<image.width();x+=64)
+            painter.fillRect(x,y,64,64,QColor((x/8+index*47)%256,(y/6+index*31)%256,150));
+        painter.end();
+        if(!image.save(QDir(folder).filePath(QString("native-large-%1.png").arg(index))))return false;
+    }
+    return true;
+}
 struct Session {
     SyntheticEditorBridge editor,explorer;
     std::unique_ptr<QWebEngineView> view;
     WizDocumentCallbackEpoch epoch;
     QString source,path;
-    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr,bool stockView=false) {
+    bool imagePayload=false;
+    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr,bool stockView=false,bool withImages=false) {
+        imagePayload=withImages;
         source="# Native bridge fixture\n\nReference \\ref{thm:local}.\n\n";
         for(int i=0;i<blocks;++i)source+=QString("> **定理** \\label{thm:%1}\n>\n> Synthetic $x^2\\ge0$.\n\n<!-- -->\n\n").arg(i?QString::number(i):"local");
         source+="```text\n\\ref{code:unchanged}\n```\n";
+        if(imagePayload)for(int image=0;image<2;++image)
+            source+=QString("\n![Synthetic large image %1](%2)\n").arg(image)
+                .arg(QUrl::fromLocalFile(QDir(folder).filePath(QString("native-large-%1.png").arg(image))).toString(QUrl::FullyEncoded));
         if(emptyControl)source="Synthetic empty control";
         editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+QString(source.toHtmlEscaped()).replace("\n","<br>")+"</body></html>";
         QString html=editor.original;
@@ -139,7 +158,15 @@ struct Session {
             "if(WizNativeEditorSetup.token!=="+jsonString(token)+")return;WizPrepareNoteModeChange();"
             "await new Promise(resolve=>WizEditor.off(null,resolve));"
             "if(window.MathJax&&MathJax.Hub)await new Promise(resolve=>MathJax.Hub.Queue(resolve));"
-            "WizApplyNoteStyle();WizApplySpellCheck();");
+            "WizApplyNoteStyle();WizApplySpellCheck();"+
+            (imagePayload?QString("const syntheticImages=Array.from(document.images).filter(i=>/\\/native-large-[01]\\.png$/.test(i.src));"
+                "if(syntheticImages.length!==2)throw new Error('Expected two synthetic large images: '+JSON.stringify(Array.from(document.images).map(i=>i.outerHTML)));"
+                "await Promise.all(syntheticImages.map(i=>i.decode()));"):QString()));
+    }
+    bool imagesIntact() const {
+        return !imagePayload||evaluate(view->page(),
+            "(()=>{const images=Array.from(document.images).filter(i=>/\\/native-large-[01]\\.png$/.test(i.src));"
+            "return images.length===2&&images.every(i=>i.complete&&i.naturalWidth===2048&&i.naturalHeight===1536);})()").toBool();
     }
     bool start(const QString& token) {
         struct State { bool done=false,ready=false; };
@@ -210,6 +237,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         const bool batchPool=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_BATCH_POOL")==1;
         const QString rhiControl=qEnvironmentVariable("WIZNOTE_MEMORY_RHI_CONTROL");
         const bool stockView=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_STOCK_VIEW")==1;
+        const bool imagePayload=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_IMAGE_PAYLOAD")==1;
         // Offscreen visibility cannot accidentally open desktop windows.
         // Actual Cocoa windows need a separate, explicit test-only opt-in.
         if(batches<1||batches>30||(visible&&QGuiApplication::platformName()!="offscreen")
@@ -217,7 +245,8 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             ||(sharedHost&&!nativeVisible)||(keepNote&&(!sharedHost||nestedControl))
             ||(releaseGraphics&&!keepNote)||(batchPool&&(!nativeVisible||nestedControl))
             ||(!rhiControl.isEmpty()&&(!keepNote||(rhiControl!="finish"&&rhiControl!="cache")))
-            ||(stockView&&(!empty||!keepNote)))return 4;
+            ||(stockView&&(!empty||!keepNote))||(imagePayload&&(empty||stockView)))return 4;
+        if(imagePayload&&!createSyntheticLargeImages(root.path()))return 10;
 #ifndef WIZNOTE_MEMORY_RHI_TESTS
         if(!rhiControl.isEmpty())return 4;
 #endif
@@ -232,7 +261,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         std::unique_ptr<Session> retained;
         if(keepNote) {
             retained=std::make_unique<Session>();
-            if(!retained->load(root.path(),10000,16,true,true,empty,tabs,stockView)
+            if(!retained->load(root.path(),10000,16,true,true,empty,tabs,stockView,imagePayload)
                 ||(!empty&&!retained->start("memory-retained")))return 2;
         }
         QJsonArray samples;
@@ -241,7 +270,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             QElapsedTimer elapsed;elapsed.start();
             for(int i=0;i<4;++i) {
                 auto session=std::make_unique<Session>();
-                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible,empty,tabs?static_cast<QWidget*>(tabs):host.get(),stockView)
+                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible,empty,tabs?static_cast<QWidget*>(tabs):host.get(),stockView,imagePayload)
                     ||(!empty&&!session->start(QString("memory-%1-%2").arg(batch).arg(i))))return 2;
                 pages.push_back(std::move(session));
             }
@@ -251,17 +280,20 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             for(const auto& page:pages) {
                 content&=evaluate(page->view->page(),empty?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==page->source;
                 if(!empty)content&=evaluate(page->view->page(),"MathJax.Hub.getAllJax().length").toInt()==16;
+                content&=page->imagesIntact();
                 if(stockView)content&=QByteArray(page->view->metaObject()->className())=="QWebEngineView"
                     &&QByteArray(page->view->page()->metaObject()->className())=="QWebEnginePage"
                     &&page->view->page()->webChannel()==nullptr
                     &&evaluate(page->view->page(),"document.scripts.length===0&&typeof WizEditor==='undefined'&&typeof MathJax==='undefined'").toBool();
                 visibility.append(evaluate(page->view->page(),"document.visibilityState").toString());
             }
-            if(!check(content,stockView?"all four stock Qt controls preserve plain text without app page subclasses, channel or editor scripts":
+            if(!check(content,imagePayload?"all four native pages preserve source, sixteen formulas and two decoded large images":
+                stockView?"all four stock Qt controls preserve plain text without app page subclasses, channel or editor scripts":
                 empty?"all four native empty controls retain only synthetic placeholder text":"all four synthetic native pages retain source and render all sixteen formulas"))return 5;
             opened.insert("visibilityStates",visibility);opened.insert("visibleOffscreen",visible);
             opened.insert("visibleCocoa",nativeVisible);
             opened.insert("emptyControl",empty);
+            opened.insert("syntheticLargeImagesPerPage",imagePayload?2:0);
             samples.replace(samples.size()-1,opened);
             qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(opened).toJson(QJsonDocument::Compact));
             QList<QPointer<QWebEngineView>> views;
@@ -303,8 +335,10 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
                 const bool intact=tabs->count()==1&&tabs->currentWidget()==retained->view.get()
                     &&evaluate(retained->view->page(),empty?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==retained->source
                     &&(empty||evaluate(retained->view->page(),"MathJax.Hub.getAllJax().length").toInt()==16)
+                    &&retained->imagesIntact()
                     &&evaluate(retained->view->page(),"document.visibilityState==='visible'").toBool();
-                if(!check(intact,"retained current tab remains visible with exact source and formulas after other pages close"))return 6;
+                if(!check(intact,imagePayload?"retained tab preserves source, formulas and decoded large images after other pages close":
+                    "retained current tab remains visible with exact source and formulas after other pages close"))return 6;
             }
             auto closed=processMemory();closed.insert("batch",batch);closed.insert("phase","all-closed");samples.append(closed);
             qInfo().noquote()<<"MEMORY_SAMPLE"<<QString::fromUtf8(QJsonDocument(closed).toJson(QJsonDocument::Compact));
@@ -352,6 +386,8 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         qInfo().noquote()<<"MEMORY_PROBE"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},
             {"engine",stockView?"stock Qt views/pages without editor or app bridge; shared isolated profile":"native Qt mac bridge; synthetic views, not full main-window workload"},
             {"rssIsNotUniquePhysicalMemory",true},{"nestedLoopControl",nestedControl},{"sharedHost",sharedHost},
+            {"syntheticLargeImagesPerPage",imagePayload?2:0},{"largeImageWidth",imagePayload?2048:0},
+            {"largeImageHeight",imagePayload?1536:0},{"imagesDecodedBeforeSample",imagePayload},
             {"retainedNote",keepNote},{"releaseGraphics",releaseGraphics},
             {"nativeBatchPool",batchPool},
             {"rhiControl",rhiControl},

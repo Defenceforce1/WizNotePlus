@@ -1385,6 +1385,24 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             addCheck("repeated red-close cycle reopens main window", reopened, reopen);
             addSettledHeaderCheck("header remains aligned throughout repeated red-close settling");
         }
+        // Request the real AppKit layout path without assigning bad frames or
+        // changing a native delegate. Diagnostic-only: distinguish a native
+        // relayout reset from a Qt resize/show notification.
+        const int nativeLayoutPasses = qBound(0, qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_LAYOUT_PASSES"), 30);
+        for (int pass = 0; pass < nativeLayoutPasses; ++pass) {
+            addCheck("explicit native header layout remains enabled and visible", [&] {
+                return reopened() && controlsEnabled();
+            }, [&, pass] {
+                qInfo() << "EXPLICIT APPKIT HEADER LAYOUT PASS" << pass + 1;
+                NSView* frame = native.contentView.superview;
+                [frame setNeedsLayout:YES];
+                [frame layoutSubtreeIfNeeded];
+                NSView* container = button(NSWindowCloseButton).superview;
+                [container setNeedsLayout:YES];
+                [container layoutSubtreeIfNeeded];
+            });
+            addSettledHeaderCheck("unified header survives explicit native-only layout invalidation");
+        }
         collectHeaderSteps = false;
         addCheck("actual quit preflight confirms synthetic Markdown is saved without preview decoration", [&] {
             bool progressShown = false;

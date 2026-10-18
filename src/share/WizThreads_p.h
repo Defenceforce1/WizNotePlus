@@ -3,6 +3,7 @@
 
 #include <deque>
 #include <QMutex>
+#include <atomic>
 #include "WizThreads.h"
 
 class QTimer;
@@ -14,16 +15,17 @@ class WizMainQueuedThread
     Q_OBJECT
 public:
     WizMainQueuedThread();
+    ~WizMainQueuedThread() override;
 private:
     QMutex m_cs;
     std::deque<IWizRunable*> m_tasks;
-    bool m_bShutingDown;
+    std::atomic_bool m_bShutingDown;
 public:
     virtual void addTask(IWizRunable* task);
     virtual void clearTasks();
     virtual bool isIdle() { return false; }
     virtual IWizRunable* peekOne() { return NULL; }
-    virtual void shutdown(int timeout)  { Q_UNUSED(timeout);  m_bShutingDown = true; }
+    virtual void shutdown(int timeout);
     virtual bool isShuttingDown()  { return m_bShutingDown; }
     virtual void setEventsListener(IWizThreadPoolEvents* pEvents) { Q_UNUSED(pEvents); }
     //

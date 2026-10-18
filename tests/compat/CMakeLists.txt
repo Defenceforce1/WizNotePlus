@@ -3,6 +3,18 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui)
 if(QT_VERSION_MAJOR EQUAL 6)
     find_package(Qt6 REQUIRED COMPONENTS Core5Compat)
 endif()
+add_executable(wiznote_thread_pool thread-pool.cpp
+    ${PROJECT_SOURCE_DIR}/src/share/WizThreads.cpp
+    ${PROJECT_SOURCE_DIR}/src/share/WizThreads_p.h)
+target_include_directories(wiznote_thread_pool PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_compile_definitions(wiznote_thread_pool PRIVATE WIZNOTE_THREAD_POOL_TEST_HOOKS)
+set_target_properties(wiznote_thread_pool PROPERTIES AUTOMOC ON)
+target_link_libraries(wiznote_thread_pool PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(wiznote_thread_pool PRIVATE Qt6::Core5Compat)
+endif()
+add_test(NAME wiznote_thread_pool COMMAND wiznote_thread_pool)
+set_tests_properties(wiznote_thread_pool PROPERTIES TIMEOUT 30)
 add_executable(wiznote_compat_smoke main.cpp)
 target_include_directories(wiznote_compat_smoke PRIVATE
     ${PROJECT_SOURCE_DIR}/src ${cryptopp_INCLUDE_DIRS}

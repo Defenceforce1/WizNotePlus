@@ -28,6 +28,10 @@ const cases = files.map(file => {
     const opened = probe.samples.filter(x => x.phase === 'four-open');
     const closed = probe.samples.filter(x => x.phase === 'all-closed');
     const expectedClosedProcesses = probe.expectedClosedProcessCount ?? 1;
+    const images = probe.syntheticLargeImagesPerPage ?? 0;
+    if (images !== 0 && (images !== 2 || probe.largeImageWidth !== 2048 || probe.largeImageHeight !== 1536
+        || probe.imagesDecodedBeforeSample !== true || opened.some(x => x.syntheticLargeImagesPerPage !== 2)))
+        throw Error('Incomplete synthetic image/decode observations: ' + file);
     if (expectedClosedProcesses !== (probe.retainedNote ? 2 : 1))
         throw Error('Invalid retained-page process expectation: ' + file);
     if (!opened.length || opened.length !== closed.length
@@ -56,6 +60,10 @@ const cases = files.map(file => {
         lifecycleStress: probe.lifecycleStress ?? false,
         switchResizeStepsPerBatch: probe.switchResizeStepsPerBatch ?? 0,
         closeWhileHidden: probe.closeWhileHidden ?? false,
+        syntheticLargeImagesPerPage: images,
+        largeImageWidth: probe.largeImageWidth ?? 0,
+        largeImageHeight: probe.largeImageHeight ?? 0,
+        imagesDecodedBeforeSample: probe.imagesDecodedBeforeSample ?? false,
         qtVersion: probe.qtVersion ?? null,
         webEngine: probe.webEngine ?? null,
         chromium: probe.chromium ?? null,
