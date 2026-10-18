@@ -102,7 +102,7 @@ def record(source_arg, runtime_arg, output_arg):
     verify_underlying(runtime / "lib")
     patches, files = [], []
     for group, field, prefix in (("standalone-qt-pdf", "candidateSha256", "src/3rdparty"),
-                                 ("standalone-qt-memory", "candidateSha256", "")):
+                                 ("standalone-qt-memory", "releaseSha256", "")):
         folder = REPO / "tests" / group / "engine-patches"
         manifest = json.loads((folder / "source-manifest.json").read_text())
         if manifest["moduleCommit"] != MODULE:
@@ -112,7 +112,8 @@ def record(source_arg, runtime_arg, output_arg):
             if not (source / relative).resolve(strict=True).is_relative_to(source) or digest(source / relative) != item[field]:
                 raise ValueError("Pinned candidate source mismatch")
             files.append({"path": relative.as_posix(), "sha256": item[field]})
-        selected = manifest.get("patches", [{"path": manifest.get("patch"), "sha256": manifest.get("patchSha256")}])
+        selected = ([manifest["releasePatch"]] if field == "releaseSha256" else
+                    [{"path": manifest["patch"], "sha256": manifest["patchSha256"]}])
         for item in selected:
             if digest(folder / item["path"]) != item["sha256"]:
                 raise ValueError("Patch bytes changed")
@@ -181,8 +182,8 @@ def package(base_arg, runtime_arg, manifest_arg, output_arg):
         source_patch = (REPO / patch["path"]).resolve(strict=True)
         if not source_patch.is_relative_to(REPO / "tests") or digest(source_patch) != patch["sha256"]:
             raise ValueError("Local source patches changed since provenance was recorded")
-    if len(manifest.get("patches", [])) != 4 or len(manifest.get("sourceFilesChecked", [])) != 5:
-        raise ValueError("Expected the complete four-patch/five-source-file candidate record")
+    if len(manifest.get("patches", [])) != 2 or len(manifest.get("sourceFilesChecked", [])) != 5:
+        raise ValueError("Expected the clean two-patch/five-source-file candidate record")
     for name in FRAMEWORKS:
         if inventory(runtime / "lib" / (name + ".framework")) != manifest["frameworkInventories"][name]:
             raise ValueError("Engine input changed since provenance was recorded")
@@ -211,6 +212,11 @@ def package(base_arg, runtime_arg, manifest_arg, output_arg):
               "baseMainExecutableSha256": digest(base / "Contents/MacOS/WizNotePlus"),
               "changes": "native PDF destination transform and pinned offscreen-widget final texture ownership"}
     (notices / "Qt-local-engine-changes.json").write_text(json.dumps(notice, indent=2) + "\n")
+    local_source = notices / "Qt-local-engine-source"
+    local_source.mkdir()  # New candidate only; never replace source notices.
+    for patch in manifest["patches"]:
+        shutil.copyfile(REPO / patch["path"], local_source / Path(patch["path"]).name)
+    shutil.copyfile(REPO / "docs/engine-build.md", local_source / "BUILD.md")
     with tempfile.TemporaryDirectory(prefix=".wiz-engine-sign-", dir=output.parent) as temporary:
         entitlements = Path(temporary) / "helper.plist"
         entitlements.write_bytes(plistlib.dumps({"com.apple.security.cs." + key: True for key in

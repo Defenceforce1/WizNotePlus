@@ -1,0 +1,96 @@
+diff --git a/src/core/compositor/native_skia_output_device_metal.cpp b/src/core/compositor/native_skia_output_device_metal.cpp
+index a258f4d..84b68b5 100644
+--- a/src/core/compositor/native_skia_output_device_metal.cpp
++++ b/src/core/compositor/native_skia_output_device_metal.cpp
+@@ -6,9 +6,28 @@
+ 
+ #include <QtQuick/qquickwindow.h>
+ #include <QtQuick/qsgtexture.h>
++#include <atomic>
+ 
+ namespace QtWebEngineCore {
+ 
++void releaseMetalTexture(void *texture);
++
++// Final texture ownership ONLY for the pinned QQuickWidget
++// offscreen path. Its Metal endOffscreenFrame waits for completion. Keep the
++// original +1 texture until BOTH the compositor and QSG wrapper are gone;
++// never release at the compositor's destruction while the wrapper survives.
++struct FinalMetalTextureOwner
++{
++    explicit FinalMetalTextureOwner(void *texture) : native(texture) { }
++    ~FinalMetalTextureOwner()
++    {
++        if (releaseOnDestruction.load())
++            releaseMetalTexture(native);
++    }
++    void *native;
++    std::atomic<bool> releaseOnDestruction{false};
++};
++
+ NativeSkiaOutputDeviceMetal::NativeSkiaOutputDeviceMetal(
+         scoped_refptr<gpu::SharedContextState> contextState, bool requiresAlpha,
+         gpu::MemoryTracker *memoryTracker, viz::SkiaOutputSurfaceDependency *dependency,
+@@ -28,11 +47,19 @@ NativeSkiaOutputDeviceMetal::NativeSkiaOutputDeviceMetal(
+     capabilities_.sk_color_type_map[viz::SinglePlaneFormat::kBGRX_8888] = skColorType;
+ }
+ 
+-NativeSkiaOutputDeviceMetal::~NativeSkiaOutputDeviceMetal() { }
++NativeSkiaOutputDeviceMetal::~NativeSkiaOutputDeviceMetal()
++{
++    // Exclude observer texture()/cleanup calls before accessing derived members.
++    // The base destructor's second unbind is intentionally a no-op.
++    unbind();
++    if (m_finalMetalTextureOwner) {
++        m_finalMetalTextureOwner->releaseOnDestruction.store(true);
++        m_currentMetalTexture = nullptr;
++    }
++}
+ 
+ QSGTexture *makeMetalTexture(QQuickWindow *win, IOSurfaceRef ioSurface, uint ioSurfacePlane,
+                              const QSize &size, QQuickWindow::CreateTextureOptions texOpts);
+-void releaseMetalTexture(void *texture);
+ 
+ QSGTexture *NativeSkiaOutputDeviceMetal::texture(QQuickWindow *win, uint32_t textureOptions)
+ {
+@@ -65,6 +92,15 @@ QSGTexture *NativeSkiaOutputDeviceMetal::texture(QQuickWindow *win, uint32_t tex
+     auto ni = qsgTexture->nativeInterface<QNativeInterface::QSGMetalTexture>();
+     m_currentMetalTexture = ni->nativeTexture();
+ 
++    // A replaced texture keeps the existing buffer-delayed cleanup. Only the
++    // final one activates this additional owner; do not double-release old ones.
++    m_finalMetalTextureOwner.reset();
++    if (win->inherits("QQuickWidgetOffscreenWindow")) {
++        auto owner = std::make_shared<FinalMetalTextureOwner>(m_currentMetalTexture);
++        QObject::connect(qsgTexture, &QObject::destroyed, [owner]() { });
++        m_finalMetalTextureOwner = std::move(owner);
++    }
++
+     return qsgTexture;
+ }
+ 
+diff --git a/src/core/compositor/native_skia_output_device_metal.h b/src/core/compositor/native_skia_output_device_metal.h
+index 6ab5d48..8dd4f97 100644
+--- a/src/core/compositor/native_skia_output_device_metal.h
++++ b/src/core/compositor/native_skia_output_device_metal.h
+@@ -6,9 +6,12 @@
+ #define NATIVE_SKIA_OUTPUT_DEVICE_METAL_H
+ 
+ #include "native_skia_output_device.h"
++#include <memory>
+ 
+ namespace QtWebEngineCore {
+ 
++struct FinalMetalTextureOwner;
++
+ class NativeSkiaOutputDeviceMetal final : public NativeSkiaOutputDevice
+ {
+ public:
+@@ -25,6 +28,7 @@ public:
+ 
+ private:
+     void *m_currentMetalTexture = nullptr;
++    std::shared_ptr<FinalMetalTextureOwner> m_finalMetalTextureOwner;
+ };
+ 
+ } // namespace QtWebEngineCore

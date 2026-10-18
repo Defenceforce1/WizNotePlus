@@ -1,5 +1,23 @@
 # Metal final-texture ownership: isolated candidates, NOT integrated
 
+## Clean packaged candidate
+
+The later `release` source state uses only
+`offscreen-final-texture-owner.patch` against original source; do NOT apply the
+three historical diagnostic/prototype/activation patches first. The Mac texture
+bridge is byte-identical to upstream, with no lifetime logging or experimental
+environment gate in this candidate. The ownership scope and both-lifetime rule
+below are unchanged. `release` means this clean source state, not a claim that
+an installed product or public release has been accepted.
+
+`check-source.cjs SOURCE release` checks three hashes and reverse applicability;
+`engine-candidate.py` records/packages this clean state with the separate PDF
+patch. The earlier four-patch provenance belongs only to the prior diagnostic
+candidate. See [phase 26](../../../docs/exploration-2026-10-18-phase26.md): fresh
+120-open stress, original-editor math, PDF geometry, main/package and unlocked
+native window checks all ran again. No raw create/release counter is claimed
+for the clean binary: those diagnostic callbacks were deliberately removed.
+
 These files are not included in the main App build. Never apply them to the
 installed SDK or an application. Source module, three-file hashes and separate
 diagnostic/prototype patch hashes are fixed in `source-manifest.json`.
@@ -71,5 +89,6 @@ or tests as evidence that this fresh candidate has finished compilation.
 
 The checker's `candidate` state validates all three candidate hashes and reverse
 applicability of the activation patch. Keep earlier logging/prototype snapshots
-and results independent. Foreground UI acceptance currently waits for an
-unlocked session; do not bypass it or change system protection to finish a run.
+and results independent. That earlier candidate's foreground acceptance waited
+for an unlocked session. Phase 26 subsequently tested the clean candidate after
+unlocking; never bypass the lock or change system protection to finish a run.
