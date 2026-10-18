@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QWidgetAction>
 #include <QTimer>
+#include <QMutex>
 #include "share/WizSettings.h"
 #include "share/WizFramelessWindow.h"
 
@@ -39,6 +40,7 @@ private:
     QString _downloadOEMSettings();
 
     QString m_server;
+    mutable QMutex m_serverMutex;
 };
 
 class WizActionWidget : public QWidget

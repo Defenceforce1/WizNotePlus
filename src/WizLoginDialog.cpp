@@ -22,7 +22,9 @@
 #include <QStateMachine>
 #include <QWebEngineView>
 #include <QNetworkReply>
+#include <QCoreApplication>
 #include "share/WizNetworkSecurity.h"
+#include "share/WizEventLoop.h"
 
 #include "share/jsoncpp/json/json.h"
 #include "utils/WizStyleHelper.h"
@@ -825,8 +827,9 @@ void WizLoginDialog::checkServerLicence()
     WizUserSettings userSettings(userId());
     QString strOldLicence = userSettings.serverLicence();
 
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        m_oemDownloader->checkServerLicence(strOldLicence);
+    WizOEMDownloader* const downloader = m_oemDownloader;
+    WizExecuteOnThread(WIZ_THREAD_NETWORK, [downloader, strOldLicence](){
+        downloader->checkServerLicence(strOldLicence);
     });
 
     showAnimationWaitingDialog(tr("Connecting...."));
@@ -863,8 +866,9 @@ void WizLoginDialog::downloadLogoFromWizBox(const QString& strUrl)
         initOEMDownloader();
     }
 
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        m_oemDownloader->downloadOEMLogo(strUrl);
+    WizOEMDownloader* const downloader = m_oemDownloader;
+    WizExecuteOnThread(WIZ_THREAD_NETWORK, [downloader, strUrl](){
+        downloader->downloadOEMLogo(strUrl);
     });
 }
 
@@ -879,8 +883,9 @@ void WizLoginDialog::downloadOEMSettingsFromWizBox()
     }
     m_oemDownloader->setServerIp(serverIp());
 
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-       m_oemDownloader->downloadOEMSettings();
+    WizOEMDownloader* const downloader = m_oemDownloader;
+    WizExecuteOnThread(WIZ_THREAD_NETWORK, [downloader](){
+       downloader->downloadOEMSettings();
     });
 }
 
@@ -1653,7 +1658,13 @@ void WizLoginDialog::initSateMachine()
 
 void WizLoginDialog::initOEMDownloader()
 {
-    m_oemDownloader = new WizOEMDownloader(nullptr);
+    // The queued session joins workers before QApplication destroys children.
+    // Capture this dispatcher directly, never a possibly closed login dialog.
+    QObject* dispatcherOwner = nullptr;
+#ifdef Q_OS_MAC
+    dispatcherOwner = QCoreApplication::instance();
+#endif
+    m_oemDownloader = new WizOEMDownloader(dispatcherOwner);
     connect(m_oemDownloader, SIGNAL(oemSettingsDownloaded(QString)),
             SLOT(onOEMSettingsDownloaded(QString)));
     connect(m_oemDownloader, SIGNAL(logoDownloaded(QString)),
@@ -1676,9 +1687,11 @@ void WizLoginDialog::on_btn_snsLogin_clicked()
 
 QString WizOEMDownloader::_downloadOEMSettings()
 {
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return QString();
+    const QString server = serverIp();
     // get oem settings from server
     QNetworkAccessManager net;
-    WizCommonApiEntry::setEnterpriseServerIP(m_server);
+    WizCommonApiEntry::setEnterpriseServerIP(server);
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("oem");
     QNetworkRequest req(strUrl);
     if (!WizNetworkSecurity::prepareAccountRequest(req)) {
@@ -1688,21 +1701,19 @@ QString WizOEMDownloader::_downloadOEMSettings()
     QNetworkReply* reply = net.get(req);
     qDebug() << "get oem from server : " << strUrl;
 
-    QEventLoop loop;
-    QObject::connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
+    WizAutoTimeOutEventLoop loop(reply);
     loop.exec();
 
-    if (reply->error() != QNetworkReply::NoError)
+    if (loop.error() != QNetworkReply::NoError)
     {
         qWarning() << "Download oem data failed!";
-        emit errorMessage(tr("Can not find server %1").arg(m_server));
-        reply->deleteLater();
+        if (!WizNetworkSecurity::isNetworkCancellationRequested())
+            emit errorMessage(tr("Can not find server %1").arg(server));
         return "";
     }
 
-    QString strResult = reply->readAll();
-    reply->deleteLater();
-    return strResult;
+    // The bounded loop owns reply cleanup and preserves the received bytes.
+    return QString::fromUtf8(loop.result());
 }
 
 WizOEMDownloader::WizOEMDownloader(QObject* parent)
@@ -1713,17 +1724,19 @@ WizOEMDownloader::WizOEMDownloader(QObject* parent)
 
 QString WizOEMDownloader::serverIp() const
 {
+    QMutexLocker lock(&m_serverMutex);
     return m_server;
 }
 
 void WizOEMDownloader::setServerIp(const QString& ip)
 {
+    QMutexLocker lock(&m_serverMutex);
     m_server = ip;
 }
 
 void WizOEMDownloader::downloadOEMLogo(const QString& strUrl)
 {
-    if (strUrl.isEmpty())
+    if (strUrl.isEmpty() || WizNetworkSecurity::isNetworkCancellationRequested())
         return;
 
     QString strFileName = WizGenGUIDLowerCaseLetterOnly() + ".png";
@@ -1732,8 +1745,15 @@ void WizOEMDownloader::downloadOEMLogo(const QString& strUrl)
     loop.connect(downloader, SIGNAL(downloadDone(QString,bool)), &loop, SLOT(quit()));
     //  just wait for 15 seconds
     QTimer::singleShot(15 * 1000, &loop, SLOT(quit()));
+    QTimer cancellation;
+    cancellation.setInterval(50);
+    QObject::connect(&cancellation, &QTimer::timeout, &loop, [&] {
+        if (WizNetworkSecurity::isNetworkCancellationRequested()) loop.quit();
+    });
+    cancellation.start();
     downloader->startDownload();
     loop.exec();
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return;
 
     strFileName = Utils::WizPathResolve::tempPath() + strFileName;
     if (!strFileName.isEmpty() && !QFile::exists(strFileName))
@@ -1755,6 +1775,7 @@ void WizOEMDownloader::downloadOEMSettings()
 void WizOEMDownloader::checkServerLicence(const QString& licence)
 {
     QString settings = _downloadOEMSettings();
+    if (WizNetworkSecurity::isNetworkCancellationRequested()) return;
     if (settings.isEmpty())
     {
         emit errorMessage(tr("Licence not found : %1").arg(settings.left(100)));

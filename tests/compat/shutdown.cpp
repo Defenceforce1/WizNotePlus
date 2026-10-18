@@ -437,11 +437,25 @@ int wizShutdownSelfTest(int argc, char** argv)
     worker->wait();
     {
         QNetworkAccessManager net;
+        // Actual legacy-only-finished negative beside the cancellable loop:
+        // both replies stall against this same loopback server, no cloud calls.
+        QNetworkReply* legacyReply = net.get(QNetworkRequest(url));
+        QEventLoop legacyLoop;
+        QObject::connect(legacyReply, &QNetworkReply::finished, &legacyLoop, &QEventLoop::quit);
+        bool rescuedLegacy = false;
+        QTimer::singleShot(650, &legacyLoop, [&] {
+            rescuedLegacy = true;
+            legacyReply->abort();
+            legacyLoop.quit();
+        });
         WizAutoTimeOutEventLoop loop(net.get(QNetworkRequest(url)));
         QTimer::singleShot(150, &app, &WizNetworkSecurity::beginShutdown);
         elapsed.restart(); loop.exec();
         check(loop.error() == QNetworkReply::OperationCanceledError && elapsed.elapsed() < 3000,
               "process shutdown cancels stalled network waits without waiting for the 60-second timeout");
+        check(!legacyReply->isFinished(), "negative control: finished-only legacy reply does not observe process cancellation");
+        if (!legacyReply->isFinished()) legacyLoop.exec();
+        check(rescuedLegacy, "negative control requires explicit rescue rather than being misreported as canceled");
     }
     QNetworkRequest authenticated{QUrl("https://example.invalid/no-request")};
     check(!WizNetworkSecurity::prepareAccountRequest(authenticated), "shutdown rejects new authenticated requests and retries");

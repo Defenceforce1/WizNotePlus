@@ -2,6 +2,7 @@
 #include "share/WizRequest.h"
 #include "share/jsoncpp/json/json.h"
 #include "WizBuildIdentity.h"
+#include "WizLoginDialog.h"
 #include "sync/WizAvatarUploader.h"
 #include "sync/WizAvatarHost_p.h"
 #include "sync/WizApiEntry.h"
@@ -12,6 +13,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QEventLoop>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QNetworkAccessManager>
 #include <QNetworkProxy>
@@ -34,6 +36,7 @@ public:
     QSslKey key;
     QByteArray response = "HTTP/1.1 200 OK\r\nContent-Length: 18\r\nConnection: close\r\n\r\n{\"returnCode\":200}";
     int accepted = 0, requests = 0;
+    bool respond = true;
     QByteArray received;
     explicit FixtureServer(QObject* parent = nullptr) : QTcpServer(parent) {}
 protected:
@@ -57,6 +60,7 @@ protected:
             const int bodyLength = length.hasMatch() ? length.captured(1).toInt() : 0;
             if (!socket->property("responded").toBool() && request.size() >= end + 4 + bodyLength) {
                 socket->setProperty("responded", true); ++requests;
+                if (!respond) return;
                 socket->write(response); socket->disconnectFromHost();
             }
         });
@@ -351,6 +355,60 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
     qDeleteAll(workers);
     check(QImage(Utils::WizPathResolve::avatarPath() + changingWorker.m_strCurrentUser + ".png").size() == QSize(100, 100),
           "worker avatar downloads retain the validated image in the isolated cache");
+
+    // Exercise the actual legacy OEM helper, not a substitute transport. Trust
+    // remains ephemeral and every URL resolves only to this loopback fixture.
+    WizOEMDownloader oem(&app);
+    oem.setServerIp(QString("https://localhost:%1/").arg(server.serverPort()));
+    QString oemSettings;
+    int oemResults = 0, oemErrors = 0;
+    QObject::connect(&oem, &WizOEMDownloader::oemSettingsDownloaded, &app, [&](const QString& value) {
+        oemSettings = value; ++oemResults;
+    });
+    QObject::connect(&oem, &WizOEMDownloader::errorMessage, &app, [&](const QString&) { ++oemErrors; });
+    const QByteArray oemBody = QString::fromUtf8("{\"name\":\"synthetic λ\"}").toUtf8();
+    server.response = "HTTP/1.1 200 OK\r\nContent-Length: " + QByteArray::number(oemBody.size())
+        + "\r\nConnection: close\r\n\r\n" + oemBody;
+    const int requestsBeforeOem = server.requests;
+    oem.downloadOEMSettings();
+    check(oemResults == 1 && oemSettings == QString::fromUtf8(oemBody) && oemErrors == 0,
+          "actual OEM helper preserves complete UTF-8 settings after bounded reply cleanup");
+    check(server.requests == requestsBeforeOem + 1,
+          "actual OEM settings request uses verified loopback HTTPS exactly once");
+
+    // beginShutdown is irreversible in this process: keep this last among all
+    // real transport cases. Only cancel once the stalled request has arrived.
+    server.respond = false;
+    const int requestsBeforeStall = server.requests;
+    bool stalledRequestArrived = false;
+    QElapsedTimer oemElapsed; oemElapsed.start();
+    QTimer cancelOem;
+    cancelOem.setInterval(25);
+    QObject::connect(&cancelOem, &QTimer::timeout, &app, [&] {
+        if (server.requests > requestsBeforeStall || oemElapsed.elapsed() > 2000) {
+            stalledRequestArrived = server.requests > requestsBeforeStall;
+            cancelOem.stop();
+            WizNetworkSecurity::beginShutdown();
+        }
+    });
+    cancelOem.start();
+    oem.downloadOEMSettings();
+    cancelOem.stop();
+    check(stalledRequestArrived && server.requests == requestsBeforeStall + 1,
+          "OEM cancellation fixture reached a real stalled TLS request without retry");
+    check(oemElapsed.elapsed() < 1500 && oemResults == 2 && oemSettings.isEmpty(),
+          "actual OEM helper returns promptly when startup shutdown cancels a stalled request");
+    check(oemErrors == 0,
+          "intentional OEM shutdown cancellation does not emit a server-error popup");
+    oem.downloadOEMSettings();
+    check(server.requests == requestsBeforeStall + 1 && oemResults == 3 && oemSettings.isEmpty(),
+          "already canceled OEM helper cannot start another network request");
+    int licenceResults = 0;
+    QObject::connect(&oem, &WizOEMDownloader::checkLicenceFinished, &app,
+                     [&](bool, const QString&) { ++licenceResults; });
+    oem.checkServerLicence(QStringLiteral("synthetic-unused-licence"));
+    check(oemErrors == 0 && licenceResults == 0 && server.requests == requestsBeforeStall + 1,
+          "canceled licence check emits neither a false missing-licence error nor a stale result");
     QSslConfiguration::setDefaultConfiguration(systemConfiguration);
     check(QSslConfiguration::defaultConfiguration().caCertificates() == systemConfiguration.caCertificates(),
           "test trust removed; no persistent system CA installation");
