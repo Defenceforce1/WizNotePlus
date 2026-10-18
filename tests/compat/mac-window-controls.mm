@@ -95,6 +95,8 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
 {
     const bool interactive = (argc == 2 && QByteArray(argv[1]) == "--mac-main-window-controls-probe")
         || QByteArray(argv[0]).endsWith("/WizWindowControlsTest");
+    const bool headerOnly = !interactive && qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_ONLY") == 1;
+    if (headerOnly) qInfo() << "HEADER-ONLY diagnostic: not the full main-window regression";
     QTemporaryDir isolation;
     if (!isolation.isValid()) return 1;
     qputenv("WIZNOTE_DATA_STORE", isolation.filePath("store").toUtf8());
@@ -395,8 +397,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         int timeout;
     };
     std::vector<Step> steps;
+    bool collectHeaderSteps = true;
     auto addCheck = [&](const char* label, std::function<bool()> complete,
                         std::function<void()> begin = {}, int timeout = 8000) {
+        if (headerOnly && !collectHeaderSteps) return;
         steps.push_back({label, std::move(begin), std::move(complete), timeout});
     };
     addCheck("actual main-window synthetic note loads in the actual editor",
@@ -414,6 +418,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }
         return *editorReady;
     }, {}, 15000);
+    collectHeaderSteps = false;
     const QString artifactDir = qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
     if (!interactive) {
         const auto spellingOn = std::make_shared<bool>(false);
@@ -1216,6 +1221,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return *restored;
         }, [&] { window.docView()->setEditorMode(modeReader); }, 15000);
     }
+    collectHeaderSteps = true;
     addCheck("Qt native delegate is retained, not replaced by the legacy frameless proxy", [&] {
         return [native.delegate respondsToSelector:@selector(windowShouldClose:)]
             && ![NSStringFromClass([native.delegate class]) isEqualToString:@"NSWindowProxyDelegate"];
@@ -1245,7 +1251,18 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }
         return true;
     };
-    addCheck("native traffic lights align with the single header and do not cover account or search", nativeHeaderAligned);
+    const auto addSettledHeaderCheck = [&](const char* label) {
+        struct Settled { QElapsedTimer timer; bool started = false; };
+        const auto settled = std::make_shared<Settled>();
+        addCheck(label, [nativeHeaderAligned, settled] {
+            if (!nativeHeaderAligned()) { settled->started = false; return false; }
+            if (!settled->started) { settled->timer.start(); settled->started = true; }
+            // AppKit can relayout after show/state-change returns. A single
+            // matching event-loop tick must not hide a delayed reset.
+            return settled->timer.elapsed() >= 500;
+        });
+    };
+    addSettledHeaderCheck("native traffic lights align with the single header and do not cover account or search");
     addCheck("unified toolbar controls remain reachable through native pointer hit testing", [&] {
         NSView* qtView = reinterpret_cast<NSView*>(window.winId());
         NSView* frame = native.contentView.superview;
@@ -1328,7 +1345,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return window.contentsMargins().top() >= window.windowHandle()->safeAreaMargins().top();
         });
         addFullscreenCheck(false, "actual main-window green action exits fullscreen");
-        addCheck("unified header alignment survives fullscreen exit", nativeHeaderAligned);
+        addSettledHeaderCheck("unified header alignment survives fullscreen exit");
         addCheck("actual main window is blocked by modal dialog", [&] {
             return QApplication::activeModalWidget() == &modal
                 && !button(NSWindowCloseButton).enabled && !button(NSWindowMiniaturizeButton).enabled
@@ -1341,7 +1358,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         addCheck("actual main-window red action hides the window",
             [&] { return !window.isVisible() && !native.visible; }, [&] { [button(NSWindowCloseButton) performClick:nil]; });
         addCheck("actual main window reopens after red close", reopened, reopen);
-        addCheck("unified header alignment survives red close and reopen", nativeHeaderAligned);
+        addSettledHeaderCheck("unified header alignment survives red close and reopen");
         addCheck("yellow action still works after red close and reopen",
             [&] { return minimizeComplete(true); }, [&] { [button(NSWindowMiniaturizeButton) performClick:nil]; });
         addCheck("final native minimize restoration", restoreComplete, restoreWindow);
@@ -1350,7 +1367,19 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             return *exitedFullscreen > beforeFull && !window.isVisible() && !native.visible && fullscreenComplete(false);
         }, [&] { beforeFull = *exitedFullscreen; [button(NSWindowCloseButton) performClick:nil]; });
         addCheck("actual main window restores after fullscreen red close", reopened, reopen);
-        addCheck("unified header alignment survives fullscreen red close", nativeHeaderAligned);
+        addSettledHeaderCheck("unified header alignment survives fullscreen red close");
+        const int reopenCycles = qBound(0, qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_REOPEN_CYCLES"), 20);
+        for (int cycle = 0; cycle < reopenCycles; ++cycle) {
+            addCheck("repeated red-close cycle hides main window", [&] {
+                return !window.isVisible() && !native.visible;
+            }, [&, cycle] {
+                qInfo() << "EXTRA HEADER REOPEN CYCLE" << cycle + 1;
+                [button(NSWindowCloseButton) performClick:nil];
+            });
+            addCheck("repeated red-close cycle reopens main window", reopened, reopen);
+            addSettledHeaderCheck("header remains aligned throughout repeated red-close settling");
+        }
+        collectHeaderSteps = false;
         addCheck("actual quit preflight confirms synthetic Markdown is saved without preview decoration", [&] {
             bool progressShown = false;
             QTimer watcher;
@@ -1375,6 +1404,31 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     QElapsedTimer deadline;
     size_t step = 0;
     bool started = false;
+    QTimer headerTrace;
+    QString lastHeaderTrace;
+    if (headerOnly || qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_TRACE") == 1) {
+        headerTrace.setTimerType(Qt::PreciseTimer);
+        QObject::connect(&headerTrace, &QTimer::timeout, &app, [&] {
+            auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
+            NSButton* close = button(NSWindowCloseButton);
+            if (!search || !close || !native.contentView) return;
+            NSView* container = close.superview;
+            const NSRect rect = [native.contentView convertRect:close.bounds fromView:close];
+            const CGFloat centerY = native.contentView.flipped ? NSMidY(rect)
+                : NSHeight(native.contentView.bounds) - NSMidY(rect);
+            const QString now = QString("step=%1 qt=%2 visible=%3/%4 active=%5 key=%6 headerH=%7 searchY=%8 closeY=%9 container=%10 parentH=%11")
+                .arg(step).arg(int(window.windowState())).arg(window.isVisible()).arg(bool(native.visible))
+                .arg(bool(NSApp.active)).arg(bool(native.keyWindow)).arg(window.titleBar()->height())
+                .arg(search->mapTo(&window, search->rect().center()).y()).arg(centerY)
+                .arg(QString::fromNSString(NSStringFromRect(container.frame)))
+                .arg(NSHeight(container.superview.bounds));
+            if (now != lastHeaderTrace) {
+                qInfo().noquote() << "HEADER TRACE" << now;
+                lastHeaderTrace = now;
+            }
+        });
+        headerTrace.start(20);
+    }
     QObject::connect(&test, &QTimer::timeout, &app, [&] {
         if (step == steps.size()) {
             test.stop();

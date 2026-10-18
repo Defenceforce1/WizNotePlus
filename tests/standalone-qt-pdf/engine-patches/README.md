@@ -61,15 +61,24 @@ same build configuration when applying the draft incrementally afterward.
 - Put the task-local CMake/Ninja bin directory on the build process's `PATH`
   too. The separate GN bootstrap configures another CMake project and does not
   inherit the outer `CMAKE_MAKE_PROGRAM`; without `PATH` it stops before Chromium.
-- Set `NINJAFLAGS='-j3'` **at CMake configure time**, not merely at build time;
-  this module embeds the flags in generated custom commands. Keep the outer
-  build capped at three too and use a lower process priority (`nice -n 10`).
+- Set a bounded `NINJAFLAGS` **at CMake configure time**, not merely at build
+  time; this module embeds the flags in generated custom commands. Start at
+  `-j3`; on the observed healthy 32-GiB host the continuing baseline uses `-j6`
+  with outer parallel=2, nice=10 and ongoing memory-pressure checks. Reduce
+  concurrency if memory pressure rises; do not assume six suits another host.
   Earlier load limits of 6, then 16 effectively serialized this busy machine;
   bounded jobs plus lower priority keep the limit without unbounded parallelism.
 - Set `CMAKE_OSX_DEPLOYMENT_TARGET` explicitly. The Qt 6.11.3 SDK's WebEngine
   arm64 binary reports minimum 13.0, so the isolated baseline uses 13.0 too.
   Leaving it empty propagated `-mmacos-version-min=` into Chromium and failed;
   do not remove the flag from generated files or infer a new App minimum.
+- Set `QT_IS_MACOS_UNIVERSAL=OFF` for this arm64-only build. The installed
+  universal SDK exports this cache default as ON even when
+  `CMAKE_OSX_ARCHITECTURES=arm64`. Otherwise this module's universal link path
+  asks for a nonexistent `Release/x86_64/*_libs.rsp` at the very end. Verify
+  generated Core/convert_dict response-file paths are all under `arm64`, using
+  the normal single-arch linker path; do not create fake Intel response files,
+  build an unnecessary second architecture, or edit the SDK/source to hide it.
 - Use a task-local Python environment with html5lib/Jinja2/packaging and SPDX
   tools; do not alter system Python or suppress missing license metadata.
 - Xcode must have an actual Metal Toolchain. `xcrun --find metal` alone can
