@@ -122,6 +122,10 @@ async function evaluate(session,expression){
           }finally{frame.remove();}
         })()`);
         result.targetFixture=path.basename(new URL(target.url).pathname);
+        if(process.env.WIZNOTE_MATH_RETENTION_PROBE){
+          result.mathRetention=await require('./explore-math-retention.cjs')(
+            session,helperSource,process.env.WIZNOTE_EXPECT_RETENTION_BASELINE_SHA256);
+        }
         if(process.env.WIZNOTE_EXPLORE_NATIVE_PDF){
           try{
             const printed=await session.call('Page.printToPDF',{paperWidth:210/25.4,paperHeight:297/25.4,
@@ -151,7 +155,8 @@ async function evaluate(session,expression){
       &&result.probe.baseline.serializedSame&&result.probe.skipEmptyPrototype.serializedSame;
     result.candidateRegressionPassed=!!result.probe&&result.probe.regression.failures.length===0
       &&(!result.probe.boundaryRegression||result.probe.boundaryRegression.failures.length===0)
-      &&(!result.probe.blockLookupBench||result.probe.blockLookupBench.every(record=>record.sourceNumberAndDestinationSame));
+      &&(!result.probe.blockLookupBench||result.probe.blockLookupBench.every(record=>record.sourceNumberAndDestinationSame))
+      &&(!result.mathRetention||result.mathRetention.passed);
     fs.writeFileSync(path.join(output,'native-renderer-results.json'),JSON.stringify(result,null,2)+'\n');
   }
   console.log(JSON.stringify({helperSha256:result.helperSha256,expectedProbeBehavior:result.expectedProbeBehavior,
