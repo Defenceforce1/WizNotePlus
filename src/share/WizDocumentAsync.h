@@ -38,6 +38,19 @@ private:
     std::shared_ptr<const char> m_token;
 };
 
+namespace WizDocumentOwnerAction {
+// A live view can already display another document. Keep the original queue,
+// but require the originating document generation as well as a living owner.
+// Use only for pending UI commands, never an in-flight save's completion.
+template<class Owner, class Action>
+auto forDocument(Owner* owner, WizDocumentCallbackEpoch::Ticket document, Action action)
+{
+    return guarded(owner, [document = std::move(document), action = std::move(action)](Owner& target) mutable {
+        if (WizDocumentCallbackEpoch::current(document)) action(target);
+    });
+}
+}
+
 // GUI-owned sequence for loader results. Note IDs alone cannot distinguish
 // two open views of the same note or repeated requests from one view.
 class WizDocumentLoadSequence final

@@ -51,6 +51,41 @@ int main(int argc, char** argv)
     app.processEvents();
     check(sequence == QVector<int>({0, 1, 2}), "guard retains FIFO ordering for actions on a live view");
 
+    {
+        QObject reusedView;
+        WizDocumentCallbackEpoch document;
+        int legacyUi = 0, currentUi = 0, activeSaveCompletions = 0;
+        const auto originalDocument = document.ticket();
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(&reusedView, [&](QObject&) { ++legacyUi; }));
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(&reusedView, originalDocument,
+            [&](QObject&) { ++currentUi; }));
+        // An already handed-off persistence completion must remain independent
+        // of the originating view's navigation; do not apply UI guards to it.
+        WizExecuteOnThread(WIZ_THREAD_MAIN, [&] { ++activeSaveCompletions; });
+        document.invalidate(); app.processEvents();
+        check(legacyUi == 1, "negative control: owner-only guard delivers a stale UI command after same-view navigation");
+        check(currentUi == 0 && activeSaveCompletions == 1,
+              "document guard skips stale UI work but does not cancel an independent active-save completion");
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(&reusedView, document.ticket(),
+            [&](QObject&) { ++currentUi; }));
+        app.processEvents();
+        check(currentUi == 1, "current document command still runs through the existing main queue");
+        const auto beforeRoundTrip = document.ticket();
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(&reusedView, beforeRoundTrip,
+            [&](QObject&) { ++currentUi; }));
+        document.invalidate(); document.invalidate(); app.processEvents();
+        check(currentUi == 1, "leaving and returning to a document cannot revive its old queued generation");
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(&reusedView, {},
+            [&](QObject&) { ++currentUi; }));
+        app.processEvents();
+        check(currentUi == 1, "missing document ticket cannot authorize a queued UI command");
+        auto closingView = std::make_unique<QObject>();
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(closingView.get(), document.ticket(),
+            [&](QObject&) { ++currentUi; }));
+        closingView.reset(); app.processEvents();
+        check(currentUi == 1, "valid document ticket cannot keep a closed view alive or enter it");
+    }
+
     auto payload = std::make_shared<int>(42);
     const std::weak_ptr<int> weakPayload(payload);
     WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(&liveOwner, [payload = std::move(payload), &calls](QObject&) {
