@@ -6,6 +6,20 @@
 #include <QVariant>
 #include <QPointer>
 #include <memory>
+#include <utility>
+
+namespace WizDocumentOwnerAction {
+// Create and deliver on the GUI thread. The existing main queue still owns
+// scheduling/shutdown; this wrapper only prevents calls into a closed view.
+// Active save operations and their completion callbacks are not canceled here.
+template<class Owner, class Action>
+auto guarded(Owner* owner, Action action)
+{
+    return [guard = QPointer<Owner>(owner), action = std::move(action)]() mutable {
+        if (guard) action(*guard);
+    };
+}
+}
 
 // GUI-thread-only tickets. A navigation or owner destruction invalidates every
 // outstanding callback without retaining the view or any note contents.

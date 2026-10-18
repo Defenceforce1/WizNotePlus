@@ -15,6 +15,17 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 add_test(NAME wiznote_thread_pool COMMAND wiznote_thread_pool)
 set_tests_properties(wiznote_thread_pool PROPERTIES TIMEOUT 30)
+add_executable(wiznote_document_owner_actions document-owner-actions.cpp
+    ${PROJECT_SOURCE_DIR}/src/share/WizThreads.cpp
+    ${PROJECT_SOURCE_DIR}/src/share/WizThreads_p.h)
+target_include_directories(wiznote_document_owner_actions PRIVATE ${PROJECT_SOURCE_DIR}/src)
+set_target_properties(wiznote_document_owner_actions PROPERTIES AUTOMOC ON)
+target_link_libraries(wiznote_document_owner_actions PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(wiznote_document_owner_actions PRIVATE Qt6::Core5Compat)
+endif()
+add_test(NAME wiznote_document_owner_actions COMMAND wiznote_document_owner_actions)
+set_tests_properties(wiznote_document_owner_actions PROPERTIES TIMEOUT 30)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network)
 add_executable(wiznote_async_api_lifetime async-api-lifetime.cpp
     ${PROJECT_SOURCE_DIR}/src/sync/WizAsyncApi.cpp

@@ -235,6 +235,32 @@ int main(int argc, char** argv) {
     auto owner=std::make_unique<WizDocumentCallbackEpoch>();auto closed=owner->ticket();owner.reset();
     check(!WizDocumentCallbackEpoch::current(closed),"callbacks do not retain a destroyed document owner");
     {
+        int calls = 0;
+        auto actionOwner = std::make_unique<QObject>();
+        auto action = WizDocumentOwnerAction::guarded(actionOwner.get(), [&](QObject& receiver) {
+            if (&receiver == actionOwner.get()) ++calls;
+        });
+        action();
+        check(calls == 1, "guarded deferred action still invokes its live document owner");
+        actionOwner.reset();
+        action();
+        check(calls == 1, "guarded deferred action cannot call a destroyed document owner");
+        auto nullAction = WizDocumentOwnerAction::guarded(static_cast<QObject*>(nullptr), [&](QObject&) { ++calls; });
+        nullAction();
+        check(calls == 1, "empty document owner is safely ignored without invoking the action");
+        auto queuedOwner = std::make_unique<QObject>();
+        int queuedCalls = 0;
+        QMetaObject::invokeMethod(&app, WizDocumentOwnerAction::guarded(queuedOwner.get(), [&](QObject&) { ++queuedCalls; }), Qt::QueuedConnection);
+        queuedOwner.reset(); app.processEvents();
+        check(queuedCalls == 0, "actual queued GUI delivery drops an action after its document owner closes");
+        auto selfDeletingOwner = std::make_unique<QObject>();
+        auto deleting = WizDocumentOwnerAction::guarded(selfDeletingOwner.get(), [&](QObject&) {
+            ++calls; selfDeletingOwner.reset();
+        });
+        deleting(); deleting();
+        check(calls == 2 && !selfDeletingOwner, "guarded action may delete its owner without a later dereference or repeat");
+    }
+    {
         struct Delivery { int called=0;int accepted=0; };
         auto delivery=std::make_shared<Delivery>();
         auto dyingPage=std::make_unique<QWebEnginePage>(&profile);

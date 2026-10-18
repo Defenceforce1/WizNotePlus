@@ -2729,20 +2729,16 @@ void WizDocumentWebView::updateSvg(QString data)
 
 void WizDocumentWebView::saveCurrentNote()
 {
-    WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
-        //
-        onTimerAutoSaveTimout();
-        //
-    });
+    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(this, [](WizDocumentWebView& owner) {
+        owner.onTimerAutoSaveTimout();
+    }));
 }
 
 void WizDocumentWebView::onReturn()
 {
-    WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
-        //
-        tryResetTitle();
-        //
-    });
+    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(this, [](WizDocumentWebView& owner) {
+        owner.tryResetTitle();
+    }));
 }
 
 
@@ -2754,11 +2750,9 @@ void WizDocumentWebView::doCopy()
 
 void WizDocumentWebView::doPaste()
 {
-    WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
-        //
-        onPasteCommand();
-        //
-    });
+    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(this, [](WizDocumentWebView& owner) {
+        owner.onPasteCommand();
+    }));
 }
 
 
