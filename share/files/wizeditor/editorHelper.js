@@ -352,6 +352,7 @@ function WizApplyMathEnvironments() {
   var display = { theorem:'定理', lemma:'引理', proposition:'命题', corollary:'推论',
     definition:'定义', example:'例', remark:'注', proof:'证明' };
   var labels = Object.create(null), duplicates = Object.create(null);
+  var blockRecords = new Map();
   var attributes = ['class','id','style','data-wiz-math-title','data-wiz-math-number','data-wiz-math-heading'];
   function parseHeading(heading) {
     if (!heading || heading.tagName !== 'P') return null;
@@ -392,6 +393,7 @@ function WizApplyMathEnvironments() {
     var heading = record.heading, kind = record.kind;
     attributes.forEach(function (name) { record.attrs[name] = block.getAttribute(name); });
     WizMathDecoration.blocks.push(record);
+    blockRecords.set(block, record);
     block.classList.add(kind, 'wiz-math-block');
     heading.classList.add('wiz-math-source-heading');
     block.setAttribute('data-wiz-math-title', record.caption);
@@ -403,7 +405,7 @@ function WizApplyMathEnvironments() {
   var counters = { theorem:0, definition:0, example:0 };
   // Walk original HTML environments as well, so mixed div/quote notes keep order.
   body.querySelectorAll('.theorem,.lemma,.proposition,.corollary,.definition,.example,.remark,.proof').forEach(function (block) {
-    var record = WizMathDecoration.blocks.find(function (item) { return item.element === block; });
+    var record = blockRecords.get(block);
     var kind = record ? record.kind : Object.keys(display).find(function (name) { return block.classList.contains(name); });
     var group = /^(theorem|lemma|proposition|corollary)$/.test(kind) ? 'theorem'
       : kind === 'definition' || kind === 'example' ? kind : null;

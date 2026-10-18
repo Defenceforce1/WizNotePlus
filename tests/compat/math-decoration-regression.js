@@ -101,3 +101,50 @@ function WizRunMathDecorationMicrobenchmark() {
   });});
   WizClearMathEnvironments();return records;
 }
+
+// Stable-node baseline versus an in-memory lookup-only prototype. Alternating
+// order and exact source/number/anchor checks; not native paint or App timing.
+function WizRunMathBlockLookupBenchmark() {
+  var baseline=WizApplyMathEnvironments;
+  if(!baseline.toString().includes('WizMathDecoration.blocks.find(function (item) { return item.element === block; })'))
+    throw Error('Benchmark requires the preserved array-lookup baseline, not an already optimized helper');
+  var code=baseline.toString()
+    .replace('var labels = Object.create(null), duplicates = Object.create(null);',
+      'var labels = Object.create(null), duplicates = Object.create(null); var blockRecords = new Map();')
+    .replace('WizMathDecoration.blocks.push(record);',
+      'WizMathDecoration.blocks.push(record); blockRecords.set(block, record);')
+    .replace('WizMathDecoration.blocks.find(function (item) { return item.element === block; })',
+      'blockRecords.get(block)');
+  if(code===baseline.toString()||!code.includes('blockRecords.get(block)'))
+    throw Error('Block lookup prototype source anchor mismatch');
+  var candidate=(0,eval)('('+code+')'), records=[];
+  try {
+    [100,500,1500].forEach(function(count){
+      WizClearMathEnvironments();
+      document.body.className='markdown-body wiz-readonly';
+      document.body.innerHTML=Array.from({length:count},function(_,i){
+        return '<p>See \\ref{bench:'+i+'}.</p><blockquote><p><strong>'+(i%3?'定理':'定义')
+          +'</strong> \\label{bench:'+i+'}</p><p>Body '+i+'.</p></blockquote>';
+      }).join('');
+      var clean=document.body.innerHTML;
+      window.WizNoteCss='/* WizNotePlus scientific math environments v1 */';
+      window.WizEditor={getContentHtml:function(){return document.body.innerHTML;},getMarkdownSrc:function(){return document.body.innerHTML;}};
+      var shape=function(){return JSON.stringify(Array.from(document.querySelectorAll('.wiz-math-block'))
+        .map(function(block){return [block.id,block.getAttribute('data-wiz-math-heading')];}));};
+      WizApplyMathEnvironments=baseline; baseline(); baseline();
+      var expected=shape(), same=true, trials=[];
+      for(var round=0;round<8;round++) {
+        var order=round%2?[['map',candidate],['array',baseline]]:[['array',baseline],['map',candidate]];
+        order.forEach(function(pair){
+          WizApplyMathEnvironments=pair[1];
+          var start=performance.now();pair[1]();
+          trials.push({variant:pair[0],ms:performance.now()-start});
+          same=same&&shape()===expected&&document.querySelectorAll('.wiz-math-reference').length===count
+            &&WizEditor.getContentHtml()===clean;
+        });
+      }
+      records.push({count:count,trials:trials,sourceNumberAndDestinationSame:same});
+    });
+    return records;
+  } finally { WizClearMathEnvironments();WizApplyMathEnvironments=baseline; }
+}

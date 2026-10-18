@@ -3,7 +3,16 @@
 // Attach only to this script's isolated --note-presentation-self-test process.
 // Never connect to an existing user session, navigate a real note or install an App.
 const fs=require('node:fs'),path=require('node:path'),net=require('node:net'),cp=require('node:child_process');
-const helperFile=process.env.WIZNOTE_EXPLORE_HELPER_FILE||'/Applications/WizNotePlus Apple Silicon.app/Contents/Resources/files/wizeditor/editorHelper.js';
+const helperFile=process.env.WIZNOTE_EXPLORE_HELPER_FILE||path.resolve(__dirname,'../../share/files/wizeditor/editorHelper.js');
+const appBinary=process.env.WIZNOTE_EXPLORE_APP_BINARY;
+if(!appBinary||!path.isAbsolute(appBinary)||!fs.statSync(appBinary).isFile())
+  throw new Error('Supply an explicit absolute developer test executable; never auto-launch an installed App');
+const resolvedBinary=fs.realpathSync(appBinary);
+if(/^\/Applications\//.test(resolvedBinary)||/^\/Users\/[^/]+\/Applications\//.test(resolvedBinary))
+  throw new Error('Installed Apps are not diagnostic hosts; use an isolated developer build');
+fs.accessSync(resolvedBinary,fs.constants.X_OK);
+const platform=process.env.WIZNOTE_EXPLORE_PLATFORM||'offscreen';
+if(!['offscreen','cocoa'].includes(platform))throw new Error('Unsupported isolated test platform');
 const rawHelperSource=fs.readFileSync(helperFile,'utf8');
 const helperSource=process.env.WIZNOTE_EXPLORE_BOUNDARY_CONTEXT?require('./math-boundary-prototype.cjs')(rawHelperSource):rawHelperSource;
 const regressionSource=fs.readFileSync(path.join(__dirname,'math-decoration-regression.js'),'utf8');
@@ -37,14 +46,14 @@ async function evaluate(session,expression){
 (async()=>{
   const reservation=net.createServer();await new Promise(resolve=>reservation.listen(0,'127.0.0.1',resolve));
   const port=reservation.address().port;await new Promise(resolve=>reservation.close(resolve));
-  const child=cp.spawn('/Applications/WizNotePlus Apple Silicon.app/Contents/MacOS/WizNotePlus',['--note-presentation-self-test'],
-    {env:{...process.env,QT_QPA_PLATFORM:'cocoa',QTWEBENGINE_REMOTE_DEBUGGING:`127.0.0.1:${port}`},stdio:['ignore','pipe','pipe']});
+  const child=cp.spawn(appBinary,['--note-presentation-self-test'],
+    {env:{...process.env,QT_QPA_PLATFORM:platform,QTWEBENGINE_REMOTE_DEBUGGING:`127.0.0.1:${port}`},stdio:['ignore','pipe','pipe']});
   let log='',ended=false;
   const logPath=path.join(output,'native-presentation.log');
   fs.writeFileSync(logPath,'');
   for(const stream of[child.stdout,child.stderr])stream.on('data',data=>{log+=data.toString();fs.appendFileSync(logPath,data);});
   const finished=new Promise(resolve=>child.on('close',(code,signal)=>{ended=true;resolve({code,signal});}));
-  const result={kind:'Actual installed Qt WebEngine; isolated synthetic presentation self-test only',helperFile,
+  const result={kind:'Explicit developer Qt WebEngine; isolated synthetic presentation self-test only',appBinary,platform,helperFile,
     helperSha256:require('node:crypto').createHash('sha256').update(rawHelperSource).digest('hex'),
     executedHelperSha256:require('node:crypto').createHash('sha256').update(helperSource).digest('hex'),probe:null,testProcessId:child.pid,attachNotes:[]};
   let session;
@@ -106,7 +115,8 @@ async function evaluate(session,expression){
               w.eval(${JSON.stringify(boundaryRegressionSource)});boundaryRegression=w.WizRunMathBoundaryRegression();
             }
             const microbenchmarks=${JSON.stringify(Boolean(process.env.WIZNOTE_DECORATION_BENCH))}?w.WizRunMathDecorationMicrobenchmark():null;
-            return{regression,boundaryRegression,microbenchmarks,userAgent:navigator.userAgent,baseline:{before,after,growth:after-before,serializedSame:originalSame},
+            const blockLookupBench=${JSON.stringify(Boolean(process.env.WIZNOTE_BLOCK_LOOKUP_BENCH))}?w.WizRunMathBlockLookupBenchmark():null;
+            return{regression,boundaryRegression,microbenchmarks,blockLookupBench,userAgent:navigator.userAgent,baseline:{before,after,growth:after-before,serializedSame:originalSame},
               skipEmptyPrototype:{before:candidateBefore,after:candidateAfter,growth:candidateAfter-candidateBefore,serializedSame:candidateSame},
               boundaries,manualCounter:{serializedSame:serialized===clean,hasEmptyStyle:/style=""/.test(serialized),styleFlushSame}};
           }finally{frame.remove();}
@@ -140,7 +150,8 @@ async function evaluate(session,expression){
     result.expectedProbeBehavior=!!result.probe&&result.probe.baseline.growth===expectedGrowth&&result.probe.skipEmptyPrototype.growth===0
       &&result.probe.baseline.serializedSame&&result.probe.skipEmptyPrototype.serializedSame;
     result.candidateRegressionPassed=!!result.probe&&result.probe.regression.failures.length===0
-      &&(!result.probe.boundaryRegression||result.probe.boundaryRegression.failures.length===0);
+      &&(!result.probe.boundaryRegression||result.probe.boundaryRegression.failures.length===0)
+      &&(!result.probe.blockLookupBench||result.probe.blockLookupBench.every(record=>record.sourceNumberAndDestinationSame));
     fs.writeFileSync(path.join(output,'native-renderer-results.json'),JSON.stringify(result,null,2)+'\n');
   }
   console.log(JSON.stringify({helperSha256:result.helperSha256,expectedProbeBehavior:result.expectedProbeBehavior,

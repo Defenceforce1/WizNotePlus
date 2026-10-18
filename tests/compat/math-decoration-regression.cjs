@@ -25,12 +25,16 @@ const executed=process.env.WIZNOTE_EXPLORE_BOUNDARY_CONTEXT?require('./math-boun
     if(process.env.WIZNOTE_DECORATION_BENCH){
       result.microbenchmarks=await page.evaluate(()=>WizRunMathDecorationMicrobenchmark());
     }
+    if(process.env.WIZNOTE_BLOCK_LOOKUP_BENCH){
+      result.blockLookupBench=await page.evaluate(()=>WizRunMathBlockLookupBenchmark());
+    }
     Object.assign(result,{engine:browser.version(),helper,helperSha256:crypto.createHash('sha256').update(helperSource).digest('hex'),
       executedHelperSha256:crypto.createHash('sha256').update(executed).digest('hex'),pageErrors:errors});
     fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');
     console.log(JSON.stringify({passed:result.passed,failures:result.failures,
       boundary:result.boundaryRegression&&{passed:result.boundaryRegression.passed,failures:result.boundaryRegression.failures},
       microbenchmarks:result.microbenchmarks,pageErrors:errors}));
-    process.exitCode=result.failures.length||errors.length||result.boundaryRegression?.failures.length?1:0;
+    process.exitCode=result.failures.length||errors.length||result.boundaryRegression?.failures.length
+      ||result.blockLookupBench?.some(record=>!record.sourceNumberAndDestinationSame)?1:0;
   }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
