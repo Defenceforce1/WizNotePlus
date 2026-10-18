@@ -114,6 +114,34 @@ int main(int argc,char** argv) {
     }
     int failures=0,checks=0;
     auto check=[&](bool ok,const char* label) { ++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<label; };
+    {
+        struct Payload {
+            std::atomic<int>& released;
+            explicit Payload(std::atomic<int>& count):released(count) {}
+            ~Payload(){++released;}
+        };
+        struct OwnedTask final : IWizRunable {
+            std::shared_ptr<Payload> payload;
+            explicit OwnedTask(std::shared_ptr<Payload> value):payload(std::move(value)) {}
+            QString getTaskID() override {return "owned-payload";}
+            void run(int,IWizThreadPool*,IWizRunableEvents*) override {qFatal("Canceled owned task executed");}
+            // Inherit the production delete-this destroy(), unlike inspection tasks.
+        };
+        std::atomic<int> released{0};
+        auto first=std::make_shared<Payload>(released),second=std::make_shared<Payload>(released),third=std::make_shared<Payload>(released);
+        std::weak_ptr<Payload> firstWeak=first,secondWeak=second,thirdWeak=third;
+        IWizThreadPool* pool=WizCreateThreadPool(0);
+        pool->addTask(new OwnedTask(std::move(first)));
+        const bool held=!firstWeak.expired();
+        pool->addTask(new OwnedTask(std::move(second)));
+        const bool replaced=firstWeak.expired()&&!secondWeak.expired();
+        pool->clearTasks();
+        const bool cleared=secondWeak.expired();
+        pool->addTask(new OwnedTask(std::move(third)));
+        pool->shutdown(5);
+        check(held&&replaced&&cleared&&thirdWeak.expired()&&released==3,
+              "default delete-this task destruction actually releases captured shared resources on replacement, clear and shutdown");
+    }
     // No workers: inspect ownership independently from scheduling.
     {
         std::atomic<int> runs{0},destroyed{0};
