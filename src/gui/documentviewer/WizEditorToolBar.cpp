@@ -23,6 +23,7 @@
 #include <QPixmap>
 
 #include "share/WizMisc.h"
+#include "share/WizEditorFontQuery.h"
 #include "WizDef.h"
 #include "share/WizSettings.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
@@ -2058,6 +2059,7 @@ void WizEditorToolBar::setDelegate(WizDocumentWebView* editor)
 {
     Q_ASSERT(editor);
 
+    ++m_fontQuerySequence;
     m_editor = editor;
 
     connect(m_editor, SIGNAL(statusChanged(const QString&)),
@@ -2334,39 +2336,24 @@ void WizEditorToolBar::on_fontDailogFontChanged(const QFont& font)
 
 void WizEditorToolBar::queryCurrentFont(std::function<void(const QFont& font)> callback)
 {
-    m_editor->editorCommandQueryCommandValue("fontFamily", [=](QString familyName){
-        //
-        m_editor->editorCommandQueryCommandState("bold", [=](int bold){
-
-            m_editor->editorCommandQueryCommandState("italic", [=](int italic){
-
-                m_editor->editorCommandQueryCommandState("underline", [=](int underline){
-
-                    m_editor->editorCommandQueryCommandValue("fontSize", [=](QString fontSize){
-
-                        m_editor->editorCommandQueryCommandState("strikethrough", [=](int strikethrough){
-                            //
-                            QFont font;
-
-                            familyName.isEmpty() ? void() : font.setFamily(familyName);
-                            font.setBold(bold == 1);
-                            font.setItalic(italic == 1);
-                            font.setStrikeOut(strikethrough == 1);
-                            font.setUnderline(underline == 1);
-                            //
-                            QString size = fontSize;
-                            size.remove("pt");
-                            int sizeValue = size.toInt();
-                            font.setPointSize(sizeValue == 0 ? m_app.userSettings().defaultFontSize() : sizeValue);
-                            //
-                            callback(font);
-                            //
-                        });
-                    });
-                });
-            });
-        });
+    const QPointer<WizEditorToolBar> self(this);
+    queryFontState([self, callback](const QVariantMap& state) {
+        if (!self) return;
+        const auto font = WizEditorFontQuery::font(state, self->m_app.userSettings().defaultFontSize());
+        if (font) callback(*font);
     });
+}
+
+void WizEditorToolBar::queryFontState(std::function<void(const QVariantMap&)> callback)
+{
+    const QPointer<WizEditorToolBar> self(this);
+    const QPointer<WizDocumentWebView> editor(m_editor);
+    const quint64 sequence = ++m_fontQuerySequence;
+    if (!editor) return;
+    WizEditorFontQuery::query(this, editor->page(), editor->documentCallbackTicket(),
+        [self, editor, sequence] {
+            return self && editor && self->m_editor == editor && self->m_fontQuerySequence == sequence;
+        }, std::move(callback));
 }
 
 void WizEditorToolBar::setCurrentFont(const QFont& fontTemp)
@@ -3064,10 +3051,9 @@ void WizEditorToolBar::on_comboFontFamily_indexChanged(int index)
     }
     else if (helperData == WIZSEPARATOR)
     {
-        m_editor->editorCommandQueryCommandValue("fontFamily", [=](const QString& fontFamily){
-            //
-            m_comboFontFamily->setText(fontFamily);
-
+        const QPointer<WizEditorToolBar> self(this);
+        queryFontState([self](const QVariantMap& state) {
+            if (self) self->m_comboFontFamily->setText(state.value("family").toString());
         });
     }
 }

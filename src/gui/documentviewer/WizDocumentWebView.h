@@ -76,6 +76,8 @@ public:
     void reloadNoteData(const WIZDOCUMENTDATA& data);
 
     bool isEditing() const { return m_currentEditorMode == modeEditor; }
+    // GUI-only weak ticket for transient toolbar queries, not save receipts.
+    WizDocumentCallbackEpoch::Ticket documentCallbackTicket() const { return m_documentCallbacks.ticket(); }
     /*bool isExternalEditing() const {return m_currentEditorMode == modeExternal;}*/
 
     void setNoteTitleInited(bool inited);

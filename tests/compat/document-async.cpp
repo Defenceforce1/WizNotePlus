@@ -1,4 +1,5 @@
 #include "share/WizDocumentAsync.h"
+#include "share/WizEditorFontQuery.h"
 #include "share/WizDocumentPageReady.h"
 #include "share/WizDocumentLinkRequest.h"
 #include "share/WizQuitUiGuard.h"
@@ -11,6 +12,7 @@
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
 #include <QWebEngineView>
+#include <limits>
 
 namespace {
 QVariant evaluate(QWebEnginePage& page, const QString& script) {
@@ -234,6 +236,99 @@ int main(int argc, char** argv) {
     epoch.cancel();check(!WizDocumentCallbackEpoch::current(fresh),"owner shutdown cancels callbacks before child page destruction");
     auto owner=std::make_unique<WizDocumentCallbackEpoch>();auto closed=owner->ticket();owner.reset();
     check(!WizDocumentCallbackEpoch::current(closed),"callbacks do not retain a destroyed document owner");
+    {
+        const QString setup = QStringLiteral(R"JS(
+            window.fontSelection=1;window.changeFontSelection=true;window.fontQueries=[];
+            document.queryCommandValue=function(name){
+                var selection=fontSelection;fontQueries.push('value:'+name+':'+selection);
+                if(name==='fontFamily'&&changeFontSelection){changeFontSelection=false;Promise.resolve().then(()=>fontSelection=2);}
+                return name==='fontFamily'?(selection===1?'Fixture A':'Fixture B'):(selection===1?'11pt':'22pt');
+            };
+            document.queryCommandState=function(name){fontQueries.push('state:'+name+':'+fontSelection);
+                return fontSelection===1?(name==='bold'||name==='underline'):(name==='italic'||name==='strikethrough');};
+        )JS");
+        evaluate(page, setup);
+        const QString oldFamily=evaluate(page,"document.queryCommandValue('fontFamily')").toString();
+        const int oldBold=evaluate(page,"document.queryCommandState('bold')").toInt();
+        evaluate(page,"document.queryCommandState('italic')");
+        evaluate(page,"document.queryCommandState('underline')");
+        const QString oldSize=evaluate(page,"document.queryCommandValue('fontSize')").toString();
+        evaluate(page,"document.queryCommandState('strikethrough')");
+        check(oldFamily=="Fixture A"&&oldSize=="22pt"&&oldBold==0,
+              "six legacy JS round trips reproduce mixed selection state across a real renderer microtask");
+        evaluate(page, setup);
+        const auto atomic=evaluate(page,WizEditorFontQuery::script()).toMap();
+        const auto atomicFont=WizEditorFontQuery::font(atomic,13);
+        check(atomicFont&&atomicFont->family()=="Fixture A"&&atomicFont->pointSize()==11
+              &&atomicFont->bold()&&!atomicFont->italic()&&atomicFont->underline()&&!atomicFont->strikeOut(),
+              "single JS font query keeps all six legacy values from the same selection task");
+        check(evaluate(page,"fontSelection===2&&fontQueries.length===6").toBool(),
+              "batched font query still permits the pending selection microtask after the read");
+        auto fallback=atomic;fallback["size"]="";
+        const auto fallbackFont=WizEditorFontQuery::font(fallback,13);
+        check(fallbackFont&&fallbackFont->pointSize()==13,
+              "missing browser font size retains the configured point-size fallback");
+        fallback["size"]="-5pt";
+        const auto boundedFont=WizEditorFontQuery::font(fallback,0);
+        check(boundedFont&&boundedFont->pointSize()>0,
+              "invalid nonpositive font sizes cannot reach QFont as negative values");
+        auto malformed=atomic;malformed.remove("family");
+        check(!WizEditorFontQuery::font(malformed,13)&&!WizEditorFontQuery::font({},13),
+              "incomplete or failed font replies cannot authorize a font operation");
+        auto numeric=atomic;numeric["bold"]=2;numeric["italic"]=1;numeric["underline"]=0;numeric["strike"]=1;
+        const auto numericFont=WizEditorFontQuery::font(numeric,13);
+        check(numericFont&&!numericFont->bold()&&numericFont->italic()&&!numericFont->underline()&&numericFont->strikeOut(),
+              "numeric browser flags retain the existing exact-one style interpretation");
+        numeric["bold"]=std::numeric_limits<double>::infinity();
+        check(!WizEditorFontQuery::font(numeric,13),"nonfinite browser font flags cannot become an actionable font state");
+        QObject queryOwner;
+        WizDocumentCallbackEpoch queryDocument;
+        int received=0;
+        evaluate(page,setup);
+        WizEditorFontQuery::query(&queryOwner,&page,queryDocument.ticket(),[]{return true;},
+            [&](const QVariantMap& state){if(WizEditorFontQuery::valid(state))++received;});
+        evaluate(page,"true");
+        check(received==1,"actual asynchronous font query reaches a live owner and current document once");
+        WizEditorFontQuery::query(&queryOwner,&page,queryDocument.ticket(),[]{return true;},
+            [&](const QVariantMap&){++received;});
+        queryDocument.invalidate();evaluate(page,"true");
+        check(received==1,"navigation cancels only the old transient font result");
+        auto closing=std::make_unique<QObject>();
+        WizEditorFontQuery::query(closing.get(),&page,queryDocument.ticket(),[]{return true;},
+            [&](const QVariantMap&){++received;});
+        closing.reset();evaluate(page,"true");
+        check(received==1,"font result cannot enter a destroyed toolbar owner");
+        bool currentDelegate=true;
+        WizEditorFontQuery::query(&queryOwner,&page,queryDocument.ticket(),[&]{return currentDelegate;},
+            [&](const QVariantMap&){++received;});
+        currentDelegate=false;evaluate(page,"true");
+        check(received==1,"changed toolbar delegate rejects an otherwise live font result");
+        int latestRequest=1, newestReplies=0;
+        WizEditorFontQuery::query(&queryOwner,&page,queryDocument.ticket(),[&]{return latestRequest==1;},
+            [&](const QVariantMap&){++newestReplies;});
+        latestRequest=2;
+        WizEditorFontQuery::query(&queryOwner,&page,queryDocument.ticket(),[&]{return latestRequest==2;},
+            [&](const QVariantMap&){++newestReplies;});
+        evaluate(page,"true");
+        check(newestReplies==1,"only the newest same-document font request can deliver its result");
+        auto closingPage=std::make_unique<QWebEnginePage>(&profile);
+        WizEditorFontQuery::query(&queryOwner,closingPage.get(),queryDocument.ticket(),[]{return true;},
+            [&](const QVariantMap&){++received;});
+        closingPage.reset();app.processEvents();
+        check(received==1,"page destruction cannot deliver a usable font state from its invalid callback");
+        evaluate(page,"document.queryCommandState=function(){throw Error('synthetic query failure');}");
+        WizEditorFontQuery::query(&queryOwner,&page,queryDocument.ticket(),[]{return true;},
+            [&](const QVariantMap&){++received;});
+        evaluate(page,"true");
+        check(received==1,"renderer query exception cannot open or apply a font result");
+        evaluate(page,setup);
+        auto selfDeletingOwner=std::make_unique<QObject>();
+        WizEditorFontQuery::query(selfDeletingOwner.get(),&page,queryDocument.ticket(),[]{return true;},
+            [&](const QVariantMap&){++received;selfDeletingOwner.reset();});
+        evaluate(page,"true");
+        check(received==2&&!selfDeletingOwner,"font completion may close its owner without a later owner access");
+        evaluate(page,"delete document.queryCommandValue;delete document.queryCommandState;");
+    }
     {
         int calls = 0;
         auto actionOwner = std::make_unique<QObject>();

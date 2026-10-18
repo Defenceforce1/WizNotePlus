@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QPointer>
 #include <QMap>
+#include <QVariant>
 #include <QTimer>
 #include <functional>
 #include <QToolButton>
@@ -60,7 +61,8 @@ private:
 
     QString m_strToolbarType;
 
-    WizDocumentWebView* m_editor;
+    QPointer<WizDocumentWebView> m_editor;
+    quint64 m_fontQuerySequence = 0;
     QMap<QString, QAction*> m_actions;
     CWizToolComboBox* m_comboParagraph;
     CWizToolComboBox* m_comboFontFamily;
@@ -255,6 +257,7 @@ protected Q_SLOTS:
 
 private:
     void queryCurrentFont(std::function<void(const QFont& font)> callback);
+    void queryFontState(std::function<void(const QVariantMap&)> callback);
     void setCurrentFont(const QFont& font);
     void selectCurrentFontFamily(const QString& strFontFamily);
     void selectCurrentFontFamilyItem(const QString& strFontFamily);
