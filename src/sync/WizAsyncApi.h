@@ -2,15 +2,19 @@
 #define WIZSERVICE_ASYNCAPI_H
 
 #include <QObject>
+#include <atomic>
+#include <memory>
 
 class QString;
 struct WIZUSERINFO;
-class QNetworkAccessManager;
 
 
 class WizAsyncApi : public QObject
 {
     Q_OBJECT
+
+    // Internal UI helper: construct, call and read state on the application
+    // thread. Only immutable request values and reply values cross workers.
 
 public:
     explicit WizAsyncApi(QObject *parent = 0);
@@ -27,11 +31,7 @@ public:
 private:
     int m_nErrorCode;
     QString m_strErrorMessage;
-    QNetworkAccessManager* m_networkManager;
-
-    bool registerAccount_impl(const QString& strUserId, const QString& strPasswd, const QString& strInviteCode, const QString& strCaptchaID, const QString& strCaptcha);
-    void setMessageReadStatus_impl(const QString& ids, bool bRead);
-    void setMessageDeleteStatus_impl(const QString& ids, bool bDelete);
+    std::shared_ptr<std::atomic_bool> m_canceled;
 
 Q_SIGNALS:
     void registerAccountFinished(bool bOk);    

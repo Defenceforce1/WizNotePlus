@@ -1,115 +1,118 @@
-﻿#include "WizAsyncApi.h"
+#include "WizAsyncApi.h"
 
-#include <QtGlobal>
-#include <QNetworkAccessManager>
-#include <QEventLoop>
-
-#include "share/WizEventLoop.h"
+#include <QCoreApplication>
+#include <QPointer>
 #include "share/WizThreads.h"
-#include "WizApiEntry.h"
+
+#ifdef WIZNOTE_ASYNC_API_TEST_TRANSPORT
+// Only the isolated unit target replaces the transport, never the App target.
+#include "async-api-transport-stub.h"
+#else
 #include "WizKMServer.h"
 #include "WizToken.h"
+#endif
 
-
-WizAsyncApi::WizAsyncApi(QObject *parent) : QObject(parent)
+namespace {
+struct Reply {
+    bool available = false;
+    bool succeeded = false;
+    int errorCode = 0;
+    QString errorMessage;
+};
+Reply resultOf(WizKMAccountsServer& server, bool succeeded)
 {
-    m_networkManager = new QNetworkAccessManager(this);
+    Reply result;
+    result.available = true;
+    result.succeeded = succeeded;
+    if (!succeeded) {
+        result.errorCode = server.getLastErrorCode();
+        result.errorMessage = server.getLastErrorMessage();
+    }
+    return result;
+}
+
+template<class Work, class Deliver>
+void enqueue(const std::shared_ptr<std::atomic_bool>& canceled, Work work, Deliver deliver)
+{
+    // The application dispatcher outlives the queued workers. No API QObject
+    // or UI member is dereferenced on a worker, even after a pointer check.
+    QObject* const dispatcher = QCoreApplication::instance();
+    if (!dispatcher || canceled->load()) return;
+    WizExecuteOnThread(WIZ_THREAD_NETWORK, [canceled, dispatcher, work, deliver] {
+        if (canceled->load()) return;
+        const Reply result = work();
+        if (!result.available || canceled->load()) return;
+        QMetaObject::invokeMethod(dispatcher, [canceled, deliver, result] {
+            if (!canceled->load()) deliver(result);
+        }, Qt::QueuedConnection);
+    });
+}
+}
+
+WizAsyncApi::WizAsyncApi(QObject* parent)
+    : QObject(parent), m_nErrorCode(0), m_canceled(std::make_shared<std::atomic_bool>(false))
+{
     qRegisterMetaType<WIZUSERINFO>("WIZUSERINFO");
 }
 
 WizAsyncApi::~WizAsyncApi()
 {
+    m_canceled->store(true);
 }
 
-void WizAsyncApi::registerAccount(const QString& strUserId, const QString& strPasswd,
-                               const QString& strInviteCode, const QString& strCaptchaID, const QString& strCaptcha)
+void WizAsyncApi::registerAccount(const QString& user, const QString& password,
+                                const QString& invite, const QString& captchaID, const QString& captcha)
 {
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        registerAccount_impl(strUserId, strPasswd, strInviteCode, strCaptchaID, strCaptcha);
+    const QPointer<WizAsyncApi> owner(this);
+    enqueue(m_canceled, [user, password, invite, captchaID, captcha] {
+        WizKMAccountsServer server;
+        const bool succeeded = server.createAccount(user, password, invite, captchaID, captcha);
+        return resultOf(server, succeeded);
+    }, [owner](const Reply& result) {
+        if (!owner) return;
+        owner->m_nErrorCode = result.errorCode;
+        owner->m_strErrorMessage = result.errorMessage;
+        Q_EMIT owner->registerAccountFinished(result.succeeded);
+        // A connected slot may synchronously delete owner: no access follows.
     });
 }
 
-bool WizAsyncApi::registerAccount_impl(const QString& strUserId, const QString& strPasswd,
-                                    const QString& strInviteCode, const QString& strCaptchaID, const QString& strCaptcha)
+void WizAsyncApi::setMessageReadStatus(const QString& ids, bool read)
 {
-    WizKMAccountsServer aServer;
-
-    bool ret = aServer.createAccount(strUserId, strPasswd, strInviteCode, strCaptchaID, strCaptcha);
-    if (!ret) {
-        m_nErrorCode = aServer.getLastErrorCode();
-        m_strErrorMessage = aServer.getLastErrorMessage();
-    }
-
-    Q_EMIT registerAccountFinished(ret);
-    return ret;
-}
-
-void WizAsyncApi::setMessageReadStatus(const QString& ids, bool bRead)
-{
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        setMessageReadStatus_impl(ids, bRead);
+    const QPointer<WizAsyncApi> owner(this);
+    enqueue(m_canceled, [ids, read] {
+        const QString token = WizToken::token();
+        if (token.isEmpty()) return Reply{};
+        WizKMAccountsServer server;
+        WIZUSERINFO info = WizToken::userInfo();
+        info.strToken = token;
+        server.setUserInfo(info);
+        const bool succeeded = server.setMessageReadStatus(ids, read);
+        return resultOf(server, succeeded);
+    }, [owner, ids](const Reply& result) {
+        if (!owner) return;
+        owner->m_nErrorCode = result.errorCode;
+        owner->m_strErrorMessage = result.errorMessage;
+        if (result.succeeded) Q_EMIT owner->uploadMessageReadStatusFinished(ids);
     });
 }
 
-void WizAsyncApi::setMessageDeleteStatus(const QString& ids, bool bDelete)
+void WizAsyncApi::setMessageDeleteStatus(const QString& ids, bool deleted)
 {
-    WizExecuteOnThread(WIZ_THREAD_NETWORK, [=](){
-        setMessageDeleteStatus_impl(ids, bDelete);
+    const QPointer<WizAsyncApi> owner(this);
+    enqueue(m_canceled, [ids, deleted] {
+        const QString token = WizToken::token();
+        if (token.isEmpty()) return Reply{};
+        WizKMAccountsServer server;
+        WIZUSERINFO info = WizToken::userInfo();
+        info.strToken = token;
+        server.setUserInfo(info);
+        const bool succeeded = server.setMessageDeleteStatus(ids, deleted);
+        return resultOf(server, succeeded);
+    }, [owner, ids](const Reply& result) {
+        if (!owner) return;
+        owner->m_nErrorCode = result.errorCode;
+        owner->m_strErrorMessage = result.errorMessage;
+        if (result.succeeded) Q_EMIT owner->uploadMessageDeleteStatusFinished(ids);
     });
-}
-
-void WizAsyncApi::setMessageReadStatus_impl(const QString& ids, bool bRead)
-{
-    QString strToken = WizToken::token();
-    qDebug() << "set message read status";
-
-    if (strToken.isEmpty()) {
-        return;
-    }
-
-    WizKMAccountsServer aServer;
-
-    WIZUSERINFO info = WizToken::userInfo();
-    info.strToken = strToken;
-    aServer.setUserInfo(info);
-
-    bool ret = aServer.setMessageReadStatus(ids, bRead);
-    qDebug() << "set message read status : " << ret;
-    if (!ret)
-    {
-        m_nErrorCode = aServer.getLastErrorCode();
-        m_strErrorMessage = aServer.getLastErrorMessage();
-    }
-    else
-    {
-        emit uploadMessageReadStatusFinished(ids);
-    }
-}
-
-void WizAsyncApi::setMessageDeleteStatus_impl(const QString& ids, bool bDelete)
-{
-    QString strToken = WizToken::token();
-    if (strToken.isEmpty()) {
-        return;
-    }
-
-    WizKMAccountsServer aServer;
-
-    WIZUSERINFO info = WizToken::userInfo();
-    info.strToken = strToken;
-    aServer.setUserInfo(info);
-
-    bool ret = aServer.setMessageDeleteStatus(ids, bDelete);
-    if (ret)
-    {
-        qDebug() << "[MessageStatus]Upload message delete status OK";
-        emit uploadMessageDeleteStatusFinished(ids);
-    }
-    else
-    {
-        m_nErrorCode = aServer.getLastErrorCode();
-        m_strErrorMessage = aServer.getLastErrorMessage();
-        qDebug() << "[MessageStatus]Upload message delete status error :  " << m_nErrorCode << m_strErrorMessage;
-    }
-    //
 }

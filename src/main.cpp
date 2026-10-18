@@ -32,6 +32,7 @@
 #include "database/WizDatabaseManager.h"
 #include "share/WizSingleApplication.h"
 #include "share/WizThreads.h"
+#include "share/WizQueuedThreadsSession.h"
 #include "share/WizGlobal.h"
 #include "share/WizLegacyLightAppearance.h"
 #include "WizBuildIdentity.h"
@@ -197,7 +198,7 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
     app.removeTranslator(&translatorSys);
 
-    WizQueuedThreadsInit();
+    WizQueuedThreadsSession queuedThreads([] { WizNetworkSecurity::beginShutdown(); });
 
 #endif
 

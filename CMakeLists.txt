@@ -15,7 +15,7 @@ endif()
 project(WizNotePlus VERSION 2.12.0)
 
 # Independent trial identity; keep the upstream client version and note schema.
-set(WIZNOTE_COMPAT_TRIAL_BUILD "14.4.20")
+set(WIZNOTE_COMPAT_TRIAL_BUILD "14.4.21")
 set(WIZNOTE_APPLE_SILICON_TRIAL 0)
 set(WIZNOTE_MAC_DISPLAY_NAME "WizNotePlus")
 set(WIZNOTE_MAC_BUNDLE_BUILD "${PROJECT_VERSION}")

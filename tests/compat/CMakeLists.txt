@@ -15,6 +15,22 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 add_test(NAME wiznote_thread_pool COMMAND wiznote_thread_pool)
 set_tests_properties(wiznote_thread_pool PROPERTIES TIMEOUT 30)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network)
+add_executable(wiznote_async_api_lifetime async-api-lifetime.cpp
+    ${PROJECT_SOURCE_DIR}/src/sync/WizAsyncApi.cpp
+    ${PROJECT_SOURCE_DIR}/src/sync/WizAsyncApi.h
+    ${PROJECT_SOURCE_DIR}/src/share/WizThreads.cpp
+    ${PROJECT_SOURCE_DIR}/src/share/WizThreads_p.h)
+set_target_properties(wiznote_async_api_lifetime PROPERTIES AUTOMOC ON)
+target_include_directories(wiznote_async_api_lifetime PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/sync ${PROJECT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/fixtures)
+target_compile_definitions(wiznote_async_api_lifetime PRIVATE WIZNOTE_ASYNC_API_TEST_TRANSPORT)
+target_link_libraries(wiznote_async_api_lifetime PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Network)
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(wiznote_async_api_lifetime PRIVATE Qt6::Core5Compat)
+endif()
+add_test(NAME wiznote_async_api_lifetime COMMAND wiznote_async_api_lifetime)
+set_tests_properties(wiznote_async_api_lifetime PROPERTIES TIMEOUT 60)
 add_executable(wiznote_compat_smoke main.cpp)
 target_include_directories(wiznote_compat_smoke PRIVATE
     ${PROJECT_SOURCE_DIR}/src ${cryptopp_INCLUDE_DIRS}
@@ -33,6 +49,10 @@ add_test(NAME wiznote_pdf_file_safety COMMAND wiznote_pdf_file_safety)
 set_tests_properties(wiznote_pdf_file_safety PROPERTIES TIMEOUT 30)
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineCore WebEngineWidgets)
+add_executable(wiznote_synthetic_input_guard synthetic-input-guard.cpp)
+target_link_libraries(wiznote_synthetic_input_guard PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+add_test(NAME wiznote_synthetic_input_guard COMMAND wiznote_synthetic_input_guard)
+set_tests_properties(wiznote_synthetic_input_guard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 add_executable(wiznote_pdf_export_lifecycle pdf-export-lifecycle.cpp)
 target_include_directories(wiznote_pdf_export_lifecycle PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(wiznote_pdf_export_lifecycle PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::WebEngineCore Qt${QT_VERSION_MAJOR}::WebEngineWidgets)

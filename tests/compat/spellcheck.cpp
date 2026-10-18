@@ -1,6 +1,7 @@
 #include "share/WizWebEngineView.h"
 #include "utils/WizPathResolve.h"
 #include "WizNotePresentation.h"
+#include "synthetic-input-guard.h"
 #include <QApplication>
 #include <QWebEngineProfile>
 #include <QWebEnginePage>
@@ -71,6 +72,7 @@ int wizSpellCheckSelfTest(int argc, char** argv) {
     qputenv("WIZNOTE_DATA_STORE", root.filePath("store").toUtf8());
     qputenv("XDG_CACHE_HOME", root.filePath("cache").toUtf8());
     QApplication app(argc, argv); app.setQuitOnLastWindowClosed(false);
+    ScopedSyntheticInputGuard inputGuard(app);
     app.setApplicationName("WizNotePlus Synthetic English Spelling Test");
     QWebEngineProfile profile;
     LocalOnly local;
@@ -183,6 +185,7 @@ int wizSpellCheckSelfTest(int argc, char** argv) {
         check(repeatedStable,"ten repeated engine resets and serializations retain exact rich HTML");
         evaluate(view.page(), "WizEditor.destroy()");
     }
+    qInfo() << "Synthetic input events ignored:" << inputGuard.blockedEvents();
     qInfo() << "Spelling checks:" << checks << "failures:" << failures;
     return failures ? 1 : 0;
 }
