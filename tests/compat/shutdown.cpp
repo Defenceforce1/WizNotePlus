@@ -19,6 +19,23 @@
 #include <QSemaphore>
 #include <atomic>
 #include <memory>
+#include <ctime>
+
+// Override only disk work, not the actual production waitForDone methods.
+// A GUI timer releases a synthetic pending operation; bounded worker rescue
+// prevents an incorrect event-pump change from hanging the test indefinitely.
+template<class Base>
+class PendingIoWaitProbe final : public Base {
+public:
+    using Base::Base;
+    QSemaphore entered, release;
+    std::atomic_bool completed{false};
+protected:
+    void run() override {
+        entered.release();
+        completed = release.tryAcquire(1, 2000);
+    }
+};
 
 // Separate process, synthetic database and loopback sockets only. No login,
 // global network disconnection, real account, cloud requests or forced exit.
@@ -144,6 +161,37 @@ int wizShutdownSelfTest(int argc, char** argv)
     WizDatabaseManager manager("synthetic-shutdown-account");
     if (!check(manager.open(), "fresh isolated database opens")) return 1;
     manager.db().setKbGUID("synthetic-shutdown-kb");
+    const auto measureLocalWait = [&](auto& worker, const char* description) {
+        bool releasedByGui = false;
+        worker.start();
+        const bool entered = worker.entered.tryAcquire(1, 1000);
+        QTimer release;
+        release.setSingleShot(true);
+        QObject::connect(&release, &QTimer::timeout, &release, [&] {
+            releasedByGui = true; worker.release.release();
+        });
+        release.start(250);
+        QElapsedTimer elapsed; elapsed.start();
+        double cpuMs = -1.0;
+#if defined(CLOCK_THREAD_CPUTIME_ID)
+        timespec before{}, after{};
+        const bool cpuAvailable = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &before) == 0;
+#endif
+        worker.waitForDone();
+#if defined(CLOCK_THREAD_CPUTIME_ID)
+        const bool cpuFinished = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &after) == 0;
+        cpuMs = cpuAvailable && cpuFinished
+            ? (after.tv_sec - before.tv_sec) * 1000.0 + (after.tv_nsec - before.tv_nsec) / 1000000.0 : -1.0;
+#endif
+        release.stop();
+        qInfo() << "Synthetic pending I/O wait" << description << "wall ms" << elapsed.elapsed()
+                << "GUI CPU ms" << cpuMs;
+        check(entered && releasedByGui && worker.completed && !worker.isRunning(), description);
+    };
+    PendingIoWaitProbe<WizDocumentLoaderThread> pendingLoader(manager, nullptr);
+    measureLocalWait(pendingLoader, "actual loader wait keeps GUI events alive and joins pending I/O");
+    PendingIoWaitProbe<WizDocumentSaverThread> pendingSaver(manager, nullptr);
+    measureLocalWait(pendingSaver, "actual saver wait keeps GUI events alive and joins pending I/O");
     QList<WIZDOCUMENTDATA> notes;
     for (int i = 0; i < 6; ++i) {
         WIZDOCUMENTDATA note;

@@ -44,6 +44,8 @@ void WizDocumentLoaderThread::waitForDone()
     while (this->isRunning())
     {
         QApplication::processEvents();
+        // Yield while I/O finishes without imposing a local-save deadline.
+        this->wait(10);
     }
 
     this->disconnect();
@@ -173,6 +175,8 @@ void WizDocumentSaverThread::waitForDone()
     while (this->isRunning())
     {
         QApplication::processEvents();
+        // Keep completion/progress delivery responsive, but avoid busy polling.
+        this->wait(10);
     }
 
     this->disconnect();
