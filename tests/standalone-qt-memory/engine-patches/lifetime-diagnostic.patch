@@ -1,0 +1,53 @@
+diff --git a/src/core/compositor/native_skia_output_device_mac.mm b/src/core/compositor/native_skia_output_device_mac.mm
+index e87309a..3b08922 100644
+--- a/src/core/compositor/native_skia_output_device_mac.mm
++++ b/src/core/compositor/native_skia_output_device_mac.mm
+@@ -16,6 +16,7 @@
+ #include <QtQuick/qquickwindow.h>
+ #include <QtQuick/qsgrendererinterface.h>
+ #include <QtQuick/qsgtexture.h>
++#include "compositor.h"
+ 
+ #if QT_CONFIG(opengl)
+ #include <OpenGL/OpenGL.h>
+@@ -40,11 +41,22 @@
+     id<MTLTexture> texture = [device newTextureWithDescriptor:desc
+                                                     iosurface:ioSurface
+                                                         plane:ioSurfacePlane];
+-    return QNativeInterface::QSGMetalTexture::fromNative(texture, win, size, texOpts);
++    auto *wrapped = QNativeInterface::QSGMetalTexture::fromNative(texture, win, size, texOpts);
++    if (qEnvironmentVariableIsSet("WIZNOTE_METAL_LIFETIME_DIAGNOSTIC")) {
++        const auto native = static_cast<void *>(texture);
++        qCDebug(lcWebEngineCompositor, "WizMetalLifetime create native=%p wrapper=%p surface=%u",
++                native, static_cast<void *>(wrapped), IOSurfaceGetID(ioSurface));
++        if (wrapped) QObject::connect(wrapped, &QObject::destroyed, [native]() {
++            qCDebug(lcWebEngineCompositor, "WizMetalLifetime wrapper-destroyed native=%p", native);
++        });
++    }
++    return wrapped;
+ }
+ 
+ void releaseMetalTexture(void *texture)
+ {
++    if (qEnvironmentVariableIsSet("WIZNOTE_METAL_LIFETIME_DIAGNOSTIC"))
++        qCDebug(lcWebEngineCompositor, "WizMetalLifetime release native=%p", texture);
+     [static_cast<id<MTLTexture>>(texture) release];
+ }
+ 
+diff --git a/src/core/compositor/native_skia_output_device_metal.cpp b/src/core/compositor/native_skia_output_device_metal.cpp
+index a258f4d..d795135 100644
+--- a/src/core/compositor/native_skia_output_device_metal.cpp
++++ b/src/core/compositor/native_skia_output_device_metal.cpp
+@@ -28,7 +28,11 @@ NativeSkiaOutputDeviceMetal::NativeSkiaOutputDeviceMetal(
+     capabilities_.sk_color_type_map[viz::SinglePlaneFormat::kBGRX_8888] = skColorType;
+ }
+ 
+-NativeSkiaOutputDeviceMetal::~NativeSkiaOutputDeviceMetal() { }
++NativeSkiaOutputDeviceMetal::~NativeSkiaOutputDeviceMetal()
++{
++    if (qEnvironmentVariableIsSet("WIZNOTE_METAL_LIFETIME_DIAGNOSTIC"))
++        qCDebug(lcWebEngineCompositor, "WizMetalLifetime device-destroyed current=%p", m_currentMetalTexture);
++}
+ 
+ QSGTexture *makeMetalTexture(QQuickWindow *win, IOSurfaceRef ioSurface, uint ioSurfacePlane,
+                              const QSize &size, QQuickWindow::CreateTextureOptions texOpts);

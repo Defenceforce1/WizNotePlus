@@ -30,6 +30,10 @@
 #include "utils/WizPathResolve.h"
 #include <QTranslator>
 #include <QFileDialog>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProgressDialog>
 #include <QImage>
 #include <QApplication>
@@ -198,7 +202,9 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     window.viewDocument(extended);
     NSWindow* native = [(NSView*)window.winId() window];
     int failures = 0;
+    int recordedChecks = 1; // The isolated bridge-absence check above also passed.
     auto check = [&](bool ok, const char* label) {
+        ++recordedChecks;
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label;
         if (!ok) qInfo() << "Window state at failure" << window.windowState()
             << "native fullscreen" << bool(native.styleMask & NSWindowStyleMaskFullScreen)
@@ -1468,5 +1474,18 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     if (!interactive) check(originalCleanup, "original eleven-stage cleanup dialog remains and is configured to display immediately");
     window.hide();
     for (id observer in observers) [center removeObserver:observer];
+    const QString resultPath = qEnvironmentVariable("WIZNOTE_TEST_WINDOW_RESULT");
+    if (!resultPath.isEmpty()) {
+        QFile result(resultPath);
+        const QJsonDocument record(QJsonObject{{"synthetic", true}, {"headerOnly", headerOnly},
+            {"interactive", interactive}, {"namedChecks", recordedChecks}, {"failures", failures},
+            {"completedSteps", int(step)}, {"totalSteps", int(steps.size())},
+            {"appActiveAtEnd", bool(NSApp.active)}, {"exitCode", failures ? 1 : 0}});
+        if (!QFileInfo(resultPath).isAbsolute() || !result.open(QIODevice::WriteOnly | QIODevice::NewOnly)
+                || result.write(record.toJson()) < 0) {
+            qWarning("FAIL cannot create new isolated window-result report");
+            return 2;
+        }
+    }
     return failures ? 1 : 0;
 }

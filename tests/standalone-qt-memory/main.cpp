@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include <QPointer>
 #include <QProcess>
+#include <QPixmap>
 #include <QQuickWidget>
 #include <QQuickWindow>
 #include <QSet>
@@ -134,6 +135,7 @@ private:
     QString actualGraphicsApi;
     int batches, batch = 0, checks = 0;
     bool failed = false;
+    const bool lifecycleStress = qEnvironmentVariableIsSet("WIZNOTE_QT_MEMORY_LIFECYCLE_STRESS");
     bool check(bool ok, const char* label) {
         ++checks;
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label;
@@ -204,7 +206,27 @@ private:
         load(transient.back().get(), [this] {
             if (transient.size() < 4) {
                 QTimer::singleShot(0, this, [this] { nextPage(); });
-            } else QTimer::singleShot(250, this, [this] { closeBatch(); });
+            } else if (lifecycleStress) exercise(0);
+            else QTimer::singleShot(250, this, [this] { closeBatch(); });
+        });
+    }
+    void exercise(int step) {
+        if (failed) return;
+        if (step == 8) {
+            host.hide();
+            QTimer::singleShot(100, this, [this] {
+                host.show();
+                QTimer::singleShot(150, this, [this] { closeBatch(); });
+            });
+            return;
+        }
+        auto* view = transient[step % 4].get();
+        tabs->setCurrentWidget(view);
+        host.resize(step % 2 ? 900 : 1030, step % 2 ? 600 : 690);
+        QTimer::singleShot(80, this, [this, view, step] {
+            if (!check(host.isVisible() && view->isVisible() && !view->grab().isNull(),
+                    "synthetic switch/resize has a visible capturable widget")) return;
+            verify(view, [this, step] { exercise(step + 1); });
         });
     }
     void closeBatch() {
@@ -216,8 +238,10 @@ private:
             for (auto* widget : view->findChildren<QQuickWidget*>())
                 deadWindows.append(widget->quickWindow());
         }
+        if (lifecycleStress) host.hide();
         transient.clear();
         tabs->setCurrentWidget(retained.get());
+        if (lifecycleStress) host.show();
         QTimer::singleShot(1000, this, [this] {
             bool gone = deadViews.size() == 4 && deadPages.size() == 4 && deadWindows.size() == 4;
             for (const auto& view : deadViews) gone &= view.isNull();
@@ -239,6 +263,7 @@ private:
         deadWindows.clear();
         for (auto* widget : retained->findChildren<QQuickWidget*>())
             deadWindows.append(widget->quickWindow());
+        if (lifecycleStress) host.hide();
         retained.reset();
         QTimer::singleShot(1000, this, [this] {
             bool gone = deadWindows.size() == 1 && deadViews[0].isNull() && deadPages[0].isNull();
@@ -256,6 +281,9 @@ private:
                 {"graphicsApi", actualGraphicsApi},
                 {"sceneGraphBackend", QQuickWindow::sceneGraphBackend()},
                 {"emptyControl", true}, {"visibleCocoa", true},
+                {"lifecycleStress", lifecycleStress},
+                {"switchResizeStepsPerBatch", lifecycleStress ? 8 : 0},
+                {"closeWhileHidden", lifecycleStress},
                 {"sharedHost", true}, {"nestedLoopControl", false},
                 {"retainedNote", true}, {"stockView", true}, {"standalone", true},
                 {"expectedClosedProcessCount", 2}, {"rssIsNotUniquePhysicalMemory", true},

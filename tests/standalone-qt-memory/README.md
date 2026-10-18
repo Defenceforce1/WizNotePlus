@@ -38,3 +38,9 @@ node tests/compat/summarize-editor-memory.cjs /absolute/path/to/probe.log
 汇总器拒绝未完成、失败、缺少 profile 清理、批次不完整或关闭后仍有多余子进程的日志。不把平坦 RSS、对象销毁或某一次短测当作“没有泄漏”；也不把此程序的增长曲线等同于真实 App 的长期使用结果。
 
 本机 Qt 6.11.3／macOS 27.0.1 的阶段结果见 [第十三轮记录](../../docs/exploration-2026-10-17-phase13.md)。这不是跨系统／跨 Qt 版本的结论。
+
+## 可选生命周期压力与引擎探针
+
+仅在这一个合成进程设置 `WIZNOTE_QT_MEMORY_LIFECYCLE_STRESS=1`，每批额外切换／改变窗口尺寸八次、读取相同纯文字并抓取非空控件图像，再隐藏／显示并在隐藏状态销毁页面。图像只在内存中，不读取或保存用户画面；非空不等于逐像素视觉验收。原默认工作负载不变，压力结果必须另行标注，不能与原占用曲线混算。
+
+固定版本引擎的分配记录及显式开关所有权原型见 [engine-patches](engine-patches/README.md)。只有独立构建／运行时会用它们；本工程不会自动修改 SDK 或开启生产原型。使用 `audit-metal-lifetime.cjs` 区分明确的保留负对照与释放调用平衡，不把后一项直接当成 GPU 安全或正式版验收。
