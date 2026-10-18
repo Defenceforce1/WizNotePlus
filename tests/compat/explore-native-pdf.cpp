@@ -21,6 +21,9 @@
 #include <atomic>
 #include <memory>
 #include <cstdio>
+#ifdef Q_OS_MAC
+#include <mach-o/dyld.h>
+#endif
 #include "share/WizPdfExport.h"
 #include "share/WizPdfSvgLinks.h"
 #include "share/WizPdfPageOperations.h"
@@ -55,6 +58,25 @@ int main(int argc,char** argv) {
     const QString core=bundle+(sdk?"/lib/QtWebEngineCore.framework/Versions/A":"/Contents/Frameworks/QtWebEngineCore.framework/Versions/A");
     const QString plugins=bundle+(sdk?"/plugins":"/Contents/PlugIns");
     const QString helper=core+"/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess";
+    QJsonObject runtimeLibraries;
+#ifdef Q_OS_MAC
+    const QString frameworks=bundle+(sdk?"/lib":"/Contents/Frameworks");
+    for(const auto& name:QStringList{"QtCore","QtGui","QtWidgets","QtQuick",
+                                    "QtQuickWidgets","QtWebEngineCore","QtWebEngineWidgets"}) {
+        const QString suffix="/"+name+".framework/Versions/A/"+name;
+        const QString expected=QFileInfo(frameworks+suffix).canonicalFilePath();
+        QString loaded;
+        for(uint32_t i=0;i<_dyld_image_count();++i) {
+            const QString image=QString::fromUtf8(_dyld_get_image_name(i));
+            if(image.endsWith(suffix)){loaded=QFileInfo(image).canonicalFilePath();break;}
+        }
+        if(expected.isEmpty()||loaded!=expected) {
+            qCritical()<<"Matching runtime required before WebEngine startup:"<<name
+                       <<"expected"<<expected<<"loaded"<<loaded;return 2;
+        }
+        runtimeLibraries.insert(name,loaded);
+    }
+#endif
     if(!QFile::exists(helper)||!QDir(core+"/Resources").exists()||!QDir(plugins).exists()) {
         qCritical()<<"A matching complete Qt SDK or App runtime is required";return 2;
     }
@@ -247,6 +269,7 @@ int main(int argc,char** argv) {
     QJsonDocument result(QJsonObject{{"kind","actual Qt printToPdf; synthetic original reader, no user data"},
         {"qtRuntime",qVersion()},{"webEngine",qWebEngineVersion()},{"chromium",qWebEngineChromiumVersion()},
         {"chromiumSecurityPatch",qWebEngineChromiumSecurityPatchVersion()},
+        {"runtimeLibraries",runtimeLibraries},
         {"sdkRuntime",sdk},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
         {"productionFileHelper",true},{"cssPageMarginsProbe",qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS")},
         {"referenceDom",QJsonObject::fromVariantMap(referenceDom)},

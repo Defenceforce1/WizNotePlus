@@ -20,6 +20,9 @@
 #include <QtWebEngineCore/qtwebenginecoreglobal.h>
 #include <atomic>
 #include <memory>
+#ifdef Q_OS_MAC
+#include <mach-o/dyld.h>
+#endif
 
 class Offline final : public QWebEngineUrlRequestInterceptor {
 public:
@@ -61,6 +64,26 @@ int main(int argc,char** argv) {
     const QDir output(QDir(QString::fromLocal8Bit(argv[2])).absolutePath());
     if(!output.exists() || !output.entryList(QDir::Files|QDir::Dirs|QDir::NoDotAndDotDot).isEmpty())return 2;
     const auto core=sdk.filePath("lib/QtWebEngineCore.framework/Versions/A");
+    QJsonObject runtimeLibraries;
+#ifdef Q_OS_MAC
+    // A same-version framework from another rpath is not the requested runtime.
+    // Verify before QApplication/profile creation, without launching WebEngine.
+    for (const auto& name:QStringList{"QtCore", "QtGui", "QtWidgets", "QtQuick",
+                                     "QtQuickWidgets", "QtWebEngineCore", "QtWebEngineWidgets"}) {
+        const QString suffix="/"+name+".framework/Versions/A/"+name;
+        const QString expected=QFileInfo(sdk.filePath("lib"+suffix)).canonicalFilePath();
+        QString loaded;
+        for (uint32_t i=0;i<_dyld_image_count();++i) {
+            const QString image=QString::fromUtf8(_dyld_get_image_name(i));
+            if (image.endsWith(suffix)) {loaded=QFileInfo(image).canonicalFilePath();break;}
+        }
+        if (expected.isEmpty() || loaded!=expected) {
+            qCritical()<<"Matching runtime required before WebEngine startup:"<<name
+                       <<"expected"<<expected<<"loaded"<<loaded;return 2;
+        }
+        runtimeLibraries.insert(name,loaded);
+    }
+#endif
     for (const auto& resource:QStringList{
             core+"/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess",
             core+"/Resources/icudtl.dat",core+"/Resources/qtwebengine_resources.pak",
@@ -125,7 +148,7 @@ int main(int argc,char** argv) {
         {"qt",qVersion()},{"webEngine",qWebEngineVersion()},{"chromium",qWebEngineChromiumVersion()},
         {"securityPatch",qWebEngineChromiumSecurityPatchVersion()},{"blockedRequests",offline.blocked.load()},
         {"offTheRecord",profile.isOffTheRecord()},{"registeredScripts",view.page()->scripts().count()},
-        {"records",records},{"failures",failures}});
+        {"runtimeLibraries",runtimeLibraries},{"records",records},{"failures",failures}});
     QFile report(output.filePath("anchor-geometry-results.json"));
     if(!report.open(QIODevice::WriteOnly|QIODevice::NewOnly)||report.write(result.toJson())<0)return 2;
     qInfo()<<"Geometry generation failures:"<<failures;return failures?1:0;

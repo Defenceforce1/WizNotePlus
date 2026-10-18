@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "draft-not-engine-compiled",
+  "status": "isolated-engine-geometry-and-reader-verified-not-integrated",
   "sdkVersion": "6.11.3",
   "moduleCommit": "8c73295524f3ce6a2e10ad2f71141c695376c876",
   "chromiumSubmoduleCommit": "7927ce61b5a302a3da8172eefbe260ec17484bcd",
@@ -18,5 +18,17 @@
       "candidateSha256": "a512648f5a5dd17e91da7c364ae4c5919dc0af8c1d5153777e5c67c351dc3c73"
     }
   ],
-  "productionIntegration": false
+  "productionIntegration": false,
+  "isolatedValidation": {
+    "unmodifiedBuildReproducesOriginal": true,
+    "geometryCases": 9,
+    "geometryTargets": 27,
+    "geometryRasterPagesByteIdentical": 27,
+    "readerPdfs": 9,
+    "readerBlockTargets": 12,
+    "readerRasterPagesByteIdentical": 30,
+    "blinkUnitTestsRun": false,
+    "fullPackageVerified": false,
+    "report": "docs/exploration-2026-10-18-phase23.md"
+  }
 }

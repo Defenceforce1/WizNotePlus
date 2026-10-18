@@ -37,6 +37,8 @@ python3 tests/standalone-qt-pdf/audit-anchor-geometry.py \
 
 SDK／helper／资源路径必须在 WebEngine 创建前规范为绝对路径并验证可读。首次诊断曾因相对资源路径崩溃，不能再以当前工作目录中“文件存在”作为运行时路径有效的证明。不注册 App、不用正常用户 profile、不启动主程序。审计只读，区分 PDF `/Dests` 字典的 NameObject 与 Names tree 的字符串，不把 `/` 语法误报为目标缺失。
 
+macOS 下还在创建 QApplication 前核对实际加载的 QtCore／Gui／Widgets／Quick／QuickWidgets／WebEngineCore／WebEngineWidgets 路径，必须与输入 SDK 的对应框架规范路径一致；同版本号不能代替路径核验。混用其他 SDK 明确退出 2，不启动 WebEngine。自编译运行时若使用隔离覆盖目录，依赖框架的链接也必须指向匹配的底层 SDK；不要把旧 Core 当成新补丁结果。私有生成清单记录这些路径，不能上传含本机信息的原始清单。
+
 九份 PDF 的生成不变量通过，仅说明测试跑完；七种定位错误被成功复现并不等于修复。源点击矩形与目标具名点也必须分开检查；CSS 页边距对照会改变页面尺寸／排版，不能直接代替产品方案。见 [第十九轮](../../docs/exploration-2026-10-18-phase19.md)。
 
 候选引擎必须用 `audit-anchor-geometry.py OUTPUT --require-accurate --output NEW_AUDIT.json` 做全部九组验收；定位／页码或源点击矩形左边及垂直中心对齐失败则返回非零。`--cases` 只用于正负对照，输出明确标记 `subsetOnly`，子集不能接受引擎。现有原版完整验收应失败，不能为得到绿灯而放宽容差。待编译的精确源码补丁及要求见 [engine-patches](engine-patches/README.md) 和 [第二十轮](../../docs/exploration-2026-10-18-phase20.md)；它还不是已验证修复。
@@ -52,6 +54,20 @@ node tests/standalone-qt-pdf/audit-tool-regression.cjs \
 完整原版应检出七组偏移，准确子集的 `acceptancePassed` 可为真但 `engineAccepted` 必须为假。工具还拒绝不完整／重复清单、隔离失败和缺失 PDF，不替换已有报告，最后核对九份 PDF 与输入清单均未变化。只显式完整验收成功才能得到 `engineAccepted: true`；回归工具通过也不代表引擎修复通过。
 
 ## SVG／打印变换隔离实验
+
+### 2026-10-18 实际引擎候选验证
+
+隔离原版和补丁引擎已成功编译，严格九组坐标验收通过且 27 页同图；旧阅读器另有九份 PDF／30 页同图与十二个块顶验证，见 [第二十三轮](../../docs/exploration-2026-10-18-phase23.md)。完整主程序回归亦在候选运行时重新通过 665 项，不是原 SDK 的旧结果。未安装或修改正式组件，Blink 上游单测未执行。
+
+旧阅读器探针现在也在创建 QApplication 前核对七个实际加载框架路径。三套旧阅读器输出（普通、边界、普通 eq1）可按如下只读验收；源码／HTML／修改状态、恢复次数与精确链接均须通过。只对原有块 ID 的两种页边距比较彩色块顶，不把可见标题诊断变体误当块顶目标，不用矩阵估算补偿结果。
+
+```sh
+python3 tests/standalone-qt-pdf/audit-reader-geometry.py \
+  /absolute/new/normal /absolute/new/edge /absolute/new/plain \
+  --output /absolute/new/reader-audit.json
+```
+
+原版的十二个块顶负对照应全部检出偏差；候选通过不等于已证明公式目的地的精确位置或任意 HTML 排版兼容。
 
 仅测试进程设置 `WIZNOTE_PDF_SVG_TARGET_PROTOTYPE=1`，在原三份输出外再生成五份：修改 XLink 地址编码、移动目标到 HTML 容器，以及补充无命名空间的 SVG2 `href`（保留编码／原始片段各一份）。每个变体都恢复原属性命名空间、值和目标，并核对原文、HTML、修改状态、容器几何。仅改地址拼写或容器不能视作完整修复。SVG2 使用无命名空间的 `href`，并优先于 XLink 版本，见 [W3C 链接规范](https://www.w3.org/TR/SVG2/linking.html#XLinkRefAttrs)。
 

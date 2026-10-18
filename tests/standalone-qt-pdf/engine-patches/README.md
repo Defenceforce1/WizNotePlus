@@ -1,8 +1,11 @@
-# Native destination transform candidate — NOT engine-tested
+# Native destination transform candidate — isolated validation, not integrated
 
-This directory is a **draft**, not part of the App build or package workflow.
+This directory is a **candidate**, not part of the App build or package workflow.
 No installed SDK/framework is patched. `git apply --check` proves applicability,
-not C++ compilation, passing Blink tests, or accurate PDFs.
+not C++ compilation, passing Blink tests, or accurate PDFs. The separate actual
+build and PDF/reader results are recorded in
+[phase 23](../../../docs/exploration-2026-10-18-phase23.md). They do not make
+the source checker itself a compilation/test command.
 
 ## Pinned source
 
@@ -32,6 +35,9 @@ node tests/standalone-qt-pdf/engine-patches/check-source.cjs \
 
 The checker is read-only: it verifies exact originals, patch hash and
 applicability. It does not apply, compile, install, or download anything.
+After applying only this candidate in the isolated tree, add `--candidate` to
+verify both candidate hashes and reverse applicability. The default still
+rejects modified originals; neither mode claims it performed a build or test.
 
 ## Candidate and regression design
 
@@ -92,8 +98,22 @@ same build configuration when applying the draft incrementally afterward.
 - Preserve the warning that the current Apple SDK is newer than this Qt
   release's tested SDK. Do not silence it or imply future-system validation.
 
-No build has yet produced a patched engine. After a valid baseline build,
-first verify its complete runtime reproduces the original SDK's nine-case
+The isolated arm64 baseline and patched engine now both compile. The complete
+unmodified runtime reproduces the original SDK's nine-case geometry and all 27
+raster pages byte-for-byte. The patched runtime passes all nine strict cases
+(27 destinations) and preserves those 27 raster pages. The original-reader
+corpus also passes twelve block-top checks across nine PDFs, preserves all 30
+rendered pages, source/HTML/modified state, and exact equation destinations.
+Equation destination existence is not a separate proof of its precise position.
+The WebDriver feature differs from the prebuilt SDK (on versus off), but is
+unchanged between baseline/candidate and is not used by these tests. Private
+feature-header/runtime manifests and loader traces are retained locally.
+
+Blink unit tests have NOT run: Qt's pinned `testing/test.gni` maps its test
+template to an empty group. `ninja blink_unittests` returning no work is not
+test execution. Do not remove this distinction or claim upstream acceptance.
+
+For a repeat build, first verify the complete baseline reproduces the SDK's
 geometry, pagination and raster output. If it does not, investigate build
 configuration differences before attributing any improvement to this patch.
 Then apply the candidate only in the isolated source tree. Run the standalone
