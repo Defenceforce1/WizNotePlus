@@ -281,10 +281,13 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
 
     setupPage(new WizWebEnginePage(objects, this));
 
+    connect(this, &QWebEngineView::loadStarted, this, [this] { ++m_navigationSequence; });
+
     connect(this, &QWebEngineView::renderProcessTerminated, this,
             [this](QWebEnginePage::RenderProcessTerminationStatus termStatus, int statusCode) {
         const QPointer<WizWebEngineView> self(this);
         const QPointer<QWebEnginePage> sourcePage(page());
+        const auto sourceNavigation = m_navigationSequence;
         QString status;
         switch (termStatus) {
         case QWebEnginePage::NormalTerminationStatus:
@@ -310,9 +313,11 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
         const auto btn = question ? question->standardButton(question->clickedButton())
                                   : QMessageBox::NoButton;
         delete question.data();
-        if (btn == QMessageBox::Yes && self && sourcePage && self->page() == sourcePage)
-            QTimer::singleShot(0, self.data(), [self, sourcePage] {
-                if (self && sourcePage && self->page() == sourcePage) self->reload();
+        if (btn == QMessageBox::Yes && self && sourcePage && self->page() == sourcePage
+            && self->m_navigationSequence == sourceNavigation)
+            QTimer::singleShot(0, self.data(), [self, sourcePage, sourceNavigation] {
+                if (self && sourcePage && self->page() == sourcePage
+                    && self->m_navigationSequence == sourceNavigation) self->reload();
             });
     });
 }

@@ -326,6 +326,52 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
     {
         StartupInlineOnlyRequests inlineOnly;
         primary->setUrlRequestInterceptor(&inlineOnly);
+        QWidget parent;
+        auto view=std::make_unique<WizWebEngineView>(WizWebEngineInjectObjectCollection{},&parent);
+        const auto pump=[](int milliseconds) {
+            QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();
+        };
+        const auto loadInline=[&](const QString& text) {
+            struct Ready {bool done=false,ok=false;};
+            const auto ready=std::make_shared<Ready>();
+            const auto connection=QObject::connect(view.get(),&QWebEngineView::loadFinished,&parent,
+                [ready](bool ok){ready->done=true;ready->ok=ok;});
+            view->setHtml("<!doctype html><p>"+text+"</p>");
+            QElapsedTimer wait;wait.start();while(!ready->done&&wait.elapsed()<5000)pump(5);
+            QObject::disconnect(connection);
+            return ready->done&&ready->ok;
+        };
+        check(loadInline("Original document"),"same-page navigation fixture loads its original document before the error question");
+        const QPointer<QWebEnginePage> samePage(view->page());
+        const auto loads=std::make_shared<int>(0);
+        QObject::connect(view.get(),&QWebEngineView::loadStarted,&parent,[loads]{++*loads;});
+        bool answered=false,timedOut=false,replacementLoaded=false;
+        QTimer poll,deadline;deadline.setSingleShot(true);
+        QObject::connect(&poll,&QTimer::timeout,&parent,[&] {
+            if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) {
+                if(auto* yes=box->button(QMessageBox::Yes)) {
+                    poll.stop();replacementLoaded=loadInline("Later document in the same page");
+                    answered=true;yes->click();
+                }
+            }
+        });
+        QObject::connect(&deadline,&QTimer::timeout,&parent,[&] {
+            timedOut=true;poll.stop();
+            for(auto* widget:QApplication::topLevelWidgets())
+                if(auto* box=qobject_cast<QMessageBox*>(widget))box->reject();
+        });
+        poll.start(5);deadline.start(8000);
+        view->renderProcessTerminated(QWebEnginePage::CrashedTerminationStatus,42);
+        poll.stop();deadline.stop();pump(150);
+        check(replacementLoaded&&samePage&&view->page()==samePage,
+            "same-page replacement document actually finishes navigation inside the renderer question");
+        check(answered&&!timedOut&&replacementLoaded&&*loads==1,
+            "old renderer question cannot reload a later document that navigated in the same page");
+        primary->setUrlRequestInterceptor(&requests);
+    }
+    {
+        StartupInlineOnlyRequests inlineOnly;
+        primary->setUrlRequestInterceptor(&inlineOnly);
         QWidget parent;parent.resize(320,240);
         const auto pump=[](int milliseconds) {
             QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();

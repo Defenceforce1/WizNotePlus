@@ -139,6 +139,7 @@ private:
     WizDevToolsDialog* m_devToolsWindow = nullptr;
     mutable QAction *m_viewActions[ViewActionCount];
     QPointer<WebPageZoomWidget> m_zoomWgt;
+    quint64 m_navigationSequence = 0;
 
 protected:
     QWebEngineView *createWindow(QWebEnginePage::WebWindowType type) override;
