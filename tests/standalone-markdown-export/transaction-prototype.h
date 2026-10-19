@@ -2,12 +2,32 @@
 
 #include <QSaveFile>
 #include <QTemporaryDir>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <functional>
 
 // TEST ONLY. No crash/power-loss or concurrent-writer recovery contract. An
 // ordinary returned failure must roll back the directories or retain backups
 // explicitly. Never linked into the main App or run against user destinations.
 namespace ExportTransactionPrototype {
+inline bool snapshotExistingResources(const QString& source, const QString& destination)
+{
+    const QFileInfo root(source);
+    if (root.isSymLink() || !root.isDir() || !QDir().mkpath(destination)) return false;
+    const auto entries = QDir(source).entryInfoList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
+    for (const QFileInfo& entry : entries) {
+        // Never follow unknown links or open devices/FIFOs while snapshotting
+        // old resources. Unsupported shapes refuse without touching originals.
+        if (entry.isSymLink()) return false;
+        const QString target = QDir(destination).filePath(entry.fileName());
+        if (entry.isDir()) {
+            if (!snapshotExistingResources(entry.filePath(), target)) return false;
+        } else if (!entry.isFile() || !QFile::copy(entry.filePath(), target)) return false;
+    }
+    return true;
+}
+
 inline bool write(const QString& destination, const QString& markdown,
                   const std::function<bool(const QString&)>& exportHtml,
                   QString& error, bool cancelFinalCommitForTest = false,
@@ -26,17 +46,20 @@ inline bool write(const QString& destination, const QString& markdown,
     }
     QTemporaryDir staging(QDir(parent).filePath(".wiz-export-XXXXXX"));
     if (!staging.isValid()) { error = "staging creation failed"; return false; }
-    const QString stagedResources = staging.filePath(resourceName);
+    // User basenames must never collide with internal backup/returned names.
+    const QString content = staging.filePath("content");
+    if (!QDir().mkpath(content)) { error = "content staging creation failed"; return false; }
+    const QString stagedResources = QDir(content).filePath(resourceName);
     const QString backup = staging.filePath("previous-resources");
     const QString returned = staging.filePath("returned-resources");
     const bool hadResources = QFileInfo::exists(resources);
     // Preserve the legacy merge behavior: unrelated/stale existing resources
     // survive a successful export, rather than silently deleting old files.
-    if (hadResources && !WizCopyFolder(resources, stagedResources, true)) {
+    if (hadResources && !snapshotExistingResources(resources, stagedResources)) {
         error = "existing resource snapshot failed";
         return false;
     }
-    if (!exportHtml(staging.filePath(info.fileName()))) {
+    if (!exportHtml(QDir(content).filePath(info.fileName()))) {
         error = "staged export failed";
         return false;
     }

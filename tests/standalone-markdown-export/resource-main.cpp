@@ -7,6 +7,9 @@
 #include <QJsonObject>
 #include <QUuid>
 #include <QDebug>
+#ifdef Q_OS_UNIX
+#include <sys/stat.h>
+#endif
 #include "WizQtCompat.h"
 
 using CString = QString; // Only QString operations occur in extracted path code.
@@ -69,6 +72,7 @@ int main(int argc, char** argv)
     if (!temporary.isValid()) return 2;
     const bool requireSafe = app.arguments().contains("--require-safe");
     const bool transaction = app.arguments().contains("--transaction-prototype");
+    const bool compatibility = app.arguments().contains("--transaction-compatibility");
     int checks = 0, failures = 0;
     auto check = [&](bool ok, const char* text) {
         ++checks; failures += !ok;
@@ -85,6 +89,65 @@ int main(int argc, char** argv)
         || !write(database.fixture + "index_files/a-first.png", "NEW A")
         || !write(database.fixture + "index_files/z-fails.png", "NEW Z")) return 2;
     const WIZDOCUMENTDATA document;
+    if (compatibility) {
+        const QStringList names{QStringLiteral("previous-resources"), QStringLiteral("returned-resources"),
+            QStringLiteral(".hidden.md"), QString::fromUtf8("中文 & <x>.md")};
+        for (const QString& name : names) {
+            const QString target = path("out/") + name;
+            const QString resources = path("out/") + Utils::WizMisc::extractFileTitle(target).toHtmlEscaped() + "_files/";
+            if (!QDir().mkpath(resources + ".hidden-directory/") || !write(target, "OLD MARKDOWN")
+                || !write(resources + "a-first.png", "OLD A") || !write(resources + "z-fails.png", "OLD Z")
+                || !write(resources + ".hidden-image", "KEEP HIDDEN IMAGE")
+                || !write(resources + ".hidden-directory/nested-image", "KEEP HIDDEN DIRECTORY")) return 2;
+            QString error;
+            const bool ok = ExportTransactionPrototype::write(target, "![image](index_files/a-first.png)",
+                [&](const QString& staged) { return database.exportToHtmlFile(document, staged); }, error);
+            const QByteArray expected = ("![image](" + Utils::WizMisc::extractFileTitle(target).toHtmlEscaped() + "_files/a-first.png)").toUtf8();
+            check(ok && error.isEmpty(), qPrintable("compatibility success for basename " + name));
+            check(read(target) == expected && read(resources + "a-first.png") == "NEW A",
+                  qPrintable("compatibility exact output for basename " + name));
+            check(read(resources + ".hidden-image") == "KEEP HIDDEN IMAGE"
+                && read(resources + ".hidden-directory/nested-image") == "KEEP HIDDEN DIRECTORY",
+                  qPrintable("compatibility preserves unrelated hidden files for basename " + name));
+        }
+        const QString target = path("out/returned-resources");
+        const QString resources = path("out/returned-resources_files/");
+        if (!write(target, "OLD MARKDOWN") || !write(resources + "a-first.png", "OLD A")
+            || !write(resources + "z-fails.png", "OLD Z")) return 2;
+        QString error;
+        const bool ok = ExportTransactionPrototype::write(target, "NEW SOURCE",
+            [&](const QString& staged) { return database.exportToHtmlFile(document, staged); }, error, true);
+        check(!ok && read(target) == "OLD MARKDOWN", "reserved-looking basename failed commit preserves original Markdown");
+        check(read(resources + "a-first.png") == "OLD A" && read(resources + "z-fails.png") == "OLD Z",
+              "reserved-looking basename failed commit restores original resource directory");
+        const QString linked = path("out/linked.md");
+        const QString linkedResources = path("out/linked_files/");
+        const QString external = path("outside-export-image");
+        if (!QDir().mkpath(linkedResources) || !write(linked, "OLD LINKED MARKDOWN") || !write(external, "UNCHANGED OUTSIDE EXPORT")) return 2;
+        check(QFile::link(external, linkedResources + "unknown-link"), "synthetic old-resource symlink created");
+        check(!ExportTransactionPrototype::write(linked, "NEW SOURCE",
+            [&](const QString& staged) { return database.exportToHtmlFile(document, staged); }, error)
+            && read(linked) == "OLD LINKED MARKDOWN", "unsupported old-resource symlink refuses without changing Markdown");
+        check(QFileInfo(linkedResources + "unknown-link").isSymLink() && read(external) == "UNCHANGED OUTSIDE EXPORT",
+              "refused resource symlink remains intact and its target is untouched");
+#ifdef Q_OS_UNIX
+        const QString special = path("out/special.md");
+        const QString specialResources = path("out/special_files/");
+        if (!QDir().mkpath(specialResources) || !write(special, "OLD SPECIAL MARKDOWN")) return 2;
+        check(::mkfifo(QFile::encodeName(specialResources + "unknown-fifo").constData(), 0600) == 0,
+              "synthetic nonregular resource fixture created");
+        check(!ExportTransactionPrototype::write(special, "NEW SOURCE",
+            [&](const QString& staged) { return database.exportToHtmlFile(document, staged); }, error)
+            && read(special) == "OLD SPECIAL MARKDOWN", "nonregular old resource refuses without opening it or changing Markdown");
+#endif
+        check(QDir(path("out")).entryList(QStringList{".wiz-export-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty(),
+              "all compatibility success/refusal paths clean only their own staging directories");
+        qInfo().noquote() << QJsonDocument(QJsonObject{{"diagnosticOnly", true}, {"productModified", false},
+            {"transactionCompatibility", true}, {"archiveExtractionIsAdapter", true},
+            {"checks", checks}, {"failures", failures}, {"transactionPrototypeSHA256", TRANSACTION_SOURCE_SHA}
+        }).toJson(QJsonDocument::Compact);
+        return failures ? 1 : 0;
+    }
     if (transaction) {
         const QString target = path(QString::fromUtf8("out/定理 A&B.md"));
         const QString resources = path("out/") + Utils::WizMisc::extractFileTitle(target).toHtmlEscaped() + "_files/";

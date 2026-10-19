@@ -85,3 +85,15 @@ General concurrent-writer recovery, recovery across restart/power loss, a recove
 UI, real archive/password workflows and main-window integration remain unaccepted.
 Do not describe controlled backup retention as guaranteed successful rollback.
 Never run this developer probe against user destinations or call it a shipped fix.
+
+`--transaction-compatibility` checks reserved-looking basenames (also without an
+extension), dot-prefixed names, Unicode/ampersand/angle brackets, hidden old files
+and nested hidden directories. User output is now staged under a separate content
+subdirectory so it cannot collide with internal backup/returned paths. A private
+snapshot helper preserves hidden regular old resources instead of inheriting
+the broad legacy copy helper's hidden-file filter. Archive export itself STILL
+uses the unmodified actual helper; this does not globally change archive rules.
+Unknown old-resource symlinks and nonregular entries are refused before output
+mutation. This refusal is a prototype policy, not a product behavior change.
+Extended attributes, general metadata fidelity and the previous unaccepted
+crash/concurrency/end-to-end boundaries remain open.
