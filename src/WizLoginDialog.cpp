@@ -38,6 +38,7 @@
 #include "share/WizObjectDataDownloader.h"
 #include "share/WizUI.h"
 #include "share/WizThreads.h"
+#include "share/WizDocumentAsync.h"
 #include "share/WizGlobal.h"
 #include "share/WizLoginWindowRecovery.h"
 #include "sync/WizKMServer.h"
@@ -1392,9 +1393,9 @@ void WizLoginDialog::onWizBoxSearchingTimeOut()
     m_animationWaitingDialog->reject();
     closeWizBoxUdpClient();
     //
-    ::WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
-        WizMessageBox::information(this, tr("Info"), tr("There is no server address, please input it."));
-    });
+    ::WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(this, [](WizLoginDialog& owner) {
+        WizMessageBox::information(&owner, owner.tr("Info"), owner.tr("There is no server address, please input it."));
+    }));
 }
 
 bool WizLoginDialog::onOEMSettingsDownloaded(const QString& settings)

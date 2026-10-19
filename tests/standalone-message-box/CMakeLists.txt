@@ -39,6 +39,33 @@ foreach(mode baseline candidate)
   endif()
 endforeach()
 
+find_package(Qt6 REQUIRED COMPONENTS Core5Compat)
+set(login "${CMAKE_CURRENT_SOURCE_DIR}/../../src/WizLoginDialog.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${login}")
+file(READ "${login}" login_source)
+string(REPLACE "\r\n" "\n" login_source "${login_source}")
+string(FIND "${login_source}" "void WizLoginDialog::onWizBoxSearchingTimeOut(" login_begin)
+string(FIND "${login_source}" "bool WizLoginDialog::onOEMSettingsDownloaded(" login_end)
+if(login_begin LESS 0 OR login_end LESS login_begin)
+  message(FATAL_ERROR "Actual login timeout-slot boundaries changed; review diagnostic")
+endif()
+math(EXPR login_length "${login_end} - ${login_begin}")
+string(SUBSTRING "${login_source}" ${login_begin} ${login_length} login_body)
+string(REPLACE "WizLoginDialog" "TimeoutOwner" login_body "${login_body}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/actual-timeout-slot.inc" "${login_body}")
+file(SHA256 "${login}" login_sha)
+add_executable(message-box-timeout timeout-main.cpp "${actual}" "${header}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../src/share/WizThreads.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../src/share/WizThreads_p.h")
+target_include_directories(message-box-timeout PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../src/share")
+target_link_libraries(message-box-timeout PRIVATE Qt6::Widgets Qt6::Core5Compat)
+target_compile_features(message-box-timeout PRIVATE cxx_std_17)
+target_compile_definitions(message-box-timeout PRIVATE LOGIN_SLOT_SHA="${login_sha}" HELPER_SHA="${source_sha}")
+if(WIZ_MESSAGE_BOX_SANITIZE)
+  target_compile_options(message-box-timeout PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+  target_link_options(message-box-timeout PRIVATE -fsanitize=address,undefined)
+endif()
+
 # Execute the actual two-line network-error slot with a synthetic widget shell,
 # not a real email dialog/account/network manager. Helper and slot have separate
 # identities; broad helper prototype remains strictly a diagnostic target.
