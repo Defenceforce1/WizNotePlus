@@ -40,7 +40,8 @@ int main(int argc,char** argv)
     app.setApplicationName("Isolated message-box regression");
     app.setQuitOnLastWindowClosed(false);
     if(QApplication::platformName()!="offscreen")return 2;
-    const bool destroyParent=argc==2&&QByteArray(argv[1])=="--destroy-parent";
+    const bool warningOnly=argc==2&&QByteArray(argv[1])=="--destroy-warning-parent";
+    const bool destroyParent=warningOnly||(argc==2&&QByteArray(argv[1])=="--destroy-parent");
     if(argc!=1&&!destroyParent)return 2;
     qInfo()<<"DIAGNOSTIC"<<WIZ_MESSAGE_BOX_MODE<<"source"<<WIZ_MESSAGE_BOX_SOURCE_SHA
            <<"candidate"<<WIZ_MESSAGE_BOX_CANDIDATE_SHA<<"destroyParent"<<destroyParent;
@@ -57,6 +58,7 @@ int main(int argc,char** argv)
         {QMessageBox::Critical,QMessageBox::Ok|QMessageBox::Cancel,QMessageBox::Cancel,QMessageBox::Cancel},
         {QMessageBox::Information,QMessageBox::Ok,QMessageBox::Ok,QMessageBox::Ok,true,true}
     };
+    if(warningOnly)cases.resize(1);
     int checks=0,failures=0,index=0;
     const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<index<<text;};
     for(const auto& item:cases) {

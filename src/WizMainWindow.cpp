@@ -789,6 +789,7 @@ bool isXMLRpcErrorCodeRelatedWithUserAccount(int nErrorCode)
 
 void WizMainWindow::on_TokenAcquired(const QString& strToken)
 {
+    const QPointer<WizMainWindow> self(this);
     //Token::instance()->disconnect(this);
     disconnect(WizToken::instance(), SIGNAL(tokenAcquired(QString)), this,
             SLOT(on_TokenAcquired(QString)));
@@ -818,7 +819,7 @@ void WizMainWindow::on_TokenAcquired(const QString& strToken)
             {
                 WizMessageBox::warning(this, tr("Info"), tr("Username / password error. Please login again."));
             }
-            on_actionLogout_triggered();
+            if (self) self->on_actionLogout_triggered();
         }
     }
 }

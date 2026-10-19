@@ -2,6 +2,7 @@
 #include "ui_WizVerificationCodeDialog.h"
 
 #include <QIcon>
+#include <QPointer>
 #include <QPixmap>
 #include <QEventLoop>
 #include <QNetworkReply>
@@ -80,8 +81,9 @@ void WizVerificationCodeDialog::on_image_downloaded(const QByteArray& ba)
     pix.loadFromData(ba);
     if (pix.isNull() && !ba.isEmpty())
     {
+        const QPointer<WizVerificationCodeDialog> self(this);
         WizMessageBox::warning(parentWidget(), tr("Info"), tr("Too many request, please wait for one minute."));
-        reject();
+        if (self) self->reject();
     }
     else
     {

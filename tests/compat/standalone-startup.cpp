@@ -473,6 +473,31 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
         check(changedSaveSubmitted&&filesOpened&&savedSvg.readAll()==svg.toUtf8()
             &&savedHtml.readAll()==QByteArray::fromHex("efbbbf")+html.toUtf8(),
             "actual SVG save retains original UTF-8 SVG and BOM-prefixed HTML bytes");
+        auto warningOwner=std::make_unique<StartupSvgDialogProbe>(base+"/svg-fixture/index.html",&parent,save);
+        const QPointer<StartupSvgDialogProbe> warningOwnerGuard(warningOwner.get());
+        warningOwner->saveData("{\"closeDialog\":true}",{},{});
+        auto failedCompletion=std::move(pending);
+        bool failureWarningSeen=false,failureTimedOut=false,completionReturned=false;
+        QPointer<QMessageBox> failureWarning;
+        QTimer failurePoll,failureDeadline;failureDeadline.setSingleShot(true);
+        QObject::connect(&failurePoll,&QTimer::timeout,&parent,[&] {
+            if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) {
+                failurePoll.stop();failureWarning=box;
+                failureWarningSeen=box->parentWidget()==warningOwner.get()&&box->icon()==QMessageBox::Warning
+                    &&box->text()==QStringLiteral("Failed to save note.")&&box->standardButtons()==QMessageBox::Ok;
+                warningOwner.reset();
+            }
+        });
+        QObject::connect(&failureDeadline,&QTimer::timeout,&parent,[&] {
+            failureTimedOut=true;failurePoll.stop();
+            if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget()))box->reject();
+        });
+        failurePoll.start(5);failureDeadline.start(2000);
+        if(failedCompletion){failedCompletion(false);completionReturned=true;}
+        failurePoll.stop();failureDeadline.stop();pump(50);
+        check(failureWarningSeen&&!failureTimedOut,"actual SVG failed-save warning retains its original owner/icon/text/OK choice");
+        check(warningOwnerGuard.isNull()&&failureWarning.isNull(),"closing actual SVG owner during failed-save warning releases both windows safely");
+        check(completionReturned&&!QApplication::activeModalWidget(),"actual failed-save completion returns normally without stale modal after owner closure");
         primary->setUrlRequestInterceptor(&requests);
     }
     {

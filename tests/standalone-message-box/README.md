@@ -17,6 +17,11 @@ loop. The baseline is expected to expose the stack-dialog lifetime failure;
 run it only as an isolated diagnostic child and retain its private failure log.
 The candidate must return NoButton without accessing a destroyed dialog.
 
+`--destroy-warning-parent` tests only the warning path. The narrow production
+warning fix can be checked independently without implying that all question,
+information or critical caller lifetimes/decisions were accepted. Historical
+baseline ASan evidence is pinned to its logged source hash.
+
 Configure with the existing Qt SDK and `WIZ_MESSAGE_BOX_SANITIZE=ON` (default).
 Use `QT_QPA_PLATFORM=offscreen`, ASan/UBSan with leak checks disabled for the
 uninstrumented Qt runtime. Successful compilation is not execution or acceptance.

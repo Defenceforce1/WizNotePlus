@@ -2,6 +2,7 @@
 #include <QPushButton>
 #include <QDebug>
 #include <QApplication>
+#include <QPointer>
 
 QMessageBox::StandardButton WizMessageBox::critical(QWidget* parent, const QString& title,
                                                      const QString& text, QMessageBox::StandardButtons buttons,
@@ -149,33 +150,50 @@ void WizMessageBox::buttonsFromStandardButtons(QMessageBox::StandardButtons butt
     buttons.testFlag(QMessageBox::Retry) ? buttonList.append(QMessageBox::Retry) : (void)0;
 }
 
-QMessageBox::StandardButton WizMessageBox::messageBox(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons, QMessageBox::StandardButton defaultButton, QMessageBox::Icon icon)
+void WizMessageBox::configureMessageBox(WizMessageBox* box, QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons, QMessageBox::StandardButton defaultButton, QMessageBox::Icon icon)
 {
-    WizMessageBox msg(parent);
-    msg.setIcon(icon);
-    msg.setWindowTitle(title);
-    msg.setText(text);
+    box->setIcon(icon);
+    box->setWindowTitle(title);
+    box->setText(text);
     QList<QMessageBox::StandardButton> buttonList;
     buttonsFromStandardButtons(buttons, buttonList);
     foreach (QMessageBox::StandardButton button, buttonList) {
-        QPushButton* pBtn = msg.addButton(button);
+        QPushButton* pBtn = box->addButton(button);
         pBtn->setText(buttonTextFromStandardButton(button));
     }
-    msg.setDefaultButton(defaultButton);
+    box->setDefaultButton(defaultButton);
 
     //NOTE: 在Mac系统下，dialog对话框不会在父窗口中居中显示，此处进行居中对齐处理
 #ifdef Q_OS_MAC
-    QObject::connect(&msg, &WizMessageBox::resized, [&](){
-        if (parent)
+    const QPointer<WizMessageBox> msg(box);
+    const QPointer<QWidget> owner(parent);
+    QObject::connect(box, &WizMessageBox::resized, box, [msg, owner](){
+        if (msg && owner)
         {
-            QPoint leftTop = parent->geometry().topLeft();
-            leftTop.setX(leftTop.x() + (parent->width() - msg.width()) / 2);
-            leftTop.setY(leftTop.y() + (parent->height() - msg.height()) / 2);
-            msg.move(leftTop);
+            QPoint leftTop = owner->geometry().topLeft();
+            leftTop.setX(leftTop.x() + (owner->width() - msg->width()) / 2);
+            leftTop.setY(leftTop.y() + (owner->height() - msg->height()) / 2);
+            msg->move(leftTop);
         }
     });
 #endif
+}
 
+QMessageBox::StandardButton WizMessageBox::messageBox(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons, QMessageBox::StandardButton defaultButton, QMessageBox::Icon icon)
+{
+    // Only warning callers were audited for parent closure. Do not change
+    // question/confirmation return semantics as part of this lifetime fix.
+    if (icon == QMessageBox::Warning) {
+        const QPointer<WizMessageBox> msg = new WizMessageBox(parent);
+        configureMessageBox(msg.data(), parent, title, text, buttons, defaultButton, icon);
+        msg->exec();
+        const auto result = msg ? msg->standardButton(msg->clickedButton()) : QMessageBox::NoButton;
+        delete msg.data();
+        return result;
+    }
+
+    WizMessageBox msg(parent);
+    configureMessageBox(&msg, parent, title, text, buttons, defaultButton, icon);
     msg.exec();
 
     return msg.standardButton(msg.clickedButton());
