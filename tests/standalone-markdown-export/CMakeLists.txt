@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(StandaloneMarkdownExport LANGUAGES CXX)
-find_package(Qt6 6.9 REQUIRED COMPONENTS Widgets WebEngineCore)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Widgets WebEngineCore Core5Compat)
 
 # Compile the current export method, not a manually transcribed approximation.
 function(extract_between path start_marker end_marker output)
@@ -58,3 +58,26 @@ foreach(mode baseline candidate)
     target_link_options(${target} PRIVATE -fsanitize=address,undefined)
   endif()
 endforeach()
+
+# Independent actual filesystem/export-method path. Archive extraction alone is
+# an adapter over a synthetic directory; no database engine or archive reader.
+extract_between("${root}/src/share/WizMisc.cpp" "bool WizCopyFolder(" "void WizShowDocumentHistory(" copy_body)
+extract_between("${root}/src/share/WizMisc.cpp" "bool WizLoadUnicodeTextFromFile(" "bool WizLoadTextFromResource(" reader_body)
+extract_between("${root}/src/share/WizMisc.cpp"
+  "bool WizSaveUnicodeTextToUtf8File(const QString& strFileName, const QString& strText)"
+  "bool WizSaveUnicodeTextToUtf8File(const QString& strFileName, const QByteArray& strText)" writer_two_body)
+extract_between("${root}/src/utils/WizMisc.cpp" "CString WizMisc::extractFilePath(" "CString WizMisc::extractLastPathName(" path_body)
+extract_between("${root}/src/database/WizDatabase.cpp" "bool WizDatabase::exportToHtmlFile(" "bool WizDatabase::extractZiwFileToFolder(" database_body)
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/actual-resources.inc"
+  "${copy_body}\n${reader_body}\n${writer_two_body}\nnamespace Utils {\n${names_body}\n${path_body}\n}\n${database_body}\n")
+file(SHA256 "${root}/src/database/WizDatabase.cpp" database_sha)
+add_executable(markdown-resource-probe resource-main.cpp)
+target_include_directories(markdown-resource-probe PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${root}/src/share")
+target_link_libraries(markdown-resource-probe PRIVATE Qt6::Core Qt6::Gui Qt6::Core5Compat)
+target_compile_features(markdown-resource-probe PRIVATE cxx_std_17)
+target_compile_definitions(markdown-resource-probe PRIVATE
+  DATABASE_SOURCE_SHA="${database_sha}" WRITER_SOURCE_SHA="${writer_sha}" NAMES_SOURCE_SHA="${names_sha}")
+if(WIZ_MARKDOWN_EXPORT_SANITIZE)
+  target_compile_options(markdown-resource-probe PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+  target_link_options(markdown-resource-probe PRIVATE -fsanitize=address,undefined)
+endif()

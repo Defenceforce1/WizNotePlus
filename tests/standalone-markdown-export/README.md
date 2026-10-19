@@ -45,3 +45,32 @@ No product source is changed or main target linked to this prototype.
 Optional `WIZ_MARKDOWN_EXPORT_SANITIZE=ON` instruments the own harness/extracted
 code with ASan/UBSan, not Qt itself. Keep leak detection disabled for that test;
 do not describe it as whole-application or archive/resource-copy validation.
+
+## Actual resource methods and unaccepted staging prototype
+
+`markdown-resource-probe` uses extracted, unmodified `WizCopyFolder`,
+`WizDatabase::exportToHtmlFile`, UTF-8 reader/writer and path helper bodies.
+It links no database engine or archive reader: ONLY archive extraction is an
+explicit adapter copying a synthetic directory, with an optional unreadable
+temporary resource. The shared encoding compatibility header requires Qt Gui
+and Core5Compat but this executable creates only QCoreApplication, no windows,
+WebEngine, settings or accounts. Source digests identify the extracted files.
+
+Default characterization records the actual copy helper deleting an old resource
+before an unreadable copy fails, and the actual export method having already
+written HTML and earlier resources. `--require-safe` must fail on that old path.
+All permission changes apply only to QTemporaryDir files and are restored.
+
+`--transaction-prototype` separately exercises `transaction-prototype.h`, never
+linked into the main App. It snapshots old resources into a same-parent temporary
+directory, exports there under the original basename, reserves a QSaveFile, swaps
+resource directories and commits Markdown last. An ordinary final-commit failure
+rolls resources back. Existing unrelated resources retain the old merge behavior;
+valid output path and UTF-8/no-BOM bytes remain identical. Directory/symlink
+destinations are refused in this prototype, NOT a changed product policy.
+
+This is NOT power-loss-safe or a multi-file atomic operation; concurrent writers,
+rollback failure/recovery-directory handling, real archive/password workflows
+and actual main-window integration remain unaccepted. A retained-backup failure
+branch is not claimed tested merely because ordinary rollback passed. Never run
+this developer probe against user destinations or describe it as a shipped fix.
