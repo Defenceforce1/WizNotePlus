@@ -244,6 +244,39 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
             "live actual view still starts its original reload after accepting the error question");
     }
     {
+        // Destroy the actual parent window while its renderer question is in
+        // exec(). No renderer is crashed; only the existing signal is emitted.
+        auto parent=std::make_unique<QWidget>();
+        auto* view=new WizWebEngineView(WizWebEngineInjectObjectCollection{},parent.get());
+        const QPointer<QWidget> parentGuard(parent.get());
+        const QPointer<WizWebEngineView> viewGuard(view);
+        QPointer<QMessageBox> questionGuard;
+        bool destroyedDuringQuestion=false,timedOut=false,originalQuestion=false;
+        QTimer poll,deadline;deadline.setSingleShot(true);
+        QObject::connect(&poll,&QTimer::timeout,&app,[&] {
+            if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) {
+                poll.stop();questionGuard=box;
+                originalQuestion=box->parentWidget()==parent.get()&&box->icon()==QMessageBox::Question
+                    &&box->standardButtons()==(QMessageBox::Yes|QMessageBox::No)
+                    &&box->text()==QStringLiteral("Render process exited with code: 42\nDo you want to reload the page ?");
+                parent.reset();destroyedDuringQuestion=true;
+            }
+        });
+        QObject::connect(&deadline,&QTimer::timeout,&app,[&] {
+            timedOut=true;poll.stop();
+            for(auto* widget:QApplication::topLevelWidgets())
+                if(auto* box=qobject_cast<QMessageBox*>(widget))box->reject();
+        });
+        poll.start(5);deadline.start(2000);
+        view->renderProcessTerminated(QWebEnginePage::CrashedTerminationStatus,42);
+        poll.stop();deadline.stop();
+        check(originalQuestion&&!timedOut,"renderer question preserves original parent, icon, text and Yes/No buttons");
+        check(destroyedDuringQuestion&&parentGuard.isNull()&&viewGuard.isNull()&&questionGuard.isNull(),
+            "closing actual parent window during renderer modal destroys its view and question safely");
+        QEventLoop settling;QTimer::singleShot(50,&settling,&QEventLoop::quit);settling.exec();
+        check(!QApplication::activeModalWidget(),"parent destruction leaves no pending renderer question or delayed reload UI");
+    }
+    {
         StartupInlineOnlyRequests inlineOnly;
         primary->setUrlRequestInterceptor(&inlineOnly);
         QWidget parent;parent.resize(320,240);

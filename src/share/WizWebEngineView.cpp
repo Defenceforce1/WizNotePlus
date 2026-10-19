@@ -299,9 +299,16 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
             status = tr("Render process killed");
             break;
         }
-        QMessageBox::StandardButton btn = QMessageBox::question(window(), status,
+        // Static QMessageBox helpers use a stack dialog and prohibit deleting
+        // their parent during exec(). This window may close in that modal loop.
+        QPointer<QMessageBox> question = new QMessageBox(QMessageBox::Question, status,
                                                    tr("Render process exited with code: %1\n"
-                                                      "Do you want to reload the page ?").arg(statusCode));
+                                                      "Do you want to reload the page ?").arg(statusCode),
+                                                   QMessageBox::Yes | QMessageBox::No, window());
+        question->exec();
+        const auto btn = question ? question->standardButton(question->clickedButton())
+                                  : QMessageBox::NoButton;
+        delete question.data();
         if (btn == QMessageBox::Yes && self)
             QTimer::singleShot(0, self.data(), [self] { if (self) self->reload(); });
     });
