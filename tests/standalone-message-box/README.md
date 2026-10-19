@@ -31,6 +31,19 @@ by this helper-only probe. Never run those workflows against real user data.
 The normal fixture now also calls the actual implicit-default critical overload:
 NoButton remains an absent default button, not an invented automatic OK default.
 
+`--destroy-information-ok-parent` isolates the separately audited single-OK
+information path; multi-button information (including purchase prompts) remains
+unchanged. Normal cases now include the actual implicit-default information
+overload. Post-modal caller guards are required independently of helper ownership.
+
+The two `message-box-email-*` executables extract only the actual network-error
+slot into a synthetic QDialog/label shell. No actual email dialog constructor,
+network manager, account, database or real error request is used. The actual-helper
+target exercises production helper plus extracted current slot; prototype-helper
+exists only to expose a caller UAF with the old unguarded slot after experimental
+helper ownership bypasses the original stack failure. That broader helper never
+links into the App. Normal and `--destroy-parent` runs log separate source hashes.
+
 Configure with the existing Qt SDK and `WIZ_MESSAGE_BOX_SANITIZE=ON` (default).
 Use `QT_QPA_PLATFORM=offscreen`, ASan/UBSan with leak checks disabled for the
 uninstrumented Qt runtime. Successful compilation is not execution or acceptance.

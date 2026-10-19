@@ -181,9 +181,10 @@ void WizMessageBox::configureMessageBox(WizMessageBox* box, QWidget* parent, con
 
 QMessageBox::StandardButton WizMessageBox::messageBox(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons, QMessageBox::StandardButton defaultButton, QMessageBox::Icon icon)
 {
-    // Warning and single-OK critical callers were audited for parent closure.
-    // Keep information, questions and other critical button sets unchanged.
-    if (icon == QMessageBox::Warning || (icon == QMessageBox::Critical && buttons == QMessageBox::Ok)) {
+    // Single-OK information/critical callers include post-modal owner checks.
+    // Keep questions and other information/critical button sets unchanged.
+    if (icon == QMessageBox::Warning
+        || ((icon == QMessageBox::Critical || icon == QMessageBox::Information) && buttons == QMessageBox::Ok)) {
         const QPointer<WizMessageBox> msg = new WizMessageBox(parent);
         configureMessageBox(msg.data(), parent, title, text, buttons, defaultButton, icon);
         msg->exec();

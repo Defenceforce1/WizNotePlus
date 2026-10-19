@@ -2625,7 +2625,9 @@ void WizMainWindow::on_syncDone(int nErrorCode, bool isNetworkError, const QStri
     else if (WIZKM_XMLRPC_ERROR_BIZ_SERVICE_EXPR == nErrorCode && !isBackground)
     {
         //当用户的企业付费到期并且有待上传的内容的时候，进行弹框提示
+        const QPointer<WizMainWindow> self(this);
         WizMessageBox::information(this, tr("Info"), strErrorMsg);
+        if (!self || self->m_preparingQuit || self->m_quiting) return;
     }
     else
     {

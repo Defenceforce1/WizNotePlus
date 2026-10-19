@@ -8,6 +8,7 @@
 #include <QPixmap>
 #include <QVBoxLayout>
 #include <QDebug>
+#include <QPointer>
 
 #include "share/WizMessageBox.h"
 #include "sync/WizApiEntry.h"
@@ -263,8 +264,9 @@ void WizEmailShareDialog::on_networkFinished(QNetworkReply* reply)
 
 void WizEmailShareDialog::on_networkError(const QString& errorMsg)
 {
+    const QPointer<WizEmailShareDialog> self(this);
     WizMessageBox::information(this, tr("Info"), errorMsg);
-    ui->labelInfo->setText(errorMsg);
+    if (self) self->ui->labelInfo->setText(errorMsg);
 }
 
 void WizEmailShareDialog::on_toolButton_settings_clicked()

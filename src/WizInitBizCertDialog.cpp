@@ -1,6 +1,7 @@
 ﻿#include "WizInitBizCertDialog.h"
 #include "ui_WizInitBizCertDialog.h"
 #include "share/WizMessageBox.h"
+#include <QPointer>
 #include "sync/WizKMServer.h"
 #include "widgets/WizExecutingActionDialog.h"
 #include "share/WizThreads.h"
@@ -23,6 +24,7 @@ WizInitBizCertDialog::~WizInitBizCertDialog()
 
 void WizInitBizCertDialog::verifyCert()
 {
+    const QPointer<WizInitBizCertDialog> self(this);
     QString adminPassword = ui->editAdminPassword->text();
     QString userPassword = ui->editUserPassword->text();
     QString userPassword2 = ui->editUserPassword2->text();
@@ -31,19 +33,19 @@ void WizInitBizCertDialog::verifyCert()
     if (adminPassword.isEmpty())
     {
         WizMessageBox::information(this, tr("Please enter the password of cert created by administrator."));
-        ui->editAdminPassword->setFocus();
+        if (self) self->ui->editAdminPassword->setFocus();
         return;
     }
     if (userPassword.isEmpty())
     {
         WizMessageBox::information(this, tr("Please enter the user password."));
-        ui->editUserPassword->setFocus();
+        if (self) self->ui->editUserPassword->setFocus();
         return;
     }
     if (userPassword != userPassword2)
     {
         WizMessageBox::information(this, tr("The passwords does not match."));
-        ui->editUserPassword->setFocus();
+        if (self) self->ui->editUserPassword->setFocus();
         return;
     }
     //

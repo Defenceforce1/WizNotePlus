@@ -16,7 +16,10 @@ struct Case {
 };
 static Button invoke(const Case& item,QWidget* parent,const QString& title,const QString& text)
 {
-    if(item.implicitDefault)return WizMessageBox::critical(parent,title,text);
+    if(item.implicitDefault) {
+        if(item.kind==QMessageBox::Information)return WizMessageBox::information(parent,title,text);
+        return WizMessageBox::critical(parent,title,text);
+    }
     if(item.appTitle)return WizMessageBox::information(parent,text,item.buttons,item.defaultButton);
     switch(item.kind) {
     case QMessageBox::Warning:return WizMessageBox::warning(parent,title,text,item.buttons,item.defaultButton);
@@ -43,7 +46,8 @@ int main(int argc,char** argv)
     if(QApplication::platformName()!="offscreen")return 2;
     const bool warningOnly=argc==2&&QByteArray(argv[1])=="--destroy-warning-parent";
     const bool criticalOkOnly=argc==2&&QByteArray(argv[1])=="--destroy-critical-ok-parent";
-    const bool destroyParent=warningOnly||criticalOkOnly||(argc==2&&QByteArray(argv[1])=="--destroy-parent");
+    const bool informationOkOnly=argc==2&&QByteArray(argv[1])=="--destroy-information-ok-parent";
+    const bool destroyParent=warningOnly||criticalOkOnly||informationOkOnly||(argc==2&&QByteArray(argv[1])=="--destroy-parent");
     if(argc!=1&&!destroyParent)return 2;
     qInfo()<<"DIAGNOSTIC"<<WIZ_MESSAGE_BOX_MODE<<"source"<<WIZ_MESSAGE_BOX_SOURCE_SHA
            <<"candidate"<<WIZ_MESSAGE_BOX_CANDIDATE_SHA<<"destroyParent"<<destroyParent;
@@ -59,10 +63,12 @@ int main(int argc,char** argv)
         {QMessageBox::Question,QMessageBox::Yes|QMessageBox::No,QMessageBox::No,QMessageBox::No},
         {QMessageBox::Critical,QMessageBox::Ok|QMessageBox::Cancel,QMessageBox::Cancel,QMessageBox::Cancel},
         {QMessageBox::Critical,QMessageBox::Ok,QMessageBox::NoButton,QMessageBox::Ok,false,false,true},
+        {QMessageBox::Information,QMessageBox::Ok,QMessageBox::NoButton,QMessageBox::Ok,false,false,true},
         {QMessageBox::Information,QMessageBox::Ok,QMessageBox::Ok,QMessageBox::Ok,true,true}
     };
     if(warningOnly)cases.resize(1);
     if(criticalOkOnly)cases={Case{QMessageBox::Critical,QMessageBox::Ok,QMessageBox::NoButton,QMessageBox::Ok,false,false,true}};
+    if(informationOkOnly)cases={Case{QMessageBox::Information,QMessageBox::Ok,QMessageBox::NoButton,QMessageBox::Ok,false,false,true}};
     int checks=0,failures=0,index=0;
     const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<index<<text;};
     for(const auto& item:cases) {
