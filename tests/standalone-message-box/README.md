@@ -22,6 +22,15 @@ warning fix can be checked independently without implying that all question,
 information or critical caller lifetimes/decisions were accepted. Historical
 baseline ASan evidence is pinned to its logged source hash.
 
+`--destroy-critical-ok-parent` isolates the separately audited single-OK critical
+path. The actual helper now guards this exact icon/button set, not information,
+questions or other critical button sets. All eight direct single-OK critical
+call sites were reviewed for returning/ending after the modal, but their complete
+workflows (accounts, note combination, passwords and queued work) are NOT accepted
+by this helper-only probe. Never run those workflows against real user data.
+The normal fixture now also calls the actual implicit-default critical overload:
+NoButton remains an absent default button, not an invented automatic OK default.
+
 Configure with the existing Qt SDK and `WIZ_MESSAGE_BOX_SANITIZE=ON` (default).
 Use `QT_QPA_PLATFORM=offscreen`, ASan/UBSan with leak checks disabled for the
 uninstrumented Qt runtime. Successful compilation is not execution or acceptance.

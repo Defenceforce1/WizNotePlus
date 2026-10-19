@@ -181,9 +181,9 @@ void WizMessageBox::configureMessageBox(WizMessageBox* box, QWidget* parent, con
 
 QMessageBox::StandardButton WizMessageBox::messageBox(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons, QMessageBox::StandardButton defaultButton, QMessageBox::Icon icon)
 {
-    // Only warning callers were audited for parent closure. Do not change
-    // question/confirmation return semantics as part of this lifetime fix.
-    if (icon == QMessageBox::Warning) {
+    // Warning and single-OK critical callers were audited for parent closure.
+    // Keep information, questions and other critical button sets unchanged.
+    if (icon == QMessageBox::Warning || (icon == QMessageBox::Critical && buttons == QMessageBox::Ok)) {
         const QPointer<WizMessageBox> msg = new WizMessageBox(parent);
         configureMessageBox(msg.data(), parent, title, text, buttons, defaultButton, icon);
         msg->exec();

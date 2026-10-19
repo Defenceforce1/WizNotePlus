@@ -12,10 +12,11 @@ struct Case {
     QMessageBox::Icon kind;
     QMessageBox::StandardButtons buttons;
     Button defaultButton,choice;
-    bool parentless=false,appTitle=false;
+    bool parentless=false,appTitle=false,implicitDefault=false;
 };
 static Button invoke(const Case& item,QWidget* parent,const QString& title,const QString& text)
 {
+    if(item.implicitDefault)return WizMessageBox::critical(parent,title,text);
     if(item.appTitle)return WizMessageBox::information(parent,text,item.buttons,item.defaultButton);
     switch(item.kind) {
     case QMessageBox::Warning:return WizMessageBox::warning(parent,title,text,item.buttons,item.defaultButton);
@@ -41,7 +42,8 @@ int main(int argc,char** argv)
     app.setQuitOnLastWindowClosed(false);
     if(QApplication::platformName()!="offscreen")return 2;
     const bool warningOnly=argc==2&&QByteArray(argv[1])=="--destroy-warning-parent";
-    const bool destroyParent=warningOnly||(argc==2&&QByteArray(argv[1])=="--destroy-parent");
+    const bool criticalOkOnly=argc==2&&QByteArray(argv[1])=="--destroy-critical-ok-parent";
+    const bool destroyParent=warningOnly||criticalOkOnly||(argc==2&&QByteArray(argv[1])=="--destroy-parent");
     if(argc!=1&&!destroyParent)return 2;
     qInfo()<<"DIAGNOSTIC"<<WIZ_MESSAGE_BOX_MODE<<"source"<<WIZ_MESSAGE_BOX_SOURCE_SHA
            <<"candidate"<<WIZ_MESSAGE_BOX_CANDIDATE_SHA<<"destroyParent"<<destroyParent;
@@ -56,9 +58,11 @@ int main(int argc,char** argv)
         {QMessageBox::Question,QMessageBox::Yes|QMessageBox::No,QMessageBox::No,QMessageBox::Yes},
         {QMessageBox::Question,QMessageBox::Yes|QMessageBox::No,QMessageBox::No,QMessageBox::No},
         {QMessageBox::Critical,QMessageBox::Ok|QMessageBox::Cancel,QMessageBox::Cancel,QMessageBox::Cancel},
+        {QMessageBox::Critical,QMessageBox::Ok,QMessageBox::NoButton,QMessageBox::Ok,false,false,true},
         {QMessageBox::Information,QMessageBox::Ok,QMessageBox::Ok,QMessageBox::Ok,true,true}
     };
     if(warningOnly)cases.resize(1);
+    if(criticalOkOnly)cases={Case{QMessageBox::Critical,QMessageBox::Ok,QMessageBox::NoButton,QMessageBox::Ok,false,false,true}};
     int checks=0,failures=0,index=0;
     const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<index<<text;};
     for(const auto& item:cases) {
@@ -83,7 +87,8 @@ int main(int argc,char** argv)
             poll.stop();question=box;observed=true;
             attributes=box->parentWidget()==owner&&box->windowTitle()==expectedTitle&&box->text()==text
                 &&box->icon()==item.kind&&box->standardButtons()==item.buttons&&box->isModal()
-                &&box->defaultButton()&&box->standardButton(box->defaultButton())==item.defaultButton;
+                &&(item.defaultButton==QMessageBox::NoButton ? !box->defaultButton()
+                    : box->defaultButton()&&box->standardButton(box->defaultButton())==item.defaultButton);
             for(Button button:{QMessageBox::Ok,QMessageBox::Cancel,QMessageBox::Yes,QMessageBox::No})
                 if(item.buttons.testFlag(button))attributes&=box->button(button)&&box->button(button)->text()==label(button);
             if(!attributes)qInfo()<<"ATTRIBUTE MISMATCH"<<"parent"<<(box->parentWidget()==owner)
