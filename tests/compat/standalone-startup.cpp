@@ -279,6 +279,53 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
     {
         StartupInlineOnlyRequests inlineOnly;
         primary->setUrlRequestInterceptor(&inlineOnly);
+        QWidget parent;
+        const auto pump=[](int milliseconds) {
+            QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();
+        };
+        for(const bool replaceInsideQuestion:{true,false}) {
+            auto view=std::make_unique<WizWebEngineView>(WizWebEngineInjectObjectCollection{},&parent);
+            auto* replacement=new WizWebEnginePage(primary,view.get());
+            struct Ready {bool finished=false,ok=false;};
+            const auto ready=std::make_shared<Ready>();
+            auto connection=QObject::connect(replacement,&QWebEnginePage::loadFinished,&parent,
+                [ready](bool ok){ready->finished=true;ready->ok=ok;});
+            replacement->setHtml("<!doctype html><p>Independent replacement page</p>");
+            QElapsedTimer wait;wait.start();while(!ready->finished&&wait.elapsed()<5000)pump(5);
+            QObject::disconnect(connection);
+            check(ready->finished&&ready->ok,replaceInsideQuestion
+                ?"modal replacement fixture loads its independent inline page before counting reloads"
+                :"queued replacement fixture loads its independent inline page before counting reloads");
+            const auto reloads=std::make_shared<int>(0);bool answered=false,timedOut=false;
+            QObject::connect(replacement,&QWebEnginePage::loadStarted,&parent,[reloads]{++*reloads;});
+            QTimer poll,deadline;deadline.setSingleShot(true);
+            QObject::connect(&poll,&QTimer::timeout,&parent,[&] {
+                if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) {
+                    if(auto* yes=box->button(QMessageBox::Yes)) {
+                        poll.stop();answered=true;yes->click();
+                        if(replaceInsideQuestion)view->setPage(replacement);
+                    }
+                }
+            });
+            QObject::connect(&deadline,&QTimer::timeout,&parent,[&] {
+                timedOut=true;poll.stop();
+                for(auto* widget:QApplication::topLevelWidgets())
+                    if(auto* box=qobject_cast<QMessageBox*>(widget))box->reject();
+            });
+            poll.start(5);deadline.start(2000);
+            view->renderProcessTerminated(QWebEnginePage::CrashedTerminationStatus,42);
+            poll.stop();deadline.stop();
+            if(!replaceInsideQuestion)view->setPage(replacement);
+            pump(150);
+            check(ready->ok&&answered&&!timedOut&&view->page()==replacement&&*reloads==0,replaceInsideQuestion
+                ?"old renderer question cannot reload a different page installed during its modal loop"
+                :"queued old renderer reload cannot reload a different page installed before delivery");
+        }
+        primary->setUrlRequestInterceptor(&requests);
+    }
+    {
+        StartupInlineOnlyRequests inlineOnly;
+        primary->setUrlRequestInterceptor(&inlineOnly);
         QWidget parent;parent.resize(320,240);
         const auto pump=[](int milliseconds) {
             QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();

@@ -284,6 +284,7 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
     connect(this, &QWebEngineView::renderProcessTerminated, this,
             [this](QWebEnginePage::RenderProcessTerminationStatus termStatus, int statusCode) {
         const QPointer<WizWebEngineView> self(this);
+        const QPointer<QWebEnginePage> sourcePage(page());
         QString status;
         switch (termStatus) {
         case QWebEnginePage::NormalTerminationStatus:
@@ -309,8 +310,10 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
         const auto btn = question ? question->standardButton(question->clickedButton())
                                   : QMessageBox::NoButton;
         delete question.data();
-        if (btn == QMessageBox::Yes && self)
-            QTimer::singleShot(0, self.data(), [self] { if (self) self->reload(); });
+        if (btn == QMessageBox::Yes && self && sourcePage && self->page() == sourcePage)
+            QTimer::singleShot(0, self.data(), [self, sourcePage] {
+                if (self && sourcePage && self->page() == sourcePage) self->reload();
+            });
     });
 }
 
