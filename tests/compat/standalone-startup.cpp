@@ -4,6 +4,8 @@
 #include "WizUpgrade.h"
 #include "WizWebSettingsDialog.h"
 #include "gui/documentviewer/WizSvgEditorDialog.h"
+#include "widgets/WizFramelessWebDialog.h"
+#include "share/WizQueuedThreadsSession.h"
 #include "share/WizWebEngineView.h"
 #include "share/WizGlobal.h"
 #include "utils/WizPathResolve.h"
@@ -346,6 +348,58 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
             &&savedHtml.readAll()==QByteArray::fromHex("efbbbf")+html.toUtf8(),
             "actual SVG save retains original UTF-8 SVG and BOM-prefixed HTML bytes");
         primary->setUrlRequestInterceptor(&requests);
+    }
+    {
+        // Actual guide dialog/main queue. No URL is loaded, no account or web
+        // service is used. Preserve the original one-second close delay.
+        WizQueuedThreadsSession queues([]{});
+        const auto pump=[](int milliseconds) {
+            QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();
+        };
+        bool lateControl=false;
+        auto control=std::make_unique<QObject>();
+        const QPointer<QObject> deadControl(control.get());
+        WizExecuteOnThread(WIZ_THREAD_MAIN,[deadControl,&lateControl]{lateControl=deadControl.isNull();});
+        control.reset();pump(20);
+        check(lateControl,"guide negative control confirms actual ownerless main queue delivers after owner destruction without dereferencing it");
+
+        auto closing=std::make_unique<WizFramelessWebDialog>();
+        const QPointer<WizFramelessWebDialog> closed(closing.get());
+        closing->Execute("close",{},{},{},{});closing.reset();pump(30);
+        check(closed.isNull(),"actual guide queued close safely skips its destroyed window");
+        auto showing=std::make_unique<WizFramelessWebDialog>();
+        const QPointer<WizFramelessWebDialog> notShown(showing.get());
+        showing->onPageLoadFinished(true);showing.reset();pump(30);
+        check(notShown.isNull(),"actual guide queued show safely skips its destroyed window");
+
+        auto* live=new WizFramelessWebDialog();
+        const QPointer<WizFramelessWebDialog> liveGuard(live);
+        live->onPageLoadFinished(true);
+        const bool initiallyHidden=!live->isVisible();pump(30);
+        check(initiallyHidden&&liveGuard&&live->isVisible(),"actual guide successful page still shows through its original deferred main queue");
+        bool preference=false;
+        QObject::connect(live,&WizFramelessWebDialog::doNotShowThisAgain,&app,[&](bool value){preference=value;});
+        live->Execute("setdonotprompt",true,{},{},{});
+        check(preference,"actual guide retains its original do-not-prompt preference signal");
+        live->Execute("close",{},{},{},{});
+        const bool stillVisibleBeforeQueue=live->isVisible();pump(30);
+        check(stillVisibleBeforeQueue&&liveGuard&&!live->isVisible(),"actual guide close still hides only after main-queue delivery");
+        pump(250);
+        check(liveGuard,"actual guide close retains its original one-second deferred destruction rather than deleting immediately");
+        pump(1000);
+        check(liveGuard.isNull(),"actual guide one-second close still destroys its living window normally");
+
+        auto delayed=std::make_unique<WizFramelessWebDialog>();
+        const QPointer<WizFramelessWebDialog> delayedGuard(delayed.get());
+        delayed->Execute("close",{},{},{},{});pump(30);
+        delayed.reset();pump(1150);
+        check(delayedGuard.isNull(),"actual guide close timer does not revisit its window after early destruction");
+        auto failed=std::make_unique<WizFramelessWebDialog>();
+        const QPointer<WizFramelessWebDialog> failedGuard(failed.get());
+        failed->onPageLoadFinished(false);pump(30);
+        check(failedGuard&&!failed->isVisible(),"actual guide failed load remains hidden without shortening its original two-minute cleanup policy");
+        failed.reset();pump(30);
+        check(failedGuard.isNull(),"actual guide failed-load timer owner can be destroyed normally");
     }
     delete secondary; delete primary;
     first.release();

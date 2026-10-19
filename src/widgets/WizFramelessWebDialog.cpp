@@ -1,6 +1,7 @@
 ﻿#include "WizFramelessWebDialog.h"
 #include "../share/WizWebEngineView.h"
 #include "../share/WizThreads.h"
+#include "../share/WizDocumentAsync.h"
 
 #include <QVBoxLayout>
 #include <QDesktopServices>
@@ -53,13 +54,12 @@ void WizFramelessWebDialog::Execute(const QString& strFunction, QVariant param1,
 {
     if (strFunction == "close")
     {
-        ::WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
-            hide();
+        ::WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(this, [](WizFramelessWebDialog& dialog){
+            const QPointer<WizFramelessWebDialog> self(&dialog);
+            dialog.hide();
             //
-            QTimer::singleShot(1000, Qt::PreciseTimer, [=]{
-                deleteLater();
-            });
-        });
+            if (self) QTimer::singleShot(1000, Qt::PreciseTimer, self.data(), &QObject::deleteLater);
+        }));
     }
     else if (strFunction == "openindefaultbrowser")
     {
@@ -86,22 +86,20 @@ void WizFramelessWebDialog::onPageLoadFinished(bool ok)
         //avoid QDialog::exec: Recursive call
         disconnect(m_frame, SIGNAL(loadFinished(bool)), this, SLOT(onPageLoadFinished(bool)));
         //
-        WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
+        WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(this, [](WizFramelessWebDialog& dialog){
             //
             if (m_bVisibling)
                 return;
             //
             m_bVisibling = true;
-            show();
+            dialog.show();
             m_bVisibling = false;
             //
-        });
+        }));
     }
     else
     {
-        QTimer::singleShot(2 * 60 * 1000, Qt::PreciseTimer, [=]{
-            deleteLater();
-        });
+        QTimer::singleShot(2 * 60 * 1000, Qt::PreciseTimer, this, &QObject::deleteLater);
     }
 }
 
