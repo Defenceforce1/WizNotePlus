@@ -49,6 +49,17 @@ auto forDocument(Owner* owner, WizDocumentCallbackEpoch::Ticket document, Action
         if (WizDocumentCallbackEpoch::current(document)) action(target);
     });
 }
+
+// Gate only a subsequent UI operation. The already-running save and its
+// completion still finish normally even if the originating view is gone.
+template<class Owner, class Post, class Action>
+auto afterSuccessfulSave(Owner* owner, WizDocumentCallbackEpoch::Ticket document, Post post, Action action)
+{
+    auto next = forDocument(owner, std::move(document), std::move(action));
+    return [post = std::move(post), next = std::move(next)](const QVariant& saved) mutable {
+        if (saved.userType() == QMetaType::Bool && saved.toBool()) post(next);
+    };
+}
 }
 
 // GUI-owned sequence for loader results. Note IDs alone cannot distinguish

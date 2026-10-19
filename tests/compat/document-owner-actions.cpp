@@ -86,6 +86,41 @@ int main(int argc, char** argv)
         check(currentUi == 1, "valid document ticket cannot keep a closed view alive or enter it");
     }
 
+    {
+        QObject documentOwner;
+        WizDocumentCallbackEpoch document;
+        int legacyUi=0, currentUi=0, posts=0;
+        const auto post=[&](auto action) { ++posts;WizExecuteOnThread(WIZ_THREAD_MAIN,std::move(action)); };
+        const auto legacy=[&](const QVariant&) { post([&] { ++legacyUi; }); };
+        legacy(QVariant(false));app.processEvents();
+        check(legacyUi==1,"negative control: ignoring a failed save still queues the following UI operation");
+        posts=0;
+        auto afterSave=WizDocumentOwnerAction::afterSuccessfulSave(&documentOwner,document.ticket(),post,
+            [&](QObject&) { ++currentUi; });
+        for (const auto& result : {QVariant(false),QVariant(),QVariant("true"),QVariant(1)}) afterSave(result);
+        app.processEvents();
+        check(posts==0&&currentUi==0,"failed or untyped save results cannot open the subsequent document editor");
+        afterSave(QVariant(true));
+        check(posts==1&&currentUi==0,"confirmed successful save retains deferred main-queue scheduling");
+        app.processEvents();
+        check(currentUi==1,"confirmed successful save opens the subsequent UI for its live original document");
+        afterSave(QVariant(true));document.invalidate();app.processEvents();
+        check(currentUi==1,"navigation after save completion but before main delivery rejects stale document editing");
+        auto late=WizDocumentOwnerAction::afterSuccessfulSave(&documentOwner,document.ticket(),post,
+            [&](QObject&) { ++currentUi; });
+        document.invalidate();late(QVariant(true));app.processEvents();
+        check(currentUi==1,"late successful save remains acknowledged without reviving the old document UI");
+        auto closing=std::make_unique<QObject>();
+        auto closed=WizDocumentOwnerAction::afterSuccessfulSave(closing.get(),document.ticket(),post,
+            [&](QObject&) { ++currentUi; });
+        closing.reset();closed(QVariant(true));app.processEvents();
+        check(currentUi==1,"a completed save cannot reopen a destroyed document view");
+        // A modal operation may invalidate the view before it returns.
+        auto resume=WizDocumentOwnerAction::forDocument(&documentOwner,document.ticket(),
+            [&](QObject&) { ++currentUi; });
+        document.invalidate();resume();
+        check(currentUi==1,"guarded continuation after a modal operation cannot reload a replacement document");
+    }
     auto payload = std::make_shared<int>(42);
     const std::weak_ptr<int> weakPayload(payload);
     WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::guarded(&liveOwner, [payload = std::move(payload), &calls](QObject&) {

@@ -30,6 +30,7 @@
 #include "utils/WizPathResolve.h"
 #include <QTranslator>
 #include <QFileDialog>
+#include <QFontDialog>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -566,6 +567,139 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }, [&,link] {
             link->ready=false;
             window.docView()->web()->page()->runJavaScript("WizEditor.link=NativeOriginalLink;");
+        });
+    }
+    if (!interactive && qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL") == 1) {
+        struct FontPanelState {
+            QString originalHtml;
+            bool originalModified=false, requested=false, seen=false, validFont=false;
+            bool pending=false, unchanged=false, rejectUnexpected=false, unexpected=false, barrier=false;
+            QString lastDiagnostic;
+            QPointer<QFontDialog> dialog;
+            std::unique_ptr<WizDocumentView> closing;
+            QElapsedTimer settled;
+        };
+        const auto font=std::make_shared<FontPanelState>();
+        const auto requestFontPanel=[](WizDocumentView* view) {
+            if (!view) return false;
+            auto* toolbar=view->findChild<WizEditorToolBar*>();
+            if (!toolbar) return false;
+            for (auto* combo : toolbar->findChildren<QComboBox*>())
+                for (int index=0;index<combo->count();++index)
+                    if (combo->itemData(index,Qt::UserRole).toString()=="fontpanel")
+                        return QMetaObject::invokeMethod(toolbar,"on_comboFontFamily_indexChanged",
+                            Qt::DirectConnection,Q_ARG(int,index));
+            return false;
+        };
+        auto* fontWatcher=new QTimer(&window);
+        fontWatcher->setInterval(10);
+        QObject::connect(fontWatcher,&QTimer::timeout,&window,[font,fontWatcher] {
+            bool nativeVisible=false;
+            for (NSWindow* nativePanel in NSApp.windows)
+                if ([nativePanel isKindOfClass:[NSFontPanel class]] && nativePanel.visible)
+                    nativeVisible=true;
+            bool foundWrapper=false;
+            for (auto* widget : QApplication::topLevelWidgets()) {
+                auto* dialog=qobject_cast<QFontDialog*>(widget);
+                if (!dialog) continue;
+                foundWrapper=true;
+                const QFont current=dialog->currentFont();
+                const QString diagnostic=QString("requested=%1 qtVisible=%2 nativeFontPanelVisible=%3 family=%4 pointSize=%5")
+                    .arg(font->requested).arg(dialog->isVisible()).arg(nativeVisible)
+                    .arg(current.family()).arg(current.pointSize());
+                if (diagnostic!=font->lastDiagnostic) {
+                    font->lastDiagnostic=diagnostic;
+                    qInfo().noquote()<<"FONT PANEL TRACE"<<diagnostic;
+                }
+                // Cocoa can show its native NSFontPanel while the Qt wrapper
+                // remains hidden. Require an actual visible native panel in
+                // that case, not merely the existence of a QFontDialog object.
+                if (!dialog->isVisible()&&!nativeVisible) continue;
+                font->dialog=dialog;
+                if (font->rejectUnexpected) font->unexpected=true;
+                else {
+                    font->seen=true;
+                    font->validFont=!current.family().isEmpty()&&current.pointSize()>0;
+                    fontWatcher->stop();
+                }
+                dialog->reject(); // Only this isolated process's synthetic dialog.
+                return;
+            }
+            if (!foundWrapper&&font->lastDiagnostic!="no-wrapper") {
+                font->lastDiagnostic="no-wrapper";
+                qInfo()<<"FONT PANEL TRACE no-wrapper requested"<<font->requested
+                    <<"nativeFontPanelVisible"<<nativeVisible;
+            }
+        });
+        QObject::connect(&app,&QApplication::aboutToQuit,&window,[font,fontWatcher] {
+            fontWatcher->stop();
+            if (font->dialog) font->dialog->reject();
+            font->closing.reset();
+        });
+        addCheck("actual toolbar font-panel entry receives a valid font and closes normally when canceled", [font] {
+            return font->requested&&font->seen&&font->validFont&&font->dialog.isNull();
+        }, [&,font,fontWatcher,requestFontPanel] {
+            const QPointer<WizDocumentView> view=window.docView();
+            fontWatcher->start();
+            view->web()->page()->runJavaScript("({html:WizEditor.getContentHtml(),modified:!!WizEditor.isModified()})",
+                [font,view,requestFontPanel](const QVariant& value) {
+                    if (!view||value.userType()!=QMetaType::QVariantMap) return;
+                    font->originalHtml=value.toMap().value("html").toString();
+                    font->originalModified=value.toMap().value("modified").toBool();
+                    font->requested=requestFontPanel(view);
+                });
+        });
+        addCheck("canceling actual native font panel preserves the exact original HTML and modified state", [&,font] {
+            if (!font->unchanged&&!font->pending) {
+                font->pending=true;
+                window.docView()->web()->page()->runJavaScript(
+                    "({html:WizEditor.getContentHtml(),modified:!!WizEditor.isModified()})",[font](const QVariant& value) {
+                        const auto result=value.toMap();
+                        font->unchanged=!font->originalHtml.isEmpty()
+                            &&result.value("html").toString()==font->originalHtml
+                            &&result.value("modified").toBool()==font->originalModified;
+                        font->pending=false;
+                    });
+            }
+            return font->unchanged;
+        });
+        const auto closingReady=std::make_shared<bool>(false);
+        addCheck("separate original document view is editable before closing during its pending font query", [font,closingReady] {
+            if (!font->closing||!font->closing->noteLoaded()||!font->closing->web()->isEditing()) return false;
+            if (!*closingReady&&!font->pending) {
+                font->pending=true;
+                font->closing->web()->page()->runJavaScript(
+                    "!!window.WizNativeEditorInitialized&&document.body.isContentEditable",[font,closingReady](const QVariant& value) {
+                        *closingReady=value.toBool();font->pending=false;
+                    });
+            }
+            return *closingReady;
+        }, [&,font] {
+            font->pending=false;
+            font->closing=std::make_unique<WizDocumentView>(window,&window);
+            if (auto* loader=window.findChild<WizDocumentLoaderThread*>()) {
+                auto* web=font->closing->web();
+                QObject::connect(web,&WizDocumentWebView::loadDocumentRequested,loader,&WizDocumentLoaderThread::load);
+                QObject::connect(loader,&WizDocumentLoaderThread::loaded,web,&WizDocumentWebView::onDocumentReady,Qt::QueuedConnection);
+            }
+            font->closing->viewNote(extended,true);
+        },15000);
+        addCheck("destroying an unmodified synthetic document cannot reopen its pending font panel", [font,fontWatcher] {
+            const bool settled=font->barrier&&font->settled.elapsed()>=500;
+            if (settled) fontWatcher->stop();
+            return settled&&!font->closing&&!font->unexpected;
+        }, [&,font,fontWatcher,requestFontPanel] {
+            font->rejectUnexpected=true;
+            fontWatcher->start();
+            const QPointer<WizDocumentWebView> web=font->closing->web();
+            font->barrier=false;
+            const bool requested=requestFontPanel(font->closing.get());
+            // This separate fixture has never edited its synthetic source.
+            font->closing.reset();
+            font->settled.start();
+            window.docView()->web()->page()->runJavaScript("true",[font,requested,web](const QVariant& value) {
+                font->barrier=requested&&web.isNull()&&value.toBool();
+            });
         });
     }
     auto capture = [&](QWidget* widget, const QString& name) {

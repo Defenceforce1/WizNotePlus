@@ -2704,16 +2704,21 @@ void WizDocumentWebView::onSelectionChange(const QString& currentStyle)
 void WizDocumentWebView::onClickedSvg(const QString& data)
 {
     const WIZDOCUMENTDATA note = view()->note();
-    //
-    trySaveDocument(note, true, [=] (const QVariant) {
-        //
-        ::WizExecuteOnThread(WIZ_THREAD_MAIN, [=] {
-            //
-            editHandwritingNote(m_dbMgr, note, m_strNoteHtmlFileName, data, WizMainWindow::instance());
-            addDefaultScriptsToDocumentHtml(m_strNoteHtmlFileName);
-            load(QUrl::fromLocalFile(m_strNoteHtmlFileName));
-        });
-    });
+    const auto ticket = m_documentCallbacks.ticket();
+    trySaveDocument(note, true, WizDocumentOwnerAction::afterSuccessfulSave(this, ticket,
+        [](auto action) { WizExecuteOnThread(WIZ_THREAD_MAIN, std::move(action)); },
+        [note, data, ticket](WizDocumentWebView& owner) {
+            const QString htmlFile = owner.m_strNoteHtmlFileName;
+            // The original editor is modal. Its event loop may close/navigate
+            // the source view; recheck before reloading after it returns.
+            auto reload = WizDocumentOwnerAction::forDocument(&owner, ticket,
+                [htmlFile](WizDocumentWebView& current) {
+                    current.addDefaultScriptsToDocumentHtml(htmlFile);
+                    current.load(QUrl::fromLocalFile(htmlFile));
+                });
+            editHandwritingNote(owner.m_dbMgr, note, htmlFile, data, WizMainWindow::instance());
+            reload();
+        }));
 
 }
 
