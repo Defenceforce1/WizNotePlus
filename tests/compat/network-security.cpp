@@ -27,6 +27,10 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QThread>
+#include <QUrlQuery>
+#include <atomic>
+#include <functional>
+#include <thread>
 
 // Only ephemeral loopback fixtures. No login, account store, external request,
 // permanent CA installation, ignored certificate errors or private user data.
@@ -38,6 +42,7 @@ public:
     int accepted = 0, requests = 0;
     bool respond = true;
     QByteArray received;
+    std::function<void()> onRequest;
     explicit FixtureServer(QObject* parent = nullptr) : QTcpServer(parent) {}
 protected:
     void incomingConnection(qintptr descriptor) override {
@@ -60,6 +65,7 @@ protected:
             const int bodyLength = length.hasMatch() ? length.captured(1).toInt() : 0;
             if (!socket->property("responded").toBool() && request.size() >= end + 4 + bodyLength) {
                 socket->setProperty("responded", true); ++requests;
+                if (onRequest) onRequest();
                 if (!respond) return;
                 socket->write(response); socket->disconnectFromHost();
             }
@@ -120,6 +126,50 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
           && redacted.contains("https://api.wiz.cn/ks/test") && redacted.contains("https://as.wiz.cn/a"),
           "log URLs remove userinfo, all query values and fragments");
     check(redactLogUrls("ordinary diagnostic") == "ordinary diagnostic", "ordinary diagnostics unchanged");
+
+    {
+        // Actual endpoint state, memory only: .invalid addresses are never
+        // requested. Guard the legacy cache-hit control before calling syncUrl.
+        const auto originalServer=WizCommonApiEntry::m_server;
+        const auto originalCache=WizCommonApiEntry::m_cacheMap;
+        const QString endpointA="https://endpoint-a.invalid/sync/";
+        WizCommonApiEntry::setEnterpriseServerIP("https://endpoint-a.invalid/");
+        WizCommonApiEntry::m_cacheMap.clear();
+        WizCommonApiEntry::m_cacheMap.insert("sync_https",endpointA);
+        const auto contextA=WizCommonApiEntry::requestContext();
+        WizCommonApiEntry::setEnterpriseServerIP("https://endpoint-a.invalid");
+        check(WizCommonApiEntry::m_cacheMap.value("sync_https")==endpointA,
+            "normalizing the same server preserves its already discovered endpoints");
+        WizCommonApiEntry::setEnterpriseServerIP("https://endpoint-b.invalid/");
+        if(WizCommonApiEntry::m_cacheMap.value("sync_https")==endpointA)
+            qInfo()<<"Endpoint old-cache control"<<WizCommonApiEntry::syncUrl();
+        check(WizCommonApiEntry::m_cacheMap.isEmpty(),
+            "changing server invalidates endpoints discovered for the previous server");
+        check(WizCommonApiEntry::server()=="https://endpoint-b.invalid/",
+            "server accessor returns the normalized current endpoint origin");
+        WizCommonApiEntry::updateUrlCache("sync_https",endpointA,contextA);
+        check(WizCommonApiEntry::m_cacheMap.isEmpty(),
+            "late results from the old server generation cannot repopulate the new cache");
+        const auto contextB=WizCommonApiEntry::requestContext();
+        WizCommonApiEntry::updateUrlCache("sync_https","https://endpoint-b.invalid/sync/",contextB);
+        check(WizCommonApiEntry::syncUrl()=="https://endpoint-b.invalid/sync/",
+            "current-generation endpoint still serves the original cache-hit path without networking");
+        const auto beforeInvalid=WizCommonApiEntry::m_cacheMap;
+        WizCommonApiEntry::setEnterpriseServerIP(QString());
+        check(WizCommonApiEntry::server()=="https://endpoint-b.invalid/"
+            &&WizCommonApiEntry::m_cacheMap==beforeInvalid,
+            "empty server input cannot change the active origin or its endpoint cache");
+        const QString originalLanguage=WizCommonApiEntry::language();
+        WizCommonApiEntry::setLanguage(originalLanguage+"-fixture");
+        check(WizCommonApiEntry::m_cacheMap.isEmpty(),
+            "changing request language invalidates the matching endpoint generation");
+        WizCommonApiEntry::updateUrlCache("sync_https","https://endpoint-b.invalid/old-language/",contextB);
+        check(WizCommonApiEntry::m_cacheMap.isEmpty(),
+            "old-language response cannot populate the replacement language cache");
+        WizCommonApiEntry::setLanguage(originalLanguage);
+        WizCommonApiEntry::m_server=originalServer;
+        WizCommonApiEntry::m_cacheMap=originalCache;
+    }
 
     const QString openssl = argc == 3 ? QString::fromLocal8Bit(argv[2]) : QStringLiteral("openssl");
     QTemporaryDir temporary;
@@ -280,6 +330,88 @@ int wizNetworkSecuritySelfTest(int argc, char** argv) {
     WizCommonApiEntry::m_cacheMap.insert("avatar", "http://localhost/avatar/{userGuid}");
     check(WizCommonApiEntry::avatarDownloadUrlByGuid("fixture").isEmpty(), "insecure discovered avatar endpoint rejected");
     WizCommonApiEntry::m_cacheMap = savedEndpoints;
+    {
+        const auto originalServer=WizCommonApiEntry::m_server;
+        const auto originalCache=WizCommonApiEntry::m_cacheMap;
+        FixtureServer firstOrigin,secondOrigin;
+        firstOrigin.certificate=valid;firstOrigin.key=server.key;
+        secondOrigin.certificate=valid;secondOrigin.key=server.key;
+        const bool listening=firstOrigin.listen(QHostAddress::LocalHost)&&secondOrigin.listen(QHostAddress::LocalHost);
+        check(listening,"two verified loopback origins are available for endpoint-generation ordering");
+        if(listening){
+            const QString first="https://localhost:"+QString::number(firstOrigin.serverPort())+"/";
+            const QString second="https://localhost:"+QString::number(secondOrigin.serverPort())+"/";
+            const auto endpointResponse=[](const QString& endpoint) {
+                const QByteArray body="{\"sync_https\":\""+endpoint.toUtf8()+"\"}";
+                return "HTTP/1.1 200 OK\r\nContent-Length: "+QByteArray::number(body.size())
+                    +"\r\nConnection: close\r\n\r\n"+body;
+            };
+            firstOrigin.response=endpointResponse(first+"sync");
+            secondOrigin.response=endpointResponse(second+"sync");
+            bool lockAvailable=false;
+            firstOrigin.onRequest=[&] {
+                // Check from ANOTHER thread, so a recursive GUI lock cannot
+                // conceal holding endpoint state across the network wait.
+                std::thread probe([&] {
+                    lockAvailable=WizCommonApiEntry::m_mutex.tryLock();
+                    if(lockAvailable)WizCommonApiEntry::m_mutex.unlock();
+                });
+                probe.join();
+                WizCommonApiEntry::setEnterpriseServerIP(second);
+            };
+            WizCommonApiEntry::setEnterpriseServerIP(first);
+            const QString oldResult=WizCommonApiEntry::syncUrl();
+            check(lockAvailable,"endpoint discovery never holds the global state lock during network I/O");
+            check(oldResult==first+"sync"&&WizCommonApiEntry::server()==second&&firstOrigin.requests==1,
+                "in-flight discovery completes for its original origin after a reentrant server switch");
+            check(WizCommonApiEntry::m_cacheMap.isEmpty(),
+                "late endpoints from the first TLS origin do not populate the second origin cache");
+            const QString newResult=WizCommonApiEntry::syncUrl();
+            check(newResult==second+"sync"&&secondOrigin.requests==1&&firstOrigin.requests==1,
+                "subsequent discovery reaches only the new TLS origin and caches its own endpoint");
+            check(WizCommonApiEntry::syncUrl()==newResult&&secondOrigin.requests==1,
+                "same-origin cache hit does not add another discovery request");
+            firstOrigin.onRequest=[&] {
+                WizCommonApiEntry::updateUrlCache("sync_https",first+"newer",
+                    WizCommonApiEntry::requestContext());
+            };
+            WizCommonApiEntry::setEnterpriseServerIP(first);
+            const QString overlapped=WizCommonApiEntry::syncUrl();
+            check(overlapped==first+"newer"&&WizCommonApiEntry::m_cacheMap.value("sync_https")==overlapped,
+                "overlapping discovery preserves the endpoint already supplied for its current generation");
+            check(firstOrigin.requests==2,
+                "same-generation overlap control performs exactly its one expected discovery request");
+        }
+        const QString originalLanguage=WizCommonApiEntry::language();
+        std::atomic<int> snapshotErrors{0},snapshots{0};
+        std::atomic_bool startSnapshots{false};
+        QVector<std::thread*> readers;
+        for(int worker=0;worker<4;++worker)
+            readers.append(new std::thread([&] {
+                while(!startSnapshots.load())std::this_thread::yield();
+                for(int sample=0;sample<250;++sample){
+                    const auto context=WizCommonApiEntry::requestContext();
+                    const QUrl url(WizCommonApiEntry::makeUpUrlFromCommand("fixture",context));
+                    const QUrlQuery query(url);
+                    if(url.adjusted(QUrl::RemoveQuery|QUrl::RemoveFragment).toString()!=context.server
+                        ||query.queryItemValue("l")!=context.language
+                        ||query.queryItemValue("c")!="fixture"||query.queryItemValue("p")!="wiz")
+                        ++snapshotErrors;
+                    ++snapshots;
+                }
+            }));
+        startSnapshots=true;
+        for(int change=0;change<100;++change){
+            WizCommonApiEntry::setEnterpriseServerIP(change%2?"https://endpoint-a.invalid/":"https://endpoint-b.invalid/");
+            WizCommonApiEntry::setLanguage(change%2?"fixture-a":"fixture-b");
+        }
+        for(auto* reader:readers){reader->join();delete reader;}
+        check(snapshots==1000&&snapshotErrors==0,
+            "concurrent server/language changes preserve 1000 internally consistent URL snapshots without networking");
+        WizCommonApiEntry::setLanguage(originalLanguage);
+        WizCommonApiEntry::m_server=originalServer;
+        WizCommonApiEntry::m_cacheMap=originalCache;
+    }
     WizAvatarDownloader downloader;
     downloader.m_strCurrentUser = "synthetic-download-account";
     bool downloadSucceeded = false; int downloadSignals = 0; QString downloadError;

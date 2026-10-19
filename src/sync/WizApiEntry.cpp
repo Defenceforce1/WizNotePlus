@@ -72,6 +72,7 @@ static QString LocalLanguage = QLocale::system().name();
 QString WizCommonApiEntry::m_server = QString();
 QMap<QString, QString> WizCommonApiEntry::m_cacheMap = QMap<QString, QString>();
 WizRecursiveMutex WizCommonApiEntry::m_mutex;
+quint64 WizCommonApiEntry::m_generation = 0;
 
 
 QString _requestUrl(const QString& strUrl)
@@ -106,33 +107,45 @@ QString addExtendedInfo(const QString& strUrl, const QString& strExt)
 
 void WizCommonApiEntry::setEnterpriseServerIP(const QString& strIP)
 {
-    if (!strIP.isEmpty() && strIP == m_server)
-        return;
-
-    if (!strIP.isEmpty())
-    {
-        if (strIP.startsWith("http"))
-        {
-            m_server = strIP;
-            if (!m_server.endsWith("/")) {
-                m_server += "/";
-            }
-        }
-        else
-        {
-            m_server = QString("http://%1/").arg(strIP);
-        }
-        qDebug() << "set server : " << m_server;
-    }
-    else
-    {
+    if (strIP.isEmpty()) {
         qCritical() << "can not  set a empty server address";
+        return;
     }
+    QString normalized = strIP.startsWith("http") ? strIP : QString("http://%1/").arg(strIP);
+    if (!normalized.endsWith("/")) normalized += "/";
+    {
+        QMutexLocker locker(&m_mutex);
+        if (normalized == m_server) return;
+        m_server = normalized;
+        ++m_generation;
+        m_cacheMap.clear();
+    }
+    qDebug() << "set server : " << normalized;
 }
 
 void WizCommonApiEntry::setLanguage(const QString& strLocal)
 {
+    QMutexLocker locker(&m_mutex);
+    if (LocalLanguage == strLocal) return;
     LocalLanguage = strLocal;
+    ++m_generation;
+    m_cacheMap.clear();
+}
+
+WizCommonApiEntry::RequestContext WizCommonApiEntry::requestContext()
+{
+    QMutexLocker locker(&m_mutex);
+    return {m_server, LocalLanguage, m_generation};
+}
+
+QString WizCommonApiEntry::server()
+{
+    return requestContext().server;
+}
+
+QString WizCommonApiEntry::language()
+{
+    return requestContext().language;
 }
 
 QString WizCommonApiEntry::syncUrl()
@@ -150,12 +163,13 @@ QString WizCommonApiEntry::syncUrl()
 QString WizCommonApiEntry::asServerUrl()
 {
     //使用endpoints获取as使用的API地址和之前的不同
-    QString strAsUrl = getUrlFromCache("wizas");
+    const auto context = requestContext();
+    QString strAsUrl = getUrlFromCache("wizas", context);
 
     if (strAsUrl.isEmpty())
     {
-        strAsUrl = requestUrl("as");
-        updateUrlCache("wizas", strAsUrl);
+        strAsUrl = requestUrl("as", context);
+        updateUrlCache("wizas", strAsUrl, context);
     }
 
     if (!strAsUrl.startsWith("http"))
@@ -193,7 +207,7 @@ QString WizCommonApiEntry::messageServerUrl()
 
 QString WizCommonApiEntry::systemAvatarUrl(const QString& avatarName)
 {
-    return getUrlFromCache(avatarName);
+    return getUrlFromCache(avatarName, requestContext());
 }
 
 QString WizCommonApiEntry::avatarDownloadUrl(const QString& strUserGUID)
@@ -225,11 +239,12 @@ QString WizCommonApiEntry::avatarUploadUrl()
 QString WizCommonApiEntry::mailShareUrl(const QString& strKsServer, const QString& strMailInfo)
 {
     // 通过endpoints获得api命令为mail_share，和之前使用的mail_share2不同，需要分开处理
-    QString strMailShare = getUrlFromCache("mail_share");
+    const auto context = requestContext();
+    QString strMailShare = getUrlFromCache("mail_share", context);
     if (strMailShare.isEmpty())
     {
-        strMailShare = requestUrl(WIZNOTE_API_COMMAND_MAIL_SHARE);
-        updateUrlCache("mail_share", strMailShare);
+        strMailShare = requestUrl(WIZNOTE_API_COMMAND_MAIL_SHARE, context);
+        updateUrlCache("mail_share", strMailShare, context);
     }
 
     QString strKSServer = strKsServer + "/wizks";
@@ -277,12 +292,13 @@ QString WizCommonApiEntry::captchaUrl(const QString& strCaptchaID, int nWidth, i
 QString WizCommonApiEntry::editStatusUrl()
 {
     //使用endpoints获取edit使用的API地址和之前的不同
-    QString strUrl = getUrlFromCache("edit_status");
+    const auto context = requestContext();
+    QString strUrl = getUrlFromCache("edit_status", context);
     
     if (strUrl.isEmpty())
     {
-        strUrl = requestUrl("note_edit_status_url");
-        updateUrlCache("edit_status", strUrl);
+        strUrl = requestUrl("note_edit_status_url", context);
+        updateUrlCache("edit_status", strUrl, context);
     }
     
     return strUrl;
@@ -395,7 +411,12 @@ QString WizCommonApiEntry::appstoreParam(bool useAndSymbol)
 
 QString WizCommonApiEntry::requestUrl(const QString& strCommand)
 {
-    QString strRequestUrl= makeUpUrlFromCommand(strCommand);
+    return requestUrl(strCommand, requestContext());
+}
+
+QString WizCommonApiEntry::requestUrl(const QString& strCommand, const RequestContext& context)
+{
+    QString strRequestUrl= makeUpUrlFromCommand(strCommand, context);
     QString strUrl = _requestUrl(strRequestUrl);
     return strUrl;
 }
@@ -411,11 +432,16 @@ QString WizOfficialApiEntry::appendSrc(QString url)
 
 QString WizCommonApiEntry::makeUpUrlFromCommand(const QString& strCommand)
 {
+    return makeUpUrlFromCommand(strCommand, requestContext());
+}
+
+QString WizCommonApiEntry::makeUpUrlFromCommand(const QString& strCommand, const RequestContext& context)
+{
     // random seed
     QString strUrl = QString(WIZNOTE_API_ENTRY)
-            .arg(m_server)
+            .arg(context.server)
             .arg(WIZNOTE_API_ARG_PRODUCT)\
-            .arg(LocalLanguage)\
+            .arg(context.language)\
             .arg(WIZ_CLIENT_VERSION)\
             .arg(strCommand)\
             .arg(QRandomGenerator::global()->generate())\
@@ -427,65 +453,76 @@ QString WizCommonApiEntry::makeUpUrlFromCommand(const QString& strCommand)
     return strUrl;
 }
 
-void WizCommonApiEntry::getEndPoints()
+QMap<QString, QString> WizCommonApiEntry::getEndPoints(const RequestContext& context)
 {
-    QMutexLocker locker(&m_mutex);
-    //
-    QString urls = requestUrl("endpoints");
+    // Never hold the global state lock across network I/O / its event loop.
+    QString urls = requestUrl("endpoints", context);
 #ifdef QT_DEBUG
     qDebug() << "get end points : " << urls;
 #endif
     if (urls.isEmpty() || !urls.contains("http"))
-        return;
+        return {};
 
     Json::Value d;
     Json::Reader reader;
-    if (!reader.parse(urls.toUtf8().constData(), d))
-        return;
+    if (!reader.parse(urls.toUtf8().constData(), d) || !d.isObject())
+        return {};
     //
     Json::Value::Members keys = d.getMemberNames();
 
+    QMap<QString, QString> endpoints;
     for(auto keyStr : keys)
     {
+        if (!d[keyStr].isString()) continue;
         QString key = QString::fromStdString(keyStr);
         QString url = QString::fromStdString(d[keyStr].asString());
 #ifdef QT_DEBUG
         qDebug() << "key: " << key << " url : " << url;
 #endif
-        m_cacheMap.insert(key, url);
+        endpoints.insert(key, url);
     }
+    return endpoints;
 }
 
-void WizCommonApiEntry::updateUrlCache(const QString& strCommand, const QString& url)
+void WizCommonApiEntry::updateUrlCache(const QString& strCommand, const QString& url, const RequestContext& context)
 {
     QMutexLocker locker(&m_mutex);
-    //
-    m_cacheMap.insert(strCommand, url);
+    if (context.generation == m_generation) m_cacheMap.insert(strCommand, url);
 }
 
-QString WizCommonApiEntry::getUrlFromCache(const QString& strCommand)
+QString WizCommonApiEntry::getUrlFromCache(const QString& strCommand, const RequestContext& context)
 {
-    QMutexLocker locker(&m_mutex);
-    //
-    if (m_cacheMap.isEmpty())
     {
-        getEndPoints();
+        QMutexLocker locker(&m_mutex);
+        if (context.generation == m_generation && !m_cacheMap.isEmpty())
+            return m_cacheMap.value(strCommand);
     }
-    if (!m_cacheMap.value(strCommand).isEmpty())
-        return m_cacheMap.value(strCommand);
-
-    return QString();
+    const auto discovered = getEndPoints(context);
+    {
+        QMutexLocker locker(&m_mutex);
+        if (context.generation == m_generation) {
+            // Keep the first successful discovery for this generation, as a
+            // serialized cache lookup did. A second overlapping discovery
+            // must not overwrite endpoints already supplied in the meantime.
+            if (m_cacheMap.isEmpty()) m_cacheMap = discovered;
+            return m_cacheMap.value(strCommand);
+        }
+    }
+    // An in-flight request keeps its own origin; stale results must not
+    // populate the replacement origin's cache.
+    return discovered.value(strCommand);
 }
 
 QString WizCommonApiEntry::getUrlByCommand(const QString& strCommand)
 {
-    QString strUrl = getUrlFromCache(strCommand);
+    const auto context = requestContext();
+    QString strUrl = getUrlFromCache(strCommand, context);
 
     if (strUrl.isEmpty())
     {
-        strUrl = requestUrl(strCommand);
+        strUrl = requestUrl(strCommand, context);
         if (!strUrl.isEmpty() && strUrl.startsWith("http"))
-            updateUrlCache(strCommand, strUrl);
+            updateUrlCache(strCommand, strUrl, context);
     }
 
     return strUrl;
@@ -540,7 +577,7 @@ QString WizOfficialApiEntry::urlFromCommand(const QString& strCommand)
     QString strUrl = QString(WIZNOTE_API_ENTRY)
             .arg(WIZNOTE_API_SERVER)
             .arg(WIZNOTE_API_ARG_PRODUCT)\
-            .arg(LocalLanguage)\
+            .arg(WizCommonApiEntry::language())\
             .arg(WIZ_CLIENT_VERSION)\
             .arg(strCommand)\
             .arg(QRandomGenerator::global()->generate())\

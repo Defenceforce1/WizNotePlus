@@ -49,19 +49,29 @@ public:
     static QString appstoreParam(bool useAndSymbol = true);
 
     static QString newAsServerUrl();
-    static QString server() { return m_server; }
+    static QString server();
+    static QString language();
 
 private:
     friend int wizNetworkSecuritySelfTest(int, char**);
+    struct RequestContext {
+        QString server;
+        QString language;
+        quint64 generation;
+    };
+    static RequestContext requestContext();
+    static QString makeUpUrlFromCommand(const QString& strCommand, const RequestContext& context);
     static QString requestUrl(const QString& strCommand);
-    static void getEndPoints();
-    static void updateUrlCache(const QString& strCommand, const QString& url);
-    static QString getUrlFromCache(const QString& strCommand);
+    static QString requestUrl(const QString& strCommand, const RequestContext& context);
+    static QMap<QString, QString> getEndPoints(const RequestContext& context);
+    static void updateUrlCache(const QString& strCommand, const QString& url, const RequestContext& context);
+    static QString getUrlFromCache(const QString& strCommand, const RequestContext& context);
 
 private:
     static WizRecursiveMutex m_mutex;
     static QString m_server;
     static QMap<QString, QString> m_cacheMap;
+    static quint64 m_generation;
 };
 
 class WizOfficialApiEntry
