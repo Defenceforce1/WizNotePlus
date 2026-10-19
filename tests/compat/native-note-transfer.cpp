@@ -5,6 +5,7 @@
 #include "share/WizEnc.h"
 #include "share/WizZiwReader.h"
 #include "share/WizLocalFileUrl.h"
+#include "utils/WizMisc.h"
 #include <QApplication>
 #include <QCryptographicHash>
 #include <QBuffer>
@@ -140,6 +141,39 @@ int wizNativeNoteTransferSelfTest(int argc, char** argv)
         && QFile::copy(ziw, db.getDocumentFileName(first.strGUID))
         && db.setObjectDataDownloaded(first.strGUID, "document", true)
         && db.updateDocumentDataMD5(first, db.getDocumentFileName(first.strGUID)), "create offline synthetic note with image")) return 1;
+    {
+        // Actual database + actual stored ZIW extraction, not the independent
+        // source-flow adapter. All paths remain under the pre-app isolation root.
+        // No transaction prototype is linked into this main-client self-test.
+        const QString destinationRoot = root.filePath("legacy-single-export/");
+        if (!QDir().mkpath(destinationRoot)) return 1;
+        const QString destination = destinationRoot + QStringLiteral("单笔记 A&B #50%.md");
+        const QString resourceName = Utils::WizMisc::extractFileTitle(destination).toHtmlEscaped() + "_files/";
+        QByteArray expected = QByteArray::fromHex("efbbbf") + html;
+        expected.replace("index_files/", resourceName.toUtf8());
+        const QByteArray noteBefore = get(db.getDocumentFileName(first.strGUID));
+        const int noteCountBefore = count(db);
+        check(db.exportToHtmlFile(first, destination), "actual isolated DB single-export extracts the original synthetic ZIW");
+        check(get(destination) == expected, "actual DB single-export preserves BOM and legacy escaped HTML resource paths");
+        check(get(destinationRoot + resourceName + "image.png") == image,
+              "actual DB single-export preserves stored image bytes");
+        WIZDOCUMENTDATA missing = first;
+        missing.strGUID = "missing-synthetic-export-note";
+        const QString early = destinationRoot + "early.md";
+        if (!put(early, "OLD EARLY EXPORT")) return 1;
+        check(!db.exportToHtmlFile(missing, early) && get(early) == "OLD EARLY EXPORT",
+              "actual missing-ZIW extraction failure preserves existing single-export target");
+        const QString late = destinationRoot + "late.md";
+        const QString blockedResources = destinationRoot + "late_files";
+        if (!put(late, "OLD LATE EXPORT") || !put(blockedResources, "SYNTHETIC RESOURCE DIRECTORY BLOCKER")) return 1;
+        check(!db.exportToHtmlFile(first, late), "actual DB reports real resource-directory creation failure after ZIW extraction");
+        QByteArray lateExpected = QByteArray::fromHex("efbbbf") + html;
+        lateExpected.replace("index_files/", "late_files/");
+        check(get(late) == lateExpected && get(blockedResources) == "SYNTHETIC RESOURCE DIRECTORY BLOCKER",
+              "known legacy late failure leaves HTML intermediate but does not overwrite resource-directory blocker");
+        check(get(db.getDocumentFileName(first.strGUID)) == noteBefore && count(db) == noteCountBefore,
+              "actual single-export success and failures never change stored original ZIW or note count");
+    }
     const QString attachSource = root.filePath(QStringLiteral("附件.txt"));
     const QByteArray attachment("original attachment\n");
     WIZDOCUMENTATTACHMENTDATA a;
