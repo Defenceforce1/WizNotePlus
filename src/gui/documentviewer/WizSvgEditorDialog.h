@@ -2,12 +2,14 @@
 #define GUI_DOCUMENTVIEWER_WIZSVGEDITORDIALOG_H
 
 #include "WizWebSettingsDialog.h"
+#include "share/WizDocumentAsync.h"
 
 class WizSvgEditorDialog: public WizWebSettingsDialog
 {
     Q_OBJECT
 public:
     WizSvgEditorDialog(QString url, QString data, std::function<void(bool changed, std::function<void(bool)> saved)> saveCallback, QString htmlFilePath, QWidget* parent = nullptr);
+    ~WizSvgEditorDialog() override;
 
 private:
     bool m_error;
@@ -15,6 +17,7 @@ private:
     std::function<void(bool changed, std::function<void(bool)> saved)> m_saveCallback;
     QString m_htmlFilePath;
     QString m_indexFilesPath;
+    WizDocumentCallbackEpoch m_asyncCallbacks;
 
 protected:
     virtual void onLoaded(bool ok);

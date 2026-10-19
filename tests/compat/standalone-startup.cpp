@@ -3,6 +3,7 @@
 #include "WizNotePresentation.h"
 #include "WizUpgrade.h"
 #include "WizWebSettingsDialog.h"
+#include "gui/documentviewer/WizSvgEditorDialog.h"
 #include "share/WizWebEngineView.h"
 #include "share/WizGlobal.h"
 #include "utils/WizPathResolve.h"
@@ -31,6 +32,12 @@
 class StartupNoRequests final : public QWebEngineUrlRequestInterceptor {
     void interceptRequest(QWebEngineUrlRequestInfo& info) override { info.block(true); }
 };
+class StartupInlineOnlyRequests final : public QWebEngineUrlRequestInterceptor {
+    void interceptRequest(QWebEngineUrlRequestInfo& info) override {
+        const auto scheme=info.requestUrl().scheme();
+        if(scheme!="data"&&scheme!="about")info.block(true);
+    }
+};
 
 // Use the actual dialog constructor and delayed virtual dispatch. Override
 // only loading, so no settings website, token acquisition or account is used.
@@ -42,6 +49,19 @@ protected:
     void load() override { ++m_calls; }
 private:
     int& m_calls;
+};
+
+// Actual SVG dialog/slots, with ONLY remote loading suppressed. Its real local
+// page and C++ save continuation can be exercised without a handwriting site.
+class StartupSvgDialogProbe final : public WizSvgEditorDialog {
+public:
+    StartupSvgDialogProbe(const QString& htmlFile,QWidget* parent,
+        std::function<void(bool,std::function<void(bool)>)> save)
+        : WizSvgEditorDialog(QStringLiteral("about:blank"),{},std::move(save),htmlFile,parent) {}
+    using WizSvgEditorDialog::reject;
+    using WizSvgEditorDialog::onLoaded;
+protected:
+    void load() override {}
 };
 
 int wizStandaloneLockProbe(int argc, char** argv) {
@@ -220,6 +240,112 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
         pump(150);
         check(initialFinished&&acceptedReload&&starts>beforeReload,
             "live actual view still starts its original reload after accepting the error question");
+    }
+    {
+        StartupInlineOnlyRequests inlineOnly;
+        primary->setUrlRequestInterceptor(&inlineOnly);
+        QWidget parent;parent.resize(320,240);
+        const auto pump=[](int milliseconds) {
+            QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();
+        };
+        std::function<void(bool)> pending;
+        int submitted=0,delivered=0,rejected=0;bool changed=true;
+        const auto save=[&](bool value,std::function<void(bool)> completion) {
+            ++submitted;changed=value;pending=std::move(completion);
+        };
+        auto living=std::make_unique<StartupSvgDialogProbe>(base+"/svg-fixture/index.html",&parent,save);
+        QObject::connect(living.get(),&QDialog::rejected,&parent,[&]{++rejected;});
+        living->saveData("{\"closeDialog\":false}",{},{});
+        const bool submittedUnchanged=submitted==1&&!changed&&bool(pending);
+        if(pending){++delivered;pending(true);}
+        check(submittedUnchanged&&delivered==1&&rejected==0,
+            "actual SVG unchanged save keeps a live dialog open when close was not requested");
+        living->saveData("{\"closeDialog\":true}",{},{});
+        if(pending){++delivered;pending(true);}
+        check(submitted==2&&delivered==2&&rejected==1,
+            "actual SVG successful save still closes its live originating dialog");
+
+        living->saveData("{\"closeDialog\":true}",{},{});
+        bool warningSeen=false;
+        QTimer warningPoll,warningDeadline;warningDeadline.setSingleShot(true);
+        QObject::connect(&warningPoll,&QTimer::timeout,&parent,[&] {
+            if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) {
+                warningSeen=box->text()==QStringLiteral("Failed to save note.")&&box->parentWidget()==living.get();
+                if(auto* ok=box->button(QMessageBox::Ok))ok->click();else box->reject();
+            }
+        });
+        QObject::connect(&warningDeadline,&QTimer::timeout,&parent,[&] {
+            for(auto* widget:QApplication::topLevelWidgets())
+                if(auto* box=qobject_cast<QMessageBox*>(widget))box->reject();
+        });
+        warningPoll.start(5);warningDeadline.start(2000);
+        if(pending){++delivered;pending(false);}
+        warningPoll.stop();warningDeadline.stop();
+        check(warningSeen&&living&&rejected==1,
+            "actual SVG save failure preserves its original warning and does not close a live dialog");
+
+        auto closing=std::make_unique<StartupSvgDialogProbe>(base+"/svg-fixture/index.html",&parent,save);
+        const QPointer<StartupSvgDialogProbe> closed(closing.get());
+        closing->saveData("{\"closeDialog\":true}",{},{});
+        auto completedAfterClose=std::move(pending);
+        closing.reset();
+        if(completedAfterClose){++delivered;completedAfterClose(true);}
+        check(closed.isNull()&&delivered==4,
+            "actual SVG save completion is still delivered after dialog destruction without stale close UI");
+        if(completedAfterClose){++delivered;completedAfterClose(false);}
+        pump(50);
+        bool staleWarning=false;
+        for(auto* widget:QApplication::topLevelWidgets())
+            if(qobject_cast<QMessageBox*>(widget)&&widget->isVisible())staleWarning=true;
+        check(delivered==5&&!staleWarning,
+            "actual SVG late failed completion cannot open a warning on its destroyed owner");
+
+        const auto localPage=[&](StartupSvgDialogProbe* dialog,const QString& reply) {
+            struct Ready {bool loaded=false,ok=false,queried=false,painter=false;};
+            const auto ready=std::make_shared<Ready>();
+            const auto connection=QObject::connect(dialog->web(),&QWebEngineView::loadFinished,&parent,[ready](bool ok){ready->loaded=true;ready->ok=ok;});
+            dialog->web()->setHtml("<!doctype html><script>window.wizSvgPainter={save:function(o){window.closeRequested=o.closeDialog;return "+reply+";}};</script><p>Synthetic SVG UI</p>");
+            QElapsedTimer deadline;deadline.start();
+            while(!ready->loaded&&deadline.elapsed()<5000)pump(5);
+            QObject::disconnect(connection);
+            dialog->web()->page()->runJavaScript("!!window.wizSvgPainter&&typeof wizSvgPainter.save==='function'",[ready](const QVariant& value){ready->queried=true;ready->painter=value.toBool();});
+            while(!ready->queried&&deadline.elapsed()<5000)pump(5);
+            return ready->ok&&ready->queried&&ready->painter;
+        };
+        auto scriptClose=std::make_unique<StartupSvgDialogProbe>(base+"/svg-fixture/index.html",&parent,save);
+        int scriptRejected=0;
+        QObject::connect(scriptClose.get(),&QDialog::rejected,&parent,[&]{++scriptRejected;});
+        const bool invalidLoaded=localPage(scriptClose.get(),"undefined");
+        scriptClose->reject();pump(150);
+        check(invalidLoaded&&scriptRejected==1,
+            "actual SVG invalid painter reply retains its original live-dialog close fallback");
+        auto scriptPending=std::make_unique<StartupSvgDialogProbe>(base+"/svg-fixture/index.html",&parent,save);
+        const bool validLoaded=localPage(scriptPending.get(),"true");
+        int prematureClose=0;
+        QObject::connect(scriptPending.get(),&QDialog::rejected,&parent,[&]{++prematureClose;});
+        scriptPending->reject();pump(150);
+        check(validLoaded&&prematureClose==0,
+            "actual SVG valid painter reply continues waiting for the existing save protocol");
+        const QPointer<StartupSvgDialogProbe> queryClosed(scriptPending.get());
+        scriptPending->reject();scriptPending.reset();pump(150);
+        check(queryClosed.isNull()&&!QApplication::activeModalWidget(),
+            "destroying actual SVG dialog during its pending JavaScript close query is safe");
+        auto error=std::make_unique<StartupSvgDialogProbe>(base+"/svg-fixture/index.html",&parent,save);
+        int errorClosed=0;
+        QObject::connect(error.get(),&QDialog::rejected,&parent,[&]{++errorClosed;});
+        error->onLoaded(false);error->reject();
+        check(errorClosed==1,"actual SVG existing load-error path still rejects synchronously");
+        const QString svg=QString::fromUtf8("<svg xmlns=\"http://www.w3.org/2000/svg\"><text>合成数学 x²</text></svg>");
+        const QString html=QString::fromUtf8("<!doctype html><html><head></head><body>合成手写笔记</body></html>");
+        living->saveData("{\"fileName\":\"shape.svg\",\"isFullHtml\":true,\"closeDialog\":false}",svg,html);
+        const bool changedSaveSubmitted=changed&&bool(pending);
+        if(pending)pending(true);
+        QFile savedSvg(base+"/svg-fixture/index_files/shape.svg"),savedHtml(base+"/svg-fixture/index.html");
+        const bool filesOpened=savedSvg.open(QIODevice::ReadOnly)&&savedHtml.open(QIODevice::ReadOnly);
+        check(changedSaveSubmitted&&filesOpened&&savedSvg.readAll()==svg.toUtf8()
+            &&savedHtml.readAll()==QByteArray::fromHex("efbbbf")+html.toUtf8(),
+            "actual SVG save retains original UTF-8 SVG and BOM-prefixed HTML bytes");
+        primary->setUrlRequestInterceptor(&requests);
     }
     delete secondary; delete primary;
     first.release();

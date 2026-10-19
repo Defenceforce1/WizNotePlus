@@ -4,6 +4,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QPointer>
 
 #include "share/WizThreads.h"
 #include "share/WizMisc.h"
@@ -40,6 +41,13 @@ WizSvgEditorDialog::WizSvgEditorDialog(QString url, QString data, std::function<
     m_url = m_url + "&a=" + QUrl::toPercentEncoding(a);
 }
 
+WizSvgEditorDialog::~WizSvgEditorDialog()
+{
+    // QWidget destroys child pages before QObject clears all weak pointers.
+    // WebEngine may flush JavaScript callbacks during that teardown.
+    m_asyncCallbacks.cancel();
+}
+
 void WizSvgEditorDialog::reject()
 {
     if (m_error) {
@@ -47,9 +55,11 @@ void WizSvgEditorDialog::reject()
         return;
     }
 
-    web()->page()->runJavaScript("wizSvgPainter.save({closeDialog: true})", [=](const QVariant& ret) {
-        if (!ret.isValid()) {
-            WizWebSettingsDialog::reject();
+    const QPointer<WizSvgEditorDialog> self(this);
+    const auto lifetime=m_asyncCallbacks.ticket();
+    web()->page()->runJavaScript("wizSvgPainter.save({closeDialog: true})", [self,lifetime](const QVariant& ret) {
+        if (WizDocumentCallbackEpoch::current(lifetime)&&self&&!ret.isValid()) {
+            self->WizWebSettingsDialog::reject();
         }
     });
 }
@@ -125,13 +135,19 @@ void WizSvgEditorDialog::saveData(QString options, QString svgData, QString html
 
     bool closeDialog = o["closeDialog"].asBool();
 
-    m_saveCallback(changed, [=] (bool saved) {
+    // Saving itself must finish even if the dialog closes. Only the subsequent
+    // warning/close UI belongs to this dialog's lifetime; it is GUI-delivered
+    // by the existing saveSvgCore main-queue completion.
+    const QPointer<WizSvgEditorDialog> self(this);
+    const auto lifetime=m_asyncCallbacks.ticket();
+    m_saveCallback(changed, [self,lifetime,closeDialog] (bool saved) {
+        if (!WizDocumentCallbackEpoch::current(lifetime)||!self) return;
         if (!saved) {
-            WizMessageBox::warning(this, tr("Info"), tr("Failed to save note."));
+            WizMessageBox::warning(self, self->tr("Info"), self->tr("Failed to save note."));
             return;
         }
         if (closeDialog) {
-            WizWebSettingsDialog::reject();
+            self->WizWebSettingsDialog::reject();
         }
     });
 }
