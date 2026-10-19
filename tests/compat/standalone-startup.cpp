@@ -2,6 +2,7 @@
 #include "WizBuildIdentity.h"
 #include "WizNotePresentation.h"
 #include "WizUpgrade.h"
+#include "WizWebSettingsDialog.h"
 #include "share/WizWebEngineView.h"
 #include "share/WizGlobal.h"
 #include "utils/WizPathResolve.h"
@@ -20,10 +21,25 @@
 #include <QDebug>
 #include <QJsonObject>
 #include <QNetworkProxy>
+#include <QEventLoop>
+#include <QPointer>
+#include <memory>
 #include <QWebEngineUrlRequestInterceptor>
 
 class StartupNoRequests final : public QWebEngineUrlRequestInterceptor {
     void interceptRequest(QWebEngineUrlRequestInfo& info) override { info.block(true); }
+};
+
+// Use the actual dialog constructor and delayed virtual dispatch. Override
+// only loading, so no settings website, token acquisition or account is used.
+class StartupWebDialogProbe final : public WizWebSettingsDialog {
+public:
+    explicit StartupWebDialogProbe(int& calls)
+        : WizWebSettingsDialog(QStringLiteral("about:blank"),QSize(200,120)),m_calls(calls) {}
+protected:
+    void load() override { ++m_calls; }
+private:
+    int& m_calls;
 };
 
 int wizStandaloneLockProbe(int argc, char** argv) {
@@ -119,6 +135,34 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
     });
     updates.checkUpgrade();
     check(!WizBuildIdentity::appleSiliconTrial || updateFinished, "trial legacy update check ends synchronously without legacy releases");
+    {
+        const auto pump=[](int milliseconds) {
+            QEventLoop loop;
+            QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);
+            loop.exec();
+        };
+        int legacyLate=0,closedLoads=0,liveLoads=0,repeatedLoads=0;
+        auto legacyOwner=std::make_unique<QObject>();
+        const QPointer<QObject> legacy(legacyOwner.get());
+        QTimer::singleShot(30,[legacy,&legacyLate] {if(!legacy)++legacyLate;});
+        legacyOwner.reset();
+        auto closing=std::make_unique<StartupWebDialogProbe>(closedLoads);
+        const QPointer<StartupWebDialogProbe> closed(closing.get());
+        closing.reset();
+        auto live=std::make_unique<StartupWebDialogProbe>(liveLoads);
+        check(liveLoads==0,"web settings retains its delayed rather than inline initialization");
+        for(int index=0;index<4;++index){
+            auto transient=std::make_unique<StartupWebDialogProbe>(repeatedLoads);
+        }
+        pump(250);
+        check(legacyLate==1,"safe control confirms an ownerless timer still delivers after its source object closes");
+        check(closed.isNull()&&closedLoads==0,"actual closed web settings dialog cancels its pending initialization");
+        check(liveLoads==1,"actual live web settings dialog still initializes exactly once");
+        check(repeatedLoads==0,"rapidly closing actual web dialogs cannot initialize replacement instances");
+        live.reset();pump(150);
+        check(liveLoads==1&&closedLoads==0&&repeatedLoads==0,
+            "dialog destruction leaves no later repeated initialization callback");
+    }
     delete secondary; delete primary;
     first.release();
     check(second.prepare(home, root, error) && second.hasConsent(), "normal close releases lock and preserves first-launch confirmation");

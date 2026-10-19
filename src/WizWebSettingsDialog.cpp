@@ -69,7 +69,7 @@ void WizWebSettingsDialog::init(const WizWebEngineInjectObjectCollection &object
 
     connect(web, SIGNAL(loadFinishedEx(bool)), SLOT(on_web_loaded(bool)));
 
-    QTimer::singleShot(100, [=] {
+    QTimer::singleShot(100, this, [this] {
         load();
     });
 }
