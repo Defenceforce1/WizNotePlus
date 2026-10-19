@@ -82,12 +82,15 @@ extract_between("${root}/src/database/WizDatabase.cpp" "bool WizDatabase::export
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/actual-resources.inc"
   "${copy_body}\n${reader_body}\n${writer_two_body}\nnamespace Utils {\n${names_body}\n${path_body}\n}\n${database_body}\n")
 file(SHA256 "${root}/src/database/WizDatabase.cpp" database_sha)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/transaction-prototype.h" transaction_sha)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/transaction-prototype.h")
 add_executable(markdown-resource-probe resource-main.cpp)
 target_include_directories(markdown-resource-probe PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${root}/src/share")
 target_link_libraries(markdown-resource-probe PRIVATE Qt6::Core Qt6::Gui Qt6::Core5Compat)
 target_compile_features(markdown-resource-probe PRIVATE cxx_std_17)
 target_compile_definitions(markdown-resource-probe PRIVATE
-  DATABASE_SOURCE_SHA="${database_sha}" WRITER_SOURCE_SHA="${writer_sha}" NAMES_SOURCE_SHA="${names_sha}")
+  DATABASE_SOURCE_SHA="${database_sha}" WRITER_SOURCE_SHA="${writer_sha}" NAMES_SOURCE_SHA="${names_sha}"
+  TRANSACTION_SOURCE_SHA="${transaction_sha}")
 if(WIZ_MARKDOWN_EXPORT_SANITIZE)
   target_compile_options(markdown-resource-probe PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
   target_link_options(markdown-resource-probe PRIVATE -fsanitize=address,undefined)

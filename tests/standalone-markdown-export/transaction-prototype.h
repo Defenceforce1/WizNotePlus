@@ -10,7 +10,9 @@
 namespace ExportTransactionPrototype {
 inline bool write(const QString& destination, const QString& markdown,
                   const std::function<bool(const QString&)>& exportHtml,
-                  QString& error, bool cancelFinalCommitForTest = false)
+                  QString& error, bool cancelFinalCommitForTest = false,
+                  const std::function<void(const QString&)>& beforeCommitForTest = {},
+                  const std::function<void()>& beforeOldRestoreForTest = {})
 {
     error.clear();
     const QFileInfo info(destination);
@@ -52,6 +54,7 @@ inline bool write(const QString& destination, const QString& markdown,
     auto rollback = [&] {
         bool ok = true;
         if (installedNew) ok = QDir().rename(resources, returned);
+        if (ok && beforeOldRestoreForTest) beforeOldRestoreForTest();
         if (ok && movedOld) ok = QDir().rename(backup, resources);
         if (!ok) {
             staging.setAutoRemove(false); // Never discard the only old copy.
@@ -71,6 +74,7 @@ inline bool write(const QString& destination, const QString& markdown,
         }
         installedNew = true;
     }
+    if (beforeCommitForTest) beforeCommitForTest(staging.path());
     if (cancelFinalCommitForTest) output.cancelWriting();
     if (!output.commit()) {
         error = "final Markdown commit failed";

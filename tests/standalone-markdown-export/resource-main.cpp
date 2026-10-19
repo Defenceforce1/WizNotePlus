@@ -170,10 +170,49 @@ int main(int argc, char** argv)
         check(!ExportTransactionPrototype::write(symbolic, "UNEXPECTED", [&](const QString&) { return true; }, error)
             && QFileInfo(symbolic).isSymLink() && read(target) == sentinel,
               "prototype refuses symlink destination and leaves its target unchanged");
+        if (!reset()) return 2;
+        QString recovery;
+        QFileDevice::Permissions stagingPermissions;
+        bool permissionBlocked = false;
+        const bool retained = ExportTransactionPrototype::write(target, "NEW SOURCE",
+            [&](const QString& staged) { return database.exportToHtmlFile(document, staged); }, error, true,
+            [&](const QString& stage) {
+                recovery = stage;
+                stagingPermissions = QFileInfo(stage).permissions();
+                if (!QFile::setPermissions(stage, QFileDevice::ReadOwner | QFileDevice::ExeOwner)) return;
+                permissionBlocked = !write(stage + "/permission-control", "NOT WRITABLE");
+            });
+        const bool stagePermissionsRestored = !recovery.isEmpty() && QFile::setPermissions(recovery, stagingPermissions);
+        check(stagePermissionsRestored && permissionBlocked, "rollback-failure fixture genuinely blocked staging writes and restored permission");
+        check(!retained && error.startsWith("rollback failed; retained recovery directory: ") && error.endsWith(recovery),
+              "failed new-resource rollback reports explicit retained recovery location");
+        check(read(target) == sentinel, "failed rollback still leaves previous Markdown bytes untouched");
+        check(read(recovery + "/previous-resources/a-first.png") == "OLD A"
+            && read(recovery + "/previous-resources/z-fails.png") == "OLD Z"
+            && read(recovery + "/previous-resources/unrelated.png") == "KEEP UNRELATED",
+              "failed rollback retains the only complete old resource backup after helper return");
+        check(read(resources + "a-first.png") == "NEW A" && read(resources + "z-fails.png") == "NEW Z",
+              "fixture records partial rollback honestly rather than claiming resources restored");
+        if (!reset()) return 2;
+        QString secondRecovery;
+        bool blockerCreated = false;
+        const bool secondResult = ExportTransactionPrototype::write(target, "NEW SOURCE",
+            [&](const QString& staged) { return database.exportToHtmlFile(document, staged); }, error, true,
+            [&](const QString& stage) { secondRecovery = stage; },
+            [&] { blockerCreated = write(resources.chopped(1), "SYNTHETIC EXTERNAL BLOCKER"); });
+        check(blockerCreated && !secondResult && error.endsWith(secondRecovery), "failed old-resource restoration reports its separate recovery location");
+        check(read(target) == sentinel && read(resources.chopped(1)) == "SYNTHETIC EXTERNAL BLOCKER",
+              "failed restore does not overwrite an unexpected destination or old Markdown");
+        check(read(secondRecovery + "/previous-resources/a-first.png") == "OLD A"
+            && read(secondRecovery + "/previous-resources/z-fails.png") == "OLD Z"
+            && read(secondRecovery + "/returned-resources/a-first.png") == "NEW A"
+            && read(secondRecovery + "/returned-resources/z-fails.png") == "NEW Z",
+              "failed restore retains both old backup and returned new resources after helper destruction");
         qInfo().noquote() << QJsonDocument(QJsonObject{{"diagnosticOnly", true}, {"productModified", false},
             {"transactionPrototype", true}, {"archiveExtractionIsAdapter", true},
             {"actualDatabaseEngineEndToEnd", false}, {"crashOrConcurrentWriterRecovery", false},
-            {"checks", checks}, {"failures", failures}, {"databaseSourceSHA256", DATABASE_SOURCE_SHA}
+            {"checks", checks}, {"failures", failures}, {"databaseSourceSHA256", DATABASE_SOURCE_SHA},
+            {"transactionPrototypeSHA256", TRANSACTION_SOURCE_SHA}, {"controlledRollbackFailureRetention", true}
         }).toJson(QJsonDocument::Compact);
         return failures ? 1 : 0;
     }

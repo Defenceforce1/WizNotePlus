@@ -73,8 +73,15 @@ rolls resources back. Existing unrelated resources retain the old merge behavior
 valid output path and UTF-8/no-BOM bytes remain identical. Directory/symlink
 destinations are refused in this prototype, NOT a changed product policy.
 
-This is NOT power-loss-safe or a multi-file atomic operation; concurrent writers,
-rollback failure/recovery-directory handling, real archive/password workflows
-and actual main-window integration remain unaccepted. A retained-backup failure
-branch is not claimed tested merely because ordinary rollback passed. Never run
-this developer probe against user destinations or describe it as a shipped fix.
+This is NOT power-loss-safe or a multi-file atomic operation. Two controlled
+rollback-failure fixtures now verify that a blocked new-directory rollback or
+blocked old-directory restore retains the old backup (and returned new directory
+where applicable), reports the recovery path, preserves Markdown and refuses to
+overwrite an unexpected destination. Test-only callbacks inject these faults;
+actual directory renames and permissions still determine the failure. Permission
+changes are restored, then the outer QTemporaryDir cleans its synthetic fixtures.
+
+General concurrent-writer recovery, recovery across restart/power loss, a recovery
+UI, real archive/password workflows and main-window integration remain unaccepted.
+Do not describe controlled backup retention as guaranteed successful rollback.
+Never run this developer probe against user destinations or call it a shipped fix.
