@@ -79,6 +79,8 @@ struct ExportHarness : QObject {
 };
 #ifdef EXPORT_CANDIDATE
 #include "candidate-flow.inc"
+#elif defined(EXPORT_LEGACY)
+#include "legacy-flow.inc"
 #else
 #include "actual-flow.inc"
 #endif
@@ -138,7 +140,7 @@ int main(int argc, char** argv)
     QApplication app(argc, argv);
     const bool requireSafe = app.arguments().contains("--require-safe");
     const bool requireReplySafe = requireSafe || app.arguments().contains("--require-reply-safe");
-#ifdef EXPORT_CANDIDATE
+#if defined(EXPORT_CANDIDATE) || defined(EXPORT_ACTUAL_REPLY_FIRST)
     constexpr bool candidate = true;
 #else
     constexpr bool candidate = false;
@@ -218,7 +220,7 @@ int main(int argc, char** argv)
     check(markdownWrites == before, "modeled DB failure performs no final Markdown write");
     check(readBytes(target).contains("synthetic snapshot"), "modeled late DB failure leaves HTML in Markdown target");
     if (requireSafe) check(readBytes(target) == "EXISTING SYNTHETIC EXPORT\n", "SAFETY: modeled DB failure preserves existing file");
-#ifdef EXPORT_CANDIDATE
+#if defined(EXPORT_CANDIDATE) || defined(EXPORT_ACTUAL_REPLY_FIRST)
     harness.m_dbMgr.database.failAfterHtml = false;
     for (const QString& boundary : {QStringLiteral("destroy"), QStringLiteral("epoch"), QStringLiteral("document"), QStringLiteral("page")}) {
         auto owner = std::make_unique<ExportHarness>(&page);
@@ -237,8 +239,9 @@ int main(int argc, char** argv)
     }
 #endif
     QTextStream(stdout) << QJsonDocument(QJsonObject{
-        {"diagnosticOnly", true}, {"actualClassOrDatabaseEndToEnd", false}, {"productModified", false},
+        {"diagnosticOnly", true}, {"actualClassOrDatabaseEndToEnd", false}, {"probeModifiesProduct", false},
         {"mode", EXPORT_MODE}, {"candidateSHA256", CANDIDATE_SOURCE_SHA},
+        {"legacyControlSHA256", LEGACY_SOURCE_SHA},
         {"exportSourceSHA256", EXPORT_SOURCE_SHA}, {"writerSourceSHA256", WRITER_SOURCE_SHA},
         {"namesSourceSHA256", NAMES_SOURCE_SHA}, {"requireSafe", requireSafe}, {"requireReplySafe", requireReplySafe},
         {"checks", checks}, {"failures", failures}, {"observations", observations}

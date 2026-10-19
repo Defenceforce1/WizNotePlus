@@ -2358,30 +2358,27 @@ void WizDocumentWebView::saveAsMarkdown()
 void WizDocumentWebView::saveAsMarkdown(QString& strIndexFileName, bool bSaveResource)
 {
     Q_UNUSED(bSaveResource);
-    if (strIndexFileName.isEmpty())
-        return;
-    //
-    if (::WizPathFileExists(strIndexFileName))
-    {
-        ::WizDeleteFile(strIndexFileName);
-    }
-    // prepare note data
-    const WIZDOCUMENTDATA& doc = view()->note();
-    WizDatabase& db = m_dbMgr.db(doc.strKbGUID);
-    // 导出HTML和资源文件到目标文件地址
-    if (!db.exportToHtmlFile(doc, strIndexFileName)) {
-        return;
-    }
-    // cannot be standard markdown for inner contanined table, todo, picture
-    page()->runJavaScript(QString("WizEditor.getMarkdownSrc({unEscapeHtml: true});"), [=](const QVariant& vModified){
-        //
-        QString source = vModified.toString();
-        //
-        QString fileTitle = Utils::WizMisc::extractFileTitle(strIndexFileName);
-
-        QString strResFolder = fileTitle.toHtmlEscaped() + "_files/";
-        source.replace("index_files/", strResFolder);
-        //
+    if (strIndexFileName.isEmpty()) return;
+    const WIZDOCUMENTDATA doc = view()->note();
+    const auto ticket = m_documentCallbacks.ticket();
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<QWebEnginePage> sourcePage(page());
+    if (!sourcePage) return;
+    sourcePage->runJavaScript(QString("WizEditor.getMarkdownSrc({unEscapeHtml: true});"),
+        [self, sourcePage, ticket, doc, strIndexFileName](const QVariant& result) {
+        // Reject stale/failed queries before touching the user's export files.
+        if (!WizDocumentCallbackEpoch::current(ticket) || !self || !sourcePage
+            || self->page() != sourcePage || !self->acceptsDocumentCallback(ticket, doc)
+            || result.userType() != QMetaType::QString) return;
+        QString source = result.toString(); // A valid empty string is allowed.
+        const QString fileTitle = Utils::WizMisc::extractFileTitle(strIndexFileName);
+        source.replace("index_files/", fileTitle.toHtmlEscaped() + "_files/");
+        // Preserve the original valid-output/resource policy. Resource rollback
+        // is separate; no existing output is removed for an invalid JS result.
+        if (::WizPathFileExists(strIndexFileName)) ::WizDeleteFile(strIndexFileName);
+        WizDatabase& db = self->m_dbMgr.db(doc.strKbGUID);
+        if (!db.exportToHtmlFile(doc, strIndexFileName)) return;
+        // No owner access after a collaborator that could run a nested loop.
         ::WizSaveUnicodeTextToUtf8File(strIndexFileName, source, false);
     });
 }
