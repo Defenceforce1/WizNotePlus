@@ -27,6 +27,7 @@
 #include "share/WizLegacyLightAppearance.h"
 #include "WizNotePresentation.h"
 #include "WizBuildIdentity.h"
+#include "mac/WizMacHelper.h"
 #include "utils/WizPathResolve.h"
 #include <QTranslator>
 #include <QFileDialog>
@@ -101,6 +102,11 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     const bool interactive = (argc == 2 && QByteArray(argv[1]) == "--mac-main-window-controls-probe")
         || QByteArray(argv[0]).endsWith("/WizWindowControlsTest");
     const bool headerOnly = !interactive && qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_ONLY") == 1;
+    const bool fontOnly=!interactive&&qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_ONLY")==1;
+    if (fontOnly&&(headerOnly||qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL")!=1)) {
+        qCritical("FONT-ONLY requires the explicit font-panel probe and cannot be combined with HEADER-ONLY.");
+        return 2;
+    }
     if (!interactive&&qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL")==1
             &&qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL_MANUAL_CANCEL")!=1) {
         qCritical("Native font-panel probe requires an available operator and WIZNOTE_TEST_FONT_PANEL_MANUAL_CANCEL=1; do not cancel Cocoa through QDialog::reject().");
@@ -393,11 +399,25 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             && bool(native.miniaturized) == minimized;
     };
     auto button = [&](NSWindowButton type) { return [native standardWindowButton:type]; };
+    QString lastHitDiagnostic;
     auto hit = [&](NSButton* control) {
         NSView* frame = native.contentView.superview;
         NSPoint p = [control convertPoint:NSMakePoint(NSMidX(control.bounds), NSMidY(control.bounds)) toView:frame];
         NSView* target = [frame hitTest:p];
-        return target == control || [target isDescendantOf:control];
+        const bool matches=target==control||[target isDescendantOf:control];
+        if (!matches) {
+            QStringList ancestry;
+            for (NSView* view=control;view;view=view.superview)
+                ancestry<<QString::fromNSString(NSStringFromClass(view.class))+":"+QString::fromNSString(NSStringFromRect(view.frame));
+            const QString diagnostic=QString("control=%1 hidden=%2 alpha=%3 point=%4 target=%5 targetFrame=%6 ancestry=%7")
+                .arg(QString::fromNSString(NSStringFromClass(control.class))).arg(bool(control.hiddenOrHasHiddenAncestor))
+                .arg(control.alphaValue).arg(QString::fromNSString(NSStringFromPoint(p)))
+                .arg(target?QString::fromNSString(NSStringFromClass(target.class)):QStringLiteral("nil"))
+                .arg(target?QString::fromNSString(NSStringFromRect(target.frame)):QStringLiteral("nil"))
+                .arg(ancestry.join(" / "));
+            if (diagnostic!=lastHitDiagnostic) {lastHitDiagnostic=diagnostic;qInfo().noquote()<<"HEADER HIT MISMATCH"<<diagnostic;}
+        }
+        return matches;
     };
     // Run every action from the application's real event loop. A tight manual
     // processEvents loop does not enter NSApplication.run and is not an adequate
@@ -410,9 +430,11 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     };
     std::vector<Step> steps;
     bool collectHeaderSteps = true;
+    bool collectFontSteps = true;
     auto addCheck = [&](const char* label, std::function<bool()> complete,
                         std::function<void()> begin = {}, int timeout = 8000) {
         if (headerOnly && !collectHeaderSteps) return;
+        if (fontOnly && !collectFontSteps) return;
         steps.push_back({label, std::move(begin), std::move(complete), timeout});
     };
     addCheck("actual main-window synthetic note loads in the actual editor",
@@ -574,6 +596,46 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             window.docView()->web()->page()->runJavaScript("WizEditor.link=NativeOriginalLink;");
         });
     }
+    // No native dialog is opened in these cycles: isolate destruction of a
+    // real loaded document from the separate font-panel interaction.
+    const int headerDocumentCycles=interactive?0:qBound(0,qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_DOCUMENT_CYCLES"),8);
+    for (int cycle=0;cycle<headerDocumentCycles;++cycle) {
+        struct ClosingDocumentState {
+            std::unique_ptr<WizDocumentView> view;
+            bool pending=false, ready=false, barrier=false;
+            QElapsedTimer settled;
+        };
+        const auto closing=std::make_shared<ClosingDocumentState>();
+        addCheck("independent header-lifetime document loads in the original editor",[closing] {
+            if (!closing->view||!closing->view->noteLoaded()||!closing->view->web()->isEditing()) return false;
+            if (!closing->ready&&!closing->pending) {
+                closing->pending=true;
+                closing->view->web()->page()->runJavaScript(
+                    "!!window.WizNativeEditorInitialized&&document.body.isContentEditable",[closing](const QVariant& value) {
+                        closing->ready=value.toBool();closing->pending=false;
+                    });
+            }
+            return closing->ready;
+        },[&,closing,cycle] {
+            qInfo()<<"HEADER DOCUMENT CYCLE"<<cycle+1;
+            closing->view=std::make_unique<WizDocumentView>(window,&window);
+            if (auto* loader=window.findChild<WizDocumentLoaderThread*>()) {
+                auto* web=closing->view->web();
+                QObject::connect(web,&WizDocumentWebView::loadDocumentRequested,loader,&WizDocumentLoaderThread::load);
+                QObject::connect(loader,&WizDocumentLoaderThread::loaded,web,&WizDocumentWebView::onDocumentReady,Qt::QueuedConnection);
+            }
+            closing->view->viewNote(extended,true);
+        },15000);
+        addCheck("destroying an unmodified independent document settles without opening a font panel",[closing] {
+            return !closing->view&&closing->barrier&&closing->settled.elapsed()>=500;
+        },[&,closing] {
+            closing->view.reset();
+            closing->settled.start();
+            window.docView()->web()->page()->runJavaScript("true",[closing](const QVariant& value) {
+                closing->barrier=value.toBool();
+            });
+        });
+    }
     if (!interactive && qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL") == 1) {
         struct FontPanelState {
             QString originalHtml;
@@ -714,6 +776,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             });
         });
     }
+    if (fontOnly) addCheck("font-only fixture confirms local synthetic content before normal quit",[&] {
+        return window.prepareForQuit();
+    });
+    collectFontSteps=false;
     auto capture = [&](QWidget* widget, const QString& name) {
         if (!artifactDir.isEmpty() && QDir().mkpath(artifactDir))
             widget->grab().save(QDir(artifactDir).filePath(name));
@@ -1374,6 +1440,9 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         }, [&] { window.docView()->setEditorMode(modeReader); }, 15000);
     }
     collectHeaderSteps = true;
+    addCheck("native geometry acceptance requires a window without an active system sharing session",[&] {
+        return !native.hasActiveWindowSharingSession;
+    });
     addCheck("Qt native delegate is retained, not replaced by the legacy frameless proxy", [&] {
         return [native.delegate respondsToSelector:@selector(windowShouldClose:)]
             && ![NSStringFromClass([native.delegate class]) isEqualToString:@"NSWindowProxyDelegate"];
@@ -1576,7 +1645,36 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     bool started = false;
     QTimer headerTrace;
     QString lastHeaderTrace;
+    NSMutableArray* frameTraceViews=[NSMutableArray array];
+    std::vector<bool> previousFrameNotifications;
     if (headerOnly || qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_TRACE") == 1) {
+        NSButton* tracedClose=button(NSWindowCloseButton);
+        if (tracedClose&&tracedClose.superview) {
+            __block int frameStacks=0;
+            const size_t* tracedStep=&step;
+            for (NSView* tracedView in @[tracedClose,tracedClose.superview]) {
+                [frameTraceViews addObject:tracedView];
+                previousFrameNotifications.push_back(tracedView.postsFrameChangedNotifications);
+                tracedView.postsFrameChangedNotifications=YES;
+                [observers addObject:[center addObserverForName:NSViewFrameDidChangeNotification
+                    object:tracedView queue:nil usingBlock:^(NSNotification* notification) {
+                        NSView* changed=notification.object;
+                        qInfo().noquote()<<"HEADER FRAME EVENT step="<<*tracedStep
+                            <<QString::fromNSString(NSStringFromClass(changed.class))
+                            <<QString::fromNSString(NSStringFromRect(changed.frame));
+                        if (changed==tracedClose&&native.visible
+                            &&!(native.styleMask&NSWindowStyleMaskFullScreen)&&frameStacks<8) {
+                            const NSRect rect=[native.contentView convertRect:tracedClose.bounds fromView:tracedClose];
+                            const CGFloat y=native.contentView.flipped?NSMidY(rect):NSHeight(native.contentView.bounds)-NSMidY(rect);
+                            if (qAbs(y-22)>2) {
+                                ++frameStacks;
+                                qInfo().noquote()<<"HEADER FRAME RESET STACK"
+                                    <<QString::fromNSString([NSThread.callStackSymbols componentsJoinedByString:@"\n"]);
+                            }
+                        }
+                    }]];
+            }
+        }
         headerTrace.setTimerType(Qt::PreciseTimer);
         QObject::connect(&headerTrace, &QTimer::timeout, &app, [&] {
             auto* search = window.findChild<WizSearchEdit*>("wiz-note-search-field");
@@ -1586,12 +1684,12 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             const NSRect rect = [native.contentView convertRect:close.bounds fromView:close];
             const CGFloat centerY = native.contentView.flipped ? NSMidY(rect)
                 : NSHeight(native.contentView.bounds) - NSMidY(rect);
-            const QString now = QString("step=%1 qt=%2 visible=%3/%4 active=%5 key=%6 headerH=%7 searchY=%8 closeY=%9 container=%10 parentH=%11")
+            const QString now = QString("step=%1 qt=%2 visible=%3/%4 active=%5 key=%6 headerH=%7 searchY=%8 closeY=%9 container=%10 parentH=%11 sharing=%12")
                 .arg(step).arg(int(window.windowState())).arg(window.isVisible()).arg(bool(native.visible))
                 .arg(bool(NSApp.active)).arg(bool(native.keyWindow)).arg(window.titleBar()->height())
                 .arg(search->mapTo(&window, search->rect().center()).y()).arg(centerY)
                 .arg(QString::fromNSString(NSStringFromRect(container.frame)))
-                .arg(NSHeight(container.superview.bounds));
+                .arg(NSHeight(container.superview.bounds)).arg(bool(native.hasActiveWindowSharingSession));
             if (now != lastHeaderTrace) {
                 qInfo().noquote() << "HEADER TRACE" << now;
                 lastHeaderTrace = now;
@@ -1638,10 +1736,13 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     if (!interactive) check(originalCleanup, "original eleven-stage cleanup dialog remains and is configured to display immediately");
     window.hide();
     for (id observer in observers) [center removeObserver:observer];
+    for (NSUInteger index=0;index<frameTraceViews.count;++index)
+        [(NSView*)[frameTraceViews objectAtIndex:index] setPostsFrameChangedNotifications:previousFrameNotifications[index]];
     const QString resultPath = qEnvironmentVariable("WIZNOTE_TEST_WINDOW_RESULT");
     if (!resultPath.isEmpty()) {
         QFile result(resultPath);
         const QJsonDocument record(QJsonObject{{"synthetic", true}, {"headerOnly", headerOnly},
+            {"fontOnly",fontOnly},{"nativeControlsAcceptanceEligible",!fontOnly&&!native.hasActiveWindowSharingSession},
             {"interactive", interactive}, {"namedChecks", recordedChecks}, {"failures", failures},
             {"completedSteps", int(step)}, {"totalSteps", int(steps.size())},
             {"appActiveAtEnd", bool(NSApp.active)}, {"exitCode", failures ? 1 : 0}});
