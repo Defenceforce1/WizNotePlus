@@ -77,6 +77,59 @@ function WizRunMathDecorationRegression() {
     var before = reset(joined, options); WizApplyMathEnvironments();
     check(options.name + ' leaves content untouched', document.body.innerHTML === before);
   });
+  function escapedText(value) {
+    var element = document.createElement('span');
+    element.textContent = value;
+    return element.innerHTML;
+  }
+  // Keep the existing ASCII label grammar, including its length boundary.
+  // These are preview/source round-trip checks, not new label syntax.
+  ['a','thm:one','a/b.c-d_e','__proto__','constructor','toString','hasOwnProperty',
+    '0','https://example.test/a','x'.repeat(127),'x'.repeat(128)].forEach(function (key,index) {
+    var original = reset('<p>See \\ref{' + escapedText(key) + '}.</p><blockquote id="original-label-block"'
+      + ' style="color: red"><p><strong>定义</strong> \\label{' + escapedText(key) + '}</p><p>Body.</p></blockquote>');
+    WizApplyMathEnvironments();
+    var block = document.querySelector('.wiz-math-block'), link = document.querySelector('.wiz-math-reference');
+    var valid = block && link && document.querySelectorAll('.wiz-math-reference').length === 1
+      && block.id === 'wiz-math-' + key && link.getAttribute('href') === '#' + block.id;
+    var nodeCount = texts();
+    for (var cycle = 0; cycle < 8; ++cycle)
+      valid = valid && WizEditor.getContentHtml() === original && texts() === nodeCount;
+    WizClearMathEnvironments();
+    check('existing legal label and exact attribute/source restoration: sample ' + index,
+      valid && document.body.innerHTML === original);
+  });
+  ['','x'.repeat(129),'中文','a b',"a'b",'a"b','a[b]','a{b}','a&b','a#b','a%b','a\\b'].forEach(function (key,index) {
+    var original = reset('<p>See \\ref{' + escapedText(key) + '}.</p>'
+      + '<blockquote><p><strong>定义</strong> \\label{' + escapedText(key) + '}</p><p>Body.</p></blockquote>');
+    WizApplyMathEnvironments();
+    check('out-of-grammar label remains original text without preview rewrite: sample ' + index,
+      !document.querySelector('.wiz-math-block,.wiz-math-reference')
+      && WizEditor.getContentHtml() === original && document.body.innerHTML === original);
+  });
+  ['__proto__','constructor','dup:ordinary'].forEach(function (key,index) {
+    var original = reset('<p>See \\ref{' + key + '}.</p>' + [0,1].map(function () {
+      return '<blockquote><p><strong>定理</strong> \\label{' + key + '}</p><p>Body.</p></blockquote>';
+    }).join(''));
+    WizApplyMathEnvironments();
+    var blocks = Array.from(document.querySelectorAll('.wiz-math-block'));
+    check('duplicate labels are ambiguous even for object-property names: sample ' + index,
+      blocks.length === 2 && !document.querySelector('.wiz-math-reference')
+      && blocks.every(function (block) { return block.getAttribute('data-wiz-math-heading').includes('标签重复：' + key); })
+      && WizEditor.getContentHtml() === original);
+  });
+  ['old:anchor','__proto__'].forEach(function (key,index) {
+    var anchor = 'wiz-math-' + key;
+    var original = reset('<div id="' + anchor + '">Original destination</div><p>See \\ref{' + key + '}.</p>'
+      + '<blockquote id="original-block"><p><strong>定义</strong> \\label{' + key + '}</p><p>Body.</p></blockquote>');
+    WizApplyMathEnvironments();
+    var collisionPreserved = !document.querySelector('.wiz-math-reference')
+      && document.getElementById(anchor).tagName === 'DIV';
+    var sourcePreserved = WizEditor.getContentHtml() === original;
+    WizClearMathEnvironments();
+    check('existing destination collision is not stolen by math decoration: sample ' + index,
+      collisionPreserved && sourcePreserved && document.body.innerHTML === original);
+  });
   WizClearMathEnvironments();
   return {kind:'synthetic DOM regression, not a full editor integration', checks:checks,
     passed:checks.filter(function (c) { return c.ok; }).length, failures:checks.filter(function (c) { return !c.ok; })};
