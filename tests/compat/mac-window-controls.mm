@@ -101,6 +101,11 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
     const bool interactive = (argc == 2 && QByteArray(argv[1]) == "--mac-main-window-controls-probe")
         || QByteArray(argv[0]).endsWith("/WizWindowControlsTest");
     const bool headerOnly = !interactive && qEnvironmentVariableIntValue("WIZNOTE_TEST_HEADER_ONLY") == 1;
+    if (!interactive&&qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL")==1
+            &&qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL_MANUAL_CANCEL")!=1) {
+        qCritical("Native font-panel probe requires an available operator and WIZNOTE_TEST_FONT_PANEL_MANUAL_CANCEL=1; do not cancel Cocoa through QDialog::reject().");
+        return 2;
+    }
     if (headerOnly) qInfo() << "HEADER-ONLY diagnostic: not the full main-window regression";
     QTemporaryDir isolation;
     if (!isolation.isValid()) return 1;
@@ -580,6 +585,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
             QElapsedTimer settled;
         };
         const auto font=std::make_shared<FontPanelState>();
+        // Native Cocoa dialogs have their own modal loop. For the opt-in
+        // foreground probe, cancel through the actual native button rather
+        // than treating QDialog::reject() as equivalent to that user action.
+        const bool nativeFontManualCancel=qEnvironmentVariableIntValue("WIZNOTE_TEST_FONT_PANEL_MANUAL_CANCEL")==1;
         const auto requestFontPanel=[](WizDocumentView* view) {
             if (!view) return false;
             auto* toolbar=view->findChild<WizEditorToolBar*>();
@@ -593,7 +602,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
         };
         auto* fontWatcher=new QTimer(&window);
         fontWatcher->setInterval(10);
-        QObject::connect(fontWatcher,&QTimer::timeout,&window,[font,fontWatcher] {
+        QObject::connect(fontWatcher,&QTimer::timeout,&window,[font,fontWatcher,nativeFontManualCancel] {
             bool nativeVisible=false;
             for (NSWindow* nativePanel in NSApp.windows)
                 if ([nativePanel isKindOfClass:[NSFontPanel class]] && nativePanel.visible)
@@ -622,7 +631,10 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                     font->validFont=!current.family().isEmpty()&&current.pointSize()>0;
                     fontWatcher->stop();
                 }
-                dialog->reject(); // Only this isolated process's synthetic dialog.
+                if (nativeVisible&&nativeFontManualCancel)
+                    qInfo()<<"FONT PANEL READY: cancel this isolated panel using its native Cancel or close control";
+                else
+                    dialog->reject(); // Qt-only control, not native button acceptance.
                 return;
             }
             if (!foundWrapper&&font->lastDiagnostic!="no-wrapper") {
@@ -648,7 +660,7 @@ int wizMacWindowControlsSelfTest(int argc, char** argv)
                     font->originalModified=value.toMap().value("modified").toBool();
                     font->requested=requestFontPanel(view);
                 });
-        });
+        },nativeFontManualCancel?30000:8000);
         addCheck("canceling actual native font panel preserves the exact original HTML and modified state", [&,font] {
             if (!font->unchanged&&!font->pending) {
                 font->pending=true;

@@ -281,8 +281,9 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
 
     setupPage(new WizWebEnginePage(objects, this));
 
-    connect(this, &QWebEngineView::renderProcessTerminated,
+    connect(this, &QWebEngineView::renderProcessTerminated, this,
             [this](QWebEnginePage::RenderProcessTerminationStatus termStatus, int statusCode) {
+        const QPointer<WizWebEngineView> self(this);
         QString status;
         switch (termStatus) {
         case QWebEnginePage::NormalTerminationStatus:
@@ -301,8 +302,8 @@ WizWebEngineView::WizWebEngineView(const WizWebEngineInjectObjectCollection& obj
         QMessageBox::StandardButton btn = QMessageBox::question(window(), status,
                                                    tr("Render process exited with code: %1\n"
                                                       "Do you want to reload the page ?").arg(statusCode));
-        if (btn == QMessageBox::Yes)
-            QTimer::singleShot(0, [this] { reload(); });
+        if (btn == QMessageBox::Yes && self)
+            QTimer::singleShot(0, self.data(), [self] { if (self) self->reload(); });
     });
 }
 

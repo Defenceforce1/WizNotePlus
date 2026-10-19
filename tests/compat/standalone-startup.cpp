@@ -22,8 +22,10 @@
 #include <QJsonObject>
 #include <QNetworkProxy>
 #include <QEventLoop>
+#include <QElapsedTimer>
 #include <QPointer>
 #include <memory>
+#include <functional>
 #include <QWebEngineUrlRequestInterceptor>
 
 class StartupNoRequests final : public QWebEngineUrlRequestInterceptor {
@@ -162,6 +164,62 @@ int wizStandaloneStartupSelfTest(int argc, char** argv) {
         live.reset();pump(150);
         check(liveLoads==1&&closedLoads==0&&repeatedLoads==0,
             "dialog destruction leaves no later repeated initialization callback");
+    }
+    {
+        QWidget parent;
+        const auto pump=[](int milliseconds) {
+            QEventLoop loop;QTimer::singleShot(milliseconds,&loop,&QEventLoop::quit);loop.exec();
+        };
+        const auto answer=[&](WizWebEngineView* view,QMessageBox::StandardButton response,
+                              const std::function<void()>& after) {
+            bool answered=false,timedOut=false;
+            QTimer poll,deadline;deadline.setSingleShot(true);
+            QObject::connect(&poll,&QTimer::timeout,&parent,[&] {
+                if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())){
+                    if(auto* button=box->button(response)){
+                        poll.stop();answered=true;button->click();
+                        if(after)after();
+                    }
+                }
+            });
+            QObject::connect(&deadline,&QTimer::timeout,&parent,[&] {
+                timedOut=true;poll.stop();
+                for(auto* widget:QApplication::topLevelWidgets())
+                    if(auto* box=qobject_cast<QMessageBox*>(widget))box->reject();
+            });
+            poll.start(5);deadline.start(2000);
+            // Simulate the notification, never terminate a renderer process.
+            view->renderProcessTerminated(QWebEnginePage::CrashedTerminationStatus,42);
+            poll.stop();deadline.stop();
+            return answered&&!timedOut;
+        };
+        auto living=std::make_unique<WizWebEngineView>(WizWebEngineInjectObjectCollection{},&parent);
+        check(answer(living.get(),QMessageBox::No,[]{})&&living,
+            "actual renderer-error question keeps a live view when reload is declined");
+        auto closing=std::make_unique<WizWebEngineView>(WizWebEngineInjectObjectCollection{},&parent);
+        const QPointer<WizWebEngineView> closed(closing.get());
+        const bool answeredBeforeClose=answer(closing.get(),QMessageBox::Yes,[&]{closing.reset();});
+        pump(50);
+        check(answeredBeforeClose&&closed.isNull(),
+            "closing actual web view inside reload question cannot schedule access after destruction");
+        auto pending=std::make_unique<WizWebEngineView>(WizWebEngineInjectObjectCollection{},&parent);
+        const QPointer<WizWebEngineView> pendingClosed(pending.get());
+        const bool queuedReload=answer(pending.get(),QMessageBox::Yes,[]{});
+        pending.reset();pump(50);
+        check(queuedReload&&pendingClosed.isNull(),
+            "closing actual view after accepting reload cancels the queued zero-delay action");
+        int starts=0;bool initialFinished=false;
+        QObject::connect(living.get(),&QWebEngineView::loadStarted,&parent,[&]{++starts;});
+        QObject::connect(living.get(),&QWebEngineView::loadFinished,&parent,[&](bool){initialFinished=true;});
+        living->setHtml("<!doctype html><p>Synthetic reload fixture</p>");
+        QElapsedTimer initialWait;initialWait.start();
+        while(!initialFinished&&initialWait.elapsed()<5000)pump(5);
+        check(initialFinished&&starts>0,"reload fixture finishes its initial navigation before counting a later reload");
+        const int beforeReload=starts;
+        const bool acceptedReload=answer(living.get(),QMessageBox::Yes,[]{});
+        pump(150);
+        check(initialFinished&&acceptedReload&&starts>beforeReload,
+            "live actual view still starts its original reload after accepting the error question");
     }
     delete secondary; delete primary;
     first.release();
