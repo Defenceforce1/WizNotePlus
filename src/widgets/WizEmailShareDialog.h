@@ -4,6 +4,7 @@
 #include <QDialog>
 #include "WizDef.h"
 #include "share/WizObject.h"
+#include "share/WizDocumentReadPermit.h"
 
 namespace Ui {
 class WizEmailShareDialog;
@@ -22,6 +23,8 @@ public:
     ~WizEmailShareDialog();
 
     void setNote(const WIZDOCUMENTDATA& note, const QString& sendTo = "");
+    void setNote(const WIZDOCUMENTDATA& note, const QString& sendTo, const WizDocumentReadPermit& read);
+    void done(int result) override;
 
     bool isInsertCommentToNote() const;
     QString getCommentsText() const;
@@ -58,6 +61,12 @@ private:
 private:
     Ui::WizEmailShareDialog *ui;
     WIZDOCUMENTDATA m_note;
+    WizDocumentReadPermit m_read;
+    WizDocumentCallbackEpoch m_shareCallbacks;
+    QPointer<QNetworkReply> m_request;
+    WIZDOCUMENTDATA m_sentNote;
+    QString m_sentComment, m_sentTo;
+    bool m_sentInsert = false, m_sending = false;
     WizExplorerApp& m_app;
     QDialog* m_contactDialog;
     QListWidget* m_contactList;

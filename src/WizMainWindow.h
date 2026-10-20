@@ -19,6 +19,7 @@
 #define WIZ_SINGLE_APPLICATION "WIZ_SINGLE_APPLICATION"
 
 class QToolBar;
+namespace WizPdfExport { enum class Mode; }
 class QLabel;
 class QSystemTrayIcon;
 class QComboBox;
@@ -118,6 +119,7 @@ public:
     WizDocumentView* docView();
 
     void trySaveCurrentNote(std::function<void(const QVariant &)> callback);
+    void saveAsPDF(WizPdfExport::Mode selectedMode);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event);

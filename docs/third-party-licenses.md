@@ -17,6 +17,7 @@ engineering inventory, not legal clearance or a complete asset audit.
 | SQLite | public domain, sqlite3.c header |
 | JsonCpp | MIT/public-domain options, bundled header |
 | MathJax 2 | Apache-2.0, MathJax.js header |
+| Marked 17.0.5 | MIT; exact local browser distribution and full license in share/files/wizeditor/dependency/marked; used only for explicit theorem bodies |
 
 The original web editor, templates, fonts, images, plugins and further JS
 dependencies retain upstream files and notices. Their full redistribution audit

@@ -86,7 +86,7 @@ function WizEditorInit(basePath, browserLang, userGUID, userAlias, ignoreTable, 
           }
         }
         //
-        WizEditor.init(editorOptions);
+        WizInitMarkdownEditor(editorOptions);
         window.WizNativeEditorInitialized = true;
         WizSetSpellCheck(!!window.WizSpellCheckEnabled);
         WizEditor.addListener(WizEditor.ListenerType.SelectionChange, WizOnSelectionChange)
@@ -339,11 +339,21 @@ function WizMathTextContexts(nodes, body) {
 function WizApplyMathEnvironments() {
   WizClearMathEnvironments();
   var body = document.body;
+  var preset = window.WizNoteCss && window.WizNoteCss.indexOf('/* WizNotePlus scientific math environments v1 */') >= 0;
   if (!body || !body.classList.contains('markdown-body') || !body.classList.contains('wiz-readonly')
-      || !window.WizNoteCss || window.WizNoteCss.indexOf('/* WizNotePlus scientific math environments v1 */') < 0) {
+      || !preset && !body.querySelector('.wiz-latex-theorem')) {
     WizClearMathReferenceNavigation();
+    if (window.WizEditor && typeof WizEditor.removeStyleById === 'function') WizEditor.removeStyleById('wiz_tmp_style_latex_theorems');
     return;
   }
+  // Explicit LaTeX environments opt in themselves. Ordinary quotes still need
+  // the existing preset, and a minimal scoped fallback never alters their CSS.
+  if (!preset) WizEditor.insertCustomStyle('wiz_tmp_style_latex_theorems',
+    '.markdown-body .wiz-latex-theorem.wiz-math-block{border-left:3px solid #4b69c6;padding:.7em 1em;margin:1em 0;}'
+    + '.markdown-body .wiz-latex-theorem.wiz-math-block::before{content:attr(data-wiz-math-heading);display:block;font-weight:bold;margin-bottom:.4em;}'
+    + '.markdown-body .wiz-latex-theorem>.wiz-math-source-heading{display:none;}'
+    + '.markdown-body .wiz-latex-theorem.proof::after{content:"□";display:block;text-align:right;}', true);
+  else WizEditor.removeStyleById('wiz_tmp_style_latex_theorems');
   WizMathInstallSerializationGuards();
   var names = { '定理':'theorem', '引理':'lemma', '命题':'proposition', '推论':'corollary',
     '定义':'definition', '例':'example', '例子':'example', '注':'remark', '注记':'remark', '证明':'proof',
@@ -374,6 +384,7 @@ function WizApplyMathEnvironments() {
   // Markdown joins adjacent quoted paragraphs. Split only the rendered DOM at
   // explicit math headings; serialization restores the original node order.
   body.querySelectorAll('blockquote').forEach(function (block) {
+    if (!preset && !block.classList.contains('wiz-latex-theorem')) return;
     var children = Array.from(block.childNodes), created = [], current = block;
     var hasContent = false;
     children.forEach(function (child) {
@@ -387,6 +398,7 @@ function WizApplyMathEnvironments() {
     if (created.length) WizMathDecoration.splits.push({element:block,children:children,created:created});
   });
   body.querySelectorAll('blockquote').forEach(function (block) {
+    if (!preset && !block.classList.contains('wiz-latex-theorem')) return;
     var record = parseHeading(block.firstElementChild);
     if (!record) return;
     record.element = block;
@@ -409,6 +421,9 @@ function WizApplyMathEnvironments() {
     var kind = record ? record.kind : Object.keys(display).find(function (name) { return block.classList.contains(name); });
     var group = /^(theorem|lemma|proposition|corollary)$/.test(kind) ? 'theorem'
       : kind === 'definition' || kind === 'example' ? kind : null;
+    if (record && block.classList.contains('wiz-latex-unnumbered')) {
+      group = null; block.style.counterIncrement = 'none';
+    }
     if (group) ++counters[group];
     if (!record) return;
     record.number = record.manual || (group ? String(counters[group]) : '');

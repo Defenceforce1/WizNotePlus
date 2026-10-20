@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <algorithm>
+#include <limits>
 
 #include "database/WizDatabaseManager.h"
 #include "database/WizDatabase.h"
@@ -168,6 +169,21 @@ void WizDocumentSaverThread::save(const WIZDOCUMENTDATA& doc, const QString& str
     }
 }
 
+quint64 WizDocumentSaverThread::saveFence(const WIZDOCUMENTDATA& doc)
+{
+    QMutexLocker locker(&m_mutex);
+    if (m_stop || doc.strGUID.isEmpty() || m_nextFence == std::numeric_limits<quint64>::max()) return 0;
+    SAVEDATA data;
+    data.doc = doc;
+    data.fence = ++m_nextFence;
+    data.flags = 0;
+    data.notify = false;
+    m_arrayData.push_back(data);
+    m_waitEvent.wakeAll();
+    if (!isRunning()) start();
+    return data.fence;
+}
+
 void WizDocumentSaverThread::waitForDone()
 {
     stop();
@@ -239,6 +255,19 @@ void WizDocumentSaverThread::run()
     {
         SAVEDATA data;
         peekData(data);
+
+        if (data.fence) {
+            bool ok;
+            {
+                QMutexLocker locker(&m_mutex);
+                ok = !m_failedSaveNotes.contains(data.doc.strKbGUID + "/" + data.doc.strGUID);
+                m_savingForTransfer = false;
+            }
+            // Only an ID and the status at this frontier cross threads. No
+            // callback/GUI owner or plaintext snapshot is held by a fence.
+            emit saveFenceReached(data.fence, ok);
+            continue;
+        }
 
         if (data.doc.strGUID.isEmpty())
         {

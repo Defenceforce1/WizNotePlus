@@ -1,4 +1,8 @@
 #include "WizDocumentWebView.h"
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+#include "widgets/WizMarkdownExportRecoveryApp.h"
+#include "widgets/WizMarkdownExportRecoverySession.h"
+#endif
 
 #include <QRunnable>
 #include <QList>
@@ -25,6 +29,7 @@
 #include <QTimer>
 #include <QTextDocument>
 #include <QPointer>
+#include <QTemporaryDir>
 #include "WizNotePresentation.h"
 
 #include <QApplication>
@@ -42,6 +47,9 @@
 #include "share/WizPdfExport.h"
 #include "share/WizPdfSvgLinks.h"
 #include "share/WizDocumentPageReady.h"
+#include "share/WizMarkdownExportTransaction.h"
+#include "share/WizDocumentReadOutput.h"
+#include "share/WizDocumentReadSave.h"
 
 #include "WizDef.h"
 
@@ -111,6 +119,26 @@ bool WizDocumentWebViewPage::acceptNavigationRequest(const QUrl &url, QWebEngine
 
 void WizDocumentWebViewPage::triggerAction(QWebEnginePage::WebAction typeAction, bool checked)
 {
+    switch (typeAction) {
+    case QWebEnginePage::Copy:
+    case QWebEnginePage::Cut:
+    case QWebEnginePage::CopyLinkToClipboard:
+    case QWebEnginePage::CopyImageToClipboard:
+    case QWebEnginePage::CopyImageUrlToClipboard:
+    case QWebEnginePage::CopyMediaUrlToClipboard:
+    case QWebEnginePage::DownloadLinkToDisk:
+    case QWebEnginePage::DownloadImageToDisk:
+    case QWebEnginePage::DownloadMediaToDisk:
+    case QWebEnginePage::SavePage:
+    case QWebEnginePage::ViewSource:
+    case QWebEnginePage::InspectElement:
+    case QWebEnginePage::Paste:
+    case QWebEnginePage::Undo:
+    case QWebEnginePage::Redo:
+        if (!m_engineView->noteReadPermit().current()) return;
+        break;
+    default: break;
+    }
     if (typeAction == QWebEnginePage::Back || typeAction == QWebEnginePage::Forward) {
         return;
     }
@@ -124,7 +152,20 @@ void WizDocumentWebViewPage::triggerAction(QWebEnginePage::WebAction typeAction,
         return;
     }
 
-    WizWebEnginePage::triggerAction(typeAction, checked);
+    if (typeAction == QWebEnginePage::Copy) {
+        const auto read = m_engineView->noteReadPermit();
+        const QPointer<WizDocumentWebViewPage> self(this);
+        if (!read.current()) return;
+        // The generic wrapper schedules an unscoped fix. Use Qt's copy once,
+        // then schedule the same encoding fix with this note's current permit.
+        QWebEnginePage::triggerAction(typeAction, checked);
+        if (!self || !read.current()) return;
+#ifdef Q_OS_MAC
+        WizWebEnginePage::processCopiedData([read]{return read.current();});
+#endif
+    } else {
+        WizWebEnginePage::triggerAction(typeAction, checked);
+    }
 
     Q_EMIT actionTriggered(typeAction);
 }
@@ -203,6 +244,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
 
 WizDocumentWebView::~WizDocumentWebView()
 {
+    cancelMarkdownRecovery();
     cancelLinkInsert();
     cancelPdfExport();
     m_documentCallbacks.cancel();
@@ -223,11 +265,24 @@ void WizDocumentWebView::setupWebActions()
             this, &WizDocumentWebView::handleReloadTriggered, Qt::UniqueConnection);
 
     // Open temp file location
-    connect(viewAction(OpenTempFileLocation), &QAction::triggered, [this]() {
-        QUrl tmpfileFolder = page()->url().adjusted(QUrl::RemoveFilename);
-        QDesktopServices::openUrl(tmpfileFolder);
+    connect(viewAction(OpenTempFileLocation), &QAction::triggered, this, [this]() {
+        const QPointer<WizDocumentWebView> self(this);
+        const auto read = noteReadPermit();
+        const QPointer<QWebEnginePage> source(page());
+        if (!read.current() || !source) return;
+        const QUrl url = source->url();
+        if (!self || !read.current() || self->page() != source || !url.isLocalFile()) return;
+        QDesktopServices::openUrl(url.adjusted(QUrl::RemoveFilename));
     });
 }
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+void WizDocumentWebView::openDevTools()
+{
+    const auto read = noteReadPermit();
+    openDevToolsWithPermit([read] { return read.current(); });
+}
+#endif
 
 WizDocumentWebViewPage* WizDocumentWebView::getPage() {
     return qobject_cast<WizDocumentWebViewPage*>(page());
@@ -548,6 +603,7 @@ void WizDocumentWebView::dragMoveEvent(QDragMoveEvent* event)
 
 void WizDocumentWebView::onActionTriggered(QWebEnginePage::WebAction act)
 {
+    if (!noteReadPermit().current()) return;
     // webpage will override menubar short cutter after qt5.4.2, and cannot avoid this action, some operation (undo, redo et.) need operat by editer
     // need webpage feedback operation to webview to operate
     if (act == QWebEnginePage::Paste)
@@ -571,19 +627,29 @@ void WizDocumentWebView::tryResetTitle()
     if (m_bNewNoteTitleInited)
         return;
 
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<WizDocumentView> host(view());
+    const auto read = noteReadPermit();
+    if (!host || !read.current()) return;
+    const auto note = host->note();
     // if note already modified, maybe title changed by use manuallly
-    if (view()->note().tCreated.secsTo(view()->note().tModified) != 0)
+    if (note.tCreated.secsTo(note.tModified) != 0)
         return;
 
-    //
-    page()->toPlainText([=](const QString& text){
+    page()->toPlainText([self,host,read,note](const QString& text){
+        if (!self || !host || !read.current() || self->m_bNewNoteTitleInited) return;
+        const auto current = host->note();
+        if (current.strGUID != note.strGUID || current.strKbGUID != note.strKbGUID
+            || current.tCreated != note.tCreated || current.tModified != note.tModified
+            || current.strTitle != note.strTitle) return;
         QString strTitle = WizStr2Title(text.left(128));
         if (strTitle.isEmpty())
             return;
 
-        view()->resetTitle(strTitle);
-        //
-        m_bNewNoteTitleInited = true;
+        // Claim once before signals can reenter, switch or destroy the view.
+        // Never mark a replacement document initialized after resetTitle.
+        self->m_bNewNoteTitleInited = true;
+        host->resetTitle(strTitle);
     });
 }
 
@@ -697,6 +763,21 @@ WizDocumentView* WizDocumentWebView::view() const
 
     return 0;
 }
+
+// Begin extracted plaintext read-permit adapter.
+WizDocumentReadPermit WizDocumentWebView::noteReadPermit() const
+{
+    const QPointer<WizDocumentWebView> self(const_cast<WizDocumentWebView*>(this));
+    const QPointer<QObject> sourcePage(page());
+    const QPointer<WizDocumentView> host(view());
+    if (!host || !sourcePage) return {};
+    const auto access = host->noteReadTicket();
+    return {self,sourcePage,m_documentCallbacks.ticket(),[self,sourcePage,host,access] {
+        return self && sourcePage && host && self->page() == sourcePage
+            && self->view() == host && host->acceptsNoteRead(access);
+    }};
+}
+// End extracted plaintext read-permit adapter.
 
 void WizDocumentWebView::clear()
 {
@@ -891,9 +972,12 @@ void WizDocumentWebView::editorResetSpellCheck()
 
 void WizDocumentWebView::editorFocus()
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     // Focus may arrive while the blank/loading page has no editor yet.
     page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.focus();");
-    emit focusIn();
+    if (self && read.current()) emit self->focusIn();
 }
 
 /**
@@ -1179,8 +1263,13 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
  */
 void WizDocumentWebView::onEditorLinkClicked(QUrl url, QWebEnginePage::NavigationType navigationType, bool isMainFrame, WizWebEnginePage* page)
 {
-    if (!isMainFrame)
-        return;
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<WizWebEnginePage> source(page);
+    const auto read = noteReadPermit();
+    const auto current = [self, source, read] {
+        return self && source && self->page() == source && read.current();
+    };
+    if (!isMainFrame || !current()) return;
     //
     //page->stopCurrentNavigation(); // this will make document page become blank, so it was commented
     //
@@ -1189,12 +1278,15 @@ void WizDocumentWebView::onEditorLinkClicked(QUrl url, QWebEnginePage::Navigatio
         QString strUrl = url.toString();
         switch (GetWizUrlType(strUrl)) {
         case WizUrl_Document:
-            viewDocumentByUrl(strUrl);
+            if (current()) viewDocumentByUrl(strUrl);
             return;
         case WizUrl_Attachment:
-            if (!isEditing())
+            if (!isEditing() && current())
             {
-                viewAttachmentByUrl(view()->note().strKbGUID, strUrl);
+                const auto* host = view();
+                if (!host) return;
+                const auto kbGUID = host->note().strKbGUID;
+                if (current()) viewAttachmentByUrl(kbGUID, strUrl);
             }
             return;
         default:
@@ -1211,7 +1303,7 @@ void WizDocumentWebView::onEditorLinkClicked(QUrl url, QWebEnginePage::Navigatio
         }
 
         qDebug() << "Open url " << strUrl;
-        QDesktopServices::openUrl(strUrl);
+        if (current()) QDesktopServices::openUrl(strUrl);
         return;
     }
 }
@@ -1415,6 +1507,9 @@ void WizDocumentWebView::getAllEditorScriptAndStyleFileName(std::map<QString, QS
     files[strEditorJS] = "";
     files[strWebChannelJS] = "";
     files[strInit] = "";
+    files[QUrl::fromLocalFile(strHtmlEditorPath + "markdownEnvironments.js").toString()] = "";
+    files[QUrl::fromLocalFile(strHtmlEditorPath + "latexTheorems.js").toString()] = "";
+    files[QUrl::fromLocalFile(strHtmlEditorPath + "dependency/marked/marked.umd.js").toString()] = "";
     //
     /*
      *
@@ -1648,6 +1743,33 @@ void WizDocumentWebView::trySaveDocument(const WIZDOCUMENTDATA& data, bool force
     }
 }
 
+WizDocumentSaverThread* WizDocumentWebView::readDocumentSaver() const
+{
+    auto* window=qobject_cast<WizMainWindow*>(m_app.mainWindow());
+    return window ? window->docSaver() : nullptr;
+}
+
+// Begin extracted disk-save read adapter.
+void WizDocumentWebView::trySaveDocumentForRead(const WIZDOCUMENTDATA& data, bool force,
+                                             std::function<void(const QVariant&)> callback)
+{
+    const QPointer<WizDocumentWebView> self(this);
+    const auto* host=view();
+    if (!host || host->note().strGUID!=data.strGUID || host->note().strKbGUID!=data.strKbGUID) {
+        if (callback) callback(false);
+        return;
+    }
+    const auto read=noteReadPermit();
+    WizDocumentReadSave::start(this,readDocumentSaver(),data,read,
+        [self,data,force](std::function<void(const QVariant&)> saved) {
+        if (self) self->trySaveDocument(data,force,std::move(saved));
+        else saved(false);
+    },[read,callback](bool ok) {
+        if (callback) callback(QVariant(ok && read.current()));
+    });
+}
+// End extracted disk-save read adapter.
+
 void WizDocumentWebView::editorCommandQueryCommandValue(const QString& strCommand, std::function<void(const QString& value)> callback)
 {
     QString script = "document.queryCommandValue('" + strCommand +"');";
@@ -1678,6 +1800,9 @@ void WizDocumentWebView::editorCommandExecuteCommand(const QString& strCommand,
                                                       const QString& arg2 /* = QString() */,
                                                       const QString& arg3 /* = QString() */)
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     QString strExec = QString("WizEditor.execCommand('%1'").arg(strCommand);
     if (!arg1.isEmpty()) {
         strExec += ", " + arg1;
@@ -1697,7 +1822,7 @@ void WizDocumentWebView::editorCommandExecuteCommand(const QString& strCommand,
 
     page()->runJavaScript(strExec);
     //
-    setModified(true);
+    if (self && read.current()) self->setModified(true);
 }
 
 
@@ -1721,7 +1846,7 @@ void WizDocumentWebView::editorCommandExecuteInsertHtml(const QString& strHtml, 
     base64Html.replace("\n", "");
     QString code = QString("WizEditor.insertB64Html('%1')").arg(base64Html);
     //
-    page()->runJavaScript(code);
+    editorExecJs(code);
     //editorCommandExecuteCommand("insertHtml", s, "'" + strHtml + "'");
 }
 
@@ -1799,6 +1924,17 @@ void WizDocumentWebView::invalidateDocumentCallbacks()
     m_documentCallbacks.invalidate();
     cancelLinkInsert();
     cancelPdfExport();
+    cancelMarkdownRecovery();
+}
+
+void WizDocumentWebView::cancelMarkdownRecovery()
+{
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    const auto session = m_markdownRecoverySession;
+    m_markdownRecoverySession = nullptr;
+    if (session)
+        session->invalidate();
+#endif
 }
 
 void WizDocumentWebView::cancelPdfExport()
@@ -1903,20 +2039,23 @@ void WizDocumentWebView::findNext(QString strTxt, bool bCasesensitive)
 void WizDocumentWebView::replaceCurrent(QString strSource, QString strTarget)
 {
     QString strExec = QString("WizEditor.replace('%1', '%2', true)").arg(strSource).arg(strTarget);
-    page()->runJavaScript(strExec);
+    editorExecJs(strExec);
 }
 
 void WizDocumentWebView::replaceAndFindNext(QString strSource, QString strTarget, bool bCasesensitive)
 {
     QString strExec = QString("WizEditor.replace('%1', '%2', %3)").arg(strSource).arg(strTarget).arg(bCasesensitive ? "true" : "false");
-    page()->runJavaScript(strExec);
+    editorExecJs(strExec);
 }
 
 void WizDocumentWebView::replaceAll(QString strSource, QString strTarget, bool bCasesensitive)
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     QString strExec = QString("WizEditor.replaceAll('%1', '%2', %3)").arg(strSource).arg(strTarget).arg(bCasesensitive ? "true" : "false");
     page()->runJavaScript(strExec);
-    setModified(true);
+    if (self && read.current()) self->setModified(true);
 }
 
 void WizDocumentWebView::editorCommandExecuteFontFamily(const QString& strFamily)
@@ -1927,13 +2066,17 @@ void WizDocumentWebView::editorCommandExecuteFontFamily(const QString& strFamily
 
 void WizDocumentWebView::editorCommandExecuteFontSize(const QString& strSize)
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     WizGetAnalyzer().logAction(QString("editorSetFontSize : %1pt").arg(strSize));
     //
     CString strStyle = WizFormatString1("{\\\"font-size\\\" : \\\"%1pt\\\"}", strSize);
     CString strScript = WizFormatString1("WizEditor.modifySelectionDom(JSON.parse(\"%1\"))", strStyle);
 
+    if (!self || !read.current()) return;
     page()->runJavaScript(strScript);
-    setModified(true);
+    if (self && read.current()) self->setModified(true);
 }
 
 void WizDocumentWebView::editorCommandExecuteBackColor(const QColor& color)
@@ -2048,7 +2191,7 @@ void WizDocumentWebView::editorCommandExecuteTableInsert(int row, int col)
 {
     QString code = QString("WizEditor.table.insertTable(%1, %2);").arg(col).arg(row);
     //
-    page()->runJavaScript(code);
+    editorExecJs(code);
 }
 
 
@@ -2091,7 +2234,7 @@ void WizDocumentWebView::editorCommandExecuteInsertHorizontal()
 void WizDocumentWebView::editorCommandExecuteInsertCheckList()
 {
     QString strExec = "WizEditor.todo.setTodo();";
-    page()->runJavaScript(strExec);
+    editorExecJs(strExec);
 
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("insertCheckList");
@@ -2134,24 +2277,26 @@ void WizDocumentWebView::editorCommandExecuteInsertImage()
 void WizDocumentWebView::editorCommandExecuteStartMarkup()
 {
     QString js = QString("WizEditor.marker.start();");
-    page()->runJavaScript(js);
+    editorExecJs(js);
 }
 
 
 void WizDocumentWebView::editorCommandExecuteStopMarkup()
 {
     QString js = QString("WizEditor.marker.quit();");
-    page()->runJavaScript(js);
+    editorExecJs(js);
 }
 
 
 void WizDocumentWebView::editorExecJs(QString js)
 {
+    if (!noteReadPermit().current()) return;
     page()->runJavaScript(js);
 }
 
 void WizDocumentWebView::onViewMindMap(bool on)
 {
+    if (!noteReadPermit().current()) return;
     if (on) {
         QString title = view()->note().strTitle;
         QString js = QString("WizEditor.outline.showMinder(`%1`);").arg(title.replace("`", "\\`"));
@@ -2164,9 +2309,10 @@ void WizDocumentWebView::onViewMindMap(bool on)
 
 void WizDocumentWebView::editorCommandExecuteInsertPainter()
 {
+    if (!noteReadPermit().current()) return;
     view()->changeType("svgpainter");
     QString js = QString("WizEditor.createSvg()");
-    page()->runJavaScript(js);
+    editorExecJs(js);
 }
 
 
@@ -2197,9 +2343,12 @@ void WizDocumentWebView::editorCommandExecuteRemoveFormat()
 
 void WizDocumentWebView::editorCommandExecuteFormatPainterOn(bool multi)
 {
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     QString script = QString("WizEditor.formatPainter.on(%1);").arg(multi ? "true" : "false");
     //
-    page()->runJavaScript(script, [=] (const QVariant& vRet) {
+    page()->runJavaScript(script, [read] (const QVariant& vRet) {
+        if (!read.current()) return;
         if (vRet.type() == QVariant::Bool) {
             if (!vRet.toBool()) {
                 //
@@ -2216,9 +2365,12 @@ void WizDocumentWebView::editorCommandExecuteFormatPainterOn(bool multi)
 
 void WizDocumentWebView::editorCommandExecuteFormatPainterOff()
 {
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     QString script = QString("WizEditor.formatPainter.off();");
     //
-    page()->runJavaScript(script, [=] (const QVariant& vRet) {
+    page()->runJavaScript(script, [read] (const QVariant& vRet) {
+        if (!read.current()) return;
         if (vRet.type() == QVariant::Bool) {
             if (!vRet.toBool()) {
                 //
@@ -2235,7 +2387,7 @@ void WizDocumentWebView::editorCommandExecuteFormatPainterOff()
 
 void WizDocumentWebView::editorCommandExecuteInsertCode()
 {
-    page()->runJavaScript("WizEditor.code.insertCode();");
+    editorExecJs("WizEditor.code.insertCode();");
     //
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("insertCode");
@@ -2272,9 +2424,10 @@ void WizDocumentWebView::editorCommandExecuteScreenShot()
 }
 
 
-void WizDocumentWebView::saveAsPDF()
+void WizDocumentWebView::saveAsPDF(WizPdfExport::Mode selectedMode)
 {
-    if (!view()->noteLoaded()) return;
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     const QPointer<WizDocumentWebView> guard(this);
     const auto request=m_pdfExportRequest.begin(this,page(),m_documentCallbacks.ticket());
     if (!WizPdfExportRequest::current(request)) return;
@@ -2289,7 +2442,10 @@ void WizDocumentWebView::saveAsPDF()
     //
     // A native modal dialog can dispatch close/navigation events. Check weak
     // context before accessing this, settings, or the replacement document.
-    if (!guard || !WizPdfExportRequest::current(request)) return;
+    if (!guard || !read.current() || !WizPdfExportRequest::current(request)) {
+        WizPdfExportRequest::cancel(request);
+        return;
+    }
     if (strFileName.isEmpty()) {
         WizPdfExportRequest::cancel(request);
         return;
@@ -2313,18 +2469,21 @@ void WizDocumentWebView::saveAsPDF()
     // Keep the same renderer and CSS. Commit only complete output, preserving an
     // existing destination on cancellation, page destruction or write failure.
     const auto document=m_documentCallbacks.ticket();
-    m_pdfPageOperations.print(page(),[request]{return WizPdfExportRequest::current(request);},layout,
-        [guard, request, strFileName](const QByteArray& bytes) {
+    m_pdfPageOperations.printWithMode(page(),[request,read]{return read.current() && WizPdfExportRequest::current(request);},
+        marginUnit,margins,selectedMode,
+        [guard, request, read, strFileName](const QByteArray& bytes) {
+        if (!read.current()) { WizPdfExportRequest::cancel(request); return; }
         QString error;
         const auto result=WizPdfExportRequest::complete(request,strFileName,bytes,error);
         if (result!=WizPdfExportRequest::Result::Failed) return;
         qWarning() << "PDF export failed:" << error;
         // A print callback can run while the page/view is being destroyed. Do
         // not touch either here; a queued receiver is cancelled on destruction.
-        if (guard) QTimer::singleShot(0, guard.data(), [guard, request, error] {
-            if (guard && WizPdfExportRequest::ownsContext(request)) QMessageBox::critical(guard.data(), QObject::tr("Error"), QStringLiteral("无法导出 PDF：\n") + error);
+        if (guard) QTimer::singleShot(0, guard.data(), [guard, request, read, error] {
+            if (guard && read.current() && WizPdfExportRequest::ownsContext(request)) QMessageBox::critical(guard.data(), QObject::tr("Error"), QStringLiteral("无法导出 PDF：\n") + error);
         });
-    },[guard,document]{return guard && WizDocumentCallbackEpoch::current(document);});
+    },[guard,document]{return guard && WizDocumentCallbackEpoch::current(document);},
+        QUrl::fromLocalFile(Utils::WizPathResolve::resourcesPath()+"files/wizeditor/dependency/mathjax/MathJax.js"));
 }
 
 void WizDocumentWebView::applyNoteStyle()
@@ -2343,6 +2502,9 @@ void WizDocumentWebView::editNoteStyle()
 
 void WizDocumentWebView::saveAsMarkdown()
 {
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    const QPointer<WizDocumentWebView> self(this);
     // prepare file and dir
     CString strTitle = view()->note().strTitle;
     WizMakeValidFileNameNoPath(strTitle);
@@ -2352,77 +2514,92 @@ void WizDocumentWebView::saveAsMarkdown()
     QString strIndexFileName = QFileDialog::getSaveFileName(this, QString(),
                                                        strInitFileName,
                                                        tr("Markdown Files (*.md)"));
+    if (!self || !read.current()) return;
     saveAsMarkdown(strIndexFileName);
 }
 
 void WizDocumentWebView::saveAsMarkdown(QString& strIndexFileName, bool bSaveResource)
 {
     Q_UNUSED(bSaveResource);
-    if (strIndexFileName.isEmpty()) return;
+    const auto read = noteReadPermit();
+    if (strIndexFileName.isEmpty() || !read.current()) return;
     const WIZDOCUMENTDATA doc = view()->note();
     const auto ticket = m_documentCallbacks.ticket();
     const QPointer<WizDocumentWebView> self(this);
     const QPointer<QWebEnginePage> sourcePage(page());
     if (!sourcePage) return;
-    sourcePage->runJavaScript(QString("WizEditor.getMarkdownSrc({unEscapeHtml: true});"),
-        [self, sourcePage, ticket, doc, strIndexFileName](const QVariant& result) {
+    const auto query = [self, sourcePage, ticket, doc, read, strIndexFileName] {
+        if (!self || !sourcePage || !WizDocumentCallbackEpoch::current(ticket)
+            || self->page() != sourcePage || !self->acceptsDocumentCallback(ticket, doc) || !read.current()) return;
+        sourcePage->runJavaScript(QString("WizEditor.getMarkdownSrc({unEscapeHtml: true});"),
+        [self, sourcePage, ticket, doc, read, strIndexFileName](const QVariant& result) {
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+        if (WizMarkdownExportRecoveryApp::isQuitting()) return;
+#endif
         // Reject stale/failed queries before touching the user's export files.
         if (!WizDocumentCallbackEpoch::current(ticket) || !self || !sourcePage
             || self->page() != sourcePage || !self->acceptsDocumentCallback(ticket, doc)
-            || result.userType() != QMetaType::QString) return;
-        QString source = result.toString(); // A valid empty string is allowed.
-        const QString fileTitle = Utils::WizMisc::extractFileTitle(strIndexFileName);
-        source.replace("index_files/", fileTitle.toHtmlEscaped() + "_files/");
-        // Preserve the original valid-output/resource policy. Resource rollback
-        // is separate; no existing output is removed for an invalid JS result.
-        if (::WizPathFileExists(strIndexFileName)) ::WizDeleteFile(strIndexFileName);
+            || !read.current() || result.userType() != QMetaType::QString) return;
+        const QString source = result.toString(); // A valid empty string is allowed.
         WizDatabase& db = self->m_dbMgr.db(doc.strKbGUID);
-        if (!db.exportToHtmlFile(doc, strIndexFileName)) return;
+        QString error;
+        if (!WizMarkdownExportTransaction::write(strIndexFileName, source,
+                [&db, doc, read](const QString& stagedFile) {
+                    return read.current() && db.exportToHtmlFile(doc, stagedFile) && read.current();
+                }, error)) {
+            qWarning() << "Markdown export failed:" << error;
+        }
         // No owner access after a collaborator that could run a nested loop.
-        ::WizSaveUnicodeTextToUtf8File(strIndexFileName, source, false);
     });
+    };
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    if (WizMarkdownExportRecoveryApp::isQuitting()) return;
+    cancelMarkdownRecovery();
+    m_markdownRecoverySession = WizMarkdownExportRecoveryApp::open(this, ticket, strIndexFileName, query,
+        [self](const WizMarkdownExportRecovery::Result& result) {
+            if (self)
+                WizMessageBox::information(self, QStringLiteral("Markdown 导出恢复"), result.userVisibleSummary);
+            // A result is not permission to retry the original export.
+        });
+    if (m_markdownRecoverySession)
+        m_markdownRecoverySession->show();
+#else
+    query();
+#endif
 }
 
 void WizDocumentWebView::saveAsPlainMarkdown(QString& destFileName, std::function<void(QString fileName)> callback)
 {
-    if (destFileName.isEmpty())
-        return;
-    //
-    if (::WizPathFileExists(destFileName))
-    {
-        ::WizDeleteFile(destFileName);
-    }
-    page()->runJavaScript(QString("WizEditor.getMarkdownSrc({unEscapeHtml: true});"), [=](const QVariant& vModified){
-        //
-        QString source = vModified.toString();
-        //
-        QString fileTitle = Utils::WizMisc::extractFileTitle(destFileName);
-        //
-        if(::WizSaveUnicodeTextToUtf8File(destFileName, source, false))
-            callback(destFileName);
+    const QString destination=destFileName;
+    const auto read=noteReadPermit();
+    if (destination.isEmpty() || !read.current()) return;
+    page()->runJavaScript(QString("WizEditor.getMarkdownSrc({unEscapeHtml: true});"),
+        [read,destination,callback](const QVariant& result){
+        if (!read.current() || result.userType()!=QMetaType::QString) return;
+        if (WizDocumentReadOutput::writeUtf8(read,destination,result.toString()) && callback)
+            callback(destination);
     });
 }
 
 void WizDocumentWebView::saveAsPlainText(QString& destFileName, std::function<void(QString fileName)> callback)
 {
-    // prepare note data
+    const QString destination=destFileName;
+    const auto read=noteReadPermit();
+    if (destination.isEmpty() || !read.current()) return;
     WIZDOCUMENTDATA docData;
     WizDatabase& db = m_dbMgr.db(view()->note().strKbGUID);
     if (!db.documentFromGuid(view()->note().strGUID, docData))
         return;
-    trySaveDocument(docData, false, [=](const QVariant&){
-        //FIXME: cannot asure note temp file is newest
-        // make sure current donot have file
-        if (destFileName.isEmpty())
-            return;
-        //
-        if (::WizPathFileExists(destFileName))
-        {
-            ::WizDeleteFile(destFileName);
-        }
-        // read html
+    const QPointer<WizDocumentWebView> self(this);
+    trySaveDocumentForRead(docData, false, [self,read,docData,destination,callback](const QVariant& saved){
+        if (!self || !read.current() || saved.userType()!=QMetaType::Bool || !saved.toBool()) return;
+        // Extract the completed archive into our own disposable directory, not
+        // the live editor's extracted HTML or resources.
+        QTemporaryDir extracted;
+        if (!extracted.isValid() || !self->m_dbMgr.db(docData.strKbGUID).documentToHtmlFile(docData,extracted.path()+"/")
+            || !self || !read.current()) return;
         QString strHtml;
-        QString strFileName = m_mapFile.value(docData.strGUID);
+        QString strFileName = extracted.filePath("index.html");
         bool ret = WizLoadUnicodeTextFromFile(strFileName, strHtml);
         if (!ret)
         {
@@ -2434,9 +2611,9 @@ void WizDocumentWebView::saveAsPlainText(QString& destFileName, std::function<vo
         QString strText = doc.toPlainText(); //auto deHtmlEscaped
         strText.replace("&nbsp", " "); // older version exsits unnomarlly &ngsp, so cannot be jump by QTextDocument
         // write file 
-        if(WizSaveUnicodeTextToUtf8File(destFileName, strText, false))
+        if(WizDocumentReadOutput::writeUtf8(read,destination,strText) && callback)
         {
-            callback(destFileName);
+            callback(destination);
         }
     });
 }
@@ -2446,6 +2623,10 @@ void WizDocumentWebView::saveAsPlainText(QString& destFileName, std::function<vo
  */
 void WizDocumentWebView::saveAsHtml()
 {
+    const auto read=noteReadPermit();
+    if (!read.current()) return;
+    const QPointer<WizDocumentWebView> self(this);
+    const WIZDOCUMENTDATA doc=view()->note();
     CString strTitle = view()->note().strTitle;
     WizMakeValidFileNameNoPath(strTitle);
     strTitle = Utils::WizMisc::extractFileTitle(strTitle);
@@ -2457,37 +2638,33 @@ void WizDocumentWebView::saveAsHtml()
                                                        strInitFileName,
                                                        tr("Html Files (*.html)"));
     //
-    if (strIndexFileName.isEmpty())
+    if (!self || !read.current() || strIndexFileName.isEmpty())
         return;
     //
     strInitPath = Utils::WizMisc::extractFilePath(strIndexFileName);
     //
-    const WIZDOCUMENTDATA& doc = view()->note();
-    WizDatabase& db = m_dbMgr.db(doc.strKbGUID);
-    //
-    if (!db.exportToHtmlFile(doc, strIndexFileName)) {
-        return;
-    }
-    //
-    if (WizIsMarkdownNote(doc))
-    {
-        QString strScript = QString("WizReader.getRenderDocument();");
-        page()->runJavaScript(strScript, [=](const QVariant& vRet) {
-            //
-            QString strHtml = vRet.toString();
-            //
-            if (!strHtml.isEmpty())
-            {
-                QString fileTitle = Utils::WizMisc::extractFileTitle(strIndexFileName);
-                QString resourcePath = fileTitle + "_files/";
-                strHtml.replace("index_files/", resourcePath);
-                //
-                ::WizSaveUnicodeTextToUtf8File(strIndexFileName, strHtml, true);
-            }
-            //
+    // No destination/resource access before both the captured save frontier
+    // and (for Markdown) a valid rendered reply. Stage body/resources beside
+    // the target and commit the body last; do not enable persistent recovery.
+    const auto publish=[self,read,doc,strIndexFileName](const QString& rendered) {
+        if (!self || !read.current()) return;
+        QString error;
+        if (!WizMarkdownExportTransaction::writeHtml(strIndexFileName,rendered,
+                [self,read,doc](const QString& staged) {
+                    return self && read.current()
+                        && self->m_dbMgr.db(doc.strKbGUID).exportToHtmlFile(doc,staged) && read.current();
+                },[read]{return read.current();},error))
+            qWarning() << "HTML export failed:" << error;
+    };
+    self->trySaveDocumentForRead(doc,false,[self,read,doc,publish](const QVariant& saved) {
+        if (!self || !read.current() || saved.userType()!=QMetaType::Bool || !saved.toBool()) return;
+        if (!WizIsMarkdownNote(doc)) {
+            publish(QString());return;
+        }
+        self->page()->runJavaScript(QString("WizReader.getRenderDocument();"),[read,publish](const QVariant& result) {
+            if (read.current() && result.userType()==QMetaType::QString) publish(result.toString());
         });
-
-    }
+    });
 }
 
 /**
@@ -2497,6 +2674,9 @@ void WizDocumentWebView::saveAsHtml()
  */
 void WizDocumentWebView::saveAsRenderedHtml(QString& destFileName, std::function<void(QString fileName)> callback)
 {
+    const QString destination=destFileName;
+    const auto read=noteReadPermit();
+    if (destination.isEmpty() || !read.current()) return;
     //FIXME: should trimmed Wiz's Script and Style.
     //Script: name="wiz_inner_script", wiz_style="unsave", src="contains: odemirror"
     //Style: id="wiz_custom_css", id="wiz_tmp_style_reader_common", name="wiz_tmp_editor_style"
@@ -2504,10 +2684,9 @@ void WizDocumentWebView::saveAsRenderedHtml(QString& destFileName, std::function
     //          id="wiz_tmp_style_code_reader"
     //Tags: wiz_tmp_tag
     // not need remove those staff, for need rendered html page
-    page()->toHtml([=](const QString& strHtml){
-        //
-        if(::WizSaveUnicodeTextToUtf8File(destFileName, strHtml, false))
-            callback(destFileName);
+    page()->toHtml([read,destination,callback](const QString& strHtml){
+        if(WizDocumentReadOutput::writeUtf8(read,destination,strHtml) && callback)
+            callback(destination);
     });
 }
 
@@ -2547,11 +2726,13 @@ void WizDocumentWebView::setModified(bool b)
 
 void WizDocumentWebView::undo()
 {
+    if (!noteReadPermit().current()) return;
     page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.undo();");
 }
 
 void WizDocumentWebView::redo()
 {
+    if (!noteReadPermit().current()) return;
     page()->runJavaScript("if(window.WizNativeEditorInitialized && window.WizEditor) WizEditor.redo();");
 }
 
@@ -2589,6 +2770,7 @@ bool WizDocumentWebView::isPersonalDocument()
 
 QString WizDocumentWebView::getCurrentNoteHtml()
 {
+    if (!noteReadPermit().current()) return QString();
     return m_currentNoteHtml;
 }
 
@@ -2738,29 +2920,36 @@ void WizDocumentWebView::saveCurrentNote()
 
 void WizDocumentWebView::onReturn()
 {
-    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(this, m_documentCallbacks.ticket(), [](WizDocumentWebView& owner) {
-        owner.tryResetTitle();
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(this, m_documentCallbacks.ticket(), [read](WizDocumentWebView& owner) {
+        if (read.current()) owner.tryResetTitle();
     }));
 }
 
 
 void WizDocumentWebView::doCopy()
 {
+    if (!noteReadPermit().current()) return;
     page()->triggerAction(QWebEnginePage::Copy, false);
 }
 
 
 void WizDocumentWebView::doPaste()
 {
-    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(this, m_documentCallbacks.ticket(), [](WizDocumentWebView& owner) {
-        owner.onPasteCommand();
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    WizExecuteOnThread(WIZ_THREAD_MAIN, WizDocumentOwnerAction::forDocument(this, m_documentCallbacks.ticket(), [read](WizDocumentWebView& owner) {
+        if (read.current()) owner.onPasteCommand();
     }));
 }
 
 
 void WizDocumentWebView::afterCopied()
 {
-    WizWebEnginePage::processCopiedData();
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    WizWebEnginePage::processCopiedData([read]{return read.current();});
 }
 
 void WizDocumentWebView::onMarkerUndoStatusChanged(QString data)

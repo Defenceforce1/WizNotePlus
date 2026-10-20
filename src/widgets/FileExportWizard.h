@@ -6,6 +6,7 @@
 #include <QList>
 
 #include "share/WizQtHelper.h"
+#include "share/WizDocumentAsync.h"
 
 class WizExplorerApp;
 class WizDatabaseManager;
@@ -108,12 +109,13 @@ public:
 
     void initializePage() override;
     bool isComplete() const override;
+    void cleanupPage() override;
 
 Q_SIGNALS:
     void initialized();
 
 private Q_SLOTS:
-    void handleCancelBtnClicked() { m_cancel = true; };
+    void handleCancelBtnClicked();
 
 private:
     void insertLog(const QString &log);
@@ -126,6 +128,8 @@ private:
     QTextEdit *m_details;
     bool m_cancel;
     WizFileExporter* m_exporter;
+    bool m_exporting = false, m_finished = false, m_restartPending = false;
+    WizDocumentCallbackEpoch m_exportCallbacks;
 };
 
 #endif // FILEEXPORTWIZARD_H

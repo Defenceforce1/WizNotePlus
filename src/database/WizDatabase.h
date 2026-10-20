@@ -660,6 +660,8 @@ public:
     bool initBizCert();
     bool QueryCertPassword();
     bool verifyCertPassword(QString password);
+    bool cacheCertPasswordLocally(const QString& password, const QString& expectedN,
+                                  const QString& expectedE, const QString& expectedEncryptedD);
     QString getCertPassword();
     QString getCertPasswordHint();
 

@@ -10,6 +10,7 @@
 #include "utils/ExternalEditorLauncher.h"
 #include "gui/tabbrowser/AbstractTabPage.h"
 #include "AbstractDocumentView.h"
+#include "share/WizBiometricNoteAccess.h"
 
 class QScrollArea;
 class QThread;
@@ -90,6 +91,7 @@ protected:
     QThread* m_editStatusCheckerThread = nullptr;
 
     virtual void showEvent(QShowEvent *event);
+    void hideEvent(QHideEvent* event) override;
     virtual void resizeEvent(QResizeEvent* ev);
 
 private:
@@ -98,6 +100,11 @@ private:
     WizEditorMode m_editorMode;
     WizDocumentViewMode m_defaultViewMode; // user defined editing mode
     bool m_noteLoaded;
+    WizBiometricNoteAccess::Gate m_biometricGate;
+    WizDocumentCallbackEpoch m_openEpoch;
+    quint64 m_openSequence = 0;
+    bool m_biometricEnabled = false, m_biometricPrepared = false;
+    bool m_accessClosing = false, m_biometricReloadPending = false;
     //
     int m_editStatus;  // document edit or version status
     QSize m_sizeHint;
@@ -114,6 +121,9 @@ public:
     void reloadNote();
     void setEditorFocus();
     bool noteLoaded() const { return m_noteLoaded; }
+    bool canReadCurrentNote() const;
+    WizDocumentCallbackEpoch::Ticket noteReadTicket() const { return m_biometricGate.ticket(); }
+    bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket& ticket) const;
     void changeType(QString type) { m_note.strType = type; }
 
     void initStat(const WIZDOCUMENTDATA& data, bool forceEdit);
@@ -146,6 +156,7 @@ public Q_SLOTS:
     void onCloseNoteRequested(WizDocumentView* view);
 
     void onCipherCheckRequest();
+    void onBiometricCredentialReady();
 
     void on_download_finished(const WIZOBJECTDATA& data, bool bSucceed);
 
@@ -185,6 +196,13 @@ public Q_SLOTS:
     void onTitleEditingFinished(const QString &newTitle);
 
 private:
+    WizBiometricNoteAccess::Context biometricContext() const;
+    void revokeBiometricAccess(bool closing = false);
+    bool prepareEncryptedAccess(WizDatabase& db);
+    bool biometricRequestCurrent(const WizBiometricNoteAccess::Context& context,
+                                 const WizBiometricNoteAccess::Gate::Ticket& ticket) const;
+    bool completeBiometricUnlock(const QString& password, const WizBiometricNoteAccess::Context& context,
+                                 const WizBiometricNoteAccess::Gate::Ticket& ticket);
     void loadNote(const WIZDOCUMENTDATAEX &doc);
     void downloadNoteFromServer(const WIZDOCUMENTDATA& note);
     void sendDocumentEditingStatus();

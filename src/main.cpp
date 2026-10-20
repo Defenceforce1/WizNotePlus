@@ -48,6 +48,7 @@
 #include "sync/WizToken.h"
 #include "sync/WizApiEntry.h"
 #include "sync/WizAvatarHost.h"
+#include "share/WizUiLanguages.h"
 #include "WizThumbCache.h"
 #include "WizMainWindow.h"
 #include "WizLoginDialog.h"
@@ -251,6 +252,10 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
     translatorQt.load(strLocaleFile);
     app.installTranslator(&translatorQt);
 
+    WizSettingsMenuTranslator settingsMenuTranslator;
+    settingsMenuTranslator.locale = strLocale;
+    app.installTranslator(&settingsMenuTranslator);
+
     // 登录程序
     //-------------------------------------------------------------------
 
@@ -343,6 +348,9 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
     app.installTranslator(&translatorQt);
 
     WizCommonApiEntry::setLanguage(strLocale);
+    app.removeTranslator(&settingsMenuTranslator);
+    settingsMenuTranslator.locale = strLocale;
+    app.installTranslator(&settingsMenuTranslator);
 
     QFont uiFont(userSettings.UIFontFamily(), userSettings.UIFontSize());
     app.setFont(uiFont);
@@ -436,6 +444,38 @@ int main(int argc, char *argv[])
         return 0;
     }
 #ifdef WIZNOTE_NATIVE_TRANSFER_TESTS
+    if (argc == 2 && QByteArray(argv[1]) == "--certificate-creation-self-test") {
+        extern int wizCertificateCreationSelfTest(int, char**);
+        return wizCertificateCreationSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--certificate-creation-ui-self-test") {
+        extern int wizCertificateCreationUiSelfTest(int, char**);
+        return wizCertificateCreationUiSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--biometric-keychain-self-test") {
+        extern int wizBiometricKeychainSelfTest(int, char**);
+        return wizBiometricKeychainSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--biometric-unlock-ui-self-test") {
+        extern int wizBiometricUnlockUiSelfTest(int, char**);
+        return wizBiometricUnlockUiSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--biometric-document-routing-self-test") {
+        extern int wizBiometricDocumentRoutingSelfTest(int, char**);
+        return wizBiometricDocumentRoutingSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--biometric-note-access-self-test") {
+        extern int wizBiometricNoteAccessSelfTest(int, char**);
+        return wizBiometricNoteAccessSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--settings-ui-self-test") {
+        extern int wizSettingsUiSelfTest(int, char**);
+        return wizSettingsUiSelfTest(argc, argv);
+    }
+    if (argc == 2 && QByteArray(argv[1]) == "--account-file-selection-self-test") {
+        extern int wizAccountFileSelectionSelfTest(int, char**);
+        return wizAccountFileSelectionSelfTest(argc, argv);
+    }
     if (argc == 2 && (QByteArray(argv[1]) == "--native-editor-runtime-self-test" || QByteArray(argv[1]) == "--editor-memory-probe")) {
         extern int wizNativeEditorRuntimeSelfTest(int, char**);
         return wizNativeEditorRuntimeSelfTest(argc, argv);

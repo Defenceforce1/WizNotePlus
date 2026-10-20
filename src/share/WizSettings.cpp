@@ -3,6 +3,7 @@
 
 #include "WizDef.h"
 #include "WizMisc.h"
+#include "WizUiLanguages.h"
 #include <QLocale>
 #include <QList>
 #include <algorithm>
@@ -680,14 +681,14 @@ void WizUserSettings::setSkin(const QString& strSkinName)
 QString WizUserSettings::locale()
 {
     if (!m_strLocale.isEmpty()) {
-        return m_strLocale;
+        return wizSupportedUiLocale(m_strLocale);
     }
 
     QString strLocale = get("Locale");
 
     if (!strLocale.isEmpty()) {
-        m_strLocale = strLocale;
-        return strLocale;
+        m_strLocale = wizSupportedUiLocale(strLocale);
+        return m_strLocale;
     }
 
     //CWizSettings settings(::WizGetDataStorePath() + "wiznote.ini");
@@ -698,7 +699,7 @@ QString WizUserSettings::locale()
     //    return strLocale;
     //}
 
-    strLocale = QLocale::system().name();
+    strLocale = wizSupportedUiLocale(QLocale::system().name());
     if (::WizPathFileExists(Utils::WizPathResolve::localeFileName(strLocale))) {
         m_strLocale = strLocale;
         return strLocale;
@@ -711,8 +712,8 @@ void WizUserSettings::setLocale(const QString& strLocale)
 {
     Q_ASSERT(!strLocale.isEmpty());
 
-    m_strLocale = strLocale;
-    set("Locale", strLocale);
+    m_strLocale = wizSupportedUiLocale(strLocale);
+    set("Locale", m_strLocale);
 }
 
 const QString WizUserSettings::kDefaultEditorFontFamily = "Helvetica, \"Hiragino Sans GB\", "
@@ -856,7 +857,7 @@ int WizUserSettings::syncGroupMethod() const
 {
     int nDays = get("SyncGroupMethod").toInt();
     if (!nDays)
-        return 1;   // default 1 day
+        return -1;  // default metadata/title only; explicit choices unchanged
 
     return nDays;
 }

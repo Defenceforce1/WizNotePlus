@@ -19,6 +19,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QPlainTextEdit>
@@ -65,9 +66,15 @@ QString bootstrapSavedReader(QString html, const QString& type, const QString& c
     const QString scripts="<script name='wiz_inner_script' wiz_style='unsave' src=\""
         +QUrl::fromLocalFile(resource+"wizEditorForMac.js").toString().toHtmlEscaped()+"\"></script>"
         "<script name='wiz_inner_script' wiz_style='unsave' src=\""
+        +QUrl::fromLocalFile(resource+"dependency/marked/marked.umd.js").toString().toHtmlEscaped()+"\"></script>"
+        "<script name='wiz_inner_script' wiz_style='unsave' src=\""
+        +QUrl::fromLocalFile(resource+"latexTheorems.js").toString().toHtmlEscaped()+"\"></script>"
+        "<script name='wiz_inner_script' wiz_style='unsave' src=\""
+        +QUrl::fromLocalFile(resource+"markdownEnvironments.js").toString().toHtmlEscaped()+"\"></script>"
+        "<script name='wiz_inner_script' wiz_style='unsave' src=\""
         +QUrl::fromLocalFile(resource+"editorHelper.js").toString().toHtmlEscaped()+"\"></script>"
         "<script name='wiz_inner_script' wiz_style='unsave'>window.WizNoteCss="+jsonString(css)+";"
-        "WizEditor.init({document:document,lang:'zh-cn',clientType:'web',noteType:"+jsonString(type)
+        "WizInitMarkdownEditor({document:document,lang:'zh-cn',clientType:'web',noteType:"+jsonString(type)
         +",dependencyUrl:"+jsonString(QUrl::fromLocalFile(resource+"dependency").toString())
         +",reader:{type:"+jsonString(type)+",callback:{markdown:()=>WizApplyNoteStyle(),mathJax:()=>WizApplyNoteStyle()}}});"
         "window.WizNativeEditorInitialized=true;WizSetSpellCheck(false);WizPrepareNoteModeChange();"
@@ -96,7 +103,10 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         qInfo().noquote() << (ok ? "PASS" : "FAIL") << label; failures += !ok; return ok;
     };
     std::unique_ptr<WizDatabaseManager> savedNotes;
-    if(qEnvironmentVariableIntValue("WIZNOTE_VERIFY_PERSISTED_RENDERING")){
+    const QString providedCopies=qEnvironmentVariable("WIZNOTE_PRESENTATION_COPY_DIR");
+    if(!providedCopies.isEmpty()&&(QGuiApplication::platformName()!="offscreen"
+        ||!QFileInfo(providedCopies).isAbsolute()||!QFileInfo(providedCopies).isDir()))return 2;
+    if(qEnvironmentVariableIntValue("WIZNOTE_VERIFY_PERSISTED_RENDERING")||!providedCopies.isEmpty()){
         savedNotes=std::make_unique<WizDatabaseManager>("synthetic-persisted-render-account");
         if(!check(savedNotes->open(),"open isolated synthetic saved-render database"))return 1;
         savedNotes->db().setKbGUID("synthetic-persisted-render-kb");
@@ -109,6 +119,8 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         evaluate(source,"window.SaveEditingReady=false;WizPrepareNoteModeChange();WizEditor.on(null,function(){WizApplyNoteStyle();WizApplySpellCheck();window.SaveEditingReady=true;});");
         if(!check(waitFor([&]{return evaluate(source,"!!window.SaveEditingReady&&document.body.isContentEditable").toBool();}),
             "enter the actual editor before requesting an editor save snapshot"))return;
+        const QString expectedBody=providedCopies.isEmpty()?QString():evaluate(source,
+            "new DOMParser().parseFromString(WizEditor.getContentHtml(),'text/html').body.innerHTML").toString();
         const auto snapshot=WizDocumentSaveSnapshot::parse(evaluate(source,WizDocumentSaveSnapshot::editorScript(true,false)));
         if(!check(snapshot.state==WizDocumentSaveSnapshot::State::Changed,"capture production save snapshot for persisted rendering"))return;
         WIZDOCUMENTDATA note;
@@ -132,7 +144,53 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         check(evaluate(&reopened,query).toString()==expected,"native note save and fresh reopen preserve the exact source or rich-text content");
         check(evaluate(&reopened,"JSON.stringify(window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().map(j=>j.originalText):[])").toString()==expectedMath,
             "native note save and fresh reopen preserve formula source and count");
+        if(!providedCopies.isEmpty()) {
+            evaluate(&reopened,"window.ReopenedEditingReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.ReopenedEditingReady=true;});");
+            if(!check(waitFor([&]{return evaluate(&reopened,"window.ReopenedEditingReady===true").toBool();}),
+                "reopened provided copy returns to the original editor"))return;
+            check(evaluate(&reopened,"new DOMParser().parseFromString(WizEditor.getContentHtml(),'text/html').body.innerHTML").toString()==expectedBody,
+                "provided copy preserves exact editable HTML body including NBSP through native save and reopen");
+        }
     };
+    if(!providedCopies.isEmpty()) {
+        QString error;
+        if(!check(WizNotePresentation::saveStyle(&settings,
+            {WizNotePresentation::scientificMathStyle(),true},error),"enable math style only in isolated copy settings"))return 1;
+        const int expectedJax[]={2,6,15},expectedBlocks[]={0,2,6},expectedLinks[]={0,4,7};
+        for(int i=0;i<3;++i) {
+            QFile input(QDir(providedCopies).filePath(QString("case%1.md").arg(i+1)));
+            if(!check(QFileInfo(input).isFile()&&QFileInfo(input).size()<=1024*1024
+                &&input.open(QIODevice::ReadOnly),"read only an explicitly provided private Markdown copy"))return 1;
+            const QByteArray bytes=input.readAll();input.close();
+            const QString text=QString::fromUtf8(bytes);
+            if(!check(text.toUtf8()==bytes,"provided copy is lossless UTF-8"))return 1;
+            QString body=text.toHtmlEscaped();body.replace('\n',"<br>");
+            const QString html=bootstrapSavedReader("<html><body>"+body+"</body></html>","markdown",
+                WizNotePresentation::scientificMathStyle());
+            const QString sourceFile=root.filePath(QString("provided-copy-%1.html").arg(i+1));
+            if(!check(WizDocumentSaveSnapshot::writeHtmlFile(sourceFile,html),"prepare only a temporary provided-copy reader"))return 1;
+            QWebEngineView view;view.resize(900,600);view.show();
+            view.setPage(new QWebEnginePage(WizWebEngineProfile(),&view));
+            view.load(QUrl::fromLocalFile(sourceFile));
+            if(!check(waitFor([&]{return evaluate(view.page(),"window.FixtureReady===true").toBool();}),
+                "provided copy renders in the original offline reader"))return 1;
+            const auto state=evaluate(view.page(),R"JS((()=>{
+              const links=Array.from(document.querySelectorAll('a')).filter(a=>(a.getAttribute('href')||a.getAttributeNS('http://www.w3.org/1999/xlink','href')||'').includes('#'));
+              return {jax:MathJax.Hub.getAllJax().length,blocks:document.querySelectorAll('.wiz-math-block').length,
+                errors:document.querySelectorAll('.MathJax_Error,merror').length,links:links.length,
+                resolved:links.every(a=>{const h=a.getAttribute('href')||a.getAttributeNS('http://www.w3.org/1999/xlink','href');return !!document.getElementById(decodeURIComponent(h.slice(h.indexOf('#')+1)));})};
+            })())JS").toMap();
+            check(state.value("jax").toInt()==expectedJax[i]&&state.value("blocks").toInt()==expectedBlocks[i]
+                &&state.value("errors").toInt()==0&&state.value("links").toInt()==expectedLinks[i]
+                &&state.value("resolved").toBool(),"provided copy has independently expected formulas, blocks and resolved references");
+            persistAndReopen(view.page(),"markdown",sourceFile);
+            qInfo()<<"Provided copy completed:"<<i+1;
+        }
+        check(requests.blocked==0,"provided copies and native save/reopen require no remote resources");
+        WizWebEngineProfile()->setUrlRequestInterceptor(nullptr);
+        qInfo()<<"Provided copy persistence cases: 3 failures:"<<failures;
+        return failures?1:0;
+    }
     const QString originalAppName = app.applicationName();
     const QString originalOrganization = app.organizationName();
     const QString originalSettingsPath = QSettings().fileName();
@@ -235,6 +293,31 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         "bundled user-facing Markdown example is available and bounded")) return 1;
     const QString exampleSource = QString::fromUtf8(example.readAll());
     sources.append(exampleSource);
+    const QString bareSource = QStringLiteral("# Bare display environments\n\n"
+        "\\begin{equation}\nx_1^2+y_1^2=z_1^2\\label{bare:eq}\n\\end{equation}\n\n"
+        "\\begin{align}\na_1&=b_1+c_1\\\\\na_2&=b_2+c_2\\label{bare:align}\n\\end{align}\n\n"
+        "> \\begin{equation}\n> x=1\\label{bare:quote}\n> \\end{equation}\n\n"
+        "- Display:\n\n    \\begin{align}\n    a&=b\\\\\n    c&=d\\label{bare:list}\n    \\end{align}\n\n"
+        "\\begin{gather}\na=b\\\\\nc=d\\label{bare:gather}\n\\end{gather}\n\n"
+        "\\begin{multline}\na+b+c\\\\\n=d+e\\label{bare:multline}\n\\end{multline}\n\n"
+        "```latex\n\\begin{equation}code_only\\end{equation}\n```\n");
+    sources.append(bareSource);
+    const QString theoremSource=QStringLiteral("# LaTeX theorem environments\n\nSee \\ref{thm:latex}.\n\n"
+        "\\begin{theorem}[Nonnegative]\\label{thm:latex}\nFor $x$, a **bold** statement.\n\n"
+        "\\begin{proof}\nBy definition.\n\\end{proof}\n\\end{theorem}\n\n"
+        "\\begin{lemma}\nA lemma.\n\\end{lemma}\n\n"
+        "\\begin{proposition}\n\\begin{equation}\nx=1\\label{eq:latex}\n\\end{equation}\n\\end{proposition}\n\n"
+        "\\begin{corollary}\nA consequence.\n\\end{corollary}\n\n"
+        "\\begin{definition}\nA definition.\n\\end{definition}\n\n"
+        "\\begin{example}\nAn example.\n\\end{example}\n\n"
+        "\\begin{remark}\nA remark.\n\\end{remark}\n\n"
+        "\\begin{theorem*}\nUnnumbered.\n\\end{theorem*}\n");
+    sources.append(theoremSource);
+    QFile latexExample(Utils::WizPathResolve::resourcesPath()+"files/examples/latex-theorem-environments.md");
+    if(!check(latexExample.open(QIODevice::ReadOnly)&&latexExample.size()>0&&latexExample.size()<65536,
+        "bundled LaTeX theorem example is available and bounded"))return 1;
+    const QString latexExampleSource=QString::fromUtf8(latexExample.readAll());
+    sources.append(latexExampleSource);
     for (int index = 0; index < sources.size(); ++index) {
         if (index == 2) {
             math.screen = scientificMathStyle();
@@ -244,9 +327,12 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
         QString source = sources[index].toHtmlEscaped(); source.replace('\n', "<br>");
         const QString html = "<html><head><meta charset='utf-8'></head><body>" + source
             + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "wizEditorForMac.js").toString().toHtmlEscaped() + "\"></script>"
+            + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "dependency/marked/marked.umd.js").toString().toHtmlEscaped() + "\"></script>"
+            + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "latexTheorems.js").toString().toHtmlEscaped() + "\"></script>"
+            + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "markdownEnvironments.js").toString().toHtmlEscaped() + "\"></script>"
             + "<script name='wiz_inner_script' wiz_style='unsave' src=\"" + QUrl::fromLocalFile(resource + "editorHelper.js").toString().toHtmlEscaped() + "\"></script>"
             + "<script name='wiz_inner_script' wiz_style='unsave'>window.WizNoteCss=" + jsonString(styleSheet(loadStyle(&settings)))
-            + ";WizEditor.init({document:document,lang:'zh-cn',clientType:'web',noteType:'markdown',dependencyUrl:"
+            + ";WizInitMarkdownEditor({document:document,lang:'zh-cn',clientType:'web',noteType:'markdown',dependencyUrl:"
             + jsonString(QUrl::fromLocalFile(resource + "dependency").toString())
             + ",reader:{type:'markdown',callback:{markdown:function(){WizApplyNoteStyle();},mathJax:function(){WizApplyNoteStyle();}}}});"
             + "WizSetSpellCheck(false);WizEditor.off(null,function(){var done=function(){WizApplyNoteStyle();"
@@ -322,7 +408,7 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
                 "document.querySelectorAll('.wiz-math-block').length===2&&document.querySelectorAll('.wiz-math-reference').length===0"
                 "&&Array.from(document.querySelectorAll('.wiz-math-block')).every(function(b){return b.getAttribute('data-wiz-math-heading').indexOf('标签重复')>=0;})").toBool(),
                 "duplicate labels warn on both blocks and never create an ambiguous reference");
-        } else {
+        } else if (index == 5) {
             check(evaluate(reader.page(),
                 "Array.from(document.querySelectorAll('.wiz-math-block')).map(function(b){return b.getAttribute('data-wiz-math-number');}).join(',')==='1,2,1,,2,1,,7,8'"
                 "&&document.querySelectorAll('.wiz-math-reference').length===8"
@@ -335,6 +421,34 @@ int wizNotePresentationSelfTest(int argc, char** argv) {
             qInfo() << "Example source lengths:" << actualExampleSource.size() << exampleSource.size();
             check(actualExampleSource == exampleSource,
                 "delivered Markdown demonstration survives rendering with identical source");
+        } else if (index == 6) {
+            check(evaluate(reader.page(), "MathJax.Hub.getAllJax().length===6"
+                "&&document.querySelectorAll('.MathJax_Error,merror,.noError').length===0"
+                "&&!!document.getElementById('mjx-eqn-bare:eq')&&!!document.getElementById('mjx-eqn-bare:align')"
+                "&&!!document.getElementById('mjx-eqn-bare:quote')&&!!document.getElementById('mjx-eqn-bare:list')"
+                "&&!!document.getElementById('mjx-eqn-bare:gather')&&!!document.getElementById('mjx-eqn-bare:multline')"
+                "&&!document.querySelector('pre .MathJax_SVG')").toBool(),
+                "native top-level quote and list math environments render with number targets while fenced TeX remains code");
+            check(evaluate(reader.page(), "WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString() == bareSource,
+                "native bare display environments preserve exact source without inserted dollar delimiters");
+        } else if(index == 7) {
+            check(evaluate(reader.page(),"document.querySelectorAll('.wiz-latex-theorem').length===9"
+                "&&Array.from(document.querySelectorAll('.wiz-latex-theorem')).map(b=>b.getAttribute('data-wiz-math-number')).join(',')==='1,,2,3,4,1,1,,'"
+                "&&document.querySelectorAll('.wiz-math-reference').length===1&&!!document.getElementById('wiz-math-thm:latex')"
+                "&&MathJax.Hub.getAllJax().length===2&&!!document.getElementById('mjx-eqn-eq:latex')"
+                "&&document.querySelectorAll('.MathJax_Error,merror,.noError').length===0").toBool(),
+                "native common LaTeX theorem environments share counters preserve stars nested proof and formula targets");
+            check(evaluate(reader.page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==theoremSource,
+                "native theorem preview retains exact original LaTeX environment syntax");
+        } else {
+            check(evaluate(reader.page(),"document.querySelectorAll('.wiz-latex-theorem').length===8"
+                "&&Array.from(document.querySelectorAll('.wiz-latex-theorem')).map(b=>b.getAttribute('data-wiz-math-number')).join(',')==='1,1,2,,3,,1,'"
+                "&&document.querySelectorAll('.wiz-math-reference').length===2&&!!document.getElementById('wiz-math-prop:square')"
+                "&&!!document.getElementById('wiz-math-cor:sum')&&MathJax.Hub.getAllJax().length===8"
+                "&&!!document.getElementById('mjx-eqn-eq:square')&&document.querySelectorAll('.MathJax_Error,merror,.noError').length===0").toBool(),
+                "bundled theorem example renders actual definitions propositions corollaries proof star and eight formulas");
+            check(evaluate(reader.page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==latexExampleSource,
+                "bundled LaTeX theorem example retains byte-equivalent Markdown source for actual save and reopen");
         }
         const QString query = "WizEditor.getMarkdownSrc({unEscapeHtml:true})";
         const QString before = evaluate(reader.page(), query).toString();

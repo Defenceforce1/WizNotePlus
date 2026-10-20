@@ -190,8 +190,10 @@ bool WizSaveDataToFile(const QString& strFileName, const QByteArray& arrayData);
 bool WizLoadDataFromFile(const QString& strFileName, QByteArray& arrayData);
 
 //web dialog
+enum class WizWebDialogContent { Default, FreshAccount };
 void WizShowWebDialogWithToken(const QString& windowTitle, const QString& url,
-                               QWidget* parent = 0, const QSize& sz = QSize(800, 480), bool dialogResizable = false);
+                               QWidget* parent = 0, const QSize& sz = QSize(800, 480), bool dialogResizable = false,
+                               WizWebDialogContent content = WizWebDialogContent::Default);
 void WizShowWebDialogWithTokenDelayed(const QString& windowTitle, const QString& url,
                                QWidget* parent = 0, const QSize& sz = QSize(800, 480), bool dialogResizable = false);
 

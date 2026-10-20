@@ -164,7 +164,8 @@ void WizUserInfoWidget::on_action_accountSettings_triggered()
     QString extInfo = WizCommonApiEntry::appstoreParam(false);
     QString strUrl = WizCommonApiEntry::makeUpUrlFromCommand("user_info",
                                                               WIZ_TOKEN_IN_URL_REPLACE_PART, extInfo);
-    WizShowWebDialogWithToken(tr("Account settings"), strUrl, window);
+    WizShowWebDialogWithToken(tr("Account settings"), strUrl, window, QSize(800, 480),
+                              false, WizWebDialogContent::FreshAccount);
 #else
     WizIAPDialog* dlg = window->iapDialog();
     dlg->loadUserInfo();

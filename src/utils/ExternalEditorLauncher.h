@@ -10,6 +10,7 @@
 class QFileSystemWatcher;
 class WizDocumentSaverThread;
 class WizMainWindow;
+class WizDocumentView;
 
 struct WizExternalEditorData
 {
@@ -43,6 +44,8 @@ public:
 
 protected:
     QString makeValidCacheFileName(const QString &docTitle, const QDir &tempDir);
+    void viewNoteInExternalEditor(WizDocumentView *docView,
+        const WizExternalEditorData &editorData, const WIZDOCUMENTDATAEX &noteData);
 
 public Q_SLOTS:
     void onWatchedDocumentChanged(const QString& fileName);

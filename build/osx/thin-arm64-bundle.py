@@ -19,6 +19,36 @@ def run(*args):
     return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT)
 
 
+def prune_language_resources(output):
+    """Used only on a new owned bundle (or a disposable fixture), never input."""
+    removed = []
+    root = output.resolve(strict=True)
+    def omit(locale):
+        if not locale.resolve(strict=True).is_relative_to(root):
+            raise SystemExit("Refusing language removal through an external resource directory")
+        removed.append((str(locale.relative_to(output)), locale.stat().st_size))
+        locale.unlink()
+    engine = output / "Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Resources/qtwebengine_locales"
+    if engine.is_dir():
+        for locale in engine.iterdir():
+            if locale.is_file() and not locale.is_symlink() and locale.suffix == ".pak" and locale.name not in {"en-US.pak", "en-GB.pak", "zh-CN.pak"}:
+                omit(locale)
+    locales = output / "Contents/Resources/locales"
+    if locales.is_dir():
+        for locale in locales.iterdir():
+            if locale.is_file() and not locale.is_symlink() and locale.name.startswith(("qt_", "qt_help_", "qtbase_", "wiznote_")) and locale.suffix == ".qm" and locale.stem.rsplit("_", 1)[-1] not in {"en", "US", "CN"}:
+                omit(locale)
+    for relative in ("Contents/Resources/zh-Hant.lproj/ServicesMenu.strings",
+                     "Contents/Resources/files/welcomepage/js/datepicker-zh-TW.js"):
+        locale = output / relative
+        if locale.is_file() and not locale.is_symlink():
+            omit(locale)
+    traditional = output / "Contents/Resources/zh-Hant.lproj"
+    if traditional.is_dir() and not traditional.is_symlink() and not any(traditional.iterdir()):
+        traditional.rmdir()
+    return removed
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("Usage: thin-arm64-bundle.py SOURCE_APP NEW_ABSOLUTE_APP")
@@ -70,23 +100,11 @@ def main():
             binaries.append(binary)
     if not binaries:
         raise SystemExit("No Mach-O code found")
-    # App Info.plist declares English and both Chinese variants. This is NOT a
+    # App Info.plist declares English and Simplified Chinese. This is NOT a
     # blanket removal of files with unfamiliar suffixes: fonts, math, PDF,
     # spellchecking dictionaries, devtools and image plugins are all retained.
-    resource_removed = []
+    resource_removed = prune_language_resources(output)
     engine = output / "Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Resources"
-    engine_locales = engine / "qtwebengine_locales"
-    if engine_locales.is_dir():
-        for locale in engine_locales.iterdir():
-            if locale.is_file() and not locale.is_symlink() and locale.suffix == ".pak" and locale.name not in {"en-US.pak", "en-GB.pak", "zh-CN.pak", "zh-TW.pak"}:
-                resource_removed.append((str(locale.relative_to(output)), locale.stat().st_size))
-                locale.unlink()
-    qt_locales = output / "Contents/Resources/locales"
-    if qt_locales.is_dir():
-        for locale in qt_locales.iterdir():
-            if locale.is_file() and not locale.is_symlink() and locale.name.startswith(("qt_", "qt_help_", "qtbase_")) and locale.suffix == ".qm" and locale.stem.rsplit("_", 1)[-1] not in {"en", "CN", "TW"}:
-                resource_removed.append((str(locale.relative_to(output)), locale.stat().st_size))
-                locale.unlink()
     intel_snapshot = engine / "v8_context_snapshot.x86_64.bin"
     if intel_snapshot.is_file() and not intel_snapshot.is_symlink():
         resource_removed.append((str(intel_snapshot.relative_to(output)), intel_snapshot.stat().st_size))

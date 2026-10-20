@@ -1,6 +1,8 @@
 #include "share/WizWebEngineView.h"
 #include "share/WizDocumentAsync.h"
 #include "share/WizDocumentPageReady.h"
+#include "share/WizPdfPageOperations.h"
+#include "share/WizPdfExport.h"
 #include "share/WizGlobal.h"
 #include "WizNotePresentation.h"
 #include "utils/WizPathResolve.h"
@@ -85,10 +87,10 @@ bool waitFor(const std::function<bool()>& predicate,int timeout=15000) {
     QObject::connect(&deadline,&QTimer::timeout,&loop,&QEventLoop::quit);
     poll.start(10);deadline.setSingleShot(true);deadline.start(timeout);loop.exec();return ok;
 }
-QVariant evaluate(QWebEnginePage* page,const QString& script) {
+QVariant evaluate(QWebEnginePage* page,const QString& script,quint32 world=0) {
     struct State { bool ready=false;QVariant value; };
     const auto state=std::make_shared<State>();
-    page->runJavaScript(script,[state](const QVariant& value){state->value=value;state->ready=true;});
+    page->runJavaScript(script,world,[state](const QVariant& value){state->value=value;state->ready=true;});
     waitFor([state]{return state->ready;},10000);return state->value;
 }
 void settle(int ms) { QEventLoop loop;QTimer::singleShot(ms,&loop,&QEventLoop::quit);loop.exec(); }
@@ -110,21 +112,31 @@ struct Session {
     std::unique_ptr<QWebEngineView> view;
     WizDocumentCallbackEpoch epoch;
     QString source,path;
+    QString initialNoteType = QStringLiteral("markdown");
+    QString markdownOverride;
     bool imagePayload=false;
-    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr,bool stockView=false,bool withImages=false) {
+    bool withPdfHelper=false;
+    bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr,bool stockView=false,bool withImages=false,bool withBareMath=false) {
         imagePayload=withImages;
         source="# Native bridge fixture\n\nReference \\ref{thm:local}.\n\n";
         for(int i=0;i<blocks;++i)source+=QString("> **定理** \\label{thm:%1}\n>\n> Synthetic $x^2\\ge0$.\n\n<!-- -->\n\n").arg(i?QString::number(i):"local");
         source+="```text\n\\ref{code:unchanged}\n```\n";
+        if(withBareMath)source="# Native bare environments, without dollar triggers\n\n"
+            "> \\begin{equation}\n> x=1\\label{native:quote}\n> \\end{equation}\n\n"
+            "- Display:\n\n    \\begin{align}\n    a&=b\\\\\n    c&=d\\label{native:list}\n    \\end{align}\n\n"
+            "\\begin{gather}\na=b\\\\\nc=d\\label{native:gather}\n\\end{gather}\n\n"
+            "\\begin{multline}\na+b+c\\\\\n=d+e\\label{native:multline}\n\\end{multline}\n\n"
+            "```latex\n\\begin{equation}code_only\\end{equation}\n```\n";
         if(imagePayload)for(int image=0;image<2;++image)
             source+=QString("\n![Synthetic large image %1](%2)\n").arg(image)
                 .arg(QUrl::fromLocalFile(QDir(folder).filePath(QString("native-large-%1.png").arg(image))).toString(QUrl::FullyEncoded));
         if(emptyControl)source="Synthetic empty control";
+        if(!markdownOverride.isNull())source=markdownOverride;
         editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+QString(source.toHtmlEscaped()).replace("\n","<br>")+"</body></html>";
         QString html=editor.original;
         const QString resources=Utils::WizPathResolve::resourcesPath()+"files/";
         QString scripts;
-        if(!emptyControl)for(const QString& file:{QString("webengine/wizwebchannel.js"),QString("wizeditor/wizEditorForMac.js"),QString("wizeditor/editorHelper.js")})
+        if(!emptyControl)for(const QString& file:{QString("webengine/wizwebchannel.js"),QString("wizeditor/wizEditorForMac.js"),QString("wizeditor/dependency/marked/marked.umd.js"),QString("wizeditor/latexTheorems.js"),QString("wizeditor/markdownEnvironments.js"),QString("wizeditor/editorHelper.js")})
             scripts+="<script name='wiz_inner_script' wiz_style='unsave' src=\""+QUrl::fromLocalFile(resources+file).toString().toHtmlEscaped()+"\"></script>";
         html.insert(html.lastIndexOf("</body>"),scripts);
         path=folder+QString("/native-%1.html").arg(index);
@@ -139,6 +151,7 @@ struct Session {
         if(auto* tabs=qobject_cast<QTabWidget*>(host)) {
             tabs->addTab(view.get(),QString("Synthetic %1").arg(index));tabs->setCurrentWidget(view.get());
         } else if(host)static_cast<QGridLayout*>(host->layout())->addWidget(view.get(),index%4/2,index%2);
+        if(withPdfHelper)WizPdfSvgLinks::install(view->page());
         if(showView){view->resize(900,600);view->show();}
         bool loaded=false,ok=false;
         QMetaObject::Connection connection;
@@ -154,9 +167,9 @@ struct Session {
         const QString css="/* WizNotePlus scientific math environments v1 */\n.wiz-math-block {border-left:3px solid #4b69c6;}";
         return WizDocumentPageReady::setupScript(jsonString(token),
             "window.WizSpellCheckEnabled=true;window.WizNoteCss="+jsonString(css)+";"
-            +WizDocumentPageReady::initializeEditorScript(resources,"zh-cn","synthetic-runtime-user","Synthetic local fixture",false,"markdown")+
+            +WizDocumentPageReady::initializeEditorScript(resources,"zh-cn","synthetic-runtime-user","Synthetic local fixture",false,initialNoteType)+
             "if(WizNativeEditorSetup.token!=="+jsonString(token)+")return;WizPrepareNoteModeChange();"
-            "await new Promise(resolve=>WizEditor.off(null,resolve));"
+            "await new Promise(resolve=>WizEditor.off({reader:{type:'markdown'}},resolve));"
             "if(window.MathJax&&MathJax.Hub)await new Promise(resolve=>MathJax.Hub.Queue(resolve));"
             "WizApplyNoteStyle();WizApplySpellCheck();"+
             (imagePayload?QString("const syntheticImages=Array.from(document.images).filter(i=>/\\/native-large-[01]\\.png$/.test(i.src));"
@@ -394,6 +407,130 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             {"stockView",stockView},
             {"expectedClosedProcessCount",keepNote?2:1},{"samples",samples}}).toJson(QJsonDocument::Compact));
     } else {
+        const bool printOnly=qEnvironmentVariableIsSet("WIZNOTE_NATIVE_PRINT_ONLY");
+        for(const auto& initialType : {QStringLiteral("markdown"),QStringLiteral("common")}) {
+            if(printOnly)break;
+            Session session;
+            session.initialNoteType=initialType;
+            if(!check(session.load(root.path(),21,1,true,false,false,nullptr,false,false,true)
+                &&session.start("native-bare-environments"),"actual mac bridge initializes bare math environments in Markdown containers"))return 1;
+            const QString rendered="!!window.MathJax&&!!MathJax.Hub&&MathJax.Hub.getAllJax().length===4"
+                "&&document.querySelectorAll('.MathJax_Error,merror,.noError').length===0"
+                "&&!document.querySelector('pre .MathJax_SVG')"
+                "&&['native:quote','native:list','native:gather','native:multline'].every(id=>!!document.getElementById('mjx-eqn-'+id))";
+            qInfo()<<"Native bare math initial note type"<<initialType;
+            check(evaluate(session.view->page(),rendered).toBool(),"actual mac-client reader renders quote list gather and multline with number targets after initial note type");
+            evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.ModeReady=true;});");
+            check(waitFor([&]{return evaluate(session.view->page(),"!!ModeReady&&document.body.isContentEditable").toBool();})
+                &&evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==session.source,
+                "actual mac-client bare math edit transition preserves exact source");
+            evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>{window.ModeReady=true;});");
+            check(waitFor([&]{return evaluate(session.view->page(),"!!ModeReady").toBool();})
+                &&evaluate(session.view->page(),rendered).toBool()
+                &&evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==session.source,
+                "native reader-type override retains bare environment hook numbering and exact source");
+        }
+        if(!printOnly) {
+            Session session;session.initialNoteType=QStringLiteral("common");
+            session.markdownOverride=QStringLiteral("\\begin{equation}\\label{eq1}\n"
+                "A+C-D=\\begin{cases}A\\\\B,\n\\end{cases}\n\\end{equation}\n\n\\eqref{eq1}\n");
+            if(!check(session.load(root.path(),23)&&session.start("screenshot-equation-cases"),
+                "screenshot-shaped source uses actual common-to-Markdown mac bridge"))return 1;
+            check(evaluate(session.view->page(),"!!window.MathJax&&MathJax.Hub.getAllJax().length===2"
+                "&&!!document.getElementById('mjx-eqn-eq1')&&document.querySelectorAll('.MathJax_Error,merror,.noError').length===0"
+                "&&Array.from(document.querySelectorAll('.MathJax_SVG a')).some(a=>(a.getAttribute('xlink:href')||a.getAttribute('href')||'').endsWith('#mjx-eqn-eq1'))").toBool(),
+                "native screenshot equation nested cases and bare eqref render with resolved local destination");
+            check(evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==session.source,
+                "native screenshot TeX including exact cases row separator is unchanged");
+        }
+        {
+            Session session;session.initialNoteType=QStringLiteral("common");session.withPdfHelper=true;
+            session.markdownOverride=QStringLiteral("\\begin{equation}\\label{eq1}\na=b\n\\end{equation}\n\n"
+                "\\begin{equation}\\label{eq2}\nc=d\n\\end{equation}\n\n"
+                "\\begin{multline}\na+b+c\\\\\n=d+e\\label{eq:multline}\n\\end{multline}\n\n"
+                "\\eqref{eq2}\n\n\\eqref{eq1}\n\n\\eqref{eq:multline}\n");
+            const bool visiblePrint=!qEnvironmentVariableIsSet("WIZNOTE_NATIVE_PRINT_HIDDEN_CONTROL");
+            if(!check(session.load(root.path(),24,1,true,visiblePrint)&&session.start("native-print-transitions"),
+                "native mac reader initializes equations after installing the isolated print helper"))return 1;
+            qInfo()<<"Synthetic native print viewport"<<evaluate(session.view->page(),
+                "({width:innerWidth,displays:Array.from(document.querySelectorAll('.MathJax_SVG_Display')).map(n=>n.getBoundingClientRect().width)})");
+            const auto getterControlBefore=evaluate(session.view->page(),"WizEditor.getContentHtml()");
+            evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})");
+            const auto getterControlAfter=evaluate(session.view->page(),"WizEditor.getContentHtml()");
+            if(getterControlBefore!=getterControlAfter) {
+                const auto a=getterControlBefore.toString(),b=getterControlAfter.toString();qsizetype offset=0;
+                while(offset<qMin(a.size(),b.size())&&a[offset]==b[offset])++offset;
+                qInfo()<<"Synthetic getter-only control without printing"<<offset
+                    <<a.mid(qMax(qsizetype(0),offset-50),160)<<b.mid(qMax(qsizetype(0),offset-50),160);
+            }
+            WizPdfPageOperations operations;
+            for(int cycle=0;cycle<3;++cycle) {
+                evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.ModeReady=true;});");
+                const bool edit=waitFor([&]{return evaluate(session.view->page(),"!!ModeReady&&document.body.isContentEditable").toBool();});
+                evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>{window.ModeReady=true;});");
+                const bool read=waitFor([&]{return evaluate(session.view->page(),"!!ModeReady&&!document.body.isContentEditable").toBool();});
+                const auto before=evaluate(session.view->page(),"WizEditor.getContentHtml()");
+                const auto modified=evaluate(session.view->page(),"WizEditor.isModified()");
+                const auto domBefore=evaluate(session.view->page(),"document.documentElement.outerHTML");
+                auto pdf=std::make_shared<QByteArray>();auto done=std::make_shared<bool>(false);
+                operations.print(session.view->page(),[]{return true;},WizPdfExport::pageLayout(0,QMarginsF(5,5,5,5)),
+                    [pdf,done](const QByteArray& bytes){*pdf=bytes;*done=true;});
+                const bool printed=waitFor([done]{return *done;},30000);
+                const auto state=evaluate(session.view->page(),"globalThis.__wizPdfSvgLinks?.status()",QWebEngineScript::ApplicationWorld).toMap();
+                qInfo()<<"Native multline print lifecycle"<<cycle<<state;
+                if(state.value("lastFitted").toInt()!=1)qInfo().noquote()<<"Native multline shape"<<evaluate(session.view->page(),R"JS(JSON.stringify(Array.from(document.querySelectorAll('.MathJax_SVG_Display .MathJax_SVG')).map(frame=>{
+                  const input=document.getElementById(frame.id.replace(/-Frame$/,''));
+                  const shape=(n,depth)=>n&&({tag:n.tagName,id:n.id,transform:n.getAttribute('transform'),children:depth?Array.from(n.children).map(c=>shape(c,depth-1)):n.children.length});
+                  return {id:frame.id,box:frame.closest('.MathJax_SVG_Display').getBoundingClientRect().toJSON(),input:input&&{tag:input.tagName,type:input.type,text:input.textContent},tree:shape(frame.querySelector('svg'),4)};
+                })))JS").toString();
+                check(edit&&read&&printed&&pdf->startsWith("%PDF-")&&state.value("prepares").toInt()==cycle+1
+                    &&state.value("prepares")==state.value("restores")&&state.value("lastAdded").toInt()==3
+                    &&state.value("lastFitted").toInt()==1
+                    &&!state.value("errors").toInt()&&!state.value("pending").toInt(),
+                    "actual mac bridge edit/read/print reattaches trusted equation preparation exactly once");
+                const auto domAfter=evaluate(session.view->page(),"document.documentElement.outerHTML");
+                const auto after=evaluate(session.view->page(),"WizEditor.getContentHtml()");
+                const auto modifiedAfter=evaluate(session.view->page(),"WizEditor.isModified()");
+                const bool sourceSame=evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==session.source;
+                if(!sourceSame||after!=before||modifiedAfter!=modified) {
+                    const QString oldHtml=before.toString(),newHtml=after.toString();qsizetype difference=0;
+                    while(difference<qMin(oldHtml.size(),newHtml.size())&&oldHtml[difference]==newHtml[difference])++difference;
+                    qInfo()<<"Synthetic native print preservation"<<cycle<<"source"<<sourceSame
+                        <<"html"<<(after==before)<<"dirty before/after"<<modified<<modifiedAfter
+                        <<"sizes"<<oldHtml.size()<<newHtml.size()<<"first diff"<<difference
+                        <<oldHtml.mid(qMax(qsizetype(0),difference-80),200)<<newHtml.mid(qMax(qsizetype(0),difference-80),200);
+                }
+                check(sourceSame&&after==before&&domAfter==domBefore&&modifiedAfter==modified,
+                    "actual mac bridge printing after reader rewrites preserves exact source HTML and dirty state");
+            }
+        }
+        if(printOnly||qEnvironmentVariableIsSet("WIZNOTE_NATIVE_BARE_ONLY"))return failures?1:0;
+        {
+            Session session;session.initialNoteType=QStringLiteral("common");
+            session.markdownOverride=QStringLiteral("# Native theorem syntax\n\nSee \\ref{thm:native}.\n\n"
+                "\\begin{theorem}[Title]\\label{thm:native}\nFor $x$, the statement holds.\n\n"
+                "\\begin{proof}\nBy definition.\n\\end{proof}\n\\end{theorem}\n\n"
+                "\\begin{proposition}\n\\begin{equation}\nx=1\\label{eq:theorem}\n\\end{equation}\n\\end{proposition}\n\n"
+                "\\begin{corollary}\nA consequence.\n\\end{corollary}\n");
+            if(!check(session.load(root.path(),22)&&session.start("native-theorem-environments"),
+                "actual mac bridge initializes common note then displays explicit LaTeX theorem syntax"))return 1;
+            const QString rendered="document.querySelectorAll('.wiz-latex-theorem').length===4"
+                "&&Array.from(document.querySelectorAll('.wiz-latex-theorem')).map(b=>b.getAttribute('data-wiz-math-number')).join(',')==='1,,2,3'"
+                "&&document.querySelectorAll('.wiz-math-reference').length===1&&!!document.getElementById('wiz-math-thm:native')"
+                "&&!!window.MathJax&&MathJax.Hub.getAllJax().length===2&&!!document.getElementById('mjx-eqn-eq:theorem')"
+                "&&document.querySelectorAll('.MathJax_Error,merror,.noError').length===0";
+            check(evaluate(session.view->page(),rendered).toBool(),"native theorem proposition corollary nested proof numbers and formula destinations resolve");
+            evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.ModeReady=true;});");
+            check(waitFor([&]{return evaluate(session.view->page(),"!!ModeReady&&document.body.isContentEditable").toBool();})
+                &&evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==session.source
+                &&!evaluate(session.view->page(),"WizEditor.getContentHtml()").toString().contains("wiz-latex-theorem"),
+                "native theorem edit and save HTML retain exact source without generated preview blocks");
+            evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>{window.ModeReady=true;});");
+            check(waitFor([&]{return evaluate(session.view->page(),"!!ModeReady").toBool();})
+                &&evaluate(session.view->page(),rendered).toBool()
+                &&evaluate(session.view->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==session.source,
+                "native theorem repeated read transition preserves formula and block numbering with exact source");
+        }
         {
             Session session;if(!check(session.load(root.path(),0),"native editor fixture loads original engine helper and actual Qt transport"))return 1;
             evaluate(session.view->page(),"window.RealQWebChannel=QWebChannel;window.initCalls=0;window.actualInit=WizEditor.init;WizEditor.init=function(){initCalls++;return actualInit.apply(this,arguments);};"

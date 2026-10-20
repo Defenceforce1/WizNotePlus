@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include "WizDef.h"
+#include "widgets/WizBiometricUnlockWidget.h"
 
 namespace Ui {
 class WizUserCipherForm;
@@ -15,6 +16,11 @@ class WizUserCipherForm : public QWidget
     
 public:
     explicit WizUserCipherForm(WizExplorerApp& app, QWidget *parent);
+    ~WizUserCipherForm() override;
+    WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBiometricUnlockWidget::Services services);
+    void prepareBiometric(const WizBiometricUnlockWidget::Context& context, bool enabled);
+    void cancelBiometric();
+    WizBiometricKeychain::Result takeBiometricCredential(const WizBiometricUnlockWidget::Context& context);
 
     void setPasswordText(const QString& strPasswordText);
     void setHint(const QString& strHint);
@@ -39,9 +45,12 @@ private:
     bool m_bSaveForSession;
     QString m_userCipher;
     QPropertyAnimation* m_animation;
+    WizBiometricUnlockWidget* m_biometric;
+    WizDocumentCallbackEpoch m_manualRequestEpoch;
 
 Q_SIGNALS:
     void cipherCheckRequest();
+    void biometricCredentialReady();
 
 public Q_SLOTS:
     void onButtonOK_clicked();

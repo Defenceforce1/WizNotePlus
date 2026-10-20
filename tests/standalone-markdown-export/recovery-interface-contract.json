@@ -1,0 +1,196 @@
+{
+  "schema": 1,
+  "status": "experimental-default-disabled",
+  "protocol": {
+    "version": 1,
+    "recoveryDirectory": {
+      "sameParentAsDestination": true,
+      "nameTemplate": ".wiz-export-recovery-<destination-identity-24hex>",
+      "permissions": "0700",
+      "manifestName": "transaction.json",
+      "manifestAtomicCommit": true,
+      "fileAndParentDirectorySync": true,
+      "automaticDeletionOfUnknownState": false
+    },
+    "manifest": {
+      "exactFields": [
+        "schema",
+        "destinationName",
+        "resourcesName",
+        "oldMarkdownExisted",
+        "oldMarkdownSha256",
+        "newMarkdownSha256",
+        "oldResourcesExisted",
+        "oldResourcesSha256",
+        "newResourcesExisted",
+        "newResourcesSha256"
+      ],
+      "destinationAndResourceNamesMustBeBasenames": true,
+      "unknownSchemaOrFieldsRefused": true,
+      "liveStateRehashedBeforeMutation": true,
+      "persistentDigestCacheCanAuthorizeRecovery": false
+    },
+    "triggers": {
+      "broadStartupScan": false,
+      "sameDestinationExport": true,
+      "explicitUserOpen": true,
+      "automaticRecovery": false
+    },
+    "locks": {
+      "destinationPattern": ".wiz-export-lock-<destination-identity-24hex>.lock",
+      "auditPattern": "recovery.jsonl.lock",
+      "nestedLocksAllowed": false,
+      "activeOwnerTakeover": false,
+      "silentDeadOwnerTakeover": false,
+      "confirmedDeadOwnerRequirements": [
+        "same-host",
+        "same-application",
+        "pid-not-running"
+      ],
+      "malformedOrForeignLockRefused": true,
+      "symlinkRefused": true
+    },
+    "knownStates": [
+      "prepared",
+      "old-resources-reserved",
+      "new-resources-installed",
+      "markdown-committed",
+      "rollback-new-resources-returned",
+      "rollback-old-resources-restored"
+    ],
+    "unknownStateAction": "refuse-and-retain"
+  },
+  "operations": {
+    "inspect": {
+      "mutatesRecoverySite": false,
+      "requiresConfirmation": false
+    },
+    "cancel": {
+      "mutatesRecoverySite": false,
+      "requiresConfirmation": false
+    },
+    "retain": {
+      "mutatesRecoverySite": false,
+      "requiresConfirmation": false
+    },
+    "confirm": {
+      "requiresConfirmation": true,
+      "sequence": [
+        "append-and-release-audit-intent",
+        "acquire-destination-lock",
+        "revalidate-live-state",
+        "recover-known-state-or-refuse",
+        "release-destination-lock",
+        "append-and-release-audit-result"
+      ],
+      "auditIntentFailureBlocksRecovery": true,
+      "auditResultFailureRevertsRecovery": false
+    },
+    "result": {
+      "recoveryOutcomeValues": [
+        "none",
+        "rolled-back",
+        "finalized",
+        "busy",
+        "refused"
+      ],
+      "auditOutcomeValues": [
+        "not-requested",
+        "recorded",
+        "failed"
+      ],
+      "recoveryAndAuditOutcomesReportedSeparately": true
+    }
+  },
+  "audit": {
+    "rootProvider": "QStandardPaths::AppLocalDataLocation",
+    "relativeDirectory": "recovery-audit/v1",
+    "directoryPermissions": "0700",
+    "filePermissions": "0600",
+    "exactEventFields": [
+      "destinationIdentity",
+      "decision",
+      "event"
+    ],
+    "allowedDecisionEvents": {
+      "confirm": ["requested", "none", "rolled-back", "finalized", "busy", "refused"],
+      "retain": ["retained"]
+    },
+    "containsFullPathOrNoteContent": false,
+    "maximumBytesPerSegment": 65536,
+    "maximumEntriesPerSegment": 256,
+    "maximumArchives": 2,
+    "timeBasedRetention": false,
+    "userCanClear": true,
+    "clearNeverDeletesRecoverySites": true,
+    "uninstallMayRemoveOnlyAppOwnedAuditRoot": true,
+    "uninstallNeverScansExportDestinations": true
+  },
+  "ui": {
+    "defaultAction": "retain",
+    "automaticCountdown": false,
+    "actions": [
+      "inspect",
+      "retain",
+      "confirm"
+    ],
+    "cancelEquivalent": "retain",
+    "showsFullPathOnlyInUserOpenedDetails": true,
+    "primaryWarning": "检测到上次 Markdown 导出未完整结束。默认将保留现场，不会覆盖现有文件。",
+    "confirmLabel": "检查并恢复",
+    "retainLabel": "保留现场",
+    "detailsLabel": "查看详情",
+    "accessibility": {
+      "keyboardReachable": true,
+      "screenReaderNamesRequired": true,
+      "focusStartsOnDefaultAction": true,
+      "statusNotConveyedByColorAlone": true
+    }
+  },
+  "exitCoordination": {
+    "openPromptBecomes": "retain",
+    "modifiesRecoverySiteDuringExit": false,
+    "blocksLocalNoteSave": false,
+    "startsAdditionalCloudSync": false,
+    "changesThreeSecondQuitSyncPolicy": false,
+    "directAboutToQuitRetainsBeforeCleanup": true,
+    "directAboutToQuitStartsExtraSaveOrSync": false,
+    "auditRetainEventBestEffort": true,
+    "startsRetainAuditDuringQuit": false,
+    "cancelsQueuedRetainAuditOnQuit": true,
+    "retainAuditFailureBlocksExit": false,
+    "settledWaitsForRetainAudit": false,
+    "runningRetainAuditHasHardDeadline": false
+  },
+  "productIntegration": {
+    "experimentalBuildOption": "WIZNOTE_ENABLE_MARKDOWN_RECOVERY",
+    "ordinaryExportCreatesPersistentRecoverySite": true,
+    "ordinaryWriterRequiresFreshDestinationLock": true,
+    "publicationRequiresCurrentProcessOneAttemptProof": true,
+    "markdownCommittedAfterResourceInstallation": true,
+    "ordinaryFailureMayAdoptOtherRecoverySite": false,
+    "postCommitFailureMayUndoCommittedBody": false,
+    "successfulRecoveryAutomaticallyRetriesExport": false,
+    "approvedComponents": [
+      "strict-versioned-manifest",
+      "deterministic-recovery-directory",
+      "destination-lock",
+      "explicit-persistence-barriers",
+      "targeted-inspect-retain-confirm-api"
+    ],
+    "diagnosticOnlyComponents": [
+      "persistent-digest-cache",
+      "fault-injection-checkpoints",
+      "synthetic-performance-benchmark"
+    ],
+    "requiredBeforeEnablement": [
+      "product-core-unit-tests",
+      "ordinary-export-regression",
+      "forced-termination-regression",
+      "ui-accessibility-tests",
+      "quit-coordination-tests",
+      "full-product-regression"
+    ],
+    "enabledByDefault": false
+  }
+}

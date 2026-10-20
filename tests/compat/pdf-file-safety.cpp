@@ -48,5 +48,19 @@ int main(int argc, char** argv)
     check(!WizPdfExport::pageLayout(0,QMarginsF(std::numeric_limits<double>::quiet_NaN(),5,5,5)).isValid(),"nonfinite margins are rejected");
     check(!WizPdfExport::pageLayout(0,QMarginsF(200,5,200,5)).isValid(),"empty printable areas are rejected");
     check(WizPdfExport::pageLayout(0,QMarginsF(-1,-1,-1,-1)).margins()==QMarginsF(),"negative margins retain Qt zero-clamping behavior");
+    for (const double cssWidth : {320.0,850.0,1200.0}) {
+        const auto layout=WizPdfExport::pageLayout(0,QMarginsF(5,20,10,15),WizPdfExport::Mode::ReadingWidth,cssWidth);
+        check(layout.isValid() && std::abs(layout.paintRect(QPageLayout::Point).width()-cssWidth*.75)<1,
+              "reading printable width equals CSS viewport plus separate physical margins");
+        check(std::abs(layout.fullRect(QPageLayout::Millimeter).height()-297)<.5,
+              "reading width retains vertical A4-length pagination");
+    }
+    for (const double invalid : {0.0,-1.0,std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::infinity(),20000.0}) {
+        check(!WizPdfExport::pageLayout(0,QMarginsF(5,5,5,5),WizPdfExport::Mode::ReadingWidth,invalid).isValid(),
+              "invalid reading width refuses silent A4 fallback");
+    }
+    const auto a4=WizPdfExport::pageLayout(0,QMarginsF(5,5,5,5),WizPdfExport::Mode::A4,0);
+    check(a4.isValid() && a4.fullRect(QPageLayout::Millimeter).size()==QSizeF(210,297),
+          "A4 mode remains independent of viewport size");
     qInfo()<<"PDF helper failures:"<<failures;return failures?1:0;
 }

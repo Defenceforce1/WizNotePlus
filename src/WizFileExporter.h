@@ -6,6 +6,7 @@
 #define WIZNOTEPLUS_WIZFILEEXPORTER_H
 
 #include <QObject>
+#include <functional>
 
 class WizDatabaseManager;
 struct WIZDOCUMENTDATA;
@@ -33,13 +34,23 @@ public:
                     bool noTitleFolderIfPossible = false,
                     QString *errorMsg = nullptr);
 
+    // Explicit transient output authority. Empty predicates deny; this is not
+    // a password cache or a save receipt. The legacy signature stays available.
+    bool exportNote(const WIZDOCUMENTDATA &doc, const QString &destFolder,
+                    ExportFormat format, bool compress, bool exportMetaInfo,
+                    bool noTitleFolderIfPossible, QString *errorMsg,
+                    std::function<bool()> canRead);
+
     bool exportAttachment(const WIZDOCUMENTATTACHMENTDATAEX &att,
                           const QString &destFolder);
+    bool exportAttachment(const WIZDOCUMENTATTACHMENTDATAEX &att,
+                          const QString &destFolder, std::function<bool()> canRead);
 
 private:
     bool extractMarkdownToFile(const QString &htmlContent, const QString &outputFile);
     bool writeDocumentInfoToJsonFile(const WIZDOCUMENTDATA &doc, const QString &outputFIle);
-    bool compressDocumentFolder(const QString &folder, bool removeSource = true);
+    bool compressDocumentFolder(const QString &folder, const std::function<bool()>& canRead,
+                                bool removeSource = true);
 
 private:
     WizDatabaseManager& m_dbMgr;

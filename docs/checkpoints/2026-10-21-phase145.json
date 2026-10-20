@@ -1,0 +1,985 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase145",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "adbcb466ff154733e2e6195f12ac3eee1da97f6f",
+  "sourceCheckpoint": "phase145",
+  "localRegression": {
+    "groups": 26,
+    "pass": 1663,
+    "fail": 0,
+    "seconds": 213.89,
+    "focusedRepeatedPass": 4645,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Source bytes are a reviewed overlay on the parent tree. Runtime/renderer collaborators and unperformed native or service acceptance remain explicitly separate in development-status.md.",
+  "files": [
+    {
+      "path": "CMakeLists.txt",
+      "mode": "100644",
+      "gitBlobSha": "1df8e7977a52f8623dc8cf54761f1ee05be24558",
+      "sha256": "552ce2230f03a5f7733110d955e82bdef51f55c818005b17d3598735a2bce35a",
+      "bytes": 8936
+    },
+    {
+      "path": "build/osx/Info.plist",
+      "mode": "100644",
+      "gitBlobSha": "e6087cdc5638fe04dcec510b3f4ff01c47948b81",
+      "sha256": "277a956fdf862830ce8c291cd9c6fdcf44994df2fa9de5ce1ed88e9e934a6111",
+      "bytes": 2347
+    },
+    {
+      "path": "build/osx/archive-local-candidate-source.py",
+      "mode": "100644",
+      "gitBlobSha": "663a84e20f406c696be35380187a7acd3e802ad2",
+      "sha256": "038828e5a86d62cba8336981ee65b6a472c6777b3ae81d4785b726a28f54eaaa",
+      "bytes": 5558
+    },
+    {
+      "path": "build/osx/test-packaged.sh",
+      "mode": "100755",
+      "gitBlobSha": "ae739232ca32aeb28c78fe5c7371102daf68a8d7",
+      "sha256": "1995dabb62de3d742dc7270a40fa4c004baf11ce8452f635e920b1fc3df45712",
+      "bytes": 1361
+    },
+    {
+      "path": "build/osx/thin-arm64-bundle.py",
+      "mode": "100644",
+      "gitBlobSha": "7e1f2798e2499dc2274411f06cc71e1251f78d87",
+      "sha256": "8deea0a185e5ff79dbcfd5670f20936b045e1f3ef7512190aab62f6590b3c8b9",
+      "bytes": 6923
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "gitBlobSha": "79a46df1f6a2fec218ee729340534234fb3027b3",
+      "sha256": "0dfd897a16a0c1ecf47655d6d24d5b3374d6d0ec0769112a2cbee9904f595b85",
+      "bytes": 3521
+    },
+    {
+      "path": "docs/github-sync-policy.md",
+      "mode": "100644",
+      "gitBlobSha": "fcd349a38e279292eebb5393450dbf1cb1b28418",
+      "sha256": "5e6aa9b585830acc9ef6039b3d029d30b6592148166cc2401366f3518f7d1eee",
+      "bytes": 1701
+    },
+    {
+      "path": "docs/markdown-export-recovery-interface.md",
+      "mode": "100644",
+      "gitBlobSha": "0bb34c5c4674e59d0f9a550ef017d2c6da78ed9f",
+      "sha256": "0dc01ce085a3ad1dc59901f7936d6f18f1d89fc18978426c62af78cc084d97fe",
+      "bytes": 36161
+    },
+    {
+      "path": "docs/math-notes-guide.zh-CN.md",
+      "mode": "100644",
+      "gitBlobSha": "dd7acc9f89ef7c2734ee83b9ab4fab994b5c409d",
+      "sha256": "f97958e030f507853ef556dab8beac86c6984924bfa82ce5919918dfbfadb8a0",
+      "bytes": 9052
+    },
+    {
+      "path": "docs/third-party-licenses.md",
+      "mode": "100644",
+      "gitBlobSha": "7def629ef8ea09fd994d4940a382adbd74030f82",
+      "sha256": "ddf8656c1bf3cb1e2ea4277a48ef6334ad566ce32dfbc33898ccfed366cc07f5",
+      "bytes": 1659
+    },
+    {
+      "path": "i18n/wiznote_zh_CN.ts",
+      "mode": "100644",
+      "gitBlobSha": "565750d197a6f3a2b41d7304236b78677aa86468",
+      "sha256": "64b8bfd1b33909bb7195cc3e633a9d5612322346643be26009a42c5000a7c3ef",
+      "bytes": 276252
+    },
+    {
+      "path": "share/files/examples/bare-display-environments.md",
+      "mode": "100644",
+      "gitBlobSha": "47fd0344aa8a330fc95ff23934fb57f4be8da7dc",
+      "sha256": "97f93787cda83c56c420597f039bd343170ebb5ba8451aede3f83a787954dae5",
+      "bytes": 520
+    },
+    {
+      "path": "share/files/examples/latex-theorem-environments.md",
+      "mode": "100644",
+      "gitBlobSha": "d6efcbb1ada11bc83f029cf7d663c155daa11376",
+      "sha256": "410a8323427ca1905d8614b94ffe26d67bf28d7bdb8bc03ab19d381474988f59",
+      "bytes": 834
+    },
+    {
+      "path": "share/files/wizeditor/dependency/marked/LICENSE.md",
+      "mode": "100644",
+      "gitBlobSha": "4bd2d4a084987ab634893a29f72ff6d1a67bf658",
+      "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+      "bytes": 2942
+    },
+    {
+      "path": "share/files/wizeditor/dependency/marked/README.txt",
+      "mode": "100644",
+      "gitBlobSha": "0f0a946c76d5072b8929c2ca8dcd1a199212d27f",
+      "sha256": "223736b90f3238112e34730f6eb21c44fc6a48b6fa45c110e4abc28fea90de2a",
+      "bytes": 488
+    },
+    {
+      "path": "share/files/wizeditor/dependency/marked/marked.umd.js",
+      "mode": "100644",
+      "gitBlobSha": "4d226e5e16886982065ed4b52f277d28da30c5b8",
+      "sha256": "0db7abc826b5ac76f6ed11951ae34074ba50438ce6ea8d52889203779e5cbbad",
+      "bytes": 42540
+    },
+    {
+      "path": "share/files/wizeditor/editorHelper.js",
+      "mode": "100644",
+      "gitBlobSha": "f8576e88858dd91a86747684e0adb6689dc9db1a",
+      "sha256": "543a905f75efac9be6107b952b1dcb741ad0aca9d92d6197be2f7175969cd3d7",
+      "bytes": 26039
+    },
+    {
+      "path": "share/files/wizeditor/latexTheorems.js",
+      "mode": "100644",
+      "gitBlobSha": "379a3997644ec689f11179128691fbdc268b34e8",
+      "sha256": "cea42914c8667543cecb87588dc0b81d41afa3db732c20f6dd7e3abd3690fe23",
+      "bytes": 9228
+    },
+    {
+      "path": "share/files/wizeditor/markdownEnvironments.js",
+      "mode": "100644",
+      "gitBlobSha": "c8366d19c42ac42ad006c4d509b021895f89ed15",
+      "sha256": "17ea0e18b797a6c3de43389ae4a4f00b113b184930ac37a491d96fcdd4b8f913",
+      "bytes": 11583
+    },
+    {
+      "path": "src/CMakeLists.txt",
+      "mode": "100644",
+      "gitBlobSha": "927b0f35309dd8d8e78734761ebb5ebf0c52bb05",
+      "sha256": "92f8ee25d60b9b108af414b79a2f764b1ed1d9647c85b0d98c756ab29f1e40f7",
+      "bytes": 29308
+    },
+    {
+      "path": "src/WizActions.cpp",
+      "mode": "100755",
+      "gitBlobSha": "61ce15fbc44c67f260b6765f0e6f55ae4133f3fa",
+      "sha256": "4d2e70c1999a2732164728c885bdcbf2391e126d53d22741df16fb12a60d2ee9",
+      "bytes": 24666
+    },
+    {
+      "path": "src/WizFileExporter.cpp",
+      "mode": "100644",
+      "gitBlobSha": "f601d246f17c5c8431d559c4340ad0e073c28a5f",
+      "sha256": "8a6ea4c573629d8b9e45bcecf386b8a10d1d37224db2915fb2c488b7a89ac127",
+      "bytes": 8251
+    },
+    {
+      "path": "src/WizFileExporter.h",
+      "mode": "100644",
+      "gitBlobSha": "ed511648c51b261bd17d762f7f91ebb1d586170f",
+      "sha256": "478b207aacd9bbbcc058de930cd6f85a62d46d8e76d69782b4ab5922ebcc697e",
+      "bytes": 2013
+    },
+    {
+      "path": "src/WizMainWindow.cpp",
+      "mode": "100644",
+      "gitBlobSha": "2dbca9c4b1d9bda4677d3df7d7c8f749806d0cf2",
+      "sha256": "df128b5551da50b13b8536625f93608386d51bc39ce33d40a05d646bbdf51538",
+      "bytes": 172033
+    },
+    {
+      "path": "src/WizMainWindow.h",
+      "mode": "100755",
+      "gitBlobSha": "565ba5ac810b71726ff0872c6c538a17e99f1f0e",
+      "sha256": "2cfd582b1c42990143f7bd4ce9228679250c8b1a5a002e09bd7c7afef70d9070",
+      "bytes": 20047
+    },
+    {
+      "path": "src/WizPreferenceDialog.cpp",
+      "mode": "100644",
+      "gitBlobSha": "2d20333f2522ad4a0e3473a6df64dab2147a779e",
+      "sha256": "6821248dfde5ebae701df7b31288851a51ac54ef5595f81d559c790e80c4358a",
+      "bytes": 19842
+    },
+    {
+      "path": "src/WizUserCipherForm.cpp",
+      "mode": "100755",
+      "gitBlobSha": "427fc8e853f74ff724bf3d29368e7758edd7ea57",
+      "sha256": "1c785e408febf394abbdeff47c3de18e352afc234eaab39c19561ee80273f14a",
+      "bytes": 7749
+    },
+    {
+      "path": "src/WizUserCipherForm.h",
+      "mode": "100755",
+      "gitBlobSha": "8c86c7bcc56cc8ec2ca96c66ae4eb53e53f620ca",
+      "sha256": "45ee2151dcc2fec9cf8fc63cf69b014fec023df5b8ae1cf3820c6910a64be6c4",
+      "bytes": 1726
+    },
+    {
+      "path": "src/database/WizDatabase.cpp",
+      "mode": "100755",
+      "gitBlobSha": "e2b9d2803e38609814889a73879bf954e7d66ca4",
+      "sha256": "d80c8a7e7670cd7ba5fcaac0f4c7fa6058880de02388c3135d359ebf01f9bbb3",
+      "bytes": 146358
+    },
+    {
+      "path": "src/database/WizDatabase.h",
+      "mode": "100755",
+      "gitBlobSha": "f060bf79edfaaede34fc12d85beabaf8c66883d6",
+      "sha256": "25ed429548d7ecae3fd2aa12f6d2a1156def6b0986ab9dab0c569db660d10f27",
+      "bytes": 31482
+    },
+    {
+      "path": "src/gui/documentviewer/DocumentLoaderSaver.cpp",
+      "mode": "100644",
+      "gitBlobSha": "b647643bf85175d64249f2b3ae194eac3712d973",
+      "sha256": "e44c2e76696594e31805c354f1aeff1db44c5b1068ba0b567f7ddeee70ba6fe5",
+      "bytes": 9003
+    },
+    {
+      "path": "src/gui/documentviewer/DocumentLoaderSaver.h",
+      "mode": "100644",
+      "gitBlobSha": "7fe84627d406dac99fc9b38cb50151e92cd072e5",
+      "sha256": "b6812c1565e4fcbb1b40317b20f94ec8b342921734aa88c85f6da17b80b7d155",
+      "bytes": 4005
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "gitBlobSha": "edd5e0675dd409850f28c399a409168ffeb49cc6",
+      "sha256": "4394b047a207bfdc7f9b141d2ccc5f97a60c17c684900f391401127dbfb6cbbb",
+      "bytes": 50502
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "gitBlobSha": "b8daa51727336c4e635d6d135e35add6c91ce75d",
+      "sha256": "fbb87956c35ff9e9d0cf7a475f5afecf0629f5805e1d9e7dcee33a349eca7837",
+      "bytes": 8187
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "gitBlobSha": "f78ef99cd9a297225f8484a18bb0725ea5ad3ed8",
+      "sha256": "b9832915039d0fe2fdd1f7f301be974679b9689916e1962bf7ca15a27154591a",
+      "bytes": 106104
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "gitBlobSha": "2bc052633197276292f7eff67cc685f22abcc31e",
+      "sha256": "0e54bb421230fcfa899616caa48262dc98960b872d15727322aaa02852894f45",
+      "bytes": 14537
+    },
+    {
+      "path": "src/mac/WizBiometricKeychain.h",
+      "mode": "100644",
+      "gitBlobSha": "8b9d1a61c256ac30d6d480018f82d787de9e7bf3",
+      "sha256": "9f505cfe038138454bce34a364093426d38c86b7fe3bde1ef9238415c860b966",
+      "bytes": 2089
+    },
+    {
+      "path": "src/mac/WizBiometricKeychain.mm",
+      "mode": "100644",
+      "gitBlobSha": "97e1f47dd4d4d38c422454b9ccb662ed77f80fda",
+      "sha256": "d068e4ed73d18153eabe928f378e6bf6a1377562d7b6d6269a45a70c36a9be85",
+      "bytes": 7675
+    },
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "add35f6216c94fbd503eab00867d638d55fc869b",
+      "sha256": "dc86eba8a9253d657cf571f1f6dd3bc57fcce42be7ce1de63077021ed61b40ed",
+      "bytes": 23250
+    },
+    {
+      "path": "src/share/WizAccountFileChooser.h",
+      "mode": "100644",
+      "gitBlobSha": "dd654badde3dab1051453b2e6cdc38a06c1142b6",
+      "sha256": "6af456c3c3ae2127c135e6929dc4d99a4162875ab7861794f68079739d2774bd",
+      "bytes": 2240
+    },
+    {
+      "path": "src/share/WizAccountWebContent.h",
+      "mode": "100644",
+      "gitBlobSha": "5d60f120a90bfb61141adadba191613100f8a93b",
+      "sha256": "239b439677e54e5fda1b9a05cd160fc59a34ce03687be69a5c0b5871b882b235",
+      "bytes": 665
+    },
+    {
+      "path": "src/share/WizBiometricKeychainScope.cpp",
+      "mode": "100644",
+      "gitBlobSha": "2e942bf2fdc725695f5f014a6c71aedc91526a6a",
+      "sha256": "a7ac99e6457f285e7435eb19d33e133efc82bca95ac664f6921e77b9a8bb58ab",
+      "bytes": 2675
+    },
+    {
+      "path": "src/share/WizBiometricNoteAccess.cpp",
+      "mode": "100644",
+      "gitBlobSha": "bd17df03e84068c6d224c5b3afad5a602441558a",
+      "sha256": "939942cae67338925a526bfa3db7b4f2665489c46d19c177c66c15edb8677006",
+      "bytes": 2495
+    },
+    {
+      "path": "src/share/WizBiometricNoteAccess.h",
+      "mode": "100644",
+      "gitBlobSha": "a0cacaafdcd8cdfba970029b33832229d6047a16",
+      "sha256": "4ac7dc9250d07ffe97184c1e1e952d45464b237099fa0597694c0034d3e64de8",
+      "bytes": 1221
+    },
+    {
+      "path": "src/share/WizCertificateCreation.cpp",
+      "mode": "100644",
+      "gitBlobSha": "d8a41be607c36f74fd146afd330da766fe7bfbb9",
+      "sha256": "bd24ddbc77fc7b0bb42bcc3df76cfe501cee43d4b027de74e5c510256d70c227",
+      "bytes": 9706
+    },
+    {
+      "path": "src/share/WizCertificateCreation.h",
+      "mode": "100644",
+      "gitBlobSha": "3a42a75d6c9cdef90924954cde1d46f202d23434",
+      "sha256": "daf6c5080245947c52c27672c8a55da579d1bc350677f0722cd00ea048a0905d",
+      "bytes": 1905
+    },
+    {
+      "path": "src/share/WizDocumentReadOutput.h",
+      "mode": "100644",
+      "gitBlobSha": "b0e16911295eac38cf15883bf09b6b4ea6dd8f46",
+      "sha256": "704cfb1f85150603d40191f3b68effe0e21c7c0f4bf932e3ac6b2448cac5d8e1",
+      "bytes": 909
+    },
+    {
+      "path": "src/share/WizDocumentReadPermit.h",
+      "mode": "100644",
+      "gitBlobSha": "9e8e56d7540fd86b08734d639def896f43d3af5d",
+      "sha256": "7880aef84c8df05b09c99e308342c8c8e3ff07d27024ddbe9f6f8f5fb91bc3ee",
+      "bytes": 918
+    },
+    {
+      "path": "src/share/WizDocumentReadSave.h",
+      "mode": "100644",
+      "gitBlobSha": "441a08968ee3989c087588fc5f6647c0ee927df9",
+      "sha256": "81135cee10f5d0d68e3c92f217fb4f9a45447700f4d77528c938672cc9808aaf",
+      "bytes": 2000
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecovery.cpp",
+      "mode": "100644",
+      "gitBlobSha": "83f9b3b95b9f6a1a2aaec4ab169e82ad7edab189",
+      "sha256": "7608b867b9b7049d3087843382773fd5ea3b786b65abb73fbed31ac22a75c5af",
+      "bytes": 76080
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecovery.h",
+      "mode": "100644",
+      "gitBlobSha": "2c0352c631aaa3abe7dfccafe14f399f7bc968f1",
+      "sha256": "457333ebc25db9e019f8e609f59d9009b2da101175d4299a050091982f5df7ea",
+      "bytes": 6657
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecoveryAudit.cpp",
+      "mode": "100644",
+      "gitBlobSha": "c9485616d3ab4e7b41d9c0b8df2565b1b6e196c0",
+      "sha256": "4acfc7d9740d3a4f32756e2acac997b8f15353cfdd844a41c9c9843a39640716",
+      "bytes": 29248
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecoveryAudit.h",
+      "mode": "100644",
+      "gitBlobSha": "9b9635df2d56be9aae3f3cc46b6cf93084cfe7be",
+      "sha256": "b650559546665b52930745d1c1c2e064ddd92eedc92f915f0b6872dca47c604d",
+      "bytes": 2596
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecoveryCoordinator.cpp",
+      "mode": "100644",
+      "gitBlobSha": "43a49dcc3db3127f96cb6fb4b489df3e52435967",
+      "sha256": "caea26ee0e45024a2d6d75643eb15942945120c8ea3e18cead25a68942852eb8",
+      "bytes": 8258
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecoveryCoordinator.h",
+      "mode": "100644",
+      "gitBlobSha": "1fa8dc1b28a89d40048f457ef280ae5b42abc693",
+      "sha256": "ce3c3247165db7b5a8f83fd8659eac0a71b017947faa5c6b39f5fa86f3953055",
+      "bytes": 624
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecoveryRequest.cpp",
+      "mode": "100644",
+      "gitBlobSha": "5196b9e745a90222566647ab70ac0b6c17d61801",
+      "sha256": "f37ceaf250e565538791ddeb61933894ec59d383c44e920ec020dbb42edbaeb0",
+      "bytes": 4849
+    },
+    {
+      "path": "src/share/WizMarkdownExportRecoveryRequest.h",
+      "mode": "100644",
+      "gitBlobSha": "79530a8d5dbbf70bf7026affd126a1519e433d04",
+      "sha256": "d229943f6bee605bdd02916a3bc1d273702f3c197719585d06e92f483d12d98f",
+      "bytes": 3352
+    },
+    {
+      "path": "src/share/WizMarkdownExportTransaction.cpp",
+      "mode": "100644",
+      "gitBlobSha": "16238bfb25727d80b506450dc6a7189a63430612",
+      "sha256": "e14c71710ce971d0a80fdbf0969168c0ef8742d5c9b8c328147f998ecdd3914e",
+      "bytes": 9998
+    },
+    {
+      "path": "src/share/WizMarkdownExportTransaction.h",
+      "mode": "100644",
+      "gitBlobSha": "d5c68b628d9a1cead98706860ce12875a0b82a55",
+      "sha256": "0d136885b547189f7125b0dfe357869008c3cd8a08ad7a7b11ac33c6113b6248",
+      "bytes": 1159
+    },
+    {
+      "path": "src/share/WizMisc.cpp",
+      "mode": "100755",
+      "gitBlobSha": "f94b4d961f69d67d373955181c6d2597884ce53e",
+      "sha256": "cb9d4fdee74bdd75963962d265db8cda9d1f0e981b65a7d0ca67edeca4d6f554",
+      "bytes": 93118
+    },
+    {
+      "path": "src/share/WizMisc.h",
+      "mode": "100755",
+      "gitBlobSha": "ba78658665fc33f5d414e5831ba135bed76a2a10",
+      "sha256": "587f78edbf944fb3b1d3108ff9ca1682f3353454eaac962a1df33cc350444c3a",
+      "bytes": 14308
+    },
+    {
+      "path": "src/share/WizPdfExport.h",
+      "mode": "100644",
+      "gitBlobSha": "a18d799e0f35f25e26ea064efe6e4cee23bc9d18",
+      "sha256": "87ed371fdf05a301c15489b121191352cfd4bf7a976f86822f04ff9010f56eda",
+      "bytes": 3074
+    },
+    {
+      "path": "src/share/WizPdfExportMenu.h",
+      "mode": "100644",
+      "gitBlobSha": "a1623aad71b46b48521aace935dbdfa465f37011",
+      "sha256": "91fdfaf2cc9e4490b488d8a387bb934132850382109787a96e27351da5be1e26",
+      "bytes": 1277
+    },
+    {
+      "path": "src/share/WizPdfPageOperations.h",
+      "mode": "100644",
+      "gitBlobSha": "3f24a0560d971ec7944546ce742c12053e2c3acc",
+      "sha256": "4c4854983f101366bea6698d7bd07d1861637657e0e191dc3c8bb9ee42955c8a",
+      "bytes": 9063
+    },
+    {
+      "path": "src/share/WizPdfPaperPage.h",
+      "mode": "100644",
+      "gitBlobSha": "bba47fa4dfc0592e8630d68d1601eac91f0efaed",
+      "sha256": "40f54eb56a380d8e1e5a13cd6382472085f5ad474868ea5d1f66d6af60ad18a1",
+      "bytes": 17175
+    },
+    {
+      "path": "src/share/WizPdfSvgLinks.h",
+      "mode": "100644",
+      "gitBlobSha": "162895e59f6dbed19718ba33f82c9735b5e73f52",
+      "sha256": "4060942c4fe79b407c4d4262b7d39d105caf99037a4d585b3c174f2c993bc4a7",
+      "bytes": 12795
+    },
+    {
+      "path": "src/share/WizSettings.cpp",
+      "mode": "100755",
+      "gitBlobSha": "6dcf7bc645ed061e40d57287aca995949051fc8a",
+      "sha256": "3a36921fa8c503e54221db616a1c7f7318a983c8eb3d8b81fcb88ddacac52c4d",
+      "bytes": 23763
+    },
+    {
+      "path": "src/share/WizUiLanguages.h",
+      "mode": "100644",
+      "gitBlobSha": "6fe73c9c46954d55b86aef54339df4b9a276631d",
+      "sha256": "15bb11c6b9df63d458c60d93a37a82af15e1d514124ac7be25410c8ae4da8dc2",
+      "bytes": 1134
+    },
+    {
+      "path": "src/share/WizWebEngineView.cpp",
+      "mode": "100755",
+      "gitBlobSha": "9161b35e065c713c56e84cadcaeeadfbdeada436",
+      "sha256": "31866bb19c3e0d117a51058c0542bd7fc6cd16add6157d0abf4b6cec5969dda3",
+      "bytes": 34466
+    },
+    {
+      "path": "src/share/WizWebEngineView.h",
+      "mode": "100755",
+      "gitBlobSha": "044a3802736e2d0b86345e372d0b10978757de46",
+      "sha256": "9e3c79f5b4a2ccc65ef29c0bcedfab598bd86a1fd4c31843afa19756cf2a5af3",
+      "bytes": 8227
+    },
+    {
+      "path": "src/utils/ExternalEditorLauncher.cpp",
+      "mode": "100644",
+      "gitBlobSha": "d117ba59025a2d177829e273fab2977be33668b4",
+      "sha256": "acf57b17bda51ae32712d3a34e5b3b995440d4782cf358173014595edbed3b73",
+      "bytes": 10041
+    },
+    {
+      "path": "src/utils/ExternalEditorLauncher.h",
+      "mode": "100644",
+      "gitBlobSha": "ba7dec80230429207ae86717edae6bfb156bc80f",
+      "sha256": "6290ed3ee209d392030dd9d9bc73a57796b2faf69a53f24936150afd99c47e88",
+      "bytes": 1803
+    },
+    {
+      "path": "src/widgets/FileExportWizard.cpp",
+      "mode": "100644",
+      "gitBlobSha": "b70248cbfa89d0eb191566738cfc171e33ca7761",
+      "sha256": "b32d5e30e6581402167fed8282c7d5b859a70c89d9b386eadb28feda4fe953dd",
+      "bytes": 22738
+    },
+    {
+      "path": "src/widgets/FileExportWizard.h",
+      "mode": "100644",
+      "gitBlobSha": "7c590417c495b5843f667c63f2fa6372f3418ab9",
+      "sha256": "19d06929b0d8c3db1e35444a51c75585588bf99396892396ac5aea8b0fbf1650",
+      "bytes": 3269
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.cpp",
+      "mode": "100644",
+      "gitBlobSha": "48996e5a01449942a57b8d3fbe5be2d29b5e751a",
+      "sha256": "1efffb60e3c8c9dc94ec15081713a2cfc42a592a817ad7b5b303f550702daf16",
+      "bytes": 11605
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.h",
+      "mode": "100644",
+      "gitBlobSha": "97caf3b2b8cf804d8e3087df9887c1da4a97799a",
+      "sha256": "d2737373dee140833816aa64032dc50f3aa6f25b1e4b1a85bd966f0e97802ed6",
+      "bytes": 2749
+    },
+    {
+      "path": "src/widgets/WizCertificateCreationDialog.cpp",
+      "mode": "100644",
+      "gitBlobSha": "b9083523a82d793acd4666af079b7d30947ffa4b",
+      "sha256": "f5ff4708b701a01ad618f5b6a60d72967c6514ad13fdc43879a083fd742044ba",
+      "bytes": 15620
+    },
+    {
+      "path": "src/widgets/WizCertificateCreationDialog.h",
+      "mode": "100644",
+      "gitBlobSha": "8cf498812eeb447eed94a42adb7ca15c4be54104",
+      "sha256": "f915e82d30ec6dd8a959c1f4c05e8a225323ccea361815fc77169c3c4650deee",
+      "bytes": 2512
+    },
+    {
+      "path": "src/widgets/WizEmailShareDialog.cpp",
+      "mode": "100755",
+      "gitBlobSha": "92cbb047b572964454a213eed4668946c14ea70d",
+      "sha256": "2ae99e42c70467cd5eb33b2bd4d6795b14a7041aaecaa890b41fa10aa8c0c4e0",
+      "bytes": 13907
+    },
+    {
+      "path": "src/widgets/WizEmailShareDialog.h",
+      "mode": "100755",
+      "gitBlobSha": "f5eac75cc5c8cd0d6267afa8043b3dfbc7547e53",
+      "sha256": "d3abaaa106cea3a8cfa640e26533266a879242e5856a923bab226b2a4be27f4e",
+      "bytes": 2099
+    },
+    {
+      "path": "src/widgets/WizMarkdownExportRecoveryApp.cpp",
+      "mode": "100644",
+      "gitBlobSha": "fa9dc292c52120cced153ed7273c45a795aeff42",
+      "sha256": "eda37bc5163f87cba44706a7d38ed4cc8d4944be891b663db314848bc563ad0c",
+      "bytes": 3337
+    },
+    {
+      "path": "src/widgets/WizMarkdownExportRecoveryApp.h",
+      "mode": "100644",
+      "gitBlobSha": "d4ab73265965b7441c94ab3b485b384b39de1293",
+      "sha256": "4fa3f13d940bd44a0f8732dbb7cb286cc4f18247b1e6db4432f4fc4ed3be18c8",
+      "bytes": 1453
+    },
+    {
+      "path": "src/widgets/WizMarkdownExportRecoveryPrompt.cpp",
+      "mode": "100644",
+      "gitBlobSha": "2f54814eaa15996fba2ed0481dac427249f57354",
+      "sha256": "6afece84218399e3199ad7592a29e2e1c5a6f8ac485f29a96c991dab0cb8737d",
+      "bytes": 8093
+    },
+    {
+      "path": "src/widgets/WizMarkdownExportRecoveryPrompt.h",
+      "mode": "100644",
+      "gitBlobSha": "158f93f156b58079701f206c9ef5f325a1fba009",
+      "sha256": "d100d40a32f2268034857158272e6235d10501748278b069dc4dd5980bf4da7b",
+      "bytes": 1695
+    },
+    {
+      "path": "src/widgets/WizMarkdownExportRecoverySession.cpp",
+      "mode": "100644",
+      "gitBlobSha": "c2a93f75da45097a501ce406bf626d63db56fc34",
+      "sha256": "47c4df67294f575fe2ffd69fe565afa6e6de95a747388ccdc03850d5ed5194be",
+      "bytes": 10947
+    },
+    {
+      "path": "src/widgets/WizMarkdownExportRecoverySession.h",
+      "mode": "100644",
+      "gitBlobSha": "0041e474ed65343a0841f6534c84d0f783b99430",
+      "sha256": "6434432f8aa5dc809c92c087332ab2f9a032f9054d8e020eba95bfeb2b0938b0",
+      "bytes": 4043
+    },
+    {
+      "path": "src/widgets/WizUserInfoWidget.cpp",
+      "mode": "100644",
+      "gitBlobSha": "52cab77868471e6e46f03e16d538b5be602c40ad",
+      "sha256": "92701b358c1ee06cc262a41edc584ec7d1ff3b46f2999aee60cddcb404424c6e",
+      "bytes": 10546
+    },
+    {
+      "path": "tests/compat/CMakeLists.txt",
+      "mode": "100644",
+      "gitBlobSha": "6c281a9c11997de1683e685de4c0d5fe72807ff3",
+      "sha256": "d59762e77236ce5e3f9c890779b0826eb478d6c7d82fcd0cecbbed8b26c1f833",
+      "bytes": 11811
+    },
+    {
+      "path": "tests/compat/account-file-selection.cpp",
+      "mode": "100644",
+      "gitBlobSha": "7a24564c45dd952135052a97d92d1d5fa5296b47",
+      "sha256": "c2d111150e500bc43f19182bc5dfa9b78b021d5b20d7409a2cb109a60c748b4c",
+      "bytes": 10231
+    },
+    {
+      "path": "tests/compat/app-language-resources.py",
+      "mode": "100644",
+      "gitBlobSha": "64fd7ff3f0ecd1c0dcdabba016e0b9eb966b9aff",
+      "sha256": "b6a8398c435e96fa464f92ff6aa8e22624624eb30e2ca01c357a4991ca88f70e",
+      "bytes": 3397
+    },
+    {
+      "path": "tests/compat/audit-pdf-page-modes.py",
+      "mode": "100644",
+      "gitBlobSha": "0b23536940146569a479d5303ccddfcc7f9ab2f1",
+      "sha256": "ec5b2ecf8e51f6248f62615ec7da877c227d097eb7dee8e88f069c55e89b7c8f",
+      "bytes": 6013
+    },
+    {
+      "path": "tests/compat/audit-pdf-paper-assets.py",
+      "mode": "100644",
+      "gitBlobSha": "f896cdca509766aa2da18dc6007f845d039e527c",
+      "sha256": "cf9a840efd6c92a1c46d86b2d8cde239cd949c1daa8ecce1d67e885eda98d6ec",
+      "bytes": 9280
+    },
+    {
+      "path": "tests/compat/audit-provided-markdown-pdf.py",
+      "mode": "100644",
+      "gitBlobSha": "4f94484c74f4f8be8b4c048c2569090e99dd0b69",
+      "sha256": "0ddbb2d8898e1b9918ec28aa3acf527e7044c7b2b0246781f09405d66f770b49",
+      "bytes": 8521
+    },
+    {
+      "path": "tests/compat/bare-math-environments-prototype.js",
+      "mode": "100644",
+      "gitBlobSha": "b187f9afd683ecdaea5dcf9f628b92016d035818",
+      "sha256": "9cfe01607ec0ead1522167a16424353a66abcd50633b6b9c298caac1f4918d82",
+      "bytes": 6122
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "gitBlobSha": "c15aaa84032eb41cb8550b926e4e307a0dcad608",
+      "sha256": "30cac47e30883634813ba0979a94e1e6fad8aaa8e1db8b221de575b3704da216",
+      "bytes": 21496
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "gitBlobSha": "3e0d2f67af753bfcd01c0d24d608d7337fb18514",
+      "sha256": "5ce024412684e32ac1d9a6cabcd68412efd8fd0870cb7c67da7a9c8ec866c9be",
+      "bytes": 197247
+    },
+    {
+      "path": "tests/compat/biometric-keychain.cpp",
+      "mode": "100644",
+      "gitBlobSha": "3da05925930316ab067ee63286906a4597c336aa",
+      "sha256": "24294b66116130d4632c9f398e92f2a97037632b275b1e1ff42070e8355a9511",
+      "bytes": 7948
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "gitBlobSha": "1be6bcd85a99fd21d4baa8cf88cad6fa005d3d8a",
+      "sha256": "4eaf402a78260c7c16091cfa431e282e4cd6fa195be3f0cbe8481dd7c95ae988",
+      "bytes": 12304
+    },
+    {
+      "path": "tests/compat/biometric-unlock-ui.cpp",
+      "mode": "100644",
+      "gitBlobSha": "4fe42eef13e29656e1368f56512deec96814dd0a",
+      "sha256": "9292853fd4b1f77a9f0141b2de0c2beb5af661a60b691a7d4d9af768f3df2040",
+      "bytes": 20283
+    },
+    {
+      "path": "tests/compat/certificate-creation-ui.cpp",
+      "mode": "100644",
+      "gitBlobSha": "960303afce6ffbea93499a46d51510993896727c",
+      "sha256": "b6a9b15d6d2e5aa33f606685ece48923dfe0a3ae9d355ef63c111c59941ad14b",
+      "bytes": 22904
+    },
+    {
+      "path": "tests/compat/certificate-creation.cpp",
+      "mode": "100644",
+      "gitBlobSha": "0ded4b4ae689e6583e3b8391920f9e8af38b0a24",
+      "sha256": "42afe852b83eab7aa11b0528064cbb12d9ea9cadc83c0e66ac679cb3584e59fe",
+      "bytes": 12371
+    },
+    {
+      "path": "tests/compat/check-pdf-multline-fit.py",
+      "mode": "100644",
+      "gitBlobSha": "11ef58aee15ab8fc5a65688a605ec242743223f8",
+      "sha256": "5c6f6c544221290f0201fc5ad418194b506a1940dfbd7d4655f980f9da09f5e4",
+      "bytes": 11090
+    },
+    {
+      "path": "tests/compat/explore-bare-math-environments.cjs",
+      "mode": "100644",
+      "gitBlobSha": "e8f8291e64dd45c0ff837eb00fb07cc415a7b35e",
+      "sha256": "e7e8a5fa601d57f76f043a598fc33e2518aec3eb0ea595a8889822cc3a214347",
+      "bytes": 12133
+    },
+    {
+      "path": "tests/compat/explore-native-pdf.cpp",
+      "mode": "100644",
+      "gitBlobSha": "908dfee561213a30b34ee9910e54cb639d1d1617",
+      "sha256": "84c404cc3a5d6948de8839cefecf225f54f39bd8fb9d429e917d414e0277aa8e",
+      "bytes": 33634
+    },
+    {
+      "path": "tests/compat/latex-theorem-environments.cjs",
+      "mode": "100644",
+      "gitBlobSha": "8aa0efee39f800b0baf6a46f610d117ae23f459d",
+      "sha256": "434f2a18a619d8034fc6ffb386c063edf32946b6fd67002c4c63accbddcbf094",
+      "bytes": 10355
+    },
+    {
+      "path": "tests/compat/native-editor-runtime.cpp",
+      "mode": "100644",
+      "gitBlobSha": "3e3372a31167b63e6e722cf5566d8a86724008a8",
+      "sha256": "a7743c5979d3e5a4813245388554523c48056681f13577ad003f10ee97fb3a68",
+      "bytes": 43987
+    },
+    {
+      "path": "tests/compat/native-note-transfer.cpp",
+      "mode": "100644",
+      "gitBlobSha": "60d12ccb20e02f62d695fb40f076aba3933b83a4",
+      "sha256": "74e4840584f42cb70ca282a070e29e40bde4515e0c4491193731c7860387189a",
+      "bytes": 29052
+    },
+    {
+      "path": "tests/compat/note-presentation.cpp",
+      "mode": "100644",
+      "gitBlobSha": "2d4632ed37f0e068006ae65e2e9ee4e6ed3eca49",
+      "sha256": "f4a242157fc798462db7f2b8af42f49e7574d47dd0f745ced245a3fd9cf74673",
+      "bytes": 50167
+    },
+    {
+      "path": "tests/compat/pdf-export-lifecycle.cpp",
+      "mode": "100644",
+      "gitBlobSha": "d8465662c945d27f0aa4738dbbedadfb1158c107",
+      "sha256": "ad4e6a53564a674c7184b7d9adf13e431d660fb95f02a0365cb57b01ea00b23c",
+      "bytes": 32929
+    },
+    {
+      "path": "tests/compat/pdf-export-menu.cpp",
+      "mode": "100644",
+      "gitBlobSha": "51c3e9fcca4e9b6b06c0e44c8b7f6762bd2bea4e",
+      "sha256": "3ff1aecf0e254f1a944ab5cdb548d0c4502289e3aab3cc887b9db90198022acc",
+      "bytes": 5102
+    },
+    {
+      "path": "tests/compat/pdf-file-safety.cpp",
+      "mode": "100644",
+      "gitBlobSha": "43063d6b3a369058f83c0bcb2c56e464f1ea1658",
+      "sha256": "668176553fb2589634169f46be158c66091853411206364f1a158f39525751c1",
+      "bytes": 4898
+    },
+    {
+      "path": "tests/compat/pdf-paper-page.cpp",
+      "mode": "100644",
+      "gitBlobSha": "cefeae6d4e1e913dcd26925d5582b0bc5b2ecb0c",
+      "sha256": "5254ffddc677984fa8241a67e2cf35aa67147f07feb7dc9d4c9ebc95e3314ab5",
+      "bytes": 15494
+    },
+    {
+      "path": "tests/compat/prepare-pdf-reference-fixture.cjs",
+      "mode": "100644",
+      "gitBlobSha": "aa7791078084f4474461b1e4c46a5127ce342cca",
+      "sha256": "099577b681cf143a0963bb8bedf800209988adf4be9cb3c926fcbf108b593f6e",
+      "bytes": 10324
+    },
+    {
+      "path": "tests/compat/prototype-pdf-multline-fit.js",
+      "mode": "100644",
+      "gitBlobSha": "8bd64dd857075499f419ebfb96c3f80163b5bca9",
+      "sha256": "e86ab3b8171a55b02139df414e37dda47f1c147ffa3815dea18ba40f9f6f9f29",
+      "bytes": 2984
+    },
+    {
+      "path": "tests/compat/prototype-pdf-number-glyphs.js",
+      "mode": "100644",
+      "gitBlobSha": "757cd8d79b03658df3dfeefff281681dd6cef107",
+      "sha256": "0a6a6de775f75a4346ce5c83f17bd31e8689e46c36872972e66af512ea7a2516",
+      "bytes": 1180
+    },
+    {
+      "path": "tests/compat/settings-ui.cpp",
+      "mode": "100644",
+      "gitBlobSha": "8a3ae50a1177892e038adcd772b65ef6b8ae79b4",
+      "sha256": "558a302560c4e7c855a15b649f5a0c69d4f1e2afc615e3ed49cf5f88cb431a4b",
+      "bytes": 6707
+    },
+    {
+      "path": "tests/standalone-biometric/README.md",
+      "mode": "100644",
+      "gitBlobSha": "2c12a27ba52966eae025e77b9c62b0aec13f54a3",
+      "sha256": "7db89a3948175492ebef3117242017564072db38d1bd16e567e74fe4bd9c7162",
+      "bytes": 1364
+    },
+    {
+      "path": "tests/standalone-biometric/capability.mm",
+      "mode": "100644",
+      "gitBlobSha": "1dc04396950a75e10894354dc915e515788da8c2",
+      "sha256": "50deeeaf38816867eacd7e7ea33100daa6e5254a26724a51b7c6a8d3e23cc93f",
+      "bytes": 1644
+    },
+    {
+      "path": "tests/standalone-markdown-export/CMakeLists.txt",
+      "mode": "100644",
+      "gitBlobSha": "9442172361af2db5aa77783353dbd4219069e252",
+      "sha256": "03baa9a0d2fdf4368f42bfe8b3a1cf89f1d077a208703e7dc0e3871c35340642",
+      "bytes": 21366
+    },
+    {
+      "path": "tests/standalone-markdown-export/README.md",
+      "mode": "100644",
+      "gitBlobSha": "8462a3e9e6f72e04366b5e1165d23e5e864c6f74",
+      "sha256": "ab54d98e5c7ae7a72cbcc95a3c9565c04bef1763d7cc2e04c0a1042c5cc83a27",
+      "bytes": 61531
+    },
+    {
+      "path": "tests/standalone-markdown-export/html-transaction-cases.h",
+      "mode": "100644",
+      "gitBlobSha": "99cabd72d1e9424120002731427142eaf7dd7f3d",
+      "sha256": "b5a4c69e3447cd49cf357687767003500a7326e533dbaf62eb7c8dd0fa6c3ba9",
+      "bytes": 10061
+    },
+    {
+      "path": "tests/standalone-markdown-export/main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "d33f28d28a2eb2de424a2872423c68ebe8cd0672",
+      "sha256": "42c1a6927e67c297bec4a74ebbd42f0ec5896b2bd7a53085832b619daa8cd3e6",
+      "bytes": 17577
+    },
+    {
+      "path": "tests/standalone-markdown-export/product-transaction-main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "709626137c5843296f3cbd62a72e242c7f4794d5",
+      "sha256": "f5bee9b204dfdf21ae1234b1e1f83db9fd6157b3b0309dc89ab81ab7f9ecbf54",
+      "bytes": 18107
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-core-main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "081f13a43ebc33c0790dbba6fd89dfc76aa7bca9",
+      "sha256": "7dd364f5819df8bb3bdf516a481ff5d5e9d5ef7e78d39c385317f006861acfab",
+      "bytes": 178676
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-interface-contract.json",
+      "mode": "100644",
+      "gitBlobSha": "9ced50193ce84b2cb5a133ef66eaeb119c26eeda",
+      "sha256": "bedd1e4b050a0f6971930b6c9028017b8212a7ded9fcb0a9c89afeb69e698e9b",
+      "bytes": 6100
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-prompt-main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "ec8cb69577efde204f67ffc56743f40d8965bcb7",
+      "sha256": "3f90975334b6909d07f1fa8b416f9c31ddfc6891e25009ad3c194d02b11202d2",
+      "bytes": 18416
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-prototype-main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "284ab8474afad8f0793f3353f1fe48232c716413",
+      "sha256": "254dd68490b273280cf530237b5f62bcd6101b7677af2e173d2b49d5c1885192",
+      "bytes": 134071
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-publication-cases.h",
+      "mode": "100644",
+      "gitBlobSha": "50718463d842e4795be0f46b95d6111733572587",
+      "sha256": "a263f8fc4b8290c8922e386484d5e2319b673d1ebb06cdfe495259d71e823e86",
+      "bytes": 17111
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-quit-cases.h",
+      "mode": "100644",
+      "gitBlobSha": "609e0e399f2812650060e79283d14e584dec1744",
+      "sha256": "cf3a5ab61a876c2ef84b1b4a034d28cbc0d4a2da2df791924caabd2f8603efe5",
+      "bytes": 10853
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-request-main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "cb41f92ac472c9e7ac8d4bd729323b2782c1afc6",
+      "sha256": "e2e0ebe53c97d5a641a9c0c1d73a1158db4bfddeefb5f67c12b2768610761800",
+      "bytes": 18127
+    },
+    {
+      "path": "tests/standalone-markdown-export/recovery-session-main.cpp",
+      "mode": "100644",
+      "gitBlobSha": "625d355a620ce3371d74c71cc9b8a8affef7ff95",
+      "sha256": "b2d2b0ee57daaa983b47bc3f954782aed672eb618fade8701fe9694cb42d272f",
+      "bytes": 52213
+    },
+    {
+      "path": "tests/standalone-markdown-export/validate-recovery-interface-contract.py",
+      "mode": "100644",
+      "gitBlobSha": "3a888243f6a6a997a217114f4420ec83926f0d96",
+      "sha256": "58ac8409ad50bd95b53d35154bd1582668180b10891d1becd49fab66a68125d3",
+      "bytes": 9307
+    },
+    {
+      "path": "tests/standalone-native-ui/CMakeLists.txt",
+      "mode": "100644",
+      "gitBlobSha": "21a440574bddbec7dcc188f77eaf1b98226e88fc",
+      "sha256": "2ff322d00e2a7a5be7d939d55e7782414d0a055b47171cc0c90f564c8aebb494",
+      "bytes": 1085
+    },
+    {
+      "path": "tests/standalone-native-ui/README.md",
+      "mode": "100644",
+      "gitBlobSha": "8a419283df07f58cece1b9b7830ca940f086dcf4",
+      "sha256": "cb1ee8d4d0c5c4ce10553869172cd5ee3ce168bdb54bc20f8dfa45c415675198",
+      "bytes": 2104
+    },
+    {
+      "path": "tests/standalone-native-ui/audit-phase114.cjs",
+      "mode": "100644",
+      "gitBlobSha": "151f61d0ac717d9c00f15d569c74fbcbc2b57c18",
+      "sha256": "16080a1257ebd70f71cf735bb61fef2a27f5d3b0c525c5fb6de1c90d12e01d4e",
+      "bytes": 6548
+    },
+    {
+      "path": "tests/standalone-native-ui/main.mm",
+      "mode": "100644",
+      "gitBlobSha": "752cfd1acc5d5b03e1c3843a6f2e9950a01ecc78",
+      "sha256": "5f4d0b3589bb4cd5f9ef6572d386e0bb050f28d1091c625b1963606bed26bfd2",
+      "bytes": 14991
+    },
+    {
+      "path": "tests/standalone-qt-pdf/README.md",
+      "mode": "100644",
+      "gitBlobSha": "202c505f0687e68564ba58ef9cd3869dd0c7a4d1",
+      "sha256": "b7bf60ec757e8275e127be4bec89fd900c164c473fa3076a1d95291a234c5728",
+      "bytes": 22843
+    }
+  ]
+}

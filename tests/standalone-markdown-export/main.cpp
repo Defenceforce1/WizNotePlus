@@ -19,6 +19,17 @@
 #include <functional>
 #include <memory>
 #include "WizDocumentAsync.h"
+#include "share/WizMarkdownExportTransaction.h"
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+#include "widgets/WizMarkdownExportRecoveryApp.h"
+#include "widgets/WizMarkdownExportRecoverySession.h"
+#include "widgets/WizMarkdownExportRecoveryPrompt.h"
+#include "share/WizQueuedThreadsSession.h"
+#include <QWidget>
+// Result presentation only is a collaborator; the source flow, actual App
+// adapter, session, queues, backend and filesystem transaction are compiled.
+struct WizMessageBox { static void information(QWidget*, const QString&, const QString&) {} };
+#endif
 
 // Only the database collaborator is modeled. It writes synthetic HTML before
 // reporting success/failure, matching the ordering under investigation. No SQL,
@@ -61,9 +72,28 @@ struct DocumentView {
     WIZDOCUMENTDATA document;
     const WIZDOCUMENTDATA& note() const { return document; }
 };
-struct ExportHarness : QObject {
+struct ExportHarness :
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    QWidget
+#else
+    QObject
+#endif
+{
     explicit ExportHarness(QWebEnginePage* page) : browser(page) {}
-    ~ExportHarness() override { m_documentCallbacks.cancel(); }
+    ~ExportHarness() override {
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+        cancelMarkdownRecovery();
+#endif
+        m_documentCallbacks.cancel();
+    }
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    QPointer<WizMarkdownExportRecoverySession> m_markdownRecoverySession;
+    void cancelMarkdownRecovery() {
+        const auto session = m_markdownRecoverySession;
+        m_markdownRecoverySession = nullptr;
+        if (session) session->invalidate();
+    }
+#endif
     QWebEnginePage* browser;
     DocumentView document;
     DatabaseManager m_dbMgr;
@@ -109,6 +139,19 @@ static QByteArray readBytes(const QString& path)
     if (!file.open(QIODevice::ReadOnly)) return {};
     return file.readAll();
 }
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+static bool discoveryBarrier(ExportHarness& harness)
+{
+    auto session = harness.m_markdownRecoverySession;
+    if (!session) return false;
+    bool observed = false;
+    const auto connection = QObject::connect(session, &WizMarkdownExportRecoverySession::discovered,
+        &harness, [&](const auto&, const auto&) { observed = true; });
+    const bool passed = waitUntil([&] { return observed; });
+    QObject::disconnect(connection);
+    return passed;
+}
+#endif
 static bool evaluate(QWebEnginePage& page, const QString& code, QVariant* value = nullptr)
 {
     struct Reply { bool done = false; QVariant value; };
@@ -138,12 +181,21 @@ int main(int argc, char** argv)
     qputenv("QTWEBENGINE_RESOURCES_PATH", resources.toUtf8());
     qputenv("QTWEBENGINE_LOCALES_PATH", (resources + "/qtwebengine_locales").toUtf8());
     QApplication app(argc, argv);
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    qputenv("WIZ_RECOVERY_TEST_APP_LOCAL_DATA", temporary.filePath("audit").toUtf8());
+    WizQueuedThreadsSession queues([] {});
+#endif
     const bool requireSafe = app.arguments().contains("--require-safe");
     const bool requireReplySafe = requireSafe || app.arguments().contains("--require-reply-safe");
 #if defined(EXPORT_CANDIDATE) || defined(EXPORT_ACTUAL_REPLY_FIRST)
     constexpr bool candidate = true;
 #else
     constexpr bool candidate = false;
+#endif
+#ifdef EXPORT_PRODUCT_TRANSACTION
+    constexpr bool productTransaction = true;
+#else
+    constexpr bool productTransaction = false;
 #endif
     LocalOnly interceptor;
     QWebEngineProfile profile;
@@ -192,9 +244,13 @@ int main(int argc, char** argv)
             QString(item.name) + (candidate ? " candidate leaves target untouched before reply" : " legacy overwrites before JS reply (risk reproduced)"));
         // A later JS barrier, then a GUI event turn, must finish even when the
         // candidate intentionally does not invoke the writer on invalid input.
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+        check(discoveryBarrier(harness), QString(item.name) + " actual asynchronous discovery delivered before JS barrier");
+#endif
         check(evaluate(page, "'export barrier'"), QString(item.name) + " actual JS barrier completed");
         QCoreApplication::processEvents();
-        check(markdownWrites == before + ((candidate && item.invalid) ? 0 : 1), QString(item.name) + " expected write count");
+        check(markdownWrites == before + ((productTransaction || (candidate && item.invalid)) ? 0 : 1),
+            QString(item.name) + " expected legacy-writer call count");
         check(harness.m_dbMgr.database.calls == databaseBefore + ((candidate && item.invalid) ? 0 : 1),
             QString(item.name) + " expected database export count");
         QVariant calls;
@@ -215,10 +271,16 @@ int main(int argc, char** argv)
     harness.m_dbMgr.database.failAfterHtml = true;
     const int before = markdownWrites;
     harness.saveAsMarkdown(target);
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    check(discoveryBarrier(harness), "late database failure actual discovery delivered");
+#endif
     check(evaluate(page, "'database failure barrier'"), "modeled database failure callback completed");
     QCoreApplication::processEvents();
     check(markdownWrites == before, "modeled DB failure performs no final Markdown write");
-    check(readBytes(target).contains("synthetic snapshot"), "modeled late DB failure leaves HTML in Markdown target");
+    check(productTransaction ? readBytes(target) == "EXISTING SYNTHETIC EXPORT\n"
+                             : readBytes(target).contains("synthetic snapshot"),
+        productTransaction ? "product transaction preserves Markdown after modeled late DB failure"
+                           : "modeled late DB failure leaves HTML in Markdown target");
     if (requireSafe) check(readBytes(target) == "EXISTING SYNTHETIC EXPORT\n", "SAFETY: modeled DB failure preserves existing file");
 #if defined(EXPORT_CANDIDATE) || defined(EXPORT_ACTUAL_REPLY_FIRST)
     harness.m_dbMgr.database.failAfterHtml = false;
@@ -238,8 +300,42 @@ int main(int argc, char** argv)
               boundary + " stale export leaves sentinel unchanged");
     }
 #endif
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    {
+        QString target = temporary.filePath("late-quit.md");
+        check(rawWriteUtf8UnderTest(target, QStringLiteral("PRESERVE ON QUIT"), false), "late-quit synthetic export prepared");
+        check(evaluate(page, "window.WizEditor={getMarkdownSrc:()=> 'LATE EXPORT'}"), "late-quit actual editor initialized");
+        const int before = harness.m_dbMgr.database.calls;
+        harness.saveAsMarkdown(target);
+        auto* session = harness.m_markdownRecoverySession.data();
+        check(session != nullptr, "actual extracted export entry creates experimental App session");
+        std::unique_ptr<WizMarkdownExportRecoveryApp::QuitScope> quitting;
+        QObject::connect(session, &WizMarkdownExportRecoverySession::discovered, &app,
+            [&](const auto&, const auto&) { quitting = std::make_unique<WizMarkdownExportRecoveryApp::QuitScope>(); });
+        check(waitUntil([&] { return bool(quitting); }), "quit starts after no-site continuation queued actual JavaScript query");
+        check(evaluate(page, "'late-query-barrier'") && harness.m_dbMgr.database.calls == before
+            && readBytes(target) == "PRESERVE ON QUIT", "late actual JavaScript reply cannot export after quit begins");
+        quitting.reset();
+        check(!WizMarkdownExportRecoveryApp::isQuitting(), "cancelled quit restores future explicit exports");
+    }
+    {
+        QString target = temporary.filePath("interrupted.md");
+        check(rawWriteUtf8UnderTest(target, QStringLiteral("PRESERVE RECOVERY"), false)
+            && QDir().mkpath(WizMarkdownExportRecovery::recoveryDirectory(target)), "synthetic incomplete recovery site prepared");
+        const int before = harness.m_dbMgr.database.calls;
+        harness.saveAsMarkdown(target);
+        auto session = harness.m_markdownRecoverySession;
+        check(waitUntil([&] { return session && session->prompt(); }), "actual extracted entry presents recovery rather than ordinary overwrite");
+        {
+            WizMarkdownExportRecoveryApp::QuitScope quitting;
+            check(evaluate(page, "'retain-barrier'") && harness.m_dbMgr.database.calls == before
+                && readBytes(target) == "PRESERVE RECOVERY", "quit retains incomplete site and never resumes original export");
+        }
+    }
+#endif
     QTextStream(stdout) << QJsonDocument(QJsonObject{
         {"diagnosticOnly", true}, {"actualClassOrDatabaseEndToEnd", false}, {"probeModifiesProduct", false},
+        {"productTransaction", productTransaction},
         {"mode", EXPORT_MODE}, {"candidateSHA256", CANDIDATE_SOURCE_SHA},
         {"legacyControlSHA256", LEGACY_SOURCE_SHA},
         {"exportSourceSHA256", EXPORT_SOURCE_SHA}, {"writerSourceSHA256", WRITER_SOURCE_SHA},

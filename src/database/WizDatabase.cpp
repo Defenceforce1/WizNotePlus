@@ -1,5 +1,6 @@
 ﻿#include "WizDatabase.h"
 
+#include "share/WizCertificateCreation.h"
 #include <QDir>
 #include <QUrl>
 #include <QDebug>
@@ -2193,7 +2194,7 @@ int WizDatabase::getObjectSyncTimeline()
     if (m_bIsPersonal && !nDays) {
         return 99999;
     } else if (!m_bIsPersonal && !nDays) {
-        return 1;
+        return -1; // Default group sync downloads metadata/title, not bodies.
     }
 
     return nDays;
@@ -4583,6 +4584,19 @@ QString WizDatabase::getCertPasswordHint()
     getUserCert(n, e, encrypted_d, hint);
     //
     return hint;
+}
+
+bool WizDatabase::cacheCertPasswordLocally(const QString& password, const QString& expectedN,
+                                         const QString& expectedE, const QString& expectedEncryptedD)
+{
+    WizCertificateCreation::Certificate current;
+    if (!getUserCert(current.n, current.e, current.encryptedD, current.hint)
+        || current.n != expectedN || current.e != expectedE || current.encryptedD != expectedEncryptedD
+        || WizCertificateCreation::verify(current, password) != WizCertificateCreation::Error::None) return false;
+    QString n, e, d, hint;
+    if (!getUserCert(n,e,d,hint) || n != expectedN || e != expectedE || d != expectedEncryptedD) return false;
+    WizUserCertPassword::Instance().setPassword(m_info.bizGUID,password);
+    return true;
 }
 
 bool WizDatabase::verifyCertPassword(QString password)

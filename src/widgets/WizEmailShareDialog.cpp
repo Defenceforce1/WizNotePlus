@@ -9,6 +9,7 @@
 #include <QVBoxLayout>
 #include <QDebug>
 #include <QPointer>
+#include <QScopeGuard>
 
 #include "share/WizMessageBox.h"
 #include "sync/WizApiEntry.h"
@@ -74,8 +75,25 @@ WizEmailShareDialog::~WizEmailShareDialog()
     delete ui;
 }
 
+void WizEmailShareDialog::done(int result)
+{
+    m_shareCallbacks.invalidate();
+    m_request.clear();m_read = {};
+    QDialog::done(result);
+}
+
 void WizEmailShareDialog::setNote(const WIZDOCUMENTDATA& note, const QString& sendTo)
 {
+    setNote(note, sendTo, {}); // Retain the old interface, never invent permission.
+}
+
+void WizEmailShareDialog::setNote(const WIZDOCUMENTDATA& note, const QString& sendTo, const WizDocumentReadPermit& read)
+{
+    m_shareCallbacks.invalidate();
+    m_request.clear(); // Do not reinterpret a previous request as this note.
+    m_read = read;
+    m_sentNote = {};
+    m_sentComment.clear();m_sentTo.clear();m_sentInsert = false;
     m_note = note;
     ui->lineEdit_subject->setText(m_note.strTitle);
     ui->lineEdit_to->setText(sendTo);
@@ -110,6 +128,10 @@ void WizEmailShareDialog::on_toolButton_send_clicked()
 
 QString WizEmailShareDialog::getExInfo()
 {
+    const QPointer<WizEmailShareDialog> self(this);
+    const auto read = m_read;
+    const auto ticket = m_shareCallbacks.ticket();
+    if (!read.current()) return QString();
 //    kb_guid
 //    document_guid
 //    token
@@ -121,6 +143,7 @@ QString WizEmailShareDialog::getExInfo()
 //    api_version        4
 
     QString strToken = WizToken::token();
+    if (!self || !read.current() || !WizDocumentCallbackEpoch::current(ticket) || strToken.isEmpty()) return QString();
     QString cc_to_self = ui->checkBox_sendMeCopy->isChecked() ? "true" : "false";
     QString result = "?kb_guid=" + m_note.strKbGUID + "&document_guid=" + m_note.strGUID + "&token=" + strToken
             + "&mail_to=" + ui->lineEdit_to->text() + "&subject=" + ui->lineEdit_subject->text() + "&cc_to_self=" + cc_to_self
@@ -132,14 +155,18 @@ QString WizEmailShareDialog::getExInfo()
 
 void WizEmailShareDialog::on_mailShare_finished(int nCode, const QString& returnMessage)
 {
+    const auto read = m_read;
+    const auto ticket = m_shareCallbacks.ticket();
+    const QPointer<WizEmailShareDialog> self(this);
+    if (!read.current() || m_sentNote.strGUID.isEmpty()) return;
     switch (nCode) {
     case codeOK:
         ui->labelInfo->setText(tr("Send success"));
-        if (isInsertCommentToNote())
+        if (m_sentInsert)
         {
-            emit insertCommentToNoteRequest(m_note.strGUID, getCommentsText());
+            emit insertCommentToNoteRequest(m_sentNote.strGUID, m_sentComment);
         }
-        accept();
+        if (self && read.current() && WizDocumentCallbackEpoch::current(ticket)) accept();
         break;
     case codeErrorParam:
     case codeErrorFile:
@@ -158,6 +185,8 @@ void WizEmailShareDialog::on_mailShare_finished(int nCode, const QString& return
 
 void WizEmailShareDialog::processReturnMessage(const QString& returnMessage, int& nCode, QString& message)
 {
+    nCode = -1;
+    if (!m_read.current()) return;
     Json::Value d;
     Json::Reader reader;
     if (!reader.parse(returnMessage.toUtf8().constData(), d))
@@ -168,7 +197,7 @@ void WizEmailShareDialog::processReturnMessage(const QString& returnMessage, int
         return;
     }
 
-    if (d.isMember("return_code")) {
+    if (d.isMember("return_code") && d["return_code"].isInt()) {
         nCode = d["return_code"].asInt();
         if (nCode == 200) {
             qDebug() <<"[EmailShar]:send email successed!";
@@ -184,7 +213,8 @@ void WizEmailShareDialog::processReturnMessage(const QString& returnMessage, int
 
 void WizEmailShareDialog::saveContacts()
 {
-    QString strText = ui->lineEdit_to->text();
+    if (!m_read.current()) return;
+    QString strText = m_sentTo;
     QStringList toList = strText.split(QRegularExpression(",|;"));
     QString strContact = m_app.userSettings().get(EMAIL_CONTACTS);
     foreach (QString str, toList)
@@ -208,19 +238,37 @@ void WizEmailShareDialog::updateContactList()
 
 void WizEmailShareDialog::sendEmails()
 {
+    const auto read = m_read;
+    if (!read.current()) {
+        ui->labelInfo->setText(QStringLiteral("笔记已锁定或切换，请重新打开分享窗口。"));
+        return;
+    }
+    if (m_sending || m_request) return;
+    const QPointer<WizEmailShareDialog> self(this);
+    const auto ticket = m_shareCallbacks.ticket();
+    const WIZDOCUMENTDATA note = m_note;
+    m_sending = true;
+    const auto preparing = qScopeGuard([self]{if (self) self->m_sending = false;});
     ui->labelInfo->setText(tr("Sending..."));
 
     QString strKS = m_app.databaseManager().db().getKbServer(m_note.strKbGUID);
     QString strExInfo = getExInfo();
+    if (!self || !read.current() || !WizDocumentCallbackEpoch::current(ticket)) return;
+    if (strExInfo.isEmpty()) {ui->labelInfo->setText(tr("Unable to prepare email sharing."));return;}
+    const QString sentTo = ui->lineEdit_to->text(), sentComment = getCommentsText();
+    const bool sentInsert = isInsertCommentToNote();
     QString strUrl = WizCommonApiEntry::mailShareUrl(strKS, strExInfo);
-    qDebug() << "share url : " << strUrl;
+    if (!self || !read.current() || !WizDocumentCallbackEpoch::current(ticket)) return;
+    if (strUrl.isEmpty()) {ui->labelInfo->setText(tr("Unable to prepare email sharing."));return;}
 
     if(!m_net)
     {
         m_net = new QNetworkAccessManager(this);
         connect(m_net, SIGNAL(finished(QNetworkReply*)), SLOT(on_networkFinished(QNetworkReply*)));
     }
-    m_net->get(QNetworkRequest(strUrl));
+    m_sentNote = note;m_sentTo = sentTo;m_sentComment = sentComment;m_sentInsert = sentInsert;
+    m_request = m_net->get(QNetworkRequest(strUrl));
+    if (!m_request) ui->labelInfo->setText(tr("Unable to prepare email sharing."));
 }
 
 void WizEmailShareDialog::on_toolButton_contacts_clicked()
@@ -244,29 +292,36 @@ void WizEmailShareDialog::on_contactsListItemClicked(QListWidgetItem *item)
 
 void WizEmailShareDialog::on_networkFinished(QNetworkReply* reply)
 {
-    if (reply->error() != QNetworkReply::NoError)
-    {
-        on_networkError(reply->errorString());
+    if (!reply) return;
+    if (reply != m_request || !m_read.current()) {
+        if (reply == m_request) m_request.clear();
+        reply->deleteLater();return;
     }
-    else
-    {
-        QString strReply = QString::fromUtf8(reply->readAll());
-
-        int nCode;
-        QString returnMessage;
-        processReturnMessage(strReply, nCode, returnMessage);
-
-        on_mailShare_finished(nCode, returnMessage);
-    }
-
-    reply->deleteLater();
+    const QPointer<WizEmailShareDialog> self(this);
+    const QPointer<QNetworkReply> response(reply);
+    m_sending = true;
+    const auto delivering = qScopeGuard([self]{if (self) self->m_sending = false;});
+    const auto read = m_read;
+    const auto ticket = m_shareCallbacks.ticket();
+    m_request.clear();
+    const auto error = reply->error();
+    const QString content = error == QNetworkReply::NoError ? QString::fromUtf8(reply->readAll()) : reply->errorString();
+    if (response) response->deleteLater();
+    if (!self || !read.current() || !WizDocumentCallbackEpoch::current(ticket)) return;
+    if (error != QNetworkReply::NoError) {on_networkError(content);return;}
+    int nCode = -1;QString returnMessage;
+    processReturnMessage(content, nCode, returnMessage);
+    if (self && read.current() && WizDocumentCallbackEpoch::current(ticket)) on_mailShare_finished(nCode, returnMessage);
 }
 
 void WizEmailShareDialog::on_networkError(const QString& errorMsg)
 {
+    const auto read = m_read;
+    const auto ticket = m_shareCallbacks.ticket();
+    if (!read.current()) return;
     const QPointer<WizEmailShareDialog> self(this);
     WizMessageBox::information(this, tr("Info"), errorMsg);
-    if (self) self->ui->labelInfo->setText(errorMsg);
+    if (self && read.current() && WizDocumentCallbackEpoch::current(ticket)) self->ui->labelInfo->setText(errorMsg);
 }
 
 void WizEmailShareDialog::on_toolButton_settings_clicked()

@@ -8,12 +8,21 @@
 
 
 WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget *parent)
+    : WizUserCipherForm(app, parent, WizBiometricUnlockWidget::Services{}) {}
+
+WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBiometricUnlockWidget::Services services)
     : QWidget(parent)
     , ui(new Ui::WizUserCipherForm)
     , m_app(app)
     , m_bSaveForSession(false)
 {
     ui->setupUi(this);
+    m_biometric = new WizBiometricUnlockWidget(std::move(services), this);
+    m_biometric->setObjectName("cipherBiometricUnlock");
+    ui->verticalLayout_3->insertWidget(ui->verticalLayout_3->count()-2, m_biometric);
+    m_biometric->hide();
+    connect(m_biometric, &WizBiometricUnlockWidget::credentialReady, this, &WizUserCipherForm::biometricCredentialReady);
+    connect(m_biometric, &WizBiometricUnlockWidget::manualPasswordRequested, this, &WizUserCipherForm::setCipherEditorFocus);
     ui->editUserCipher->setEchoMode(QLineEdit::Password);
     ui->editUserCipher->setAttribute(Qt::WA_MacShowFocusRect, false);
 
@@ -57,8 +66,18 @@ QSize WizUserCipherForm::sizeHint()
     return QSize(350, 120);
 }
 
+WizUserCipherForm::~WizUserCipherForm()
+{
+    // Cancel before QWidget hides/deletes children. Do not emit a fresh stage
+    // notification into callers while this form is already being destroyed.
+    m_biometric->blockSignals(true);
+    m_biometric->beginShutdown();
+    delete ui;
+}
+
 void WizUserCipherForm::showEvent(QShowEvent* event)
 {
+    m_manualRequestEpoch.invalidate();
     Q_UNUSED(event);
 
     // clear state set by last time
@@ -124,6 +143,10 @@ void WizUserCipherForm::cipherCorrect()
 void WizUserCipherForm::onButtonOK_clicked()
 {
     if (!ui->editUserCipher->text().isEmpty()) {
+        QPointer<WizUserCipherForm> guard(this);
+        const auto request = m_manualRequestEpoch.ticket();
+        m_biometric->cancel();
+        if (!guard || !WizDocumentCallbackEpoch::current(request)) return;
         m_userCipher = ui->editUserCipher->text();
 
         emit cipherCheckRequest();
@@ -141,6 +164,11 @@ void WizUserCipherForm::onCheckSave_stateChanged(int state)
 
 void WizUserCipherForm::onCipher_changed(const QString &text)
 {
+    QPointer<WizUserCipherForm> guard(this);
+    if (!text.isEmpty() && (m_biometric->stage() == WizBiometricUnlockWidget::Stage::Working
+                          || m_biometric->stage() == WizBiometricUnlockWidget::Stage::Verified))
+        m_biometric->cancel();
+    if (!guard) return;
     if (text.isEmpty()) {
         ui->buttonOk->setStatusNormal();
         ui->buttonOk->setLockNormalStatus(true);
@@ -170,4 +198,18 @@ void WizUserCipherForm::setHint(const QString& strHint)
 void WizUserCipherForm::setCipherEditorFocus()
 {
     ui->editUserCipher->setFocus();
+}
+
+void WizUserCipherForm::prepareBiometric(const WizBiometricUnlockWidget::Context& context, bool enabled)
+{
+    m_manualRequestEpoch.invalidate();
+    QPointer<WizUserCipherForm> guard(this);
+    m_biometric->setContext(context,enabled);
+    if (!guard) return;
+    m_biometric->setVisible(enabled);
+}
+void WizUserCipherForm::cancelBiometric() { m_manualRequestEpoch.invalidate(); m_biometric->cancel(); }
+WizBiometricKeychain::Result WizUserCipherForm::takeBiometricCredential(const WizBiometricUnlockWidget::Context& context)
+{
+    return m_biometric->takeCredential(context);
 }

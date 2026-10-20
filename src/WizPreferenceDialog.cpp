@@ -31,7 +31,7 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
 {
     ui->setupUi(this);
     setWindowIcon(QIcon());
-    setWindowTitle(tr("Preference"));
+    setWindowTitle(tr("Settings"));
 
     connect(ui->btnClose, SIGNAL(clicked()), SLOT(accept()));
 
@@ -142,7 +142,7 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
             ui->comboSyncMethod->setCurrentIndex(4);
     }
 
-    int nDays = 1;
+    int nDays = -1; // No groups: show the title-only default, not recent bodies.
     if (m_dbMgr.count()) {
         nDays = m_dbMgr.at(0).getObjectSyncTimeline();
     }
@@ -164,7 +164,7 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
             ui->comboSyncGroupMethod->setCurrentIndex(4);
             break;
         default:
-            ui->comboSyncGroupMethod->setCurrentIndex(1);
+            ui->comboSyncGroupMethod->setCurrentIndex(0);
     }
 
     bool downloadAttachments = m_dbMgr.db().getDownloadAttachmentsAtSync();

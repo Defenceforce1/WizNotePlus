@@ -12,6 +12,7 @@
 #include "utils/WizPathResolve.h"
 #include "utils/WizMisc.h"
 #include "share/WizMisc.h"
+#include "share/WizDocumentReadOutput.h"
 #include "database/WizDatabaseManager.h"
 #include "database/WizDatabase.h"
 #include "WizFileImporter.h"
@@ -70,54 +71,49 @@ void ExternalEditorLauncher::handleViewNoteInExternalEditorRequest(
     const WizExternalEditorData &editorData,
     const WIZDOCUMENTDATAEX &noteData)
 {
-    if (auto docView = qobject_cast<WizDocumentView*>(sender())) {
-        // Make sure editor will get separate cache file.
-        QDir noteTempDir(Utils::WizPathResolve::tempPath() + noteData.strGUID + "/");
+    viewNoteInExternalEditor(qobject_cast<WizDocumentView*>(sender()), editorData, noteData);
+}
 
-        WizDatabase &db = m_dbMgr.db(noteData.strKbGUID);
-
-        if (const auto webView = docView->web()) {
-            // Update document first, but we don't need to realod document.
-            webView->trySaveDocument(noteData, false,
-                [this, webView, &db, noteData,
-                 editorData, noteTempDir] (const QVariant&) mutable 
-                {
-                    // Update index.html
-                    QString strHtmlFile;
-                    db.documentToTempHtmlFile(noteData, strHtmlFile);
-
-                    QString strHtml;
-                    if (!WizLoadUnicodeTextFromFile(strHtmlFile, strHtml))
-                        return;
-
-                    // Export Note to file
-                    if (editorData.TextEditor == 2) {
-                        QString cacheFileName = makeValidCacheFileName(noteData.strTitle, noteTempDir);
-
-                        // get pure text
-                        QTextDocument doc;
-                        doc.setHtml(strHtml);
-                        QString strText = doc.toPlainText();
-                        strText.replace("&nbsp", " ");
-
-                        // Write to cache file
-                        if(WizSaveUnicodeTextToUtf8File(cacheFileName, strText, false))
-                            startExternalEditor(cacheFileName, editorData, noteData);
-                        
-                    } else if (editorData.TextEditor == 0) {
-                        QString cacheFileName = makeValidCacheFileName(
-                            noteData.strTitle + ".html", noteTempDir);
-                        if (!webView)
-                            return;
-                        webView->page()->toHtml([=](const QString& html){
-                            if(WizSaveUnicodeTextToUtf8File(cacheFileName, html, false))
-                                startExternalEditor(cacheFileName, editorData, noteData);
-                        });
-                    }
-                }
-            );
+void ExternalEditorLauncher::viewNoteInExternalEditor(WizDocumentView *docView,
+    const WizExternalEditorData &editorData, const WIZDOCUMENTDATAEX &noteData)
+{
+    if (!docView || docView->note().strGUID != noteData.strGUID
+        || docView->note().strKbGUID != noteData.strKbGUID
+        || (editorData.TextEditor != 0 && editorData.TextEditor != 2)) return;
+    const QPointer<WizDocumentWebView> webView(docView->web());
+    if (!webView) return;
+    const auto read = webView->noteReadPermit();
+    if (!read.current()) return;
+    const QPointer<ExternalEditorLauncher> self(this);
+    const QDir noteTempDir(Utils::WizPathResolve::tempPath() + noteData.strGUID + "/");
+    // Only the read continuation waits for the saver. Relocking must not cancel
+    // the original snapshot, queued disk save or an existing watched-file save.
+    webView->trySaveDocumentForRead(noteData, false,
+        [self, webView, read, noteData, editorData, noteTempDir](const QVariant& saved) {
+        if (!self || !webView || !read.current()
+            || saved.userType() != QMetaType::Bool || !saved.toBool()) return;
+        QString strHtmlFile, strHtml;
+        if (!self->m_dbMgr.db(noteData.strKbGUID).documentToTempHtmlFile(noteData, strHtmlFile)
+            || !self || !read.current() || !WizLoadUnicodeTextFromFile(strHtmlFile, strHtml)) return;
+        if (editorData.TextEditor == 2) {
+            const QString cacheFileName = self->makeValidCacheFileName(noteData.strTitle, noteTempDir);
+            QTextDocument doc;
+            doc.setHtml(strHtml);
+            QString strText = doc.toPlainText();
+            strText.replace("&nbsp", " ");
+            if (WizDocumentReadOutput::writeUtf8(read, cacheFileName, strText)
+                && self && read.current())
+                self->startExternalEditor(cacheFileName, editorData, noteData);
+        } else {
+            const QString cacheFileName = self->makeValidCacheFileName(noteData.strTitle + ".html", noteTempDir);
+            webView->page()->toHtml([self, read, cacheFileName, editorData, noteData](const QString& html) {
+                if (!self || !read.current()) return;
+                if (WizDocumentReadOutput::writeUtf8(read, cacheFileName, html)
+                    && self && read.current())
+                    self->startExternalEditor(cacheFileName, editorData, noteData);
+            });
         }
-    }
+    });
 }
 
 /*!

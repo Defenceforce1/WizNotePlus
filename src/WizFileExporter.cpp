@@ -9,6 +9,7 @@
 #include <QTextDocument>
 #include <QDir>
 #include <QDebug>
+#include <QPointer>
 #include <quazip/JlCompress.h>
 
 #include "database/WizDatabase.h"
@@ -35,12 +36,31 @@ bool WizFileExporter::exportNote(
     bool noTitleFolderIfPossible /*= false*/,
     QString *errorMsg /*= nullptr*/)
 {
+    return exportNote(doc, destFolder, format, compress, exportMetaInfo,
+                      noTitleFolderIfPossible, errorMsg, [] { return true; });
+}
+
+bool WizFileExporter::exportNote(
+    const WIZDOCUMENTDATA &doc, const QString &destFolder, ExportFormat format,
+    bool compress, bool exportMetaInfo, bool noTitleFolderIfPossible,
+    QString *errorMsg, std::function<bool()> canRead)
+{
+    const QPointer<WizFileExporter> self(this);
+    const auto current = [self, canRead = std::move(canRead), errorMsg] {
+        const bool allowed = self && canRead && canRead() && self;
+        if (!allowed && errorMsg) *errorMsg = "Export permission expired; already exported files were not removed.";
+        return allowed;
+    };
+    if (!current()) return false;
     WizDatabase& db = m_dbMgr.db(doc.strKbGUID);
     if (!WizMakeSureDocumentExistAndBlockWidthEventloop(db, doc)) {
         if (errorMsg)
             *errorMsg = "Can't download document: " + doc.strTitle;
         return false;
     }
+    // Download helpers may run a nested event loop: cancellation/destruction
+    // must be checked again before creating or replacing any output.
+    if (!current()) return false;
 
     CString folder = doc.strTitle;
     WizMakeValidFileNameNoPath(folder);
@@ -56,6 +76,7 @@ bool WizFileExporter::exportNote(
 
     // Write meta info
     if (exportMetaInfo) {
+        if (!current()) return false;
         if (!writeDocumentInfoToJsonFile(doc, docFolder.filePath("metainfo.json"))) {
             if (errorMsg)
                 *errorMsg =  "Can't save meta info to json file: " +
@@ -65,12 +86,15 @@ bool WizFileExporter::exportNote(
     }
 
     // Export attachments, download if neccessary
+    if (!current()) return false;
     CWizDocumentAttachmentDataArray arrayAttachment;
     db.getDocumentAttachments(doc.strGUID, arrayAttachment);
     if (!arrayAttachment.empty())
         docFolder.mkpath("attachments");
     for (auto &att : arrayAttachment) {
-        if (!exportAttachment(att, docFolder.filePath("attachments"))) {
+        if (!current()) return false;
+        if (!exportAttachment(att, docFolder.filePath("attachments"), current)) {
+            if (!current()) return false;
             if (errorMsg)
                 *errorMsg = "Can't export attachment: " +
                     att.strName.remove(0, GUIDLEN);
@@ -79,8 +103,10 @@ bool WizFileExporter::exportNote(
     }
 
     // Unzip index.html and index_files/
+    if (!current()) return false;
     QString strHtmlFile = docFolder.filePath("index.html");
     if (db.documentToHtmlFile(doc, docFolder.absolutePath() + "/")) {
+        if (!current()) return false;
         QFile file(strHtmlFile);
         if (!file.open(QIODevice::ReadOnly)) {
             return false;
@@ -91,6 +117,7 @@ bool WizFileExporter::exportNote(
         switch (format) {
         case Markdown:
         {
+            if (!current()) return false;
             QString outputFilePath = docFolder.filePath("index.md");
             if (!extractMarkdownToFile(strHtml, outputFilePath))
                 return false;
@@ -109,9 +136,12 @@ bool WizFileExporter::exportNote(
         return false;
     }
 
+    if (!current()) return false;
     if (compress) {
-        if (!compressDocumentFolder(docFolder.absolutePath())) {
+        if (!compressDocumentFolder(docFolder.absolutePath(), current)) {
+            if (!current()) return false;
             if (errorMsg) *errorMsg = "Can't remove folder after compress";
+            return false;
         }
     }
 
@@ -138,13 +168,25 @@ bool WizFileExporter::exportNote(
         if (errorMsg) errorMsg->clear();
     }
 
-    return true;
+    return current();
 }
 
 bool WizFileExporter::exportAttachment(
         const WIZDOCUMENTATTACHMENTDATAEX &att,
         const QString &destFolder)
 {
+    return exportAttachment(att, destFolder, [] { return true; });
+}
+
+bool WizFileExporter::exportAttachment(
+        const WIZDOCUMENTATTACHMENTDATAEX &att, const QString &destFolder,
+        std::function<bool()> canRead)
+{
+    const QPointer<WizFileExporter> self(this);
+    const auto current = [self, canRead = std::move(canRead)] {
+        return self && canRead && canRead() && self;
+    };
+    if (!current()) return false;
     WizDatabase& db = m_dbMgr.db(att.strKbGUID);
     bool bIsLocal = db.isObjectDataDownloaded(att.strGUID, "attachment");
     QString strFileName = db.getAttachmentFileName(att.strGUID);
@@ -153,6 +195,7 @@ bool WizFileExporter::exportAttachment(
         bool ok = WizMakeSureAttachmentExistAndBlockWidthEventloop(db, att);
         if (!ok) return false;
     }
+    if (!current()) return false;
 
     QFileInfo attfile(strFileName);
     QString newFilename = destFolder + "/" + attfile.fileName().remove(0, GUIDLEN);
@@ -199,10 +242,13 @@ bool WizFileExporter::writeDocumentInfoToJsonFile(const WIZDOCUMENTDATA &doc, co
     return true;
 }
 
-bool WizFileExporter::compressDocumentFolder(const QString &folder, bool removeSource) {
+bool WizFileExporter::compressDocumentFolder(const QString &folder,
+                                            const std::function<bool()>& canRead, bool removeSource) {
+    if (!canRead()) return false;
     if (!JlCompress::compressDir(folder + ".zip", folder, true))
         return false;
 
+    if (!canRead()) return false;
     if (removeSource && !QDir(folder).removeRecursively())
         return false;
 

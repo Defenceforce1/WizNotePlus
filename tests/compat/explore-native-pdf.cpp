@@ -13,6 +13,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QDir>
 #include <QtCore/QTimer>
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QEventLoop>
 #include <QtCore/QDebug>
 #include <QtCore/QJsonDocument>
@@ -96,7 +97,22 @@ int main(int argc,char** argv) {
     int viewportWidth=qEnvironmentVariableIntValue("WIZNOTE_PDF_VIEWPORT_WIDTH");
     if(!viewportWidth)viewportWidth=850;
     if(viewportWidth<400||viewportWidth>1200)return 2;
-    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS"))WizPdfSvgLinks::install(reader.page());
+    const bool glyphPrototype=qEnvironmentVariableIsSet("WIZNOTE_PDF_GLYPH_PROTOTYPE");
+    const QString pageMode=qEnvironmentVariable("WIZNOTE_PDF_PAGE_MODE");
+    if (!pageMode.isEmpty() && pageMode!="reading" && pageMode!="a4") return 2;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS")) {
+        if(glyphPrototype) {
+            QFile prototype(QStringLiteral(__FILE__).replace("explore-native-pdf.cpp","prototype-pdf-number-glyphs.js"));
+            if(!prototype.open(QIODevice::ReadOnly))return 2;
+            QString source=WizPdfSvgLinks::source();
+            const QString marker="badge.appendChild(clone);";
+            if(source.count(marker)!=1)return 2;
+            source.replace(marker,QString::fromUtf8(prototype.readAll())+"\n"+marker);
+            QWebEngineScript script;script.setName("wiz-pdf-svg-links");
+            script.setWorldId(QWebEngineScript::ApplicationWorld);script.setInjectionPoint(QWebEngineScript::DocumentReady);
+            script.setSourceCode(source);reader.page()->scripts().insert(script);
+        } else WizPdfSvgLinks::install(reader.page());
+    }
     reader.resize(viewportWidth,660); reader.show(); reader.load(QUrl::fromLocalFile(input));
     bool ready=false; QEventLoop readyLoop; QTimer poll,deadline;
     QObject::connect(&poll,&QTimer::timeout,&readyLoop,[&]{
@@ -105,10 +121,66 @@ int main(int argc,char** argv) {
     QObject::connect(&deadline,&QTimer::timeout,&readyLoop,&QEventLoop::quit);
     poll.start(100);deadline.setSingleShot(true);deadline.start(65000);readyLoop.exec();poll.stop();deadline.stop();
     if (!ready) {qCritical()<<"Synthetic reader never became ready";return 3;}
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_SOURCE_DIAGNOSTIC")) {
+        auto details=evaluate(reader.page(),R"JS((()=>{
+          const current=WizEditor.getMarkdownSrc({unEscapeHtml:true}),original=FixtureSource,
+            initial=window.FixtureSourceAfterInit,html=WizEditor.getContentHtml(),changes=[];
+          for(let i=0;i<Math.max(current.length,original.length)&&changes.length<10;++i)
+            if(current[i]!==original[i])changes.push({offset:i,original:original.charCodeAt(i),current:current.charCodeAt(i)});
+          return {providedCopy:window.FixtureProvidedCopy===true,originalLength:original.length,
+            initializedLength:initial?.length,currentLength:current.length,
+            initialMatchesProvided:initial===original,currentMatchesInitialized:current===initial,
+            htmlMatchesInitialized:html===window.FixtureHtmlAfterInit,
+            originalNbsp:(original.match(/\u00a0/g)||[]).length,
+            initializedHtmlNbsp:(window.FixtureHtmlAfterInit.match(/\u00a0|&nbsp;|&#160;/g)||[]).length,
+            currentHtmlNbsp:(html.match(/\u00a0|&nbsp;|&#160;/g)||[]).length,
+            initialHtml:window.FixtureHtmlAfterInit,currentHtml:html,changes};
+        })())JS").toMap();
+        evaluate(reader.page(),"window.FixtureEditReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.FixtureEditReady=true;});true");
+        QElapsedTimer editingDeadline;editingDeadline.start();
+        bool editingReady=false;
+        while(editingDeadline.elapsed()<10000) {
+            if(evaluate(reader.page(),"window.FixtureEditReady===true").toBool()){editingReady=true;break;}
+            QEventLoop turn;QTimer::singleShot(20,&turn,&QEventLoop::quit);turn.exec();
+        }
+        details.insert("editingReady",editingReady);
+        details.insert("editing",evaluate(reader.page(),R"JS((()=>{
+          const html=WizEditor.getContentHtml();return {
+            htmlMatchesInitialized:html===window.FixtureHtmlAfterInit,
+            sourceMatchesInitialized:WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSourceAfterInit,
+            htmlNbsp:(html.match(/\u00a0|&nbsp;|&#160;/g)||[]).length,html};
+        })())JS"));
+        QFile record(QDir(output).filePath("source-diagnostic.json"));
+        if(!record.open(QIODevice::WriteOnly|QIODevice::NewOnly))return 4;
+        record.write(QJsonDocument(QJsonObject::fromVariantMap(details)).toJson());
+        return details.isEmpty()?3:0;
+    }
+    // The original reader uses document.open/write on editing transitions.
+    // That keeps window globals but removes their event listeners. Exercise
+    // the real editor path after the isolated print helper was installed.
+    const int readerCycles=qEnvironmentVariableIntValue("WIZNOTE_PDF_READER_CYCLES");
+    if(readerCycles<0||readerCycles>5)return 2;
+    for(int cycle=0;cycle<readerCycles;++cycle) {
+        const auto transition=[&](bool edit) {
+            evaluate(reader.page(),QString("window.FixtureModeReady=false;WizPrepareNoteModeChange();"
+                "WizEditor.%1(%2,()=>{window.FixtureModeReady=true;});true")
+                .arg(edit?"on":"off",edit?"null":"{reader:{type:'markdown'}}"));
+            QElapsedTimer elapsed;elapsed.start();
+            while(elapsed.elapsed()<65000) {
+                if(evaluate(reader.page(),"window.FixtureModeReady===true").toBool())return true;
+                QEventLoop turn;QTimer::singleShot(10,&turn,&QEventLoop::quit);turn.exec();
+            }
+            return false;
+        };
+        if(!transition(true)||!transition(false)) {qCritical()<<"Reader transition timed out";return 3;}
+    }
     const bool sourceBefore=evaluate(reader.page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSource").toBool();
+    const bool providedCopy=evaluate(reader.page(),"window.FixtureProvidedCopy===true").toBool();
     const auto htmlBefore=evaluate(reader.page(),"WizEditor.getContentHtml()").toString();
     const auto modifiedBefore=evaluate(reader.page(),"WizEditor.isModified()");
     const int expectedJax=evaluate(reader.page(),"window.FixtureExpectedJax||1").toInt();
+    const int expectedBlocks=evaluate(reader.page(),"Number.isInteger(window.FixtureExpectedBlocks)?FixtureExpectedBlocks:2").toInt();
+    const int expectedFitted=evaluate(reader.page(),"Number.isInteger(window.FixtureExpectedFitted)?FixtureExpectedFitted:-1").toInt();
     const auto referenceDom=evaluate(reader.page(),R"JS((()=>{
       const links=Array.from(document.querySelectorAll('a')).flatMap(a=>{
         const href=a.getAttribute('href')||a.getAttributeNS('http://www.w3.org/1999/xlink','href');
@@ -120,13 +192,20 @@ int main(int argc,char** argv) {
         return [{id,raw,href,linkNamespace:a.namespaceURI,found:!!target,tag:target&&target.tagName,targetNamespace:target&&target.namespaceURI,
           css:target&&getComputedStyle(target).display,rect:rect&&{x:rect.x,y:rect.y,width:rect.width,height:rect.height}}];
       });return {mathJaxVersion:MathJax.version,jax:MathJax.Hub.getAllJax().length,links,
+        providedCopy:window.FixtureProvidedCopy===true,
+        providedDetails:window.FixtureProvidedCopy===true?{
+          mathSources:MathJax.Hub.getAllJax().map(j=>({inputID:j.inputID,source:j.originalText})),
+          blocks:Array.from(document.querySelectorAll('.wiz-math-block')).map(b=>({id:b.id,heading:b.getAttribute('data-wiz-math-heading'),text:b.innerText})),
+          displays:Array.from(document.querySelectorAll('.MathJax_SVG_Display')).map(b=>({html:b.outerHTML.slice(0,32000),width:b.getBoundingClientRect().width})),
+          text:document.body.innerText
+        }:null,
         viewport:{width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth},
         equationTargets:Array.from(document.querySelectorAll('[id]')).filter(e=>e.id.startsWith('mjx-eqn-')).map(e=>({id:e.id,tag:e.tagName,namespace:e.namespaceURI,html:e.outerHTML.slice(0,1600)}))};
     })())JS").toMap();
     QVariantMap equationMarker;
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EQUATION_GEOMETRY")) {
         equationMarker=evaluate(reader.page(),R"JS((()=>{
-          const targets=Array.from(document.querySelectorAll('[id]')).filter(e=>e.id.startsWith('mjx-eqn-'));
+          const targets=Array.from(document.querySelectorAll('[id]')).filter(e=>e.id.startsWith('mjx-eqn-')&&e.namespaceURI==='http://www.w3.org/2000/svg');
           if(targets.length!==1||targets[0].namespaceURI!=='http://www.w3.org/2000/svg')return {valid:false};
           const target=targets[0],box=target.getBBox(),before=target.getBoundingClientRect();
           const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
@@ -146,7 +225,7 @@ int main(int argc,char** argv) {
             qCritical()<<"FAIL synthetic equation marker changed geometry or target missing";return 3;
         }
     }
-    evaluate(reader.page(),R"JS((()=>{
+    if(!providedCopy)evaluate(reader.page(),R"JS((()=>{
       const link=document.createElement('a');link.href='#control-target';link.textContent='Heading control';document.body.prepend(link);
       const heading=document.createElement('h2');heading.id='control-target';heading.textContent='CONTROL-TARGET';document.body.appendChild(heading);
       window.RestorePdfControl=()=>{link.remove();heading.remove();};return true;
@@ -158,7 +237,47 @@ int main(int argc,char** argv) {
       window.RestorePdfEdgeProbe=()=>{spacer.remove();WizEditor.removeStyleById('wiz_tmp_style_pdf_edge_probe');};return true;
     })())JS");
     int failures=0;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_MULTLINE_PROTOTYPE")) {
+        QFile prototype(QStringLiteral(__FILE__).replace("explore-native-pdf.cpp","prototype-pdf-multline-fit.js"));
+        if(!prototype.open(QIODevice::ReadOnly))return 2;
+        evaluate(reader.page(),QString::fromUtf8(prototype.readAll()),QWebEngineScript::ApplicationWorld);
+    }
     WizPdfPageOperations operations;
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_PAPER_DIAGNOSTIC")) {
+        const auto captured=evaluate(reader.page(),WizPdfPaperPage::captureScript()).toMap();
+        QEventLoop loop;bool accepted=false;
+        const auto layout=WizPdfExport::pageLayout(0,QMarginsF(20,20,20,20));
+        WizPdfPaperPage::create(&operations,reader.page(),captured,layout.paintRect(QPageLayout::Point).width(),
+            QUrl::fromLocalFile(QDir(QFileInfo(QStringLiteral(__FILE__)).absolutePath()).absoluteFilePath(
+                "../../share/files/wizeditor/dependency/mathjax/MathJax.js")),[]{return true;},
+            [&](WizPdfPaperPage* session,QWebEnginePage* paper) {
+            QTimer::singleShot(0,&operations,[&,session,paper] {
+            if(paper){
+                const auto data=evaluate(paper,"({html:document.body.innerHTML,renderer:MathJax.Hub.config.menuSettings.renderer,"
+                    "outputs:MathJax.Hub.getAllJax().map(j=>j.outputJax),editable:document.body.isContentEditable,geometry:__wizPaperResult,"
+                    "targets:Array.from(document.querySelectorAll('svg [id^=mjx-eqn-]')).map(e=>{const b=e.getBBox();return {id:e.id,bbox:{x:b.x,y:b.y,width:b.width,height:b.height},rect:e.getBoundingClientRect().toJSON()};})})");
+                QFile record(QDir(output).filePath("paper-diagnostic.json"));
+                accepted=record.open(QIODevice::WriteOnly|QIODevice::NewOnly);
+                if(accepted)record.write(QJsonDocument(QJsonObject::fromVariantMap(data.toMap())).toJson());
+                record.close();
+                evaluate(paper,WizPdfSvgLinks::source(),QWebEngineScript::ApplicationWorld);
+                evaluate(paper,"addEventListener('beforeprint',()=>{globalThis.paperDuring={html:document.body.innerHTML,status:__wizPdfSvgLinks.status()};});true",QWebEngineScript::ApplicationWorld);
+                operations.print(paper,[]{return true;},layout,[&,session,paper](const QByteArray& bytes) {
+                    QTimer::singleShot(0,&operations,[&,session,paper,bytes] {
+                        const auto observed=evaluate(paper,"({during:paperDuring,after:__wizPdfSvgLinks.status()})",QWebEngineScript::ApplicationWorld);
+                        QFile after(QDir(output).filePath("paper-print-diagnostic.json"));
+                        if(after.open(QIODevice::WriteOnly|QIODevice::NewOnly))after.write(QJsonDocument(QJsonObject::fromVariantMap(observed.toMap())).toJson());
+                        QString error;WizPdfExport::writeFile(QDir(output).filePath("paper-diagnostic.pdf"),bytes,error);
+                        session->finish();loop.quit();
+                    });
+                });
+                return;
+            }
+            loop.quit();
+            });
+        });
+        loop.exec();return accepted?0:3;
+    }
     const auto print=[&](const QString& name,double margin) {
         if (QFile::exists(QDir(output).filePath(name))) {qCritical()<<"Refusing to overwrite synthetic output";return false;}
         struct State {bool done=false,valid=false;};
@@ -179,7 +298,12 @@ int main(int argc,char** argv) {
             }
             if(guard)guard->quit();
         };
-        if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS"))
+        if (!pageMode.isEmpty())
+            operations.printWithMode(reader.page(),[]{return true;},0,QMarginsF(margin,margin,margin,margin),
+                pageMode=="a4"?WizPdfExport::Mode::A4:WizPdfExport::Mode::ReadingWidth,completed,[]{return true;},
+                QUrl::fromLocalFile(QDir(QFileInfo(QStringLiteral(__FILE__)).absolutePath()).absoluteFilePath(
+                    "../../share/files/wizeditor/dependency/mathjax/MathJax.js")));
+        else if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS"))
             operations.print(reader.page(),[]{return true;},layout,completed);
         else reader.page()->printToPdf(completed,layout);
         if (!state->done) loop.exec();
@@ -275,27 +399,64 @@ int main(int argc,char** argv) {
         failures+=!print("references-proxy-20mm.pdf",20);
         evaluate(reader.page(),"RestorePdfAnchorProbe();true");
     }
-    evaluate(reader.page(),"RestorePdfControl();true");
+    if(!providedCopy)evaluate(reader.page(),"RestorePdfControl();true");
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EQUATION_GEOMETRY"))evaluate(reader.page(),"RestorePdfEquationGeometry();true");
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EDGE_PROTOTYPE"))evaluate(reader.page(),"RestorePdfEdgeProbe();true");
+    if(qEnvironmentVariableIsSet("WIZNOTE_PDF_MULTLINE_PROTOTYPE"))evaluate(reader.page(),"RestoreMultlineFitPrototype();true",QWebEngineScript::ApplicationWorld);
     const bool sourceAfter=evaluate(reader.page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})===FixtureSource").toBool();
     const bool htmlSame=evaluate(reader.page(),"WizEditor.getContentHtml()").toString()==htmlBefore;
     const bool modifiedSame=evaluate(reader.page(),"WizEditor.isModified()")==modifiedBefore;
     const auto state=evaluate(reader.page(),"({blocks:document.querySelectorAll('.wiz-math-block').length,jax:MathJax.Hub.getAllJax().length,errors:document.querySelectorAll('.MathJax_Error,merror').length})").toMap();
-    failures+=!sourceBefore||!sourceAfter||!htmlSame||!modifiedSame||requests.blocked.load()!=0;
-    failures+=state.value("blocks").toInt()!=2||state.value("errors").toInt()!=0||state.value("jax").toInt()!=expectedJax;
+    // Provided copies may contain NBSP: the stock editor's Markdown getter
+    // normalizes it before any preview. Keep raw-input comparison in the JSON,
+    // but verify the stronger exact editable-body round trip below instead of
+    // silently changing input or calling that legacy normalization a print bug.
+    failures+=(!providedCopy&&(!sourceBefore||!sourceAfter))||!htmlSame||!modifiedSame||requests.blocked.load()!=0;
+    failures+=state.value("blocks").toInt()!=expectedBlocks||state.value("errors").toInt()!=0||state.value("jax").toInt()!=expectedJax;
     QVariantMap eventLinks;
     if(qEnvironmentVariableIsSet("WIZNOTE_PDF_EVENT_LINKS")){
         eventLinks=evaluate(reader.page(),"globalThis.__wizPdfSvgLinks?.status()",QWebEngineScript::ApplicationWorld).toMap();
+        const int expectedSourcePrints=pageMode=="a4"?0:3;
         failures+=eventLinks.isEmpty()||eventLinks.value("active").toBool()||eventLinks.value("pending").toInt()!=0
-            ||eventLinks.value("prepares").toInt()!=3||eventLinks.value("restores").toInt()!=3||eventLinks.value("errors").toInt()!=0;
+            ||eventLinks.value("prepares").toInt()!=expectedSourcePrints||eventLinks.value("restores").toInt()!=expectedSourcePrints||eventLinks.value("errors").toInt()!=0;
+        if(pageMode!="a4"&&expectedFitted>=0&&!qEnvironmentVariableIsSet("WIZNOTE_PDF_MULTLINE_PROTOTYPE"))
+            failures+=eventLinks.value("lastFitted").toInt()!=expectedFitted;
     }
-    QJsonDocument result(QJsonObject{{"kind","actual Qt printToPdf; synthetic original reader, no user data"},
+    QVariantMap providedRoundTrip;
+    if(providedCopy) {
+        evaluate(reader.page(),"window.FixtureEditReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.FixtureEditReady=true;});true");
+        QElapsedTimer editingDeadline;editingDeadline.start();
+        bool editingReady=false;
+        while(editingDeadline.elapsed()<10000) {
+            if(evaluate(reader.page(),"window.FixtureEditReady===true").toBool()){editingReady=true;break;}
+            QEventLoop turn;QTimer::singleShot(20,&turn,&QEventLoop::quit);turn.exec();
+        }
+        providedRoundTrip=evaluate(reader.page(),R"JS((()=>{
+          const html=WizEditor.getContentHtml(),parser=new DOMParser();
+          const seed=parser.parseFromString(FixtureHtmlAfterInit,'text/html').body.innerHTML;
+          const actual=parser.parseFromString(html,'text/html').body.innerHTML;
+          const source=WizEditor.getMarkdownSrc({unEscapeHtml:true});
+          return {canonicalGetterSame:source===FixtureSourceAfterInit,htmlBodySame:actual===seed,
+            originalInputGetterSame:source===FixtureSource,
+            initializedHtmlNbsp:(seed.match(/\u00a0|&nbsp;|&#160;/g)||[]).length,
+            restoredHtmlNbsp:(actual.match(/\u00a0|&nbsp;|&#160;/g)||[]).length};
+        })())JS").toMap();
+        providedRoundTrip.insert("editingReady",editingReady);
+        failures+=!editingReady||!providedRoundTrip.value("htmlBodySame").toBool()
+            ||!providedRoundTrip.value("canonicalGetterSame").toBool();
+    }
+    QJsonDocument result(QJsonObject{{"kind",providedCopy?"actual Qt printToPdf; user-provided pasted copy, isolated original reader":"actual Qt printToPdf; synthetic original reader, no user data"},
+        {"providedMarkdownCopy",providedCopy},
+        {"pageMode",pageMode},{"cssViewportWidth",evaluate(reader.page(),"window.innerWidth").toDouble()},
+        {"numberGlyphPrototype",glyphPrototype},
+        {"providedSourceRoundTrip",QJsonObject::fromVariantMap(providedRoundTrip)},
         {"qtRuntime",qVersion()},{"webEngine",qWebEngineVersion()},{"chromium",qWebEngineChromiumVersion()},
         {"chromiumSecurityPatch",qWebEngineChromiumSecurityPatchVersion()},
         {"runtimeLibraries",runtimeLibraries},
         {"sdkRuntime",sdk},{"sourceBefore",sourceBefore},{"sourceAfter",sourceAfter},{"htmlSame",htmlSame},{"modifiedSame",modifiedSame},{"blockedRequests",requests.blocked.load()},
         {"productionFileHelper",true},{"cssPageMarginsProbe",qEnvironmentVariableIsSet("WIZNOTE_PDF_CSS_PAGE_MARGINS")},
+        {"readerCycles",readerCycles},
+        {"multlinePrototype",qEnvironmentVariableIsSet("WIZNOTE_PDF_MULTLINE_PROTOTYPE")},{"expectedFitted",expectedFitted},
         {"referenceDom",QJsonObject::fromVariantMap(referenceDom)},
         {"equationGeometryMarker",QJsonObject::fromVariantMap(equationMarker)},
         {"svgTrials",QJsonObject::fromVariantMap(svgTrials)},

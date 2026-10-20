@@ -2,6 +2,8 @@
 #define WIZ_PDF_PAGE_OPERATIONS_H
 
 #include "WizPdfSvgLinks.h"
+#include "WizPdfExport.h"
+#include "WizPdfPaperPage.h"
 #include <QPointer>
 #include <QTimer>
 #include <QVariant>
@@ -44,14 +46,19 @@ public:
             // A canceled navigation can miss a registered DocumentReady user
             // script in Qt. Ensure this document's helper at the native entry
             // point too; never assume a previous document installed it.
-            guard->runJavaScript(WizPdfSvgLinks::source()+";globalThis.__wizPdfSvgLinks?.arm()===true",QWebEngineScript::ApplicationWorld,
+            const bool paperBounds=guard->property("wizPdfPaperBoundsRequired").toBool();
+            guard->runJavaScript(WizPdfSvgLinks::source()+";"+(paperBounds?WizPdfPaperPage::printPreparationScript():QString())
+                +";globalThis.__wizPdfSvgLinks?.arm()===true",QWebEngineScript::ApplicationWorld,
                 [guard,valid,sameDocument,layout,reply,done](const QVariant& armed){
                 if (!guard) {reply({});done();return;}
                 const auto restore=[guard,sameDocument,reply,done](const QByteArray& bytes){
                     if (!guard) {reply({});done();return;}
-                    guard->runJavaScript("globalThis.__wizPdfSvgLinks?.finish()===true",QWebEngineScript::ApplicationWorld,
+                    const bool paperBounds=guard->property("wizPdfPaperBoundsRequired").toBool();
+                    guard->runJavaScript(QStringLiteral("({clean:globalThis.__wizPdfSvgLinks?.finish()===true,bounds:")
+                        +(paperBounds?QStringLiteral("globalThis.__wizPaperBounds?.ok===true"):QStringLiteral("true"))+"})",QWebEngineScript::ApplicationWorld,
                         [guard,sameDocument,reply,done,bytes](const QVariant& clean){
-                        if (guard && sameDocument() && !clean.toBool()) {
+                        const auto result=clean.toMap();
+                        if (guard && sameDocument() && !result.value("clean").toBool()) {
                             // Fail closed: do not let a subsequent save persist
                             // unverified print DOM. A fresh load resets this.
                             guard->setProperty(blockedKey(),true);
@@ -61,13 +68,55 @@ public:
                                     [guard](bool ok){if(guard && ok)guard->setProperty(blockedKey(),false);});
                             }
                         }
-                        reply(clean.toBool()?bytes:QByteArray{});done();
+                        reply(result.value("clean").toBool()&&result.value("bounds").toBool()?bytes:QByteArray{});done();
                     });
                 };
                 if (!armed.toBool() || !valid()) {restore({});return;}
                 guard->printToPdf(restore,layout);
             });
         },[reply]{reply({});}});
+    }
+
+    void printWithMode(QWebEnginePage* page, const Valid& valid, int marginUnit,
+                       const QMarginsF& margins, WizPdfExport::Mode selected,
+                       const std::function<void(const QByteArray&)>& callback,
+                       const Valid& sameDocument=[]{return true;},const QUrl& mathJax=QUrl()) {
+        if (selected == WizPdfExport::Mode::A4) {
+            const auto layout=WizPdfExport::pageLayout(marginUnit,margins);
+            if (!layout.isValid()) {callback({});return;}
+            const QPointer<WizPdfPageOperations> self(this);
+            const QPointer<QWebEnginePage> source(page);
+            const auto reply=once<QByteArray>(callback);
+            snapshot(page,valid,WizPdfPaperPage::captureScript(),
+                [self,source,valid,layout,mathJax,reply](const QVariant& data) {
+                if(!self||!source||!valid()){reply({});return;}
+                WizPdfPaperPage::create(self,source,data.toMap(),layout.paintRect(QPageLayout::Point).width(),mathJax,valid,
+                    [self,valid,layout,reply](WizPdfPaperPage* session,QWebEnginePage* paper) {
+                    if(!self||!paper){reply({});return;}
+                    const QPointer<WizPdfPaperPage> preparation(session);
+                    self->print(paper,[preparation]{return preparation&&preparation->usable();},layout,
+                        [preparation,valid,reply](const QByteArray& bytes) {
+                        const bool ok=preparation&&preparation->usable()&&valid();
+                        if(preparation)preparation->finish();
+                        reply(ok?bytes:QByteArray{});
+                    });
+                });
+            });
+            return;
+        }
+        const QPointer<WizPdfPageOperations> self(this);
+        const QPointer<QWebEnginePage> guard(page);
+        // Measure only the note's CSS viewport, behind the same serialization
+        // gate as saves/printing. A zero-size hidden or navigated page fails
+        // closed; it must not silently export A4 after a reading-width choice.
+        snapshot(page,valid,QStringLiteral("window.innerWidth"),
+            [self,guard,valid,marginUnit,margins,selected,callback,sameDocument](const QVariant& width) {
+            bool numeric=false;
+            const double cssWidth=width.toDouble(&numeric);
+            const auto layout=WizPdfExport::pageLayout(marginUnit,margins,selected,cssWidth);
+            if (!self || !guard || !valid() || !numeric || !layout.isValid()) {callback({});return;}
+            self->print(guard,valid,layout,callback,sameDocument);
+        });
     }
 
 private:

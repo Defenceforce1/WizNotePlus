@@ -14,7 +14,11 @@ env QT_QPA_PLATFORM=cocoa "$exe" --spellcheck-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --native-clipper-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --standalone-startup-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --standalone-bootstrap-cancel-probe
-env QT_QPA_PLATFORM=cocoa "$exe" --network-security-self-test "${2:-openssl}"
+if [[ ${WIZNOTE_SKIP_NETWORK_SECURITY:-0} == 1 ]]; then
+    echo 'SKIP network-security-self-test: outside the requested verification scope'
+else
+    env QT_QPA_PLATFORM=cocoa "$exe" --network-security-self-test "${2:-openssl}"
+fi
 env QT_QPA_PLATFORM=cocoa WIZNOTE_VERIFY_PERSISTED_RENDERING=1 "$exe" --note-presentation-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --native-editor-runtime-self-test
 env QT_QPA_PLATFORM=cocoa "$exe" --advanced-search-self-test

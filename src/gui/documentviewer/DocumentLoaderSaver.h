@@ -98,6 +98,12 @@ public:
     void clearTransferError();
     bool hasTransferError();
 
+    // Enqueue after the caller's save handoff. The worker reports this note's
+    // save status at that exact FIFO frontier, even if no new save was needed.
+    // Zero refuses a stopped saver/invalid note. GUI consumers must use a queued
+    // connection with their own QObject context and recheck read permission.
+    quint64 saveFence(const WIZDOCUMENTDATA& doc);
+
 public Q_SLOTS:
     void save(const WIZDOCUMENTDATA& doc, const QString& strHtml,
               const QString& strHtmlFile, int nFlags, bool bNotify = false);
@@ -111,12 +117,14 @@ private:
         int flags;
         bool notify;
         QPointer<QObject> requester;
+        quint64 fence = 0;
     };
 
     std::vector<SAVEDATA> m_arrayData;
     bool m_savingForTransfer = false;
     bool m_transferError = false;
     QSet<QString> m_failedSaveNotes;
+    quint64 m_nextFence = 0; // protected by m_mutex; zero is never queued
 
     bool isEmpty();
     SAVEDATA peekFirst();
@@ -127,6 +135,7 @@ protected:
     void peekData(SAVEDATA& data);
 
 Q_SIGNALS:
+    void saveFenceReached(quint64 fence, bool ok);
     void saved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester);
     void saveFailed(const QString kbGUID, const QString strGUID, const QString strTitle);
 

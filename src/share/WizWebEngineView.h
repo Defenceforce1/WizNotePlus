@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QWebEngineProfile>
 #include <QPointer>
+#include <functional>
 
 #include "widgets/ShadowWidget.h"
 
@@ -59,11 +60,17 @@ public:
 
     void stopCurrentNavigation() { m_continueNavigate = false; }
     static void processCopiedData();
+    // Note callers bind a revocable read permit; ordinary browser callers
+    // retain the original no-argument behavior. This does not clear clipboard.
+    static void processCopiedData(const std::function<bool()>& current);
+    void setAccountFileChooserEnabled(bool enabled) { m_accountFileChooser = enabled; }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     QWidget* view() const { return QWebEngineView::forPage(this); }
 #endif
 
 protected:
+    QStringList chooseFiles(FileSelectionMode mode, const QStringList& oldFiles,
+                            const QStringList& acceptedMimeTypes) override;
     virtual void javaScriptConsoleMessage(JavaScriptConsoleMessageLevel level, const QString& message, int lineNumber, const QString& sourceID);
     virtual bool acceptNavigationRequest(const QUrl &url, QWebEnginePage::NavigationType type, bool isMainFrame);
     virtual void triggerAction(WebAction action, bool checked = false);
@@ -77,6 +84,7 @@ Q_SIGNALS:
 
 private:
     bool m_continueNavigate;
+    bool m_accountFileChooser = false;
 };
 
 
@@ -121,7 +129,8 @@ public Q_SLOTS:
     void innerLoadFinished(bool);
     void openLinkInDefaultBrowser(QUrl url);
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
-    void openDevTools();
+    virtual void openDevTools();
+    void closeDevTools();
 #endif
     double scaleUp();
     double scaleDown();
@@ -136,12 +145,15 @@ Q_SIGNALS:
     void zoomWidgetFinished();
 
 private:
-    WizDevToolsDialog* m_devToolsWindow = nullptr;
+    QPointer<WizDevToolsDialog> m_devToolsWindow;
+    quint64 m_devToolsGeneration = 0;
+    bool m_openingDevTools = false;
     mutable QAction *m_viewActions[ViewActionCount];
     QPointer<WebPageZoomWidget> m_zoomWgt;
     quint64 m_navigationSequence = 0;
 
 protected:
+    void openDevToolsWithPermit(const std::function<bool()>& current);
     QWebEngineView *createWindow(QWebEnginePage::WebWindowType type) override;
     virtual void setupPage(WizWebEnginePage *page);
     virtual void setupWebActions();

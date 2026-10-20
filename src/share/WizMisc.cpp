@@ -1,5 +1,6 @@
 ﻿#include "WizSettings.h"
 #include "WizWebSettingsDialog.h"
+#include "WizAccountWebContent.h"
 
 #include <algorithm>
 #include <fstream>
@@ -300,7 +301,6 @@ QString WizGetAppFileName()
 void WizGetTranslatedLocales(QStringList& locales)
 {
     locales.append("zh_CN");
-    locales.append("zh_TW");
     locales.append(WizGetDefaultTranslatedLocal());
 }
 
@@ -310,11 +310,9 @@ QString WizGetTranslatedLocaleDisplayName(int index)
         case 0:
             return QObject::tr("Simplified Chinese");
         case 1:
-            return QObject::tr("Traditional Chinese");
-        case 2:
             return QObject::tr("English(US)");
         default:
-            Q_ASSERT(index < 3);
+            Q_ASSERT(index < 2);
             return QString();
     }
 }
@@ -2348,13 +2346,18 @@ QString WizTempFileGuard::fileName()
 }
 
 
-void WizShowWebDialogWithToken(const QString& windowTitle, const QString& url, QWidget* parent, const QSize& sz, bool dialogResizable)
+void WizShowWebDialogWithToken(const QString& windowTitle, const QString& url, QWidget* parent, const QSize& sz, bool dialogResizable, WizWebDialogContent content)
 {
     QString strFuncName = windowTitle;
     strFuncName = "Dialog"+strFuncName.replace(" ", "");
     WizFunctionDurationLogger logger(strFuncName);
 
     WizWebSettingsWithTokenDialog pDlg(url, sz, parent);
+    if (content == WizWebDialogContent::FreshAccount
+            && !wizUseFreshAccountContent(pDlg.web()->getPage())) {
+        qWarning() << "Account settings requires a dialog-owned fresh-content profile";
+        return;
+    }
     if (dialogResizable)
     {
         pDlg.setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));

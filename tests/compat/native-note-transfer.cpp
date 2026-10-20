@@ -5,6 +5,7 @@
 #include "share/WizEnc.h"
 #include "share/WizZiwReader.h"
 #include "share/WizLocalFileUrl.h"
+#include "share/WizMarkdownExportTransaction.h"
 #include "utils/WizMisc.h"
 #include <QApplication>
 #include <QCryptographicHash>
@@ -173,6 +174,56 @@ int wizNativeNoteTransferSelfTest(int argc, char** argv)
               "known legacy late failure leaves HTML intermediate but does not overwrite resource-directory blocker");
         check(get(db.getDocumentFileName(first.strGUID)) == noteBefore && count(db) == noteCountBefore,
               "actual single-export success and failures never change stored original ZIW or note count");
+    }
+    {
+        // Product Markdown transaction with the actual temporary database and
+        // stored synthetic ZIW. JavaScript reply/lifetime boundaries remain in
+        // the separate browser-flow test.
+        const QString destinationRoot = root.filePath("transaction-single-export/");
+        if (!QDir().mkpath(destinationRoot)) return 1;
+        const QString destination = destinationRoot + QStringLiteral("事务 A&B.md");
+        const QString resources = destinationRoot + QStringLiteral("事务 A&amp;B_files/");
+        const QByteArray previousMarkdown("OLD TRANSACTION MARKDOWN");
+        const QByteArray previousImage("OLD TRANSACTION IMAGE");
+        if (!put(destination, previousMarkdown) || !put(resources + "image.png", previousImage)
+            || !put(resources + ".hidden-resource", "KEEP HIDDEN RESOURCE")) return 1;
+        const QByteArray noteBefore = get(db.getDocumentFileName(first.strGUID));
+        const int noteCountBefore = count(db);
+        QString transactionError;
+        const QString markdown = QString::fromUtf8("# 新正文\n![图](index_files/image.png)\n");
+        QString expectedMarkdown = markdown;
+        expectedMarkdown.replace("index_files/", QStringLiteral("事务 A&amp;B_files/"));
+        check(WizMarkdownExportTransaction::write(destination, markdown,
+            [&](const QString& staged) { return db.exportToHtmlFile(first, staged); }, transactionError)
+            && transactionError.isEmpty(), "product Markdown transaction exports actual stored synthetic ZIW");
+        check(get(destination) == expectedMarkdown.toUtf8(),
+              "product transaction commits exact Unicode Markdown without BOM");
+        check(get(resources + "image.png") == image && get(resources + ".hidden-resource") == "KEEP HIDDEN RESOURCE",
+              "product transaction installs actual image and preserves unrelated hidden resource");
+
+        WIZDOCUMENTDATA missing = first;
+        missing.strGUID = "missing-transaction-note";
+        if (!put(destination, previousMarkdown) || !put(resources + "image.png", previousImage)) return 1;
+        check(!WizMarkdownExportTransaction::write(destination, "NEW EARLY",
+            [&](const QString& staged) { return db.exportToHtmlFile(missing, staged); }, transactionError)
+            && get(destination) == previousMarkdown && get(resources + "image.png") == previousImage,
+              "actual missing-ZIW transaction failure preserves previous Markdown and resource");
+
+        if (!put(destination, previousMarkdown) || !put(resources + "image.png", previousImage)) return 1;
+        check(!WizMarkdownExportTransaction::write(destination, "NEW LATE",
+            [&](const QString& staged) {
+                const QString stagedResources = Utils::WizMisc::extractFilePath(staged)
+                    + Utils::WizMisc::extractFileTitle(staged).toHtmlEscaped() + "_files";
+                return put(stagedResources, "SYNTHETIC STAGED RESOURCE BLOCKER")
+                    && db.exportToHtmlFile(first, staged);
+            }, transactionError)
+            && get(destination) == previousMarkdown && get(resources + "image.png") == previousImage,
+              "actual late resource failure stays in staging and preserves previous export");
+        check(QDir(destinationRoot).entryList(QStringList{".wiz-export-*"},
+            QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty(),
+              "product transaction success and ordinary failures clean private staging directories");
+        check(get(db.getDocumentFileName(first.strGUID)) == noteBefore && count(db) == noteCountBefore,
+              "product Markdown transaction never changes stored original ZIW or note count");
     }
     const QString attachSource = root.filePath(QStringLiteral("附件.txt"));
     const QByteArray attachment("original attachment\n");

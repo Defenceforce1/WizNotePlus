@@ -94,6 +94,8 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
 
     // This page will ask password to view encrypted note
     connect(m_passwordView, SIGNAL(cipherCheckRequest()), SLOT(onCipherCheckRequest()));
+    connect(m_passwordView, &WizUserCipherForm::biometricCredentialReady,
+            this, &WizDocumentView::onBiometricCredentialReady);
 
     m_blankView = new QWidget(this);
 
@@ -242,6 +244,8 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
 
 WizDocumentView::~WizDocumentView()
 {
+    m_passwordView->blockSignals(true);
+    revokeBiometricAccess(true);
     m_web->cancelLinkInsert();
     m_web->cancelPdfExport();
     waitForThread();
@@ -259,6 +263,9 @@ void WizDocumentView::setSizeHint(QSize size)
 
 void WizDocumentView::waitForDone()
 {
+    QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess(true);
+    if (!self) return;
     m_web->cancelLinkInsert();
     m_web->cancelPdfExport();
     // Reuse the bounded, heap-owned result. A late WebEngine callback must not
@@ -297,6 +304,9 @@ void WizDocumentView::waitForThread()
 
 void WizDocumentView::RequestClose(bool force /*= false*/)
 {
+    QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess(true);
+    if (!self) return;
     m_web->cancelLinkInsert();
     m_web->cancelPdfExport();
     if (force) {
@@ -304,13 +314,23 @@ void WizDocumentView::RequestClose(bool force /*= false*/)
         handleWindowCloseRequest();
     } else {
         // We can not runJavaScript after RequestClose.
-        if (!waitForSave()) return;
+        if (!waitForSave()) {
+            if (self) {
+                m_accessClosing = false;
+                if (m_biometricEnabled) prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID));
+            }
+            return;
+        }
+        if (!self) return;
         m_web->triggerPageAction(QWebEnginePage::RequestClose);
     }
 }
 
 void WizDocumentView::handleWindowCloseRequest()
 {
+    QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess(true);
+    if (!self) return;
     m_web->cancelLinkInsert();
     m_web->cancelPdfExport();
     // We Should exit all thread after user confirmed to close page.
@@ -368,7 +388,28 @@ WizWebEngineView*WizDocumentView::commentView() const
 
 void WizDocumentView::showEvent(QShowEvent *event)
 {
-    Q_UNUSED(event);
+    QWidget::showEvent(event);
+    if (m_biometricEnabled && !m_note.strGUID.isEmpty() && !m_accessClosing)
+        prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID));
+}
+
+void WizDocumentView::hideEvent(QHideEvent* event)
+{
+    QPointer<WizDocumentView> self(this);
+    // Hiding cancels authentication, not a pending save/navigation completion.
+    m_biometricGate.revoke();
+    m_biometricPrepared = false;
+    if (m_biometricEnabled) m_web->closeDevTools();
+    if (!self) return;
+    m_passwordView->cancelBiometric();
+    if (!self) return;
+    // Conceal the existing view, but keep its DOM and save cache intact.
+    if (m_biometricEnabled) {
+        // Only cancel the output reservation, never release the print/save barrier.
+        m_web->cancelPdfExport();
+        m_stack->setCurrentWidget(m_passwordView);
+    }
+    if (self) QWidget::hideEvent(event);
 }
 
 void WizDocumentView::resizeEvent(QResizeEvent* ev)
@@ -419,6 +460,14 @@ bool WizDocumentView::reload()
 void WizDocumentView::reloadNote()
 {
     reload();
+    WizDatabase& db = m_dbMgr.db(m_note.strKbGUID);
+    if (m_biometricEnabled || ((m_note.nProtected || db.isEncryptAllData())
+        && WizBiometricNoteAccess::optedIn(m_userSettings, biometricContext().scope))) {
+        m_biometricReloadPending = true;
+        QPointer<WizDocumentView> self(this);
+        if (!prepareEncryptedAccess(db) || !self) return;
+        m_biometricReloadPending = false;
+    }
     m_web->reloadNoteData(note());
 }
 
@@ -479,11 +528,25 @@ void WizDocumentView::initStat(const WIZDOCUMENTDATA& data, bool forceEdit)
  */
 void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
 {
+    QPointer<WizDocumentView> self(this);
+    const auto requestSequence = ++m_openSequence;
+    m_accessClosing = false;
+    revokeBiometricAccess();
+    if (!self || m_openSequence != requestSequence || m_accessClosing) return;
+    const auto opening = m_openEpoch.ticket();
+    const bool hadLoadedNote = m_noteLoaded;
     m_web->cancelLinkInsert();
     m_web->cancelPdfExport();
     WIZDOCUMENTDATAEX dataTemp = wizDoc;
 
     m_web->trySaveDocument(m_note, false, [=](const QVariant& ret){
+        // The save always completes; only its stale UI continuation is dropped.
+        // An unloaded password/blank page has no snapshot to save (false is normal).
+        if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
+        if (hadLoadedNote && (ret.userType() != QMetaType::Bool || !ret.toBool())) {
+            if (m_biometricEnabled) prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID));
+            return;
+        }
 
         WIZDOCUMENTDATAEX data = dataTemp;
 
@@ -493,7 +556,9 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
         }
 
         m_noteLoaded = false;
+        m_biometricReloadPending = false;
         m_note = data;
+        m_biometricEnabled = false;
         initStat(data, forceEdit);
 
         // download document if not exist
@@ -512,6 +577,7 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
 
         // ask user cipher if needed
         data.nProtected = WizZiwReader::isEncryptedFile(strDocumentFileName) ? 1 : 0;
+        m_note.nProtected = data.nProtected;
         if (data.nProtected || db.isEncryptAllData()) {
             //
             db.initCert(false);
@@ -520,30 +586,20 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
                 return;
             }
             //
-            if (db.getCertPassword().isEmpty()) {
-                //
-                if (db.isGroup()) {
-                    m_passwordView->setPasswordText(tr("Encrypted group password"));
-                } else {
-                    m_passwordView->setPasswordText(tr("Personal notes certificate password"));
-                }
-                //
-
-                m_passwordView->setHint(db.getCertPasswordHint());
-                m_stack->setCurrentWidget(m_passwordView);
-                m_passwordView->setCipherEditorFocus();
-
-                return;
-            }
+            if (!prepareEncryptedAccess(db) || !self) return;
         }
         //
         m_stack->setCurrentWidget(m_docView);
+        if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
 
         // Emit notification of change regarding ownership of this note
         emit m_web->isPersonalDocumentChanged();
+        if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
         emit m_web->hasEditPermissionOnCurrentNoteChanged();
+        if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
 
         loadNote(data);
+        if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
         WIZDOCUMENTDATA docData = data;
         docData.nReadCount ++;
         db.modifyDocumentReadCount(docData);
@@ -572,18 +628,13 @@ void WizDocumentView::reviewCurrentNote()
     }
 
     // ask user cipher if needed
-    if (m_note.nProtected) {
+    if (m_note.nProtected || db.isEncryptAllData()) {
         if(!db.loadUserCert()) {
             return;
         }
 
-        if (db.getCertPassword().isEmpty()) {
-            m_passwordView->setHint(db.getCertPasswordHint());
-            m_stack->setCurrentWidget(m_passwordView);
-            m_passwordView->setCipherEditorFocus();
-
-            return;
-        }
+        QPointer<WizDocumentView> self(this);
+        if (!prepareEncryptedAccess(db) || !self) return;
     }
 
     if (m_stack->currentWidget() != m_docView) {
@@ -739,14 +790,26 @@ void WizDocumentView::showCoachingTips()
 
 void WizDocumentView::wordCount(std::function<void(const QString&)> callback)
 {
+    const auto read = m_web->noteReadPermit();
+    if (!read.current() || !callback) return;
     WizDocumentUiQuery::string(this, m_web->page(), m_web->documentCallbackTicket(),
-        QStringLiteral("WizReader.getWordCount()"), std::move(callback));
+        QStringLiteral("WizReader.getWordCount()"), [read,callback](const QString& count) {
+            if (read.current()) callback(count);
+        });
 }
 
 void WizDocumentView::setEditorFocus()
 {
-    m_web->setFocus(Qt::MouseFocusReason);
-    m_web->editorFocus();
+    const QPointer<WizDocumentView> self(this);
+    const QPointer<WizDocumentWebView> web(m_web);
+    const auto read = web->noteReadPermit();
+    if (!read.current()) {
+        if (m_stack->currentWidget() == m_passwordView) m_passwordView->setCipherEditorFocus();
+        return;
+    }
+    if (m_stack->currentWidget() != m_docView) return;
+    web->setFocus(Qt::MouseFocusReason);
+    if (self && web && self->m_web == web && read.current()) web->editorFocus();
 }
 
 
@@ -899,18 +962,148 @@ void WizDocumentView::on_document_modified(const WIZDOCUMENTDATA& documentOld, c
 
 void WizDocumentView::onCloseNoteRequested(WizDocumentView *view)
 {
-    Q_UNUSED(view)
-
+    if (view != this) return;
+    QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess(true);
+    if (!self) return;
     m_stack->setCurrentWidget(m_blankView);
 }
 
+// Begin extracted biometric routing methods (isolated synthetic shell tests).
+bool WizDocumentView::canReadCurrentNote() const
+{
+    if (!m_noteLoaded || m_accessClosing) return false;
+    const auto context = biometricContext();
+    WizDatabase& db = m_dbMgr.db(m_note.strKbGUID);
+    const bool required = m_biometricEnabled || ((m_note.nProtected || db.isEncryptAllData())
+        && WizBiometricNoteAccess::optedIn(m_userSettings,context.scope));
+    if (!required) return true; // No change to legacy/non-encrypted visibility policy.
+    return m_biometricEnabled && isVisible() && m_stack->currentWidget() == m_docView
+        && m_biometricGate.current(context)
+        && !m_biometricGate.requiresAuthorization(!db.getCertPassword().isEmpty());
+}
+
+bool WizDocumentView::acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket& ticket) const
+{
+    const auto own = m_biometricGate.ticket();
+    return canReadCurrentNote() && WizDocumentCallbackEpoch::current(ticket)
+        && !own.owner_before(ticket) && !ticket.owner_before(own);
+}
+
+WizBiometricNoteAccess::Context WizDocumentView::biometricContext() const
+{
+    return {WizBiometricNoteAccess::snapshot(m_dbMgr.db(),m_dbMgr.db(m_note.strKbGUID),WizCommonApiEntry::server()),
+            m_note.strGUID,m_openSequence};
+}
+
+void WizDocumentView::revokeBiometricAccess(bool closing)
+{
+    const QPointer<WizDocumentView> self(this);
+    m_openEpoch.invalidate();
+    m_biometricGate.revoke();
+    m_biometricPrepared = false;
+    if (closing) m_accessClosing = true;
+    m_web->closeDevTools();
+    if (!self) return;
+    m_passwordView->cancelBiometric();
+}
+
+bool WizDocumentView::prepareEncryptedAccess(WizDatabase& db)
+{
+    if (m_accessClosing) return false;
+    if (!m_openSequence) ++m_openSequence;
+    const auto context = biometricContext();
+    const bool enabled = WizBiometricNoteAccess::optedIn(m_userSettings,context.scope)
+        || (m_biometricEnabled && WizBiometricNoteAccess::policyIdentity(context.scope).isEmpty());
+    if (enabled != m_biometricEnabled || !m_biometricGate.current(context)) {
+        m_biometricGate.begin(context,enabled);
+        m_biometricEnabled = enabled;
+        m_biometricPrepared = false;
+    }
+    if (!m_biometricGate.requiresAuthorization(!db.getCertPassword().isEmpty())) return true;
+    QPointer<WizDocumentView> self(this);
+    const auto ticket = m_biometricGate.ticket();
+    if (!m_biometricPrepared) {
+        m_biometricPrepared = true;
+        m_passwordView->prepareBiometric(context,enabled);
+        if (!self || !WizDocumentCallbackEpoch::current(ticket)) return false;
+    }
+    m_passwordView->setPasswordText(db.isGroup() ? tr("Encrypted group password") : tr("Personal notes certificate password"));
+    m_passwordView->setHint(db.getCertPasswordHint());
+    m_stack->setCurrentWidget(m_passwordView);
+    if (self && WizDocumentCallbackEpoch::current(ticket)) m_passwordView->setCipherEditorFocus();
+    return false;
+}
+
+bool WizDocumentView::biometricRequestCurrent(const WizBiometricNoteAccess::Context& context,
+                                             const WizBiometricNoteAccess::Gate::Ticket& ticket) const
+{
+    const auto current = biometricContext();
+    return !m_accessClosing && isVisible() && m_biometricEnabled
+        && WizDocumentCallbackEpoch::current(ticket) && m_biometricGate.current(context)
+        && current.documentGuid == context.documentGuid && current.openSequence == context.openSequence
+        && WizBiometricKeychain::itemIdentity(current.scope) == WizBiometricKeychain::itemIdentity(context.scope)
+        && WizBiometricNoteAccess::optedIn(m_userSettings,current.scope);
+}
+
+bool WizDocumentView::completeBiometricUnlock(const QString& password, const WizBiometricNoteAccess::Context& context,
+                                             const WizBiometricNoteAccess::Gate::Ticket& ticket)
+{
+    if (!biometricRequestCurrent(context,ticket)) return false;
+    WizDatabase& db = m_dbMgr.db(m_note.strKbGUID);
+    const auto& cert = context.scope.certificate;
+    if (!db.cacheCertPasswordLocally(password,cert.n,cert.e,cert.encryptedD)
+        || !biometricRequestCurrent(context,ticket) || !m_biometricGate.grant(context,ticket)) return false;
+    const auto data = m_note;
+    QPointer<WizDocumentView> self(this);
+    m_passwordView->cipherCorrect();
+    if (!self || !biometricRequestCurrent(context,ticket)) return false;
+    m_stack->setCurrentWidget(m_docView);
+    if (!self || !biometricRequestCurrent(context,ticket)) return false;
+    // Reauth after hide must not reload/discard a still-dirty editor.
+    if (!m_noteLoaded) loadNote(data);
+    else if (m_biometricReloadPending) {
+        m_biometricReloadPending = false;
+        m_web->reloadNoteData(data);
+    }
+    return true;
+}
+
+void WizDocumentView::onBiometricCredentialReady()
+{
+    const auto context = biometricContext();
+    const auto ticket = m_biometricGate.ticket();
+    if (m_stack->currentWidget() != m_passwordView || !biometricRequestCurrent(context,ticket)) return;
+    QPointer<WizDocumentView> self(this);
+    const auto credential = m_passwordView->takeBiometricCredential(context);
+    if (!self || !credential || !biometricRequestCurrent(context,ticket)) return;
+    completeBiometricUnlock(credential.password,context,ticket);
+}
+// End extracted biometric routing methods.
+
 void WizDocumentView::onCipherCheckRequest()
 {
-    const WIZDOCUMENTDATA& noteData = note();
+    const WIZDOCUMENTDATAEX noteData = note();
     WizDatabase& db = m_dbMgr.db(noteData.strKbGUID);
     //
     QString password = m_passwordView->userCipher();
-    if (!db.verifyCertPassword(password))
+    const auto context = biometricContext();
+    if (m_biometricEnabled || WizBiometricNoteAccess::optedIn(m_userSettings,context.scope)) {
+        const auto ticket = m_biometricGate.ticket();
+        if (!biometricRequestCurrent(context,ticket)) { prepareEncryptedAccess(db); return; }
+        QPointer<WizDocumentView> self(this);
+        if (completeBiometricUnlock(password,context,ticket) || !self) return;
+        if (!biometricRequestCurrent(context,ticket)) return;
+        m_passwordView->cipherError();
+        WizMessageBox::information(qApp->activeWindow(), tr("WizNote"), tr("Invalid password."));
+        return;
+    }
+    if (m_accessClosing) return;
+    QPointer<WizDocumentView> self(this);
+    const auto opening = m_openEpoch.ticket();
+    const bool verified = db.verifyCertPassword(password);
+    if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
+    if (!verified)
     {
         m_passwordView->cipherError();
         WizMessageBox::information(qApp->activeWindow(), tr("WizNote"), tr("Invalid password."));
@@ -919,8 +1112,10 @@ void WizDocumentView::onCipherCheckRequest()
     }
     //
     m_passwordView->cipherCorrect();
+    if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
 
     m_stack->setCurrentWidget(m_docView);
+    if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
     loadNote(noteData);
 }
 
@@ -1190,24 +1385,35 @@ void WizDocumentView::on_commentWidget_statusChanged()
 
 void WizDocumentView::shareNoteByEmail()
 {
-    getMailSender([=](QString sendTo){
-        WizEmailShareDialog dlg(m_app);
-        dlg.setNote(note(), sendTo);
+    const auto read = m_web->noteReadPermit();
+    if (!read.current()) return;
+    const QPointer<WizDocumentView> self(this);
+    const WIZDOCUMENTDATA doc = note();
+    getMailSender([self,read,doc](QString sendTo){
+        if (!self || !read.current()) return;
+        const QPointer<WizDocumentWebView> web(self->m_web);
+        WizEmailShareDialog dlg(self->m_app);
+        dlg.setNote(doc, sendTo, read);
         connect(&dlg, &WizEmailShareDialog::insertCommentToNoteRequest,
-                m_web, &WizDocumentWebView::on_insertCommentToNote_request);
-        dlg.exec();
+                web.data(), [web,read,doc](const QString& guid,const QString& comment) {
+            if (web && read.current() && guid == doc.strGUID) web->on_insertCommentToNote_request(guid,comment);
+        });
+        if (read.current()) dlg.exec();
     });
 }
 
 void WizDocumentView::getMailSender(std::function<void(QString)> callback)
 {
+    const auto read = m_web->noteReadPermit();
+    if (!read.current() || !callback) return;
     QString scriptFileName = Utils::WizPathResolve::resourcesPath() + "files/scripts/GetMailSender.js";
     QString code;
     ::WizLoadUnicodeTextFromFile(scriptFileName, code);
 
     const QString title = note().strTitle;
     WizDocumentUiQuery::string(this, m_web->page(), m_web->documentCallbackTicket(), code,
-        [title, callback](const QString& sender){
+        [read, title, callback](const QString& sender){
+        if (!read.current()) return;
         QString mailSender = sender;
 
         if (mailSender.isEmpty())
@@ -1247,8 +1453,6 @@ void WizDocumentView::onEditorFocusOut()
 void WizDocumentView::onTitleReturnPressed()
 {
     setEditorFocus();
-    web()->setFocus(Qt::MouseFocusReason);
-    web()->editorFocus();
 }
 
 void WizDocumentView::onTitleEditingFinished(const QString &newTitle)

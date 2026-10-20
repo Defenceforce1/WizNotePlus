@@ -8,6 +8,7 @@
 #include <cmath>
 
 namespace WizPdfExport {
+enum class Mode { ReadingWidth = 0, A4 = 1 };
 // Existing preference indexes: mm, point, inch, pica, didot, cicero.
 inline QPageLayout pageLayout(int index, const QMarginsF& margins)
 {
@@ -18,6 +19,26 @@ inline QPageLayout pageLayout(int index, const QMarginsF& margins)
     // Retain Qt's handling of negative margins, but reject empty printable areas.
     QPageLayout layout(QPageSize(QPageSize::A4), QPageLayout::Portrait, margins, units[index]);
     if (layout.paintRect().width() <= 0 || layout.paintRect().height() <= 0) return {};
+    return layout;
+}
+
+inline QPageLayout pageLayout(int index, const QMarginsF& margins, Mode selected, double cssWidth)
+{
+    auto layout = pageLayout(index, margins);
+    if (!layout.isValid() || selected == Mode::A4) return layout;
+    // Chromium's layout coordinates are CSS pixels (96/in), not device pixels.
+    // Keep the reading viewport as the *printable* width, plus physical margins;
+    // the sidebar/window chrome and devicePixelRatio must not enter this value.
+    if (!std::isfinite(cssWidth) || cssWidth <= 0) return {};
+    const auto points = layout.margins(QPageLayout::Point);
+    const double width = cssWidth * 72.0 / 96.0 + points.left() + points.right();
+    // Chromium PDF paper dimensions are limited to 200 inches. Refuse invalid
+    // widths rather than silently clamp or fall back to a different mode.
+    if (width > 14400) return {};
+    const double height = layout.fullRect(QPageLayout::Point).height();
+    layout.setPageSize(QPageSize(QSizeF(width, height), QPageSize::Point,
+        QStringLiteral("Reading width"), QPageSize::ExactMatch));
+    if (!layout.isValid() || layout.paintRect().width() <= 0 || layout.paintRect().height() <= 0) return {};
     return layout;
 }
 

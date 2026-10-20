@@ -21,6 +21,9 @@
 #include <QProgressDialog>
 #include "share/WizNetworkSecurity.h"
 #include "share/WizQuitUiGuard.h"
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+#include "widgets/WizMarkdownExportRecoveryApp.h"
+#endif
 #include <QCryptographicHash>
 #include <QScopedValueRollback>
 #include <QWindow>
@@ -396,6 +399,11 @@ bool WizMainWindow::eventFilter(QObject* watched, QEvent* event)
 
 void WizMainWindow::on_application_aboutToQuit()
 {
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    // Direct exit can bypass prepareForQuit; retain before cleanup pumps events.
+    WizMarkdownExportRecoveryApp::QuitScope markdownRecoveryQuit;
+    markdownRecoveryQuit.commit();
+#endif
     cleanOnQuit();
 }
 
@@ -404,6 +412,9 @@ bool WizMainWindow::prepareForQuit()
     if (m_quitPrepared) return true;
     if (m_preparingQuit || m_noteTransferBusy) return false;
     QScopedValueRollback<bool> preparing(m_preparingQuit, true);
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    WizMarkdownExportRecoveryApp::QuitScope markdownRecoveryQuit;
+#endif
     WizQuitUiGuard actions(this, m_quiting);
     const auto saveLocally = [&](bool force) {
         QList<QPointer<WizDocumentView>> views;
@@ -475,6 +486,9 @@ bool WizMainWindow::prepareForQuit()
     // to exit. Do not start a second cloud attempt; any late local update can
     // sync next time. A failure still cancels quit and restores ordinary input.
     if (!saveLocally(false)) { reportLocalFailure(); return false; }
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    markdownRecoveryQuit.commit();
+#endif
     m_quitPrepared = true;
     m_quiting = true;
     WizNetworkSecurity::beginShutdown();
@@ -3480,9 +3494,14 @@ void WizMainWindow::on_actionFindReplace_triggered()
 
 void WizMainWindow::on_actionSaveAsPDF_triggered()
 {
+    saveAsPDF(WizPdfExport::Mode::ReadingWidth);
+}
+
+void WizMainWindow::saveAsPDF(WizPdfExport::Mode selectedMode)
+{
     if (WizDocumentWebView* editor = getActiveEditor())
     {
-        editor->saveAsPDF();
+        editor->saveAsPDF(selectedMode);
     }
     WizGetAnalyzer().logAction("MenuBarSaveAsPDF");
 }

@@ -462,9 +462,17 @@
 <context>
     <name>QObject</name>
     <message>
+        <source>Select an image</source>
+        <translation>选择头像图片</translation>
+    </message>
+    <message>
+        <source>Supported files (%1)</source>
+        <translation>支持的文件 (%1)</translation>
+    </message>
+    <message>
         <location filename="../src/WizActions.cpp" line="68"/>
-        <source>Preference...</source>
-        <translation>偏好设置...</translation>
+        <source>Settings...</source>
+        <translation>设置…</translation>
     </message>
     <message>
         <location filename="../src/WizActions.cpp" line="69"/>
@@ -5718,8 +5726,8 @@ Asian characters: %5</source>
     </message>
     <message>
         <location filename="../src/WizPreferenceDialog.cpp" line="33"/>
-        <source>Preference</source>
-        <translation>偏好设置</translation>
+        <source>Settings</source>
+        <translation>设置</translation>
     </message>
     <message>
         <location filename="../src/WizPreferenceDialog.cpp" line="354"/>

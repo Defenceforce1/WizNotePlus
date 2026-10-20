@@ -22,6 +22,7 @@
 #include "DocumentLoaderSaver.h"
 #include "AbstractDocumentView.h"
 #include "share/WizDocumentAsync.h"
+#include "share/WizDocumentReadPermit.h"
 
 class WizObjectDownloaderHost;
 class WizEditorInsertLinkForm;
@@ -31,6 +32,7 @@ class WizDocumentTransitionView;
 class CWizDocumentWebViewWorker;
 class QNetworkDiskCache;
 class WizSearchReplaceWidget;
+class WizMarkdownExportRecoverySession;
 
 struct WIZODUCMENTDATA;
 struct WizExternalEditorData;
@@ -66,6 +68,7 @@ public:
     ~WizDocumentWebView();
 
     WizDocumentView* view() const;
+    WizDocumentReadPermit noteReadPermit() const;
 
     void clear();
 
@@ -73,6 +76,7 @@ public:
     void viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode);
     void setEditorMode(WizEditorMode editorMode) override;
     void trySaveDocument(const WIZDOCUMENTDATA& data, bool force, std::function<void(const QVariant &)> callback);
+    void trySaveDocumentForRead(const WIZDOCUMENTDATA& data, bool force, std::function<void(const QVariant &)> callback);
     void reloadNoteData(const WIZDOCUMENTDATA& data);
 
     bool isEditing() const { return m_currentEditorMode == modeEditor; }
@@ -124,7 +128,7 @@ public:
 
     void editorCommandExecutePastePlainText();
 
-    void saveAsPDF();
+    void saveAsPDF(WizPdfExport::Mode selectedMode);
     void editNoteStyle();
     void applyNoteStyle();
     void saveAsMarkdown();
@@ -170,6 +174,7 @@ public:
 
 private:
     void initEditorActions();
+    WizDocumentSaverThread* readDocumentSaver() const;
 
     void addDefaultScriptsToDocumentHtml(QString htmlFileName);
     void loadDocumentInWeb(WizEditorMode editorMode);
@@ -237,6 +242,10 @@ private:
     WizPdfExportRequest m_pdfExportRequest;
     WizPdfPageOperations m_pdfPageOperations;
     void invalidateDocumentCallbacks();
+    void cancelMarkdownRecovery();
+#ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
+    QPointer<WizMarkdownExportRecoverySession> m_markdownRecoverySession;
+#endif
 
     WizSearchReplaceWidget* m_searchReplaceWidget;
 
@@ -252,6 +261,9 @@ public:
     void discardChanges();
 
 public Q_SLOTS:
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    void openDevTools() override;
+#endif
     void onActionTriggered(QWebEnginePage::WebAction act);
 
     void onEditorLoadFinished(bool ok);

@@ -16,6 +16,7 @@
 #include <QDebug>
 #include <QLineEdit>
 #include <QInputDialog>
+#include <QScopeGuard>
 
 #include "WizDef.h"
 #include "database/WizDatabase.h"
@@ -24,6 +25,8 @@
 #include "WizFileExporter.h"
 #include "share/WizLocalFileUrl.h"
 #include "widgets/FileLineEdit.h"
+#include "share/WizBiometricNoteAccess.h"
+#include "sync/WizApiEntry.h"
 
 FileExportWizard::FileExportWizard(WizExplorerApp& app, QWidget *parent)
     : QWizard(parent)
@@ -506,9 +509,27 @@ FileExportPageExport::FileExportPageExport(WizExplorerApp& app, QWidget *parent)
 
 void FileExportPageExport::initializePage()
 {
+    m_exportCallbacks.invalidate();
+    m_cancel = false;
+    m_finished = false;
+    m_restartPending = m_exporting;
     connect(wizard(), &QWizard::finished,
-            this, &FileExportPageExport::handleCancelBtnClicked);
+            this, &FileExportPageExport::handleCancelBtnClicked, Qt::UniqueConnection);
     Q_EMIT initialized();
+}
+
+void FileExportPageExport::handleCancelBtnClicked()
+{
+    m_cancel = true;
+    m_finished = false;
+    m_restartPending = false;
+    m_exportCallbacks.cancel();
+}
+
+void FileExportPageExport::cleanupPage()
+{
+    handleCancelBtnClicked();
+    QWizardPage::cleanupPage();
 }
 
 void FileExportPageExport::insertLog(const QString& text)
@@ -519,19 +540,42 @@ void FileExportPageExport::insertLog(const QString& text)
 }
 
 
-#define ASKCONTINUE(x, y) \
-    QMessageBox::StandardButton ret = QMessageBox::critical(    \
-        this, (x), (y),                                         \
-        QMessageBox::Ok | QMessageBox::Abort,                   \
-        QMessageBox::Ok                                         \
-    );                                                          \
-    if (ret == QMessageBox::Abort)                              \
-        return;                                                 \
-    else                                                        \
-        continue                                               \
-
 void FileExportPageExport::handleExportFile()
 {
+    if (m_cancel || m_finished || m_exporting) return;
+    const auto ticket = m_exportCallbacks.ticket();
+    if (!WizDocumentCallbackEpoch::current(ticket)) return;
+    const QPointer<FileExportPageExport> self(this);
+    m_exporting = true;
+    m_restartPending = false;
+    const auto finish = qScopeGuard([self, ticket] {
+        if (!self) return;
+        self->m_exporting = false;
+        if (WizDocumentCallbackEpoch::current(ticket)) self->m_exportCallbacks.cancel();
+        if (self->m_restartPending && !self->m_cancel && !self->m_finished) Q_EMIT self->initialized();
+    });
+    // Personal-note wizard only. Bind a fresh batch to the local account/server;
+    // a displayed document's permit and its save-password cache are not grants.
+    WizDatabase& db = m_dbMgr.db();
+    const auto scope = WizBiometricNoteAccess::snapshot(db, db, WizCommonApiEntry::server());
+    const auto identity = WizBiometricNoteAccess::policyIdentity(scope);
+    const auto current = [self, ticket, identity] {
+        if (!self || self->m_cancel || !WizDocumentCallbackEpoch::current(ticket)) return false;
+        auto& db = self->m_dbMgr.db();
+        const auto live = WizBiometricNoteAccess::snapshot(db, db, WizCommonApiEntry::server());
+        if (identity.isEmpty() || identity != WizBiometricNoteAccess::policyIdentity(live)) {
+            self->handleCancelBtnClicked();
+            return false;
+        }
+        return true;
+    };
+    const auto mayContinue = [self, current](const QString& error) {
+        if (!current()) return false;
+        const auto result = QMessageBox::critical(self, tr("Do you want to continue?"), error,
+                                                  QMessageBox::Ok | QMessageBox::Abort, QMessageBox::Ok);
+        return current() && result != QMessageBox::Abort;
+    };
+    if (!current()) return;
     QStringList notes = field("documents").toStringList();
     QString outputFolder = field("outputFolder").toString();
     bool keepFolder = field("keepFolder").toBool();
@@ -539,59 +583,81 @@ void FileExportPageExport::handleExportFile()
     bool metainfo = field("metainformation").toBool();
     bool noTitleFolderIfPossible = field("noTitleFolderIfPossible").toBool();
 
-    if (notes.size() > 1) {
-        m_progress->setRange(1, notes.size());
-    } else {
-        m_progress->setRange(1, 1);
-    }
+    m_progress->setRange(0, qMax(1, int(notes.size())));
+    if (!current()) return;
+    m_progress->setValue(0);
+    if (!current()) return;
 
-    // TODO: add databse option
-    WizDatabase& db = m_dbMgr.db();
+    QString verifiedCertificate;
     foreach (auto &note, notes) {
         m_progress->setValue(m_progress->value() + 1);
+        if (!current()) return;
         qApp->processEvents();
-        if (m_cancel) return;
+        if (!current()) return;
 
         WIZDOCUMENTDATA data;
         if (!db.documentFromGuid(note, data)) {
-            ASKCONTINUE(
-                tr("Do you want to continue?"),
-                tr("Can't find document for GUID: %1").arg(note)
-            );
+            if (!mayContinue(tr("Can't find document for GUID: %1").arg(note))) return;
+            continue;
         }
 
         insertLog(QString("Exporting %1\n").arg(data.strTitle));
+        if (!current()) return;
 
+        QString certificate;
         if (data.nProtected == 1) {
-            if (!db.loadUserCert()) {
-                ASKCONTINUE(
-                    tr("Do you want to continue?"),
-                    tr("Can't load user cert.")
-                );
+            const auto local = WizBiometricNoteAccess::snapshot(db, db, WizCommonApiEntry::server());
+            certificate = WizBiometricKeychain::itemIdentity(local);
+            if (certificate.isEmpty()) {
+                if (!mayContinue(tr("Can't load user cert."))) return;
+                continue;
             }
-
-            if (db.getCertPassword().isEmpty()) {
+            if (certificate != verifiedCertificate) {
                 insertLog("Asking for password...\n");
+                if (!current()) return;
                 bool ok;
                 QString password = QInputDialog::getText(
                     this, tr("Password for Encrypted Notes"),
                     tr("Password:"), QLineEdit::Password, "", &ok);
-                if (ok && !password.isEmpty()) {
-                    if (!db.verifyCertPassword(password)) {
-                        ASKCONTINUE(
-                            tr("Do you want to continue?"),
-                            tr("Invalid password.")
-                        );
-                    }
-                } else {
-                    ASKCONTINUE(
-                        tr("Do you want to continue?"),
-                        tr("Can't get password.")
-                    );
+                if (!current() || !ok) return;
+                const auto live = WizBiometricNoteAccess::snapshot(db, db, WizCommonApiEntry::server());
+                if (certificate != WizBiometricKeychain::itemIdentity(live)) {
+                    handleCancelBtnClicked();
+                    return;
                 }
-
+                const auto& cert = local.certificate;
+                const bool valid = !password.isEmpty()
+                    && db.cacheCertPasswordLocally(password, cert.n, cert.e, cert.encryptedD);
+                password.clear();
+                if (!current()) return;
+                if (!valid) {
+                    if (!mayContinue(tr("Invalid password."))) return;
+                    continue;
+                }
+                verifiedCertificate = certificate;
+            }
+            if (!db.loadUserCert()) {
+                if (!mayContinue(tr("Can't load user cert."))) return;
+                continue;
             }
         }
+
+        const auto canRead = [self, current, data, certificate] {
+            if (!current()) return false;
+            auto& db = self->m_dbMgr.db();
+            WIZDOCUMENTDATA live;
+            bool valid = data.strKbGUID == db.kbGUID()
+                && db.documentFromGuid(data.strGUID, live) && live.strKbGUID == data.strKbGUID
+                && live.nProtected == data.nProtected;
+            if (data.nProtected == 1) {
+                const auto scope = WizBiometricNoteAccess::snapshot(db, db, WizCommonApiEntry::server());
+                valid = valid && !db.getCertPassword().isEmpty()
+                    && certificate == WizBiometricKeychain::itemIdentity(scope);
+            }
+            if (!valid) self->handleCancelBtnClicked();
+            return valid;
+        };
+        if (!canRead()) return;
 
         QString destFolder = outputFolder;
         if (keepFolder)
@@ -605,17 +671,20 @@ void FileExportPageExport::handleExportFile()
 
         bool ok = m_exporter->exportNote(
             data, destFolder, format, compress, metainfo,
-            noTitleFolderIfPossible, &error);
+            noTitleFolderIfPossible, &error, canRead);
+        if (!current()) return;
         if (!ok) {
-            ASKCONTINUE(
-                tr("Do you want to continue?"),
-                error
-            );
+            if (!mayContinue(error)) return;
         }
     }
 
+    if (!current()) return;
+    m_finished = true;
     Q_EMIT completeChanged();
-    if (!QDesktopServices::openUrl(WizLocalFileUrl(outputFolder))) {
+    if (!current()) return;
+    const bool opened = QDesktopServices::openUrl(WizLocalFileUrl(outputFolder));
+    if (!current()) return;
+    if (!opened) {
         QMessageBox::information(this, tr("Export complete"),
             QStringLiteral("导出操作已结束，但无法自动打开输出目录。请在 Finder 中手动打开：\n%1").arg(outputFolder));
     }
@@ -623,11 +692,7 @@ void FileExportPageExport::handleExportFile()
 
 bool FileExportPageExport::isComplete() const
 {
-    if (m_progress->value() != m_progress->maximum()) {
-        return false;
-    } else {
-        return true;
-    }
+    return m_finished;
 }
 
 

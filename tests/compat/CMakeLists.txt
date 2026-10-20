@@ -1,5 +1,10 @@
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME wiznote_app_language_resources
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/app-language-resources.py)
+set_tests_properties(wiznote_app_language_resources PROPERTIES
+    ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1" TIMEOUT 30)
 if(QT_VERSION_MAJOR EQUAL 6)
     find_package(Qt6 REQUIRED COMPONENTS Core5Compat)
 endif()
@@ -60,6 +65,16 @@ add_test(NAME wiznote_pdf_file_safety COMMAND wiznote_pdf_file_safety)
 set_tests_properties(wiznote_pdf_file_safety PROPERTIES TIMEOUT 30)
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineCore WebEngineWidgets)
+add_executable(wiznote_pdf_paper_page pdf-paper-page.cpp)
+target_include_directories(wiznote_pdf_paper_page PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_pdf_paper_page PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::WebEngineCore Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+add_test(NAME wiznote_pdf_paper_page COMMAND wiznote_pdf_paper_page)
+set_tests_properties(wiznote_pdf_paper_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+add_executable(wiznote_pdf_export_menu pdf-export-menu.cpp)
+target_include_directories(wiznote_pdf_export_menu PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_pdf_export_menu PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+add_test(NAME wiznote_pdf_export_menu COMMAND wiznote_pdf_export_menu)
+set_tests_properties(wiznote_pdf_export_menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 add_executable(wiznote_synthetic_input_guard synthetic-input-guard.cpp)
 target_link_libraries(wiznote_synthetic_input_guard PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 add_test(NAME wiznote_synthetic_input_guard COMMAND wiznote_synthetic_input_guard)
@@ -95,6 +110,28 @@ if(APPLE AND QT_VERSION_MAJOR EQUAL 6 AND Qt6Core_VERSION VERSION_GREATER_EQUAL 
 endif()
 add_test(NAME wiznote_comment_lifetime COMMAND $<TARGET_FILE:WizNotePlus> --comment-lifetime-self-test)
 set_tests_properties(wiznote_comment_lifetime PROPERTIES TIMEOUT 30)
+add_test(NAME wiznote_certificate_creation COMMAND $<TARGET_FILE:WizNotePlus> --certificate-creation-self-test)
+set_tests_properties(wiznote_certificate_creation PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+add_test(NAME wiznote_certificate_creation_ui COMMAND $<TARGET_FILE:WizNotePlus> --certificate-creation-ui-self-test)
+set_tests_properties(wiznote_certificate_creation_ui PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+add_test(NAME wiznote_biometric_keychain COMMAND $<TARGET_FILE:WizNotePlus> --biometric-keychain-self-test)
+add_test(NAME wiznote_biometric_unlock_ui COMMAND $<TARGET_FILE:WizNotePlus> --biometric-unlock-ui-self-test)
+add_test(NAME wiznote_biometric_note_access COMMAND $<TARGET_FILE:WizNotePlus> --biometric-note-access-self-test)
+set_tests_properties(wiznote_biometric_note_access PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+add_test(NAME wiznote_biometric_document_routing COMMAND $<TARGET_FILE:WizNotePlus> --biometric-document-routing-self-test)
+set_tests_properties(wiznote_biometric_document_routing PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+set_tests_properties(wiznote_biometric_unlock_ui PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+set_tests_properties(wiznote_biometric_keychain PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+add_test(NAME wiznote_settings_ui COMMAND $<TARGET_FILE:WizNotePlus> --settings-ui-self-test)
+set_tests_properties(wiznote_settings_ui PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+add_test(NAME wiznote_account_file_selection COMMAND $<TARGET_FILE:WizNotePlus> --account-file-selection-self-test)
+set_tests_properties(wiznote_account_file_selection PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
 add_test(NAME wiznote_spellcheck COMMAND $<TARGET_FILE:WizNotePlus> --spellcheck-self-test)
 set_tests_properties(wiznote_spellcheck PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=cocoa" TIMEOUT 120)

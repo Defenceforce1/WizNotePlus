@@ -9,6 +9,15 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/network-security.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/shutdown.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/comment-lifetime.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/certificate-creation.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/certificate-creation-ui.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-keychain.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-unlock-ui.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-note-access.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp)
+    include(${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-methods.cmake)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/settings-ui.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/account-file-selection.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/spellcheck.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/native-clipper.cpp)
     # Legacy 8849 implementation is available only to isolated regression probes;
@@ -27,6 +36,7 @@ endif()
 
 set(wiznote_SOURCES_MAC
     mac/WizMacHelper.mm
+    mac/WizBiometricKeychain.mm
     mac/WizUserInfoWidgetBaseMac.mm
     mac/WizUserInfoWidgetBaseMac_mm.cpp
     widgets/WizUserInfoWidgetBase.cpp
@@ -102,6 +112,11 @@ set(wiznote_SOURCES
     share/WizFileIconProvider.cpp
     share/WizWindowsHelper.cpp
     share/WizEnc.cpp
+    share/WizCertificateCreation.cpp
+    share/WizBiometricKeychainScope.cpp
+    share/WizBiometricNoteAccess.cpp
+    widgets/WizCertificateCreationDialog.cpp
+    widgets/WizBiometricUnlockWidget.cpp
     share/WizZiwReader.cpp
     html/WizHtmlReader.cpp
     html/WizHtmlCollector.cpp
@@ -203,6 +218,7 @@ set(wiznote_SOURCES
 
     gui/documentviewer/WizDocumentView.cpp
     gui/documentviewer/WizDocumentWebView.cpp
+    share/WizMarkdownExportTransaction.cpp
     gui/documentviewer/WizSingleDocumentView.cpp
     gui/documentviewer/WizDocumentEditStatus.cpp
     gui/documentviewer/WizTitleBar.cpp
@@ -326,6 +342,8 @@ set(wiznote_HEADERS
     sync/WizAvatarUploader.h
     share/WizSearch.h
     widgets/WizAboutDialog.h
+    widgets/WizCertificateCreationDialog.h
+    widgets/WizBiometricUnlockWidget.h
     widgets/WizSegmentedButton.h
     widgets/WizUserInfoWidget.h
     widgets/WizUserInfoWidgetBase.h
@@ -393,6 +411,7 @@ set(wiznote_HEADERS
 
     gui/documentviewer/WizDocumentView.h
     gui/documentviewer/WizDocumentWebView.h
+    share/WizMarkdownExportTransaction.h
     gui/documentviewer/WizSingleDocumentView.h
     gui/documentviewer/WizDocumentEditStatus.h
     gui/documentviewer/WizTitleBar.h
@@ -505,6 +524,35 @@ set(wiznote_HEADERS
     widgets/ShadowWidget.h
 )
 
+# AUTOMOC follows textual includes even inside disabled preprocessor branches.
+# Explicitly exclude experimental QObject headers in an OFF build, including
+# reconfiguration from an ON cache; otherwise orphan moc objects still link.
+set(markdown_recovery_qobject_headers
+    share/WizMarkdownExportRecoveryRequest.h
+    widgets/WizMarkdownExportRecoveryPrompt.h
+    widgets/WizMarkdownExportRecoverySession.h)
+if(WIZNOTE_ENABLE_MARKDOWN_RECOVERY)
+    set_source_files_properties(${markdown_recovery_qobject_headers} PROPERTIES SKIP_AUTOMOC OFF)
+    list(APPEND wiznote_SOURCES
+        share/WizMarkdownExportRecovery.cpp
+        share/WizMarkdownExportRecoveryAudit.cpp
+        share/WizMarkdownExportRecoveryCoordinator.cpp
+        share/WizMarkdownExportRecoveryRequest.cpp
+        widgets/WizMarkdownExportRecoveryPrompt.cpp
+        widgets/WizMarkdownExportRecoverySession.cpp
+        widgets/WizMarkdownExportRecoveryApp.cpp)
+    list(APPEND wiznote_HEADERS
+        share/WizMarkdownExportRecovery.h
+        share/WizMarkdownExportRecoveryAudit.h
+        share/WizMarkdownExportRecoveryCoordinator.h
+        share/WizMarkdownExportRecoveryRequest.h
+        widgets/WizMarkdownExportRecoveryPrompt.h
+        widgets/WizMarkdownExportRecoverySession.h
+        widgets/WizMarkdownExportRecoveryApp.h)
+else()
+    set_source_files_properties(${markdown_recovery_qobject_headers} PROPERTIES SKIP_AUTOMOC ON)
+endif()
+
 set(wiznote_FORMS
     ui/WizLineInputDialog.ui
     ui/WizConsoleDialog.ui
@@ -538,7 +586,6 @@ set(wiznote_FORMS
 
 set(wiznote_TRANSLATIONS
     ${CMAKE_SOURCE_DIR}/i18n/wiznote_zh_CN.ts
-    ${CMAKE_SOURCE_DIR}/i18n/wiznote_zh_TW.ts
 )
 
 set(wiznote_RCS
@@ -594,6 +641,7 @@ if(UNIX)
             file(GLOB _qtbase_QM ${qt_translations_dir}/qtbase_*.qm)
             list(APPEND _qt5_QM ${_qtbase_QM})
         endif()
+        list(FILTER _qt5_QM INCLUDE REGEX "/(qt|qtbase)_(en|zh_CN)\\.qm$")
 
         add_executable(WizNotePlus MACOSX_BUNDLE  ${wiznote_HEADERS} ${wiznote_HEADERS_MAC} ${wiznote_FORM_HEADERS} ${wiznote_SOURCES_MAC} ${wiznote_SOURCES} ${wiznote_QM} ${_qt5_QM} ${wiznote_RC} ${wiznote_LOGO})
         set_target_properties(WizNotePlus PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -608,6 +656,9 @@ if(UNIX)
         find_library(_COCOA_LIBRARY Cocoa)
         find_library(_STORE_LIBRARY StoreKit)
         find_library(_IO_LIBRARY IOKit)
+        find_library(_SECURITY_LIBRARY Security REQUIRED)
+        find_library(_LOCAL_AUTH_LIBRARY LocalAuthentication REQUIRED)
+        set_source_files_properties(mac/WizBiometricKeychain.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         if (PLCrashReporter)
             find_library(_CRASHREPORTER CrashReporter)
         endif(PLCrashReporter)
@@ -615,7 +666,7 @@ if(UNIX)
         # please set env: MACOSX_DEPLOYMENT_TARGET = 10.8 to ~/.bash_profile if you need NSUserNotification support.
         message("use cocoa library: ${_COCOA_LIBRARY}")
         target_link_libraries(${PROJECT_NAME} ${_CARBON_LIBRARY} ${_COCOA_LIBRARY}
-                  ${_STORE_LIBRARY} ${_IO_LIBRARY} ${_CRASHREPORTER})
+                  ${_STORE_LIBRARY} ${_IO_LIBRARY} ${_CRASHREPORTER} ${_SECURITY_LIBRARY} ${_LOCAL_AUTH_LIBRARY})
 
         # setup plist info and logo
         set_target_properties(${PROJECT_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/build/osx/Info.plist")
@@ -628,7 +679,15 @@ if(UNIX)
         #set(wiznote_BUNDLE_CONTENTS ${CMAKE_BINARY_DIR}/bundle/${PROJECT_NAME}.app/Contents)
 
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/build/osx/localize/ ${WIZNOTE_RESOURCE_DIR})
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/build/osx/localize/English.lproj ${WIZNOTE_RESOURCE_DIR}/English.lproj
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/build/osx/localize/zh-Hans.lproj ${WIZNOTE_RESOURCE_DIR}/zh-Hans.lproj
+            # Remove only stale generated Traditional-language assets in this
+            # development bundle; source catalogs and installed apps are kept.
+            COMMAND ${CMAKE_COMMAND} -E rm -f ${WIZNOTE_RESOURCE_DIR}/locales/wiznote_zh_TW.qm
+                ${WIZNOTE_RESOURCE_DIR}/locales/qt_zh_TW.qm ${WIZNOTE_RESOURCE_DIR}/locales/qtbase_zh_TW.qm
+                ${WIZNOTE_RESOURCE_DIR}/locales/qt_help_zh_TW.qm
+                ${WIZNOTE_RESOURCE_DIR}/files/welcomepage/js/datepicker-zh-TW.js
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${WIZNOTE_RESOURCE_DIR}/zh-Hant.lproj)
 
     elseif(NOT APPLE)
         add_executable(WizNotePlus ${wiznote_SOURCES} ${wiznote_HEADERS} ${wiznote_FORM_HEADERS} ${wiznote_QM} ${wiznote_RC})
@@ -676,6 +735,14 @@ else()
 endif()
 
 qt_use_modules(WizNotePlus)
+# Keep ON/OFF moc output separate: changing only the option may leave Ninja's
+# autogen timestamp current even when its generated configuration changed.
+# A filename AUTOGEN_TARGET_DEPENDS is only order-only with this Qt/Ninja setup.
+set_property(TARGET WizNotePlus PROPERTY AUTOGEN_BUILD_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}/WizNotePlus_autogen_recovery_${WIZNOTE_ENABLE_MARKDOWN_RECOVERY}")
+if(WIZNOTE_ENABLE_MARKDOWN_RECOVERY)
+    target_compile_definitions(WizNotePlus PRIVATE WIZNOTE_ENABLE_MARKDOWN_RECOVERY=1)
+endif()
 qt_suppress_warnings(WizNotePlus)
 
 if (APPLE)

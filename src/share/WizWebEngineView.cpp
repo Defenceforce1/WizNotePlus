@@ -15,11 +15,13 @@
 #include <QDesktopServices>
 #include <QClipboard>
 #include <QFileDialog>
+#include "WizAccountFileChooser.h"
 #include <QDir>
 #include <QTimer>
 #include <QMessageBox>
 #include <QMargins>
 #include <QInputDialog>
+#include <QScopeGuard>
 
 #ifdef Q_OS_MAC
 #include "mac/WizMacHelper.h"
@@ -194,6 +196,14 @@ void WizWebEnginePage::javaScriptConsoleMessage(JavaScriptConsoleMessageLevel le
     qDebug() << message;
 }
 
+QStringList WizWebEnginePage::chooseFiles(FileSelectionMode mode, const QStringList& oldFiles,
+                                         const QStringList& acceptedMimeTypes)
+{
+    if (!m_accountFileChooser || (mode != FileSelectOpen && mode != FileSelectOpenMultiple))
+        return QWebEnginePage::chooseFiles(mode, oldFiles, acceptedMimeTypes);
+    return wizAccountUploadFiles(this, view(), mode == FileSelectOpenMultiple, acceptedMimeTypes);
+}
+
 bool WizWebEnginePage::acceptNavigationRequest(const QUrl &url, QWebEnginePage::NavigationType type, bool isMainFrame)
 {
     if (NavigationTypeLinkClicked != type)
@@ -220,13 +230,19 @@ void WizWebEnginePage::triggerAction(WizWebEnginePage::WebAction action, bool ch
 
 void WizWebEnginePage::processCopiedData()
 {
+    processCopiedData({});
+}
+
+void WizWebEnginePage::processCopiedData(const std::function<bool()>& current)
+{
     //从webengine复制的文字，粘贴到mac的备忘录的时候，中文会乱码。
     //webengine复制到剪贴板的纯文字有bug，编码有问题。因此延迟等到webengine处理完成后再重新粘贴纯文本
     //避免这个错误
     //
     //
 #ifdef Q_OS_MAC
-    QTimer::singleShot(500, [=]{
+    QTimer::singleShot(500, [current]{
+        if (current && !current()) return;
         //
         QClipboard* clipboard = QApplication::clipboard();
         const QMimeData *mimeData = clipboard->mimeData();
@@ -245,6 +261,10 @@ void WizWebEnginePage::processCopiedData()
             }
         }
         //
+        if (current && !current()) {
+            delete newData;
+            return;
+        }
         clipboard->setMimeData(newData);
     });
 #endif
@@ -701,29 +721,74 @@ void WizWebEngineView::addObjectToJavaScriptClient(QString name, QObject* obj)
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
 void WizWebEngineView::openDevTools()
 {
-    if (!m_devToolsWindow)
-    {
-        m_devToolsWindow = new WizDevToolsDialog(this);
+    openDevToolsWithPermit([] { return true; });
+}
 
-        QString title = documentTitle();
-        m_devToolsWindow->setWindowTitle("DevTools - " + title);
+static void detachDevTools(QPointer<WizDevToolsDialog> tools)
+{
+    if (!tools) return;
+    tools->web()->page()->setInspectedPage(nullptr);
+    if (tools) tools->hide();
+    if (tools) tools->deleteLater();
+}
 
-        m_devToolsWindow->web()->page()->setInspectedPage(this->page());
-        // align on center of the screen
-        m_devToolsWindow->setGeometry(
-            QStyle::alignedRect(
-                Qt::LeftToRight,
-                Qt::AlignCenter,
-                QSize(800, 500),
-                this->screen()->availableGeometry()
-            )
-        );
+void WizWebEngineView::closeDevTools()
+{
+    ++m_devToolsGeneration; // Also cancels an opening window not yet adopted.
+    const auto tools = m_devToolsWindow;
+    m_devToolsWindow.clear(); // Reentrant cleanup must not reuse this window.
+    detachDevTools(tools);
+}
+
+void WizWebEngineView::openDevToolsWithPermit(const std::function<bool()>& current)
+{
+    if (m_openingDevTools) return;
+    QPointer<WizWebEngineView> self(this);
+    const QPointer<QWebEnginePage> source(page());
+    const quint64 generation = ++m_devToolsGeneration;
+    m_openingDevTools = true;
+    const auto finish = qScopeGuard([self] { if (self) self->m_openingDevTools = false; });
+    const auto valid = [self, source, generation, current] {
+        const auto ownerCurrent = [self, source, generation] {
+            return self && source && self->page() == source
+                && self->m_devToolsGeneration == generation;
+        };
+        return ownerCurrent() && current && current() && ownerCurrent();
+    };
+    if (!valid()) return;
+    QPointer<WizDevToolsDialog> tools(m_devToolsWindow);
+    const bool created = !tools;
+    if (!tools) {
+        // Construct without a raw owner: callbacks may revoke/destroy it before
+        // construction returns. Adopt only after checking the captured permit.
+        tools = new WizDevToolsDialog;
+        if (valid() && tools) tools->setParent(self, Qt::Window);
+        if (!valid() || !tools) { detachDevTools(tools); return; }
+        self->m_devToolsWindow = tools;
     }
-
-    page()->triggerAction(QWebEnginePage::InspectElement);
-
-    m_devToolsWindow->show();
-    m_devToolsWindow->raise();
+    const auto abandon = [self, tools] {
+        if (self && tools && self->m_devToolsWindow == tools) self->closeDevTools();
+        else detachDevTools(tools);
+    };
+    if (created) {
+        const QString title = self->documentTitle();
+        if (!valid() || !tools) { abandon(); return; }
+        tools->setWindowTitle("DevTools - " + title);
+        if (!valid() || !tools) { abandon(); return; }
+    }
+    tools->web()->page()->setInspectedPage(source);
+    if (!valid() || !tools) { abandon(); return; }
+    if (created) {
+        tools->setGeometry(QStyle::alignedRect(Qt::LeftToRight, Qt::AlignCenter,
+            QSize(800, 500), self->screen()->availableGeometry()));
+        if (!valid() || !tools) { abandon(); return; }
+    }
+    source->triggerAction(QWebEnginePage::InspectElement);
+    if (!valid() || !tools) { abandon(); return; }
+    tools->show();
+    if (!valid() || !tools) { abandon(); return; }
+    tools->raise();
+    if (!valid() || !tools) abandon();
 }
 #endif
 

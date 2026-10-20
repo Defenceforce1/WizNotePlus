@@ -8,6 +8,8 @@
 #include "share/WizAnimateAction.h"
 #include "widgets/WizTableSelector.h"
 #include "WizBuildIdentity.h"
+#include "WizMainWindow.h"
+#include "share/WizPdfExportMenu.h"
 
 struct WIZACTION
 {
@@ -66,7 +68,7 @@ WIZACTION* WizActions::actionsData()
 
     static WIZACTION arrayActions[] =
     {
-        {"actionPreference",                    QObject::tr("Preference..."),               "",                                     QKeySequence()},
+        {"actionPreference",                    QObject::tr("Settings..."),                 "",                                     QKeySequence()},
         {"actionAbout",                         WizBuildIdentity::appleSiliconTrial ? QStringLiteral("关于 WizNotePlus…") : QObject::tr("About WizNote..."), "", QKeySequence()},
         {"actionExit",                          QObject::tr("Exit"),                        "",                                     QKeySequence("Ctrl+Q")},
         {"actionClose",                         QObject::tr("Close"),                       "",                                     QKeySequence()},
@@ -237,6 +239,11 @@ void WizActions::init(bool bUseExtraShortcut)
         addAction(action, bUseExtraShortcut);
         index++;
     }
+    const QPointer<WizMainWindow> window(qobject_cast<WizMainWindow*>(m_parent));
+    WizPdfExport::attachMenu(actionFromName(WIZACTION_GLOBAL_SAVE_AS_PDF),
+        qobject_cast<QWidget*>(m_parent), [window](WizPdfExport::Mode selected) {
+            if (window) window->saveAsPDF(selected);
+        });
 }
 
 WizShortcutAction *WizActions::actionFromName(const QString& strActionName)
