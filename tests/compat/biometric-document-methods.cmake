@@ -567,3 +567,26 @@ string(FIND "${read_text}" "bool WizDocumentWebView::onEditorLoadFinished(" setu
 if(setup_submission_result GREATER -1)
     set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_SETUP_SUBMISSION_RESULT)
 endif()
+
+# Phase159: compile the actual dispatcher, reader producer and read adapter
+# together. The editor producer is already extracted unchanged in Web.
+set(producer_disk_bodies "")
+foreach(pair "void WizDocumentWebView::trySaveDocument(|WizDocumentSaverThread* WizDocumentWebView::readDocumentSaver("
+             "void WizDocumentWebView::saveReadingViewDocument(|bool WizDocumentWebView::acceptsDocumentCallback("
+             "void WizDocumentWebView::trySaveDocumentForRead(|// End extracted disk-save read adapter.")
+    string(REPLACE "|" ";" bounds "${pair}")
+    list(GET bounds 0 first)
+    list(GET bounds 1 last)
+    string(FIND "${read_text}" "${first}" begin)
+    string(FIND "${read_text}" "${last}" end)
+    if(begin LESS 0 OR end LESS begin)
+        message(FATAL_ERROR "Producer-to-disk method boundary changed: ${first}")
+    endif()
+    math(EXPR length "${end} - ${begin}")
+    string(SUBSTRING "${read_text}" ${begin} ${length} body)
+    string(REPLACE "WizDocumentWebView" "ProducerDiskWeb" body "${body}")
+    string(APPEND producer_disk_bodies "${body}")
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-producer-disk-methods.inc" "${producer_disk_bodies}")
+set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS
+    "WIZNOTE_PRODUCER_DISK_METHODS=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-producer-disk-methods.inc\"")

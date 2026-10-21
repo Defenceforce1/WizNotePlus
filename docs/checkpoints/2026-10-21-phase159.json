@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase159",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "2ff40599f4c931930f5ae2b5069a434a96aca52d",
+  "sourceCheckpoint": "phase159",
+  "productCodeChanged": false,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "pass": 1025,
+    "fail": 0,
+    "seconds": 12.09,
+    "routingChecks": 1025,
+    "newRoutingChecks": 34,
+    "runs": 1,
+    "earlierFixtureRuns": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAsyncRerun": false,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Test-only integration of actual snapshot dispatcher/editor/reader producers, read adapter/FIFO frontier, Qt AutoConnection bridge, real saver/temporary encrypted archive and text output. Synthetic renderer snapshot transport remains. Changed/unchanged snapshots cannot publish before actual disk completion. Relock before snapshot, during disk wait or after queued frontier delivery cannot revive obsolete output; saves/newer DOM remain. Ordinary output failure preserves prior destination/archive, explicit retry publishes its own persisted version. Owner destruction drops output but queued save completes. Editor BOM/cache and reader no-editor-file behavior remain. Old 991 routing assertions and extraction rules, all product bytes unchanged. Fixture enum/protected-stop build errors and one first-run missing-BOM expectation corrected with prior evidence retained; not a product fix or negative-control claim. Native async/unrelated groups not rerun. Bridge sender is not actual WebView; MainWindow saved-handler/quick-sync, native renderer, full PDF/session/UI remain unaccepted. Next: external-editor watcher/return-save integration.",
+  "files": [
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 352011,
+      "chars": 351902,
+      "gitBlobSha": "7bb83204b8f9240f843bcc287400babced2d9c70",
+      "sha256": "6c2dcb252e5e7ab8917205fba9d42071ff8bb076c3e9180cefb883a312c34497"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 38803,
+      "chars": 38803,
+      "gitBlobSha": "e8bad406d53eed082be58a2d98e6dfdd588ac712",
+      "sha256": "b62fc4ee03cf1e23d2efa7c284954b56f22b5d2437c38ce1b74967e76408697c"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 9631,
+      "chars": 9631,
+      "gitBlobSha": "8f188393955d4bf0e7b6a11892431f6693453417",
+      "sha256": "01d6bbdde8939db45657dc5a1717a16c828d0471da8c4ec0613b0ca0a929a53d"
+    }
+  ]
+}

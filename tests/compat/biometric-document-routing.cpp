@@ -338,7 +338,9 @@ struct Web : InspectorShell {
     } m_pdfPageOperations;
     int initialSaveHandoffs=0,snapshotFailures=0;QString savedInitialHtml;
     void saveEditingViewDocument(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>);
-    void saveDocumentRequested(const WIZDOCUMENTDATA&,const QString& html,const QString&,int){++initialSaveHandoffs;savedInitialHtml=html;initialStage("saveHandoff");}
+    // Phase159 connects this producer boundary to an actual Qt save signal.
+    std::function<void(const WIZDOCUMENTDATA&,const QString&,const QString&,int)> snapshotHandoff;
+    void saveDocumentRequested(const WIZDOCUMENTDATA& doc,const QString& html,const QString& file,int flags){++initialSaveHandoffs;savedInitialHtml=html;initialStage("saveHandoff");const auto hook=snapshotHandoff;if(hook)hook(doc,html,file,flags);}
     void reportSnapshotSaveFailure(){++snapshotFailures;}
     bool simulateLoadStarted=true;
     QStringList initialStages;QList<QUrl> initialUrls;
@@ -633,6 +635,23 @@ struct DiskWeb : Web {
     void trySaveDocumentForRead(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>) override;
 };
 #include WIZNOTE_DISK_READ_METHOD
+// Phase159: no synthetic success result between actual snapshot producer,
+// actual FIFO saver/fence and existing output methods. Only renderer snapshot
+// transport remains synthetic. The bridge mirrors the main-window AutoConnection.
+class SaveSignalBridge final : public QObject {
+    Q_OBJECT
+public:
+    using QObject::QObject;
+Q_SIGNALS:
+    void saveRequested(const WIZDOCUMENTDATA&,const QString&,const QString&,int,bool);
+};
+struct ProducerDiskWeb : DiskWeb {
+    using DiskWeb::DiskWeb;
+    void trySaveDocument(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>);
+    void saveReadingViewDocument(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>);
+    void trySaveDocumentForRead(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>) override;
+};
+#include WIZNOTE_PRODUCER_DISK_METHODS
 // No process or real file watcher is launched. The exact current request body
 // uses the real temporary DB, converter and atomic output, but a launch recorder.
 class Launcher : public QObject {
@@ -655,6 +674,7 @@ public:
     using WizDocumentSaverThread::WizDocumentSaverThread;
     QSemaphore entered,release;
     std::atomic_bool rescued{false};
+    void stopWithoutGuiPumping(){stop();}
 protected:
     void run() override {
         entered.release();if(!release.tryAcquire(1,3000))rescued=true;
@@ -3464,6 +3484,105 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         SetupStyles::after={};SetupPlugins::reset();InitialOps::reset();
     }
     // End Phase158 metadata tests.
+    // Phase159 actual producer -> Qt signal -> FIFO disk fence -> text output.
+    {
+        constexpr int editing=1,reading=0; // Existing extracted Web mode convention.
+        const auto bytes=[](const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();};
+        const auto snapshot=[](const QString& html){return QVariantMap{{"ok",true},{"changed",true},{"html",html}};};
+        const auto prepare=[&](RoutingView& owner,const WIZDOCUMENTDATAEX& note,int mode){
+            delete owner.m_web;auto* web=new ProducerDiskWeb(manager);owner.m_web=web;web->owner=&owner;web->setParent(owner.m_docView);
+            owner.show();owner.viewNote(note,false);submit(owner);web->m_currentEditorMode=mode;
+            web->body="retained newer DOM";web->m_bContentsChanged=true;
+            return web;
+        };
+        const auto wire=[](ProducerDiskWeb* web,HeldSaver& saver,SaveSignalBridge& bridge){
+            web->diskSaver=&saver;
+            QObject::connect(&bridge,&SaveSignalBridge::saveRequested,&saver,&WizDocumentSaverThread::save);
+            web->snapshotHandoff=[&bridge](const WIZDOCUMENTDATA& doc,const QString& html,const QString& file,int flags){bridge.saveRequested(doc,html,file,flags,false);};
+        };
+        for(const int mode:{editing,reading}){
+            WIZDOCUMENTDATAEX note;if(!check(create("producer-disk-"+QString::number(mode),1,note),"producer-disk chain creates a private encrypted synthetic note"))return 1;
+            RoutingView owner(explorer);auto* web=prepare(owner,note,mode);HeldSaver saver(manager,nullptr);SaveSignalBridge bridge;wire(web,saver,bridge);
+            QString source;if(!check(db.documentToTempHtmlFile(note,source),"producer-disk fixture uses a real separate archive extraction"))return 1;
+            const auto sourceBefore=bytes(source);web->m_mapFile[note.strGUID]=source;
+            const QString edited=root.filePath("producer-edited-"+QString::number(mode)+".html");web->m_strNoteHtmlFileName=edited;
+            QString output=root.filePath("producer-output-"+QString::number(mode)+".txt");WizSaveUnicodeTextToUtf8File(output,"previous producer output",false);int completed=0;
+            web->saveAsPlainText(output,[&](QString){++completed;});
+            check(bool(web->m_pdfPageOperations.completion)&&!saver.isRunning()&&completed==0&&bytes(output)=="previous producer output","actual save dispatcher waits for renderer snapshot transport before any save handoff or output");
+            ++web->m_contentChangeSequence;const QString html="<html><body>最新保存 &amp; "+QString::number(mode)+"</body></html>";
+            web->m_pdfPageOperations.deliver(snapshot(html));const bool entered=saver.entered.tryAcquire(1,3000);
+            check(entered&&web->initialSaveHandoffs==1&&completed==0&&bytes(output)=="previous producer output"&&web->m_bContentsChanged,"actual producer and Qt handoff cannot publish ahead of held disk save or clear newer dirty DOM");
+            saver.release.release();const bool done=until([&]{return completed==1;});saver.waitForDone();
+            check(done&&!saver.rescued&&bytes(output)==QString("最新保存 & "+QString::number(mode)).toUtf8()&&WizZiwReader::isEncryptedFile(db.getDocumentFileName(note.strGUID)),"editor and reader producers publish decoded text only after their real encrypted archive save completes");
+            QTemporaryDir extract;const bool extracted=db.documentToHtmlFile(note,extract.path()+"/");
+            check(extracted&&bytes(extract.filePath("index.html")).contains(html.toUtf8())&&bytes(source)==sourceBefore&&web->body=="retained newer DOM"&&web->m_bContentsChanged&&db.getCertPassword()==password,"producer-to-output chain preserves original extraction and newer DOM while archive contains exact submitted body");
+            check(mode==editing?(bytes(edited)==QByteArray::fromHex("efbbbf")+html.toUtf8()&&web->m_currentNoteHtml==html&&web->m_currentNoteHtmlDocument.strGUID==note.strGUID):!QFile::exists(edited),"editor producer preserves UTF-8 BOM and owned source cache while reader retains its no-editor-file contract");
+            web->snapshotHandoff={};
+        }
+        for(const QString stage:{"snapshot","disk","posted"}){
+            WIZDOCUMENTDATAEX note;if(!check(create("producer-relock-"+stage,1,note),"relock chain uses a separate synthetic encrypted note"))return 1;
+            RoutingView owner(explorer);auto* web=prepare(owner,note,editing);HeldSaver saver(manager,nullptr);SaveSignalBridge bridge;wire(web,saver,bridge);
+            QString source;db.documentToTempHtmlFile(note,source);web->m_mapFile[note.strGUID]=source;web->m_strNoteHtmlFileName=root.filePath("relock-"+stage+".html");
+            QString output=root.filePath("relock-"+stage+".txt");WizSaveUnicodeTextToUtf8File(output,"preserve relocked output",false);int completed=0;
+            web->saveAsPlainText(output,[&](QString){++completed;});++web->m_contentChangeSequence;
+            if(stage=="snapshot"){owner.hide();owner.show();submit(owner);}
+            const QString html="<html><body>save-survives-"+stage+"</body></html>";web->m_pdfPageOperations.deliver(snapshot(html));
+            const bool entered=saver.entered.tryAcquire(1,3000);
+            if(stage=="disk"){owner.hide();owner.show();submit(owner);}
+            if(stage=="posted"){
+                saver.release.release();saver.stopWithoutGuiPumping();const bool joined=saver.wait(5000);
+                check(joined,"posted-frontier case joins actual worker without GUI pumping before retiring original read permit");
+                owner.hide();owner.show();submit(owner);
+            }else saver.release.release();
+            saver.waitForDone();app.processEvents();QTemporaryDir extract;const bool extracted=db.documentToHtmlFile(note,extract.path()+"/");
+            check(entered&&!saver.rescued&&web->initialSaveHandoffs==1&&extracted&&bytes(extract.filePath("index.html")).contains(html.toUtf8()),"relock before snapshot, during disk wait or after posted fence never cancels the original real archive save");
+            check(completed==0&&bytes(output)=="preserve relocked output"&&web->body=="retained newer DOM"&&web->m_bContentsChanged,"fresh reauthorization cannot revive old output even after actual save completes; newer dirty DOM stays");
+            web->snapshotHandoff={};
+        }
+        {
+            WIZDOCUMENTDATAEX note;if(!check(create("producer-unchanged",1,note),"unchanged producer chain creates isolated note"))return 1;
+            RoutingView owner(explorer);auto* web=prepare(owner,note,reading);HeldSaver saver(manager,nullptr);SaveSignalBridge bridge;wire(web,saver,bridge);
+            QString source;db.documentToTempHtmlFile(note,source);web->m_mapFile[note.strGUID]=source;
+            saver.save(note,"<html><body>prior queued real save</body></html>",source,0);
+            QString output=root.filePath("producer-unchanged.txt");int completed=0;web->saveAsPlainText(output,[&](QString){++completed;});
+            web->m_pdfPageOperations.deliver(QVariantMap{{"ok",true},{"changed",false}});
+            check(saver.entered.tryAcquire(1,3000)&&web->initialSaveHandoffs==0&&completed==0&&!QFile::exists(output),"actual unchanged reader producer still fences prior queued disk work without inventing a save");
+            saver.release.release();const bool done=until([&]{return completed==1;});saver.waitForDone();
+            check(done&&bytes(output)=="prior queued real save"&&web->m_bContentsChanged,"unchanged producer exports completed prior archive and retains newer dirty state");web->snapshotHandoff={};
+        }
+        {
+            WIZDOCUMENTDATAEX note;if(!check(create("producer-failure",1,note),"failed producer chain creates isolated note"))return 1;
+            RoutingView owner(explorer);auto* web=prepare(owner,note,editing);
+            QString source;db.documentToTempHtmlFile(note,source);web->m_mapFile[note.strGUID]=source;web->m_strNoteHtmlFileName=root.filePath("producer-failure.html");
+            QString output=root.filePath("producer-failure.txt");WizSaveUnicodeTextToUtf8File(output,"keep failed output",false);int completed=0;
+            const QString archive=db.getDocumentFileName(note.strGUID),retained=root.filePath("producer-retained.ziw");const auto original=bytes(archive);
+            if(!check(QFile::rename(archive,retained)&&QDir().mkdir(archive),"ordinary output blocker retains exact private synthetic archive for restoration"))return 1;
+            {
+                HeldSaver saver(manager,nullptr);SaveSignalBridge bridge;wire(web,saver,bridge);web->saveAsPlainText(output,[&](QString){++completed;});
+                web->m_pdfPageOperations.deliver(snapshot("<html><body>failed archive body</body></html>"));const bool entered=saver.entered.tryAcquire(1,3000);
+                saver.release.release();saver.waitForDone();app.processEvents();
+                check(entered&&saver.hasTransferError()&&completed==0&&bytes(output)=="keep failed output"&&bytes(retained)==original,"actual producer success cannot mask disk failure or publish stale archive text");web->snapshotHandoff={};
+            }
+            const bool restored=QDir().rmdir(archive)&&QFile::rename(retained,archive);
+            check(restored&&bytes(archive)==original,"failure cleanup restores the exact retained synthetic archive before explicit retry");
+            {
+                HeldSaver saver(manager,nullptr);SaveSignalBridge bridge;wire(web,saver,bridge);web->saveAsPlainText(output,[&](QString){++completed;});
+                web->m_pdfPageOperations.deliver(snapshot("<html><body>explicit producer retry</body></html>"));const bool entered=saver.entered.tryAcquire(1,3000);
+                saver.release.release();const bool done=until([&]{return completed==1;});saver.waitForDone();
+                check(entered&&done&&bytes(output)=="explicit producer retry"&&WizZiwReader::isEncryptedFile(archive),"fresh explicit producer request publishes only its successfully persisted retry version");web->snapshotHandoff={};
+            }
+        }
+        {
+            WIZDOCUMENTDATAEX note;if(!check(create("producer-destroyed",1,note),"destroyed-owner producer chain creates isolated note"))return 1;
+            auto* owner=new RoutingView(explorer);auto* web=prepare(*owner,note,editing);HeldSaver saver(manager,nullptr);SaveSignalBridge bridge;wire(web,saver,bridge);
+            QString source;db.documentToTempHtmlFile(note,source);web->m_mapFile[note.strGUID]=source;web->m_strNoteHtmlFileName=root.filePath("producer-destroyed.html");
+            QString output=root.filePath("producer-destroyed.txt");int completed=0;web->saveAsPlainText(output,[&](QString){++completed;});
+            web->m_pdfPageOperations.deliver(snapshot("<html><body>surviving queued producer save</body></html>"));const bool entered=saver.entered.tryAcquire(1,3000);
+            delete owner;saver.release.release();saver.waitForDone();app.processEvents();QTemporaryDir extract;const bool extracted=db.documentToHtmlFile(note,extract.path()+"/");
+            check(entered&&completed==0&&!QFile::exists(output)&&extracted&&bytes(extract.filePath("index.html")).contains("surviving queued producer save"),"destroyed editor drops only read/output continuation; original real queued save finishes safely");
+        }
+    }
+    // End Phase159 producer-to-disk tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

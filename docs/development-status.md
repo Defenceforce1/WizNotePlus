@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 158
+# Personal-use development checkpoint: phase 159
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -74,31 +74,35 @@ release, installation, or completed system-authentication acceptance.
 
 ## Latest local verification
 
-The verified-page initializer now explicitly reports whether JavaScript was
-submitted and which preparation attempt is still current. If type, keywords,
-spelling or style preparation revokes access before submission, preserve only
-that unchanged renderer's proof continuation. A new authorization must reprove
-the page before preparing/submitting again. Synchronous reauthorization queues
-recovery after the obsolete preparation stack ends. Already submitted JS never
-replays; a newer setup, navigation, page, opening, loader request or mode cannot
-be taken over by an older interrupted preparation. Save work and dirty DOM remain.
+The previous verified-page setup recovery remains unchanged. Phase 159 adds an
+isolated actual producer-to-disk-to-output chain rather than further splitting
+initialization. The actual save dispatcher, editor and reader snapshot producers,
+read adapter and FIFO frontier helper run together with the real saver and a
+temporary encrypted archive. A Qt AutoConnection bridge mirrors the main-window
+save connection; snapshot transport remains a synthetic renderer reply.
 
-Phase 158 uses **2 incremental/associated groups: 1104 PASS, 0 FAIL in 14.03s**,
-one final run. Routing has 991 checks (25 new); native async retains 113. The
-original-source 969-check control fails 3 assertions normally; its assertion
-corpus remains in the final run. Old 966 routing assertions and native sources
-are unchanged. Extraction only adapts the explicit setup return/signature
-boundary; compiled source bodies and setup JS literals/serializers are verified.
-The retained renderer's actual loaded mapping is verified. No full-suite rerun.
+Phase 159 uses **1 incremental/associated group: 1025 PASS, 0 FAIL in 12.09s**,
+one final run, with 34 new checks and the old 991 routing assertions unchanged.
+Product sources and previous extraction rules are unchanged. Newly extracted
+method bodies are checked byte-for-byte apart from explicit class names. Native
+async and unrelated groups were not rerun or counted as current acceptance. The
+retained engine's loaded mapping is verified, not a claim of native editor use.
 
-The isolated chain now covers verified page, interrupted preparation, fresh page
-proof, one JS submission and readiness/find/plugin delivery. A related test runs
-the actual snapshot-save producer during relock: one save handoff completes,
-newer dirty DOM/cache remain, and an old text export is refused without replacing
-its prior destination. That handoff is not a FIFO disk-save acknowledgement.
-Qt lifetime/timers, real temporary file writes and DB participate; renderer
-navigation/metadata/setup dispatch/plugins/snapshot transport are collaborators.
-This is not full WizEditor/main-window, saver-to-disk or complete PDF acceptance.
+Both editor and reader exports wait for actual encrypted archive persistence,
+not merely the snapshot callback or save handoff. Unchanged snapshots also wait
+for prior queued disk work. Relock before snapshot delivery, during the disk
+wait, and after a frontier is posted but before GUI delivery does not cancel the
+save or revive the old output. Newer dirty DOM and original extraction remain.
+Ordinary synthetic disk-output failure preserves the prior destination; explicit
+retry publishes its own saved version. Owner destruction drops only output while
+the queued save finishes. The editor's existing UTF-8 BOM/cache contract remains.
+
+Fixture-only enum ambiguity/protected-stop compilation errors were corrected.
+The first 1025-check run had one erroneous no-BOM expectation; it was corrected
+to the unchanged writer's documented BOM behavior, then this group alone reran.
+Earlier evidence is retained. No product fix or negative-control claim is made.
+This is not the actual MainWindow saved-handler/quick-sync, native renderer,
+complete PDF export, or full-application/session acceptance.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -113,14 +117,18 @@ specific reason. Historical results are not silently counted as current acceptan
    integration remain distinct from isolated checks of implemented method bodies.
 2. Isolated main-window/output integration and external-editor return/save
    behavior. Loader extraction ownership/resumption is implemented at the tested
-   method boundary, including failed-new-opening backout. Real saver-to-host and
-   worker-to-native-editor integration remain distinct checks. Submitted-setup
+   method boundary, including failed-new-opening backout. Actual snapshot
+   producers through real saver/frontier to text output are now isolated-tested;
+   MainWindow saved-handler and worker-to-native-editor integration remain distinct.
+   Submitted-setup
    readiness and locked-completion recovery are implemented with current-renderer
    proof. A Bool still has no intrinsic event provenance; it cannot authorize setup
    on its own. The bounded initialization method-level recovery stages are now
    implemented, including pre-submission metadata interruption. Native handwriting
-   return, actual saver-to-host/output and full initialization integration remain
-   separate from this isolated chain.
+   return, MainWindow host saved-handler/output UI and full initialization
+   integration remain separate from this isolated chain. Next bounded stage is
+   external-editor watcher/return-save integration; real external processes stay
+   outside synthetic verification.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -133,7 +141,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase158.json](checkpoints/2026-10-21-phase158.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase159.json](checkpoints/2026-10-21-phase159.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).
