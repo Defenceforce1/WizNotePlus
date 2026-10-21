@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 148
+# Personal-use development checkpoint: phase 149
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -35,17 +35,23 @@ release, installation, or completed system-authentication acceptance.
   in the original note; subsequent insertions stop. Image-conversion failure now
   explicitly returns false rather than falling off a non-void function.
 
+- Search-window signals and selected-text publication now retain their original
+  read permit/request epoch. Hide/revoke disconnects and hides transient search
+  UI without clearing fields or saved state. A guarded presentation overload
+  checks each display step; the original overload and find/replace behavior stay.
+  Already dispatched searches/replacements are not retroactively undone.
+
 ## Latest local verification
 
-Phase 148: **26/26 permitted regression groups; 1,769 PASS, 0 FAIL** in 211.02s.
-Six focused groups repeated five times: **5,175 PASS, 0 FAIL**. Both runs verify
+Phase 149: **26/26 permitted regression groups; 1,821 PASS, 0 FAIL** in 211.7s.
+Six focused groups repeated five times: **5,435 PASS, 0 FAIL**. Both runs verify
 the retained renderer runtime's actual loaded mapping. The routing corpus has
-695 checks, including 51 new checks. Original source failed 6 assertions normally
-in the initial 650-check corpus; that corpus passed after the fix. A test-only
-logging-adapter build failure and an expanded fixture counter error are retained.
-An existing test resource getter was also corrected to snapshot its value before
-a destruction hook. Earlier successful runs are archived separately; the final
-repeated and full runs use the corrected fixture.
+747 checks, including 52 new checks. The actual original-source control failed 5
+assertions normally in the initial 700-check corpus, which passed after the fix;
+the expanded 747-check corpus also passed. Actual search fields/buttons, close
+events, QObject destruction and queued Qt signals execute offscreen. Find/JS
+dispatch and activation/raise boundaries are recording collaborators, not native
+whole-client or Blink text-location acceptance.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -55,9 +61,9 @@ results for those groups are not silently counted as current acceptance.
 
 ## Remaining bounded work
 
-1. Find/selection lifecycles and synthetic-only screenshot orchestration. Native
-   clipboard/paste/drop, link-window/editor and file-chooser integration remain
-   distinct from isolated checks of the implemented method bodies.
+1. Synthetic-only screenshot orchestration and late-result handling. Native
+   search/selection, clipboard/paste/drop, link-window/editor and file-chooser
+   integration remain distinct from isolated checks of implemented method bodies.
 2. Actual navigation, initial read/snapshot/output and isolated main-window
    integration, including external-editor return/save behavior.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
@@ -72,7 +78,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase148.json](checkpoints/2026-10-21-phase148.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase149.json](checkpoints/2026-10-21-phase149.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

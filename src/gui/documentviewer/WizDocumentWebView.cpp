@@ -246,6 +246,7 @@ WizDocumentWebView::~WizDocumentWebView()
 {
     cancelMarkdownRecovery();
     cancelLinkInsert();
+    cancelFindReplace();
     cancelPdfExport();
     m_documentCallbacks.cancel();
 }
@@ -518,9 +519,9 @@ void WizDocumentWebView::focusOutEvent(QFocusEvent *event)
 
 void WizDocumentWebView::hideEvent(QHideEvent *event)
 {
-    if (m_searchReplaceWidget)
-        m_searchReplaceWidget->hide();
-    WizWebEngineView::hideEvent(event);
+    const QPointer<WizDocumentWebView> self(this);
+    cancelFindReplace();
+    if (self) WizWebEngineView::hideEvent(event);
 }
 
 /**
@@ -2010,6 +2011,7 @@ void WizDocumentWebView::invalidateDocumentCallbacks()
 {
     m_documentCallbacks.invalidate();
     cancelLinkInsert();
+    cancelFindReplace();
     cancelPdfExport();
     cancelMarkdownRecovery();
 }
@@ -2059,28 +2061,67 @@ void WizDocumentWebView::editorCommandExecuteLinkRemove()
 
 void WizDocumentWebView::editorCommandExecuteFindReplace()
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    m_findUiCallbacks.invalidate();
+    const auto request = m_findUiCallbacks.ticket();
     if (!m_searchReplaceWidget)
-    {
         m_searchReplaceWidget = new WizSearchReplaceWidget(this);
-        //
-        connect(m_searchReplaceWidget, SIGNAL(findPre(QString,bool)), SLOT(findPre(QString,bool)));
-        connect(m_searchReplaceWidget, SIGNAL(findNext(QString,bool)), SLOT(findNext(QString,bool)));
-        connect(m_searchReplaceWidget, SIGNAL(replaceCurrent(QString,QString)), SLOT(replaceCurrent(QString,QString)));
-        connect(m_searchReplaceWidget, SIGNAL(replaceAndFindNext(QString,QString,bool)), SLOT(replaceAndFindNext(QString,QString,bool)));
-        connect(m_searchReplaceWidget, SIGNAL(replaceAll(QString,QString,bool)), SLOT(replaceAll(QString,QString,bool)));
-    }
+    if (!self || !read.current() || !WizDocumentCallbackEpoch::current(request)) return;
+    const QPointer<WizSearchReplaceWidget> form(m_searchReplaceWidget);
+    const auto current = [self, form, read, request] {
+        return self && form && read.current() && WizDocumentCallbackEpoch::current(request)
+            && self->m_searchReplaceWidget == form;
+    };
+    const auto stopped = [self, form, current, request] {
+        if (current()) return false;
+        if (self && self->m_searchReplaceWidget == form && WizDocumentCallbackEpoch::current(request)) self->cancelFindReplace();
+        return true;
+    };
+    // Posted signals keep their original permit/epoch even after disconnect.
+    QObject::disconnect(form.data(), nullptr, this, nullptr);
+    connect(form.data(), &WizSearchReplaceWidget::findPre, this, [self, form, current](QString text, bool flag) {
+        if (current() && form->isVisible()) self->findPre(text, flag);
+    });
+    connect(form.data(), &WizSearchReplaceWidget::findNext, this, [self, form, current](QString text, bool flag) {
+        if (current() && form->isVisible()) self->findNext(text, flag);
+    });
+    connect(form.data(), &WizSearchReplaceWidget::replaceCurrent, this, [self, form, current](QString from, QString to) {
+        if (current() && form->isVisible()) self->replaceCurrent(from, to);
+    });
+    connect(form.data(), &WizSearchReplaceWidget::replaceAndFindNext, this, [self, form, current](QString from, QString to, bool flag) {
+        if (current() && form->isVisible()) self->replaceAndFindNext(from, to, flag);
+    });
+    connect(form.data(), &WizSearchReplaceWidget::replaceAll, this, [self, form, current](QString from, QString to, bool flag) {
+        if (current() && form->isVisible()) self->replaceAll(from, to, flag);
+    });
 
     QRect rect = geometry();
     QPoint leftTop = pos();
     if (parentWidget())
         leftTop = parentWidget()->mapToGlobal(leftTop);
     rect.moveTo(leftTop);
-    m_searchReplaceWidget->showInEditor(rect);
-    m_searchReplaceWidget->setSourceText(selectedText());
+    if (stopped()) return;
+    form->showInEditor(rect, current);
+    if (stopped() || !form->isVisible()) return;
+    const QString source = selectedText();
+    if (stopped() || !form->isVisible()) return;
+    form->setSourceText(source);
+    if (stopped() || !form->isVisible()) return;
 
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("findReplace");
 
+}
+
+void WizDocumentWebView::cancelFindReplace()
+{
+    m_findUiCallbacks.invalidate();
+    const QPointer<WizSearchReplaceWidget> form(m_searchReplaceWidget);
+    if (!form) return;
+    QObject::disconnect(form.data(), nullptr, this, nullptr);
+    form->hide();
 }
 
 void WizDocumentWebView::innerFindText(QString text, bool next, bool matchCase)
@@ -2089,7 +2130,7 @@ void WizDocumentWebView::innerFindText(QString text, bool next, bool matchCase)
     QString code = QString("find('%1', %2, %3, true)").arg(text)
             .arg(back ? "true" : "false")
             .arg(matchCase ? "true" : "false");
-    page()->runJavaScript(code);
+    editorExecJs(code);
 
 }
 
@@ -2097,6 +2138,7 @@ static QString strOldSearchText = "";
 static bool strOldCase = false;
 void WizDocumentWebView::findPre(QString strTxt, bool bCasesensitive)
 {
+    if (!noteReadPermit().current()) return;
     //FIXME:  there is a problem here, HighlightAllOccurrences can not be used togethor with find one.
     if (strOldSearchText != strTxt || strOldCase != bCasesensitive)
     {
@@ -2118,6 +2160,7 @@ void WizDocumentWebView::findPre(QString strTxt, bool bCasesensitive)
 
 void WizDocumentWebView::findNext(QString strTxt, bool bCasesensitive)
 {
+    if (!noteReadPermit().current()) return;
     if (strOldSearchText != strTxt || strOldCase != bCasesensitive)
     {
         //findText("", 0);

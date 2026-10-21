@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase149",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "921a9caca6344f3f43ff1ab1a7c4d88fcb74f990",
+  "sourceCheckpoint": "phase149",
+  "localRegression": {
+    "groups": 26,
+    "pass": 1821,
+    "fail": 0,
+    "seconds": 211.7,
+    "focusedRepeatedPass": 5435,
+    "routingChecks": 747,
+    "actualRetainedRuntimeMappingVerified": true,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "checks": 700,
+    "failures": 5,
+    "normalExit": true,
+    "sameInitialCorpusAfterFixPass": 700
+  },
+  "expandedControl": {
+    "checks": 747,
+    "failures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Search-window signals and selected-text publication retain the original permit/request epoch; hide/revoke disconnects/hides transient UI without clearing fields or save state. Guarded presentation rechecks each stage; original overload, close clearing, find/replace bytes and modification policy remain. Actual fields/buttons, close events, QObject destruction and queued Qt signals execute offscreen; find/JS and activation/raise are recorders. Already dispatched operations are not retroactively undone. Native whole-client/renderer/system authentication remain unaccepted.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 113033,
+      "gitBlobSha": "fc72ec9ae868e59a3c1a5bf89dca180d21f0a435",
+      "sha256": "43776ef121e552e1ab967c563890d3fbe24ad46c78dc566d6257c3de4f02e632"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 14716,
+      "gitBlobSha": "221a6f7fad1d01336ffdb3025480f4fc0e9665ed",
+      "sha256": "0b0d6abf4f2cb2b3d0046c3031611f61382155058671d286068f11364915123c"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 50720,
+      "gitBlobSha": "403f5d1cebddddcde10e827f19f0c3b3fc71447d",
+      "sha256": "030c6df89f7775f5584f6dbf2dd3f30e3214ac621bc5670de7c203b71cc9fddc"
+    },
+    {
+      "path": "src/gui/documentviewer/WizSearchReplaceWidget.cpp",
+      "mode": "100644",
+      "bytes": 3367,
+      "gitBlobSha": "84b061b78671eafc0adc040efc9bdd592428d92f",
+      "sha256": "b13ca2b953ac33fdce6f96fdd871dfd03a0c2cdbf1477d461d62f93b203cbc6c"
+    },
+    {
+      "path": "src/gui/documentviewer/WizSearchReplaceWidget.h",
+      "mode": "100644",
+      "bytes": 1329,
+      "gitBlobSha": "06efa969d349312559f5ce12552f62a645d23714",
+      "sha256": "97e4458d3bf0b1bcc224b898d4245d7ac897d374b7287c6ee405b86c034393ec"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 248589,
+      "gitBlobSha": "93e854da7f3772743e6c7b04eea0d5b67b953079",
+      "sha256": "28675e198c70cb5e207709a0a4e74b7b7fd22b4878e8ea22e249b2779e5dee0a"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 28415,
+      "gitBlobSha": "3f8d67bf580e76ed19d79888992a59f524bb19cc",
+      "sha256": "cf4c6fcf114d56bc2b78295d6315e16467e80f2e756086bb6e10d8d388b2547a"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 5234,
+      "gitBlobSha": "bcb38eca9faf46073e83023cfec8da184dd5deb3",
+      "sha256": "a09a6cd3bbf9b828c7f09811305b112861bcd9e2f6caab4ab0985292e9ef37be"
+    }
+  ]
+}

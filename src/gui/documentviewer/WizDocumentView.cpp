@@ -401,6 +401,8 @@ void WizDocumentView::hideEvent(QHideEvent* event)
     m_biometricPrepared = false;
     m_web->cancelLinkInsert();
     if (!self) return;
+    m_web->cancelFindReplace();
+    if (!self) return;
     if (m_biometricEnabled) m_web->closeDevTools();
     if (!self) return;
     m_passwordView->cancelBiometric();
@@ -1006,6 +1008,8 @@ void WizDocumentView::revokeBiometricAccess(bool closing)
     m_biometricPrepared = false;
     if (closing) m_accessClosing = true;
     m_web->cancelLinkInsert();
+    if (!self) return;
+    m_web->cancelFindReplace();
     if (!self) return;
     m_web->closeDevTools();
     if (!self) return;

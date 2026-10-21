@@ -22,6 +22,7 @@
 #include "utils/WizPathResolve.h"
 #include "gui/documentviewer/DocumentLoaderSaver.h"
 #include "gui/documentviewer/WizEditorInsertLinkForm.h"
+#include "gui/documentviewer/WizSearchReplaceWidget.h"
 #include "mac/WizMacHelper.h"
 #include <QImageReader>
 #include <QApplication>
@@ -189,6 +190,27 @@ struct RoutingLinkForm : WizEditorInsertLinkForm {
     void activateWindow(){++activations;const auto hook=onActivate;if(hook)hook();}
     static void reset(){onSetUrl={};onShow={};onRaise={};onActivate={};onGetUrl={};}
 };
+// Phase149: real search dialog fields/signals and actual presentation methods;
+// hooks record UI boundaries offscreen, never activate a foreground window.
+struct SearchForm : WizSearchReplaceWidget {
+    using WizSearchReplaceWidget::WizSearchReplaceWidget;
+    static inline std::function<void(const QString&)> duringStep;
+    static inline QStringList steps;
+    static void step(const QString& name){steps.push_back(name);const auto hook=duringStep;if(hook)hook(name);}
+    QSize sizeHint()const override{const auto result=WizSearchReplaceWidget::sizeHint();step("hint");return result;}
+    void setGeometry(const QRect& rect){QDialog::setGeometry(rect);step("geometry");}
+    void setParent(QWidget* parent){QDialog::setParent(parent);step("parent");}
+    void show(){QDialog::show();step("show");}
+    void setWindowState(Qt::WindowStates state){QDialog::setWindowState(state);step("state");}
+    void setFixedSize(const QSize& size){QDialog::setFixedSize(size);step("size");}
+    void activateWindow(){step("activate");}
+    void raise(){step("raise");}
+    void setSourceText(const QString& text){WizSearchReplaceWidget::setSourceText(text);step("source");}
+    void showInEditor(const QRect&);void showInEditor(const QRect&,const std::function<bool()>&);
+    static void reset(){duringStep={};steps.clear();}
+};
+#include WIZNOTE_FIND_WIDGET_METHODS
+// End Phase149 search collaborator.
 // Only the inspector collaborator records operations. The exact current base
 // lifecycle methods below run with real QWidget ownership/deferred destruction.
 struct InspectorPage {
@@ -295,6 +317,21 @@ struct Web : InspectorShell {
     void saveAsRenderedHtml(QString&,std::function<void(QString)>);
     bool onPasteCommand(){++pasteRequests;return false;}
     bool runPasteCommand();bool acceptUrlAsAttachment(const QUrl&);void addAttachmentThumbnail(QString,const QString&);
+    QPointer<SearchForm> m_searchReplaceWidget;WizDocumentCallbackEpoch m_findUiCallbacks;
+    int selectedReads=0;QString selection;std::function<void()> duringSelection,duringFind;
+    QList<QPair<QString,QWebEnginePage::FindFlags>> finds;
+    QString selectedText(){++selectedReads;const auto value=selection;const auto hook=duringSelection;if(hook)hook();return value;}
+    void findText(QString text,QWebEnginePage::FindFlags flags={}){finds.push_back({text,flags});const auto hook=duringFind;if(hook)hook();}
+    void editorCommandExecuteFindReplace();void cancelFindReplace();void innerFindText(QString,bool,bool);void findPre(QString,bool);void findNext(QString,bool);
+    void hideEvent(QHideEvent*) override;
+    void connect(SearchForm* form,const char* signal,const char*){
+        const QByteArray name(signal);
+        if(name.contains("findPre("))QObject::connect(form,&WizSearchReplaceWidget::findPre,this,[this](QString text,bool flag){findPre(text,flag);});
+        else if(name.contains("findNext("))QObject::connect(form,&WizSearchReplaceWidget::findNext,this,[this](QString text,bool flag){findNext(text,flag);});
+        else if(name.contains("replaceCurrent("))QObject::connect(form,&WizSearchReplaceWidget::replaceCurrent,this,[this](QString a,QString b){replaceCurrent(a,b);});
+        else if(name.contains("replaceAndFindNext("))QObject::connect(form,&WizSearchReplaceWidget::replaceAndFindNext,this,[this](QString a,QString b,bool flag){replaceAndFindNext(a,b,flag);});
+        else if(name.contains("replaceAll("))QObject::connect(form,&WizSearchReplaceWidget::replaceAll,this,[this](QString a,QString b,bool flag){replaceAll(a,b,flag);});
+    }
     void trySaveDocument(const WIZDOCUMENTDATA& doc,bool,Completion done) {
         ++saves;if(defer)pending.push_back(std::move(done));else {
             if(reply.userType()==QMetaType::Bool&&reply.toBool()&&handoff)handoff(doc);
@@ -591,6 +628,7 @@ struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime ti
 #include WIZNOTE_TOOLBAR_METHODS
 #include WIZNOTE_PICKER_METHODS
 #include WIZNOTE_LINK_METHODS
+#include WIZNOTE_FIND_METHODS
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -2609,6 +2647,77 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         AttachmentOps::reset();
     }
     // End Phase148 tests.
+    // Phase149: original search dialog/query bodies with a recording page.
+    {
+        const auto prepare=[&](RoutingView& owner){SearchForm::reset();owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->editing=true;owner.m_web->selection="synthetic selection";owner.m_web->finds.clear();owner.m_web->sourcePage.commands.clear();};
+        RoutingView locked(explorer);prepare(locked);auto* web=locked.m_web;locked.hide();web->findPre("hidden",true);web->findNext("hidden",false);web->innerFindText("hidden",true,false);
+        check(web->finds.empty()&&web->sourcePage.commands.empty(),"locked direct find helpers never search or dispatch JavaScript to the hidden document");
+        web->editorCommandExecuteFindReplace();check(!web->m_searchReplaceWidget&&web->selectedReads==0,"locked search dialog never opens or reads selected text");
+        RoutingView show(explorer);prepare(show);web=show.m_web;SearchForm::duringStep=[&](const QString& step){if(step=="show"){show.hide();show.show();submit(show);}};web->editorCommandExecuteFindReplace();SearchForm::reset();
+        check(web->selectedReads==0&&web->finds.empty(),"search presentation revoked during show cannot borrow a renewed permit to read selection");
+        RoutingView selection(explorer);prepare(selection);web=selection.m_web;web->duringSelection=[&]{selection.hide();selection.show();submit(selection);};web->editorCommandExecuteFindReplace();web->duringSelection={};
+        check(web->finds.empty(),"selection retrieval revoked during its getter cannot publish stale source text or search");
+        RoutingView stale(explorer);prepare(stale);web=stale.m_web;web->editorCommandExecuteFindReplace();const QPointer<SearchForm> form=web->m_searchReplaceWidget;stale.hide();stale.show();submit(stale);web->finds.clear();form->setSourceText("obsolete window");
+        check(web->finds.empty()&&!form->isVisible(),"revoked search form signals cannot target a newly authorized opening");
+        SearchForm::reset();
+        // Extended Phase149 matrix: original fields/buttons and Qt queued
+        // signals run; only find/JS dispatch and activation are recorders.
+        RoutingView normal(explorer);prepare(normal);web=normal.m_web;web->editorCommandExecuteFindReplace();auto* dialog=web->m_searchReplaceWidget.data();
+        auto* source=dialog->findChild<QLineEdit*>("lineEdit_source");auto* replacement=dialog->findChild<QLineEdit*>("lineEdit_repalce");auto* match=dialog->findChild<QCheckBox*>("checkBox_casesenitive");
+        check(dialog->isVisible()&&source&&replacement&&match&&source->text()==web->selection&&web->finds.size()==1&&web->finds.first().first==web->selection,"actual search fields receive current selection and emit the original initial find exactly once");
+        for(bool sensitive:{false,true}){
+            web->finds.clear();web->findPre("A",sensitive);web->findNext("A",sensitive);
+            check(web->finds.size()==2&&web->finds[0].second.testFlag(QWebEnginePage::FindBackward)&&!web->finds[1].second.testFlag(QWebEnginePage::FindBackward)&&web->finds[0].second.testFlag(QWebEnginePage::FindCaseSensitively)==sensitive&&web->finds[1].second.testFlag(QWebEnginePage::FindCaseSensitively)==sensitive,"authorized direct find preserves direction and both case-sensitive modes");
+        }
+        web->sourcePage.commands.clear();web->innerFindText("A",false,true);
+        check(web->sourcePage.commands==QStringList({"find('A', true, true, true)"}),"legacy inner find keeps the exact original JavaScript command behind the common read check");
+        source->setText("A");replacement->setText("B");match->setChecked(true);web->finds.clear();web->sourcePage.commands.clear();
+        dialog->findChild<QPushButton*>("btn_pre")->click();dialog->findChild<QPushButton*>("btn_next")->click();
+        check(web->finds.size()==2&&web->finds[0].first=="A"&&web->finds[0].second.testFlag(QWebEnginePage::FindBackward)&&web->finds[1].second.testFlag(QWebEnginePage::FindCaseSensitively),"actual previous/next buttons use original field text case flag and find direction");
+        emit dialog->replaceCurrent("A","B");dialog->findChild<QPushButton*>("btn_replace")->click();const auto dirtyBefore=web->m_contentChangeSequence;dialog->findChild<QPushButton*>("btn_replaceAll")->click();
+        check(web->sourcePage.commands==QStringList({"WizEditor.replace('A', 'B', true)","WizEditor.replace('A', 'B', true)","WizEditor.replaceAll('A', 'B', true)"})&&web->m_contentChangeSequence==dirtyBefore+1,"actual replacement signal/buttons preserve command bytes and original replace-all dirty policy");
+        web->selection="reopened selection";web->editorCommandExecuteFindReplace();web->editorCommandExecuteFindReplace();web->finds.clear();source->setText("only once");
+        check(web->m_searchReplaceWidget==dialog&&web->finds.size()==1,"repeated authorized opening reuses the dialog without duplicate signal connections");
+        web->finds.clear();dialog->close();
+        check(!dialog->isVisible()&&source->text().isEmpty()&&replacement->text().isEmpty()&&web->finds.size()==2&&web->finds[0].first.isEmpty()&&web->finds[1].first.isEmpty(),"actual close event preserves both original clear-search notifications and field clearing");
+        web->sourcePage.commands.clear();emit dialog->replaceAll("late","closed",false);
+        check(web->sourcePage.commands.empty(),"closed search dialog cannot issue a later replacement while its note remains readable");
+        web->editorCommandExecuteFindReplace();source->setText("retained search text");replacement->setText("retained replacement");web->finds.clear();web->cancelFindReplace();
+        check(!dialog->isVisible()&&source->text()=="retained search text"&&replacement->text()=="retained replacement"&&web->finds.empty(),"explicit transient cancellation hides without clearing original search fields or running a query");
+        web->show();web->editorCommandExecuteFindReplace();web->finds.clear();web->hide();emit dialog->findNext("hidden web",false);
+        check(!dialog->isVisible()&&web->finds.empty()&&web->noteReadPermit().current(),"actual WebView hide cancels its search window even when the view's read permit itself remains valid");
+        web->show();web->editorCommandExecuteFindReplace();auto* queuedDialog=web->m_searchReplaceWidget.data();
+        auto* worker=QThread::create([queuedDialog]{emit queuedDialog->findNext("old queued find",false);emit queuedDialog->replaceAll("old","queued",false);});worker->start();worker->wait();delete worker;
+        web->editorCommandExecuteFindReplace();web->finds.clear();web->sourcePage.commands.clear();const auto queuedDirty=web->m_contentChangeSequence;app.processEvents();
+        check(web->finds.empty()&&web->sourcePage.commands.empty()&&web->m_contentChangeSequence==queuedDirty,"actual previously queued Qt signals keep the old request epoch after disconnect and reopening");
+        worker=QThread::create([queuedDialog]{emit queuedDialog->findNext("old authorization",false);});worker->start();worker->wait();delete worker;normal.hide();normal.show();submit(normal);web->finds.clear();app.processEvents();
+        check(web->finds.empty()&&!queuedDialog->isVisible(),"actual queued find cannot borrow a fresh authorization on the same note");
+        for(const QString step:{"hint","geometry","parent","show","state","size","activate","raise","source"}){
+            RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="unsaved search fixture";const auto ticket=target->documentCallbackTicket();const int logs=ToolbarAnalyzer::events.size();bool fired=false;
+            SearchForm::duringStep=[&](const QString& at){if(at==step&&!fired){fired=true;owner.revokeBiometricAccess();}};target->editorCommandExecuteFindReplace();const int activations=SearchForm::steps.count("activate");SearchForm::duringStep={};
+            const int expectedSelection=step=="source"?1:0;const int expectedActivation=(step=="activate"||step=="raise"||step=="source")?1:0;
+            const auto label=("search presentation stops at revoked stage "+step).toUtf8();
+            check(fired&&target->selectedReads==expectedSelection&&activations==expectedActivation&&target->m_searchReplaceWidget&&!target->m_searchReplaceWidget->isVisible()&&ToolbarAnalyzer::events.size()==logs,label.constData());
+            check(target->body=="unsaved search fixture"&&WizDocumentCallbackEpoch::current(ticket)&&db.getCertPassword()==password,"search revocation leaves original unsaved body independent save ticket and cache unchanged");
+            SearchForm::reset();
+        }
+        for(const QString step:{"hint","geometry","parent","show","state","size","activate","raise","source","selection"}){
+            auto* owner=new RoutingView(explorer);prepare(*owner);auto* target=owner->m_web;QPointer<Web> weak(target);bool fired=false;
+            if(step=="selection")target->duringSelection=[&]{delete owner;};else SearchForm::duringStep=[&](const QString& at){if(at==step&&!fired){fired=true;delete owner;}};
+            target->editorCommandExecuteFindReplace();SearchForm::reset();check(!weak,"actual search owner destruction safely stops every presentation or selection continuation");
+        }
+        RoutingView deletedForm(explorer);prepare(deletedForm);web=deletedForm.m_web;SearchForm::duringStep=[&](const QString& at){if(at=="show")delete web->m_searchReplaceWidget.data();};web->editorCommandExecuteFindReplace();SearchForm::reset();
+        check(!web->m_searchReplaceWidget&&web->selectedReads==0,"actual search dialog destruction during presentation clears its weak field and skips selected text");
+        web->editorCommandExecuteFindReplace();check(web->m_searchReplaceWidget&&web->m_searchReplaceWidget->isVisible(),"a new search dialog can be created after the old one was destroyed independently");
+        RoutingView nested(explorer);prepare(nested);web=nested.m_web;web->duringSelection=[&]{web->duringSelection={};web->selection="fresh nested selection";web->editorCommandExecuteFindReplace();};web->editorCommandExecuteFindReplace();
+        check(web->m_searchReplaceWidget->isVisible()&&web->m_searchReplaceWidget->findChild<QLineEdit*>("lineEdit_source")->text()=="fresh nested selection"&&web->finds.size()==1&&web->finds.first().first=="fresh nested selection","nested new request during selectedText survives while the old getter result is discarded");
+        RoutingView nestedShow(explorer);prepare(nestedShow);web=nestedShow.m_web;SearchForm::duringStep=[&](const QString& at){if(at=="show"){SearchForm::duringStep={};web->editorCommandExecuteFindReplace();}};web->editorCommandExecuteFindReplace();SearchForm::reset();
+        check(web->m_searchReplaceWidget->isVisible()&&web->selectedReads==1&&web->finds.size()==1,"nested new search opening during presentation is not canceled by the obsolete outer stack");
+        SearchForm unscoped;SearchForm::reset();unscoped.showInEditor(QRect(0,0,700,300));check(unscoped.isVisible()&&SearchForm::steps.contains("raise"),"the original unscoped presentation overload retains its normal UI sequence");unscoped.hide();SearchForm::reset();
+        auto* predicate=new SearchForm;QPointer<SearchForm> predicateWeak(predicate);predicate->showInEditor(QRect(0,0,700,300),[&]{delete predicate;return true;});
+        check(!predicateWeak&&SearchForm::steps.empty(),"guarded presentation rechecks its weak dialog after the predicate destroys it");SearchForm::reset();
+    }
+    // End Phase149 search tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

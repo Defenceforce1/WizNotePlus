@@ -2,6 +2,7 @@
 #define WIZSEARCHREPLACEWIDGET_H
 
 #include <QDialog>
+#include <functional>
 
 namespace Ui {
 class WizSearchReplaceWidget;
@@ -17,6 +18,7 @@ public:
     ~WizSearchReplaceWidget();
 
     void showInEditor(const QRect& rcEditor);
+    void showInEditor(const QRect& rcEditor, const std::function<bool()>& canShow);
     void setSourceText(const QString& text);
 
 signals:

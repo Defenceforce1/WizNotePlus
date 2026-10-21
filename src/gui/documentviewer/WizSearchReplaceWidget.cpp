@@ -2,6 +2,7 @@
 #include "ui_WizSearchReplaceWidget.h"
 
 #include <QStyle>
+#include <QPointer>
 
 WizSearchReplaceWidget::WizSearchReplaceWidget(QWidget* parent) :
     QDialog(parent),
@@ -27,20 +28,40 @@ WizSearchReplaceWidget::~WizSearchReplaceWidget()
 
 void WizSearchReplaceWidget::showInEditor(const QRect& rcEditor)
 {
+    showInEditor(rcEditor, [] { return true; });
+}
+
+void WizSearchReplaceWidget::showInEditor(const QRect& rcEditor, const std::function<bool()>& canShow)
+{
+    const QPointer<WizSearchReplaceWidget> self(this);
+    const auto current = [self, canShow] {
+        if (!self || !canShow) return false;
+        const bool allowed = canShow();
+        return self && allowed;
+    };
+    if (!current()) return;
+    const QSize hint = sizeHint();
+    if (!current()) return;
     setGeometry(
         QStyle::alignedRect(
             Qt::LeftToRight,
             Qt::AlignHCenter | Qt::AlignTop,
-            sizeHint(),
+            hint,
             rcEditor
         )
     );
+    if (!current()) return;
 
     setParent(parentWidget());
+    if (!current()) return;
     show();
+    if (!current()) return;
     setWindowState(windowState() & ~Qt::WindowFullScreen | Qt::WindowActive);
+    if (!current()) return;
     setFixedSize(size());
+    if (!current()) return;
     activateWindow();
+    if (!current()) return;
     raise();
     //ui->lineEdit_source->setFocus();
 }

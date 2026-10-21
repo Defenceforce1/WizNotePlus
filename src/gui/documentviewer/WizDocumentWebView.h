@@ -249,7 +249,8 @@ private:
     QPointer<WizMarkdownExportRecoverySession> m_markdownRecoverySession;
 #endif
 
-    WizSearchReplaceWidget* m_searchReplaceWidget;
+    QPointer<WizSearchReplaceWidget> m_searchReplaceWidget;
+    WizDocumentCallbackEpoch m_findUiCallbacks;
 
     ApiWizHtmlEditorApp* m_htmlEditorApp;
 
@@ -258,6 +259,7 @@ private:
 public:
     // Close only transient link UI; do not cancel required save callbacks.
     void cancelLinkInsert();
+    void cancelFindReplace();
     void cancelPdfExport();
     void onNoteLoadFinished(); // editor callback
     void discardChanges();
