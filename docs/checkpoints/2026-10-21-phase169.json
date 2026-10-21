@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase169",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "7fcff97ac3ba49d0007757b2e56a7c40955dffc0",
+  "sourceCheckpoint": "focused-authorized-synthetic-foreground-with-multline-gutter-fix",
+  "localRegression": {
+    "kind": "explicitly-authorized-synthetic-foreground-and-associated",
+    "foregroundChecks": 32,
+    "foregroundFail": 0,
+    "associatedGroups": 1,
+    "associatedChecks": 37,
+    "associatedFail": 0,
+    "associatedSeconds": 72.35,
+    "fullSuiteRerun": false,
+    "physicalPointer": false,
+    "nativeSavePanel": false,
+    "realScreenCapture": false,
+    "realAuthentication": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "fullProjectComplete": false,
+  "localExecutableFeatureListComplete": true,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Explicit user authorization for isolated synthetic foreground UI. Actual Cocoa MainWindow, production document views/renderer, Qt dialogs/info popup/saver/normal quit handler:32 checks pass. Programmatic actions, Qt chooser not native NS panel, synthetic capture delivered before real screen timer; no desktop capture/Keychain/auth/normal account/services. Two actual PDF submenu exports:4 valid internal destinations each,16 prose markers,same12pt prose,exact Markdown; full-page Poppler rendering visually reviewed. Fix reading-width long automatically wrapped multline body touching tag: reserve first-row badge gutter; locally fit still-inseparable wide multline SVG; restore styles/aspect ratio. Associated native editor runtime37/0,72.35s including three edit/read/print restoration cycles; no unrelated full suite. Eight incomplete foreground attempts preserved privately; corrected test driver reference markup/chooser readiness/empty synthetic server/duplicate mode commands/new<=1-second note branch/Cocoa blank message title. One failed synthetic process terminated during cleanup, not accepted. Final32 cover existing notes, not the just-created branch or complete native client. Normal Touch ID disabled,recovery OFF,automation PAUSED,no install/package.",
+  "files": [
+    {
+      "path": "src/CMakeLists.txt",
+      "mode": "100644",
+      "bytes": 29939,
+      "chars": 29939,
+      "gitBlobSha": "6892e354dc62630f12cb1800df956104b0fe9ec6",
+      "sha256": "62837a0927d95adec3814da3d6eb6029470bd9968a9cbf3104268f5e7771095a"
+    },
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "bytes": 23667,
+      "chars": 23399,
+      "gitBlobSha": "cde32b6863beefcbf15e9afc785904f1baf35ccc",
+      "sha256": "68843024e099349912b7fb82e72fa99dc39d7a0490dad354bc84af50a6af4d50"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 25398,
+      "chars": 25398,
+      "gitBlobSha": "3eb0eb78b44fdc6877c1a965ff52e85c47ceee29",
+      "sha256": "a0d7a981217125f922ecc3c0da2819abcee68e8a8a41e5a783f352738950a941"
+    },
+    {
+      "path": "src/share/WizPdfSvgLinks.h",
+      "mode": "100644",
+      "bytes": 15249,
+      "chars": 15249,
+      "gitBlobSha": "5d4e9a25ee224e6a308c6cb1348e882197b1d400",
+      "sha256": "774f270bac794cafc92c7a2a82c91cdaaad8fe43c74942bbaeeb47982c7a790f"
+    },
+    {
+      "path": "tests/compat/native-feature-acceptance.mm",
+      "mode": "100644",
+      "bytes": 22904,
+      "chars": 22794,
+      "gitBlobSha": "4007caf1c7f29e54f1f2513c60744ec54c54212c",
+      "sha256": "f1f60cc1f720b839f8510797e8c8d417c3def098c90237de45fa4f7a068c0013"
+    }
+  ]
+}

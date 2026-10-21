@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: remaining feature implementation
+# Personal-use development checkpoint: focused foreground acceptance
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -82,6 +82,49 @@ release, installation, or completed system-authentication acceptance.
   Already dispatched JavaScript is not retroactively canceled.
 
 ## Latest local verification
+
+With explicit user authorization, a focused Cocoa run now instantiates the actual
+main window, production note views, renderer, Qt dialogs, save worker and exit
+handler using only disposable synthetic data. **32 foreground checks pass**:
+bare math rendering, both PDF submenu choices, Markdown source preservation,
+protected screenshot return/reauthorization/insertion, encrypted image save,
+wrong-password and confirmation-No refusal, confirmed permanent decryption via
+the real information popup, backup/state refresh and dirty-content save before
+the original eleven-stage exit cleanup. UI commands are programmatically driven.
+
+Visual PDF review found a real long-multline issue: an automatically wrapped body
+could touch its normal-size equation badge in reading-width export. Supported
+row fitting now reserves the first-row tag gutter too. A still-inseparable wide
+multline SVG is fitted locally inside that gutter, preserving ordinary text and
+number size; print-only styles/aspect ratio are restored afterward. Final PDFs
+have four valid internal destinations each, all 16 prose markers, the same 12pt
+prose in both modes and exact exported Markdown. Both complete pages were rendered
+and visually reviewed with no observed body/number collision or text clipping in
+this fixture. Reading width is 553.92pt; the A4 sample is about 594.96pt wide.
+One affected native-editor/runtime group also passes **37 checks, 0 failures** in
+72.35s, including three edit/read/print restoration cycles. No unrelated full
+suite was rerun; old phase-168 counts below are retained, not accumulated here.
+
+The final run follows test-driver corrections for distinct reference markup,
+chooser readiness/filename, nonempty synthetic policy identity, duplicate mode
+commands, the <=1-second new-note auto-edit branch and Cocoa's empty message-box
+window titles. Eight incomplete attempts remain recorded locally; one isolated
+failed process stalled in cleanup and was terminated without touching another
+application or normal notes. Final results cover existing-note workflows, not
+that special just-created-note branch. No result from an incomplete run is
+presented as overall acceptance.
+
+No normal account, real notes, desktop capture, native Touch ID/Keychain, service,
+installation or packaging was used. The capture payload is a synthetic image,
+delivered synchronously before the real helper's 200ms screen-grab timer can run.
+Screenshots contain only this synthetic app's own widgets. Save dialogs are real
+Qt widgets on Cocoa, not native NS(Save/Open)Panel or physical-pointer acceptance.
+The existing isolated-window property disables sync/listeners; remote page
+requests are intercepted, the local-only proxy remains in place and system
+protection is unchanged. Normal Touch ID remains disabled. The manual-only probe
+is not registered for unattended CTest execution.
+
+### Retained phase 168 evidence
 
 The two unfinished local features are implemented in one combined batch. Both
 existing cancel-encryption UI entrypoints use the new save-first, fresh-password,
@@ -313,11 +356,14 @@ specific reason. Historical results are not silently counted as current acceptan
 2. **External prerequisites:** user-configured lawful signing for native Touch ID
    and an authoritative compatible first-certificate-registration service
    contract. Normal biometric operations remain disabled; no service probing.
-3. **Actual-client acceptance, not repeated source tasks:** normal MainWindow/
-   separate-window/shared-modal behavior, OS session/lock, native print/clipboard/
+3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
+   existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
+   normal-account and separate-window/shared-modal combinations, the just-created
+   note branch, OS session/lock, native print/clipboard/
    chooser/capture/search/inspector, external process/manual conflict handling,
    representative attachment/encryption and new-candidate avatar update/reopen.
-   Current permissions do not authorize normal-account/foreground operations.
+   Foreground permission covers only synthetic isolated data; normal-account
+   operations, actual screen capture and native authentication remain outside it.
 4. **Retained limitations:** historical intermittent offline account-chooser
    fixture failure is not explained (the normal account override stays disabled);
    special-filename legacy HTML resource URL behavior and crash/concurrent-writer
@@ -333,7 +379,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase168.json](checkpoints/2026-10-21-phase168.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase169.json](checkpoints/2026-10-21-phase169.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

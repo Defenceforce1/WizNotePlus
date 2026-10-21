@@ -23,6 +23,10 @@ inline QString source()
             record.layout.remove();
             if(record.hadStyle)record.node.setAttribute('style',record.style);
             else{record.node.getAttribute('style');record.node.removeAttribute('style');}
+            if(record.aspect!==undefined){
+              if(record.aspect===null)record.node.removeAttribute('preserveAspectRatio');
+              else record.node.setAttribute('preserveAspectRatio',record.aspect);
+            }
           }catch(_){++errors;}
         }
         for(const record of targets){
@@ -86,7 +90,10 @@ inline QString source()
             rowImage.style.cssText=`position:absolute;top:${rect.top-boxRect.top}px;width:${rect.width}px;height:auto;overflow:visible`;
             if(index===0){
               const inset=`max(.8em,${Math.max(0,100*(rect.left-boxRect.left)/boxRect.width)}%)`;
-              rowImage.style.left=inset;rowImage.style.maxWidth=`calc(100% - ${inset} - .8em)`;
+              // MathJax may place a multline tag beside its first row. The
+              // print-only badge shares that row's right edge, not just the
+              // final row's. Reserve its width before fitting the first row.
+              rowImage.style.left=inset;rowImage.style.maxWidth=`calc(100% - ${inset} - ${tagWidth}px - ${tagWidth?1.6:.8}em)`;
             }else if(index===data.length-1){
               const inset=`max(${tagWidth}px + ${tagWidth?1.6:.8}em,${Math.max(0,100*(boxRect.right-rect.right)/boxRect.width)}%)`;
               rowImage.style.right=inset;rowImage.style.maxWidth=`calc(100% - ${inset} - .8em)`;
@@ -181,6 +188,25 @@ inline QString source()
             }
           }
           fitMultlineRows();
+          // Automatic line wrapping can leave a single inseparable SVG body
+          // instead of the recognized row table. Do not reinterpret that tree.
+          // Fit only this still-wide multline body inside its tag gutter, as
+          // the A4 page does; keep ordinary text and number badges unscaled.
+          for(const frame of document.querySelectorAll('.MathJax_SVG_Display .MathJax_SVG')){
+            if(getComputedStyle(frame).display==='none')continue;
+            const input=document.getElementById(frame.id.replace(/-Frame$/,''));
+            const image=frame.querySelector(':scope > svg'),box=frame.closest('.MathJax_SVG_Display');
+            if(!image||!box||!input||input.tagName!=='SCRIPT'||!/^math\/tex/.test(input.type)
+              ||!/^\s*\\begin\{multline\*?\}/.test(input.textContent))continue;
+            const rect=image.getBoundingClientRect(),width=box.getBoundingClientRect().width;
+            const tagWidth=Math.max(0,...targets.filter(r=>frame.contains(r.node)).map(r=>r.badge.getBoundingClientRect().width));
+            const gap=tagWidth?1.6*parseFloat(getComputedStyle(box).fontSize):0;
+            const available=width-tagWidth-gap;
+            if(!(available>0&&rect.height>0&&rect.width>available+1))continue;
+            for(const node of [frame,image])layouts.push({node,layout:document.createElement('span'),hadStyle:node.hasAttribute('style'),style:node.getAttribute('style'),...(node===image?{aspect:node.getAttribute('preserveAspectRatio')}:{})});
+            frame.style.setProperty('min-width','0','important');frame.style.setProperty('width',available+'px','important');frame.style.setProperty('max-width','100%','important');
+            image.style.setProperty('min-width','0','important');image.style.setProperty('width',available+'px','important');image.style.setProperty('height',rect.height+'px','important');image.setAttribute('preserveAspectRatio','xMidYMid meet');++lastFitted;
+          }
         }catch(_){++errors;restore();}
       }
       const afterPrint=event=>{if(event.isTrusted)restore();};

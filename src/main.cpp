@@ -549,6 +549,10 @@ int main(int argc, char *argv[])
         return wizNativeNoteTransferSelfTest(argc, argv);
     }
 #ifdef Q_OS_MAC
+    if (argc == 2 && QByteArray(argv[1]) == "--native-feature-acceptance-probe") {
+        extern int wizNativeFeatureAcceptance(int, char**);
+        return wizNativeFeatureAcceptance(argc, argv);
+    }
     if (argc == 2 && (QByteArray(argv[1]) == "--mac-window-controls-self-test"
                      || QByteArray(argv[1]) == "--mac-main-window-controls-probe")) {
         extern int wizMacWindowControlsSelfTest(int, char**);
