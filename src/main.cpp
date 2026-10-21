@@ -428,6 +428,17 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 int main(int argc, char *argv[])
 {
 #if defined(WIZNOTE_NATIVE_TRANSFER_TESTS) && defined(Q_OS_MAC)
+    if (QByteArray(argv[0]).endsWith("/WizNoteBiometricMainTest")) {
+        if (argc != 2 || (QByteArray(argv[1]) != "--biometric-main-window-probe"
+                         && QByteArray(argv[1]) != "--biometric-save-quit-probe")
+            || qgetenv("WIZNOTE_SYNTHETIC_TOUCH_ID_CONSENT") != "create-read-delete") {
+            qCritical() << "Isolated main-window fixture: explicit option/consent required; normal startup refused.";
+            return 2;
+        }
+        qputenv("WIZNOTE_TEST_FOCUS", "biometric-main-window");
+        extern int wizNativeFeatureAcceptance(int, char**);
+        return wizNativeFeatureAcceptance(argc, argv);
+    }
     // The separately named signed fixture must never reach account bootstrap,
     // including a Finder launch, malformed flag, or unrelated diagnostic flag.
     if (QByteArray(argv[0]).endsWith("/WizNoteTouchIdTest")

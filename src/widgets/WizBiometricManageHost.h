@@ -3,7 +3,8 @@
 class WizExplorerApp;
 
 // Existing personal-certificate management only; no service registration, group
-// certificate creation or default enablement. Normal settings uses the default.
+// certificate creation or automatic policy enablement. Normal settings exposes
+// management only with valid self-signing prerequisites and an existing cert.
 class WizBiometricManageHost final : public QWidget {
 public:
     struct Services {

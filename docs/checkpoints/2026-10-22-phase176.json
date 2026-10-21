@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase176",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "99f452b38354f609cd33edab00156ea74679689e",
+  "sourceCheckpoint": "main-window-touch-id-inactivity-coordination-and-conditional-management",
+  "phase": 176,
+  "accepted": true,
+  "productCodeChanged": true,
+  "tests": {
+    "affectedGroups": 4,
+    "associatedPass": 1385,
+    "associatedFailures": 0,
+    "associatedSeconds": 17.67,
+    "actualMainWindowFingerprintOpened": true,
+    "nativeRun": {
+      "checks": 26,
+      "passed": 25,
+      "failures": 1,
+      "remainingFailure": "synthetic resume omitted before second notification"
+    },
+    "finalManualContinuation": {
+      "checks": 29,
+      "failures": 0,
+      "nativeAuthenticationRequested": false
+    },
+    "sourceSignedNoCertificateDisabled": true,
+    "signedExistingCertificateReadyWithoutAutomaticOptIn": true,
+    "allOwnedSyntheticItemsAbsent": true,
+    "lockedDirtyDomSavedBeforeNormalQuit": true,
+    "actualDeviceSessionChanged": false,
+    "unrelatedFullSuiteRun": false
+  },
+  "normalBiometricManagementConditionallyAvailable": true,
+  "biometricPolicyDefaultEnabled": false,
+  "normalAppModified": false,
+  "realNotesAccessed": false,
+  "realAccountStarted": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "installed": false,
+  "binariesUploaded": false,
+  "fullNativeClientAccepted": false,
+  "fullProjectComplete": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "notes": "System Touch ID panel temporarily made Cocoa inactive,previously canceling its own pending request. Two initial failed runs cleaned their synthetic items. Fix preserves only explicit default-native pending request on an already-locked password page,never body access. Success delivered only when active,bounded15s; hard events/hide/minimize/navigation still revoke. After fix actual fingerprint opened protected main renderer through default password widget; native run25/26,last synthetic notification fixture missed intervening resume. Fixture corrected,no further fingerprint requested: focused manual save/quit27/0,final conditional-entry continuation29/0,separate evidence not native-full-round success. Two notifications posted locally with modeled resume,not actual device session/sleep change. Normal source management requires valid self-signing/entitlements and existing certificate; no-certificate and ad-hoc disabled. Explicit consent/password/native-add success still required for opt-in; presentation performs no credential calls or policy writes. Associated99+1174+83+29=1385/0,17.67s,no unrelated suites. All owned synthetic items absent,cert/archive/cache/dirty DOM retained,latest body saved before normal11-stage quit. New signed copies only,inherited46 components bytes/links unchanged,current main code/architecture/dependencies/strict signature and bundled mapping verified. No current App,frozen candidates,real accounts/notes,install,binary/profile/Team/raw-log upload. First-certificate authoritative service contract and broader physical-session/cancel/multiwindow acceptance remain. Recovery OFF,automation PAUSED.",
+  "files": [
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "chars": 24639,
+      "bytes": 24907,
+      "sha256": "f2d49f303670fd7376ceef67218956905631f8ea776383683c0888184e478b25",
+      "gitBlobSha": "ca2d25090bf71078209c3cc58d681addeb51d197"
+    },
+    {
+      "path": "tests/compat/native-feature-acceptance.mm",
+      "mode": "100644",
+      "chars": 40299,
+      "bytes": 40439,
+      "sha256": "90e5b9d02871bf434723f212895a363f7c7e7ffab7eb1b4c9c02e6e1025df6c7",
+      "gitBlobSha": "e4938e28512f960a88631e714e6e5dd9d07cf671"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 37221,
+      "bytes": 37241,
+      "sha256": "4a8a222a670ae6d2e8c5bc72cac06529605d1a6a0591364c937dc7ba1fd429da",
+      "gitBlobSha": "0aea3dcf3111dc829e66ba469c456e61ecb63c99"
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.h",
+      "mode": "100644",
+      "chars": 2991,
+      "bytes": 2991,
+      "sha256": "05c7fe63beef7a1de9df4fcb4f6e7a568661d5d5563b9deb513a88ce674a0172",
+      "gitBlobSha": "8286baddce1e8cdeb7216375529d16d6528dd662"
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.cpp",
+      "mode": "100644",
+      "chars": 12211,
+      "bytes": 12779,
+      "sha256": "8024f83f4b0fb389aa4dd01d6711a22c365e31a342ab17d468ab67eea5f39ede",
+      "gitBlobSha": "f07f767e22154961a4bffccd054f865726cacfbd"
+    },
+    {
+      "path": "src/WizUserCipherForm.h",
+      "mode": "100755",
+      "chars": 1782,
+      "bytes": 1784,
+      "sha256": "2739048904c8c6733424593b63f7ed4691bc4faac48324e47fa5c57538fa34a7",
+      "gitBlobSha": "d2e73f086a75fd10cd209a59f0ffe0c72c7ce47b"
+    },
+    {
+      "path": "src/WizUserCipherForm.cpp",
+      "mode": "100755",
+      "chars": 7892,
+      "bytes": 7894,
+      "sha256": "de9572c14674c1686b76c23d6fd0a8ce31359c349e6bf1b8d36294aeb4890ad7",
+      "gitBlobSha": "def2916ccad6a51e99724530cd934c34b3ca4288"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "chars": 55874,
+      "bytes": 56356,
+      "sha256": "c1779e3f8e981b29f8ce4d9ff80ab46637b5e597efc2c624854fb33957db3266",
+      "gitBlobSha": "585ab4a6217d2fe6bbb37509f07b97facfea323c"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageHost.cpp",
+      "mode": "100644",
+      "chars": 3535,
+      "bytes": 3535,
+      "sha256": "8cd9da93d3cac2cbeb7bc6334d5d7a4f654b6e33f433c7d71d32f429508799a1",
+      "gitBlobSha": "e8ff655f8598ef16dc97f4631e10a55c07d2a4ff"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageHost.h",
+      "mode": "100644",
+      "chars": 855,
+      "bytes": 855,
+      "sha256": "cd93d00923c668e5e5fb20aa6cf95f66febc9c4ff1886b9c36f8ffadb1c845e4",
+      "gitBlobSha": "51a64fc023e2759260dc39ddfd9ecbd30d0e1b82"
+    },
+    {
+      "path": "src/WizPreferenceDialog.cpp",
+      "mode": "100644",
+      "chars": 19943,
+      "bytes": 20133,
+      "sha256": "74b9aec4ca59935dea13a4910ac03420d5b2512c3c03fbce2b0706f6a22bc2c8",
+      "gitBlobSha": "823838a5db1d7d7720ef81647605942ed42f1ef5"
+    }
+  ]
+}

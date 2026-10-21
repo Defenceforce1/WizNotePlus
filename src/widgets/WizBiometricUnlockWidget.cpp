@@ -1,6 +1,8 @@
 #include "WizBiometricUnlockWidget.h"
 #include <QCoreApplication>
 #include <QHideEvent>
+#include <QGuiApplication>
+#include <QDeadlineTimer>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -40,6 +42,7 @@ struct WizBiometricUnlockWidget::Task {
     WizDocumentCallbackEpoch::Ticket ticket;
     std::shared_ptr<Operation> operation;
     WizBiometricKeychain::Result result;
+    QDeadlineTimer activeDeliveryDeadline;
 };
 
 class WizBiometricUnlockWidget::Job final : public QRunnable {
@@ -65,6 +68,7 @@ public:
         }
         if (!result || task->canceled.load()) result = {task->canceled.load() ? Error::Canceled : result.error, {}};
         task->result = std::move(result);
+        task->activeDeliveryDeadline = QDeadlineTimer(15000);
         task->state.store(Complete, std::memory_order_release);
         // Worker owns only task values/operation, never a QWidget or database.
     }
@@ -76,6 +80,7 @@ WizBiometricUnlockWidget::WizBiometricUnlockWidget(QWidget* parent)
 WizBiometricUnlockWidget::WizBiometricUnlockWidget(Services services, QWidget* parent)
     : QWidget(parent), m_services(std::move(services))
 {
+    m_nativeProvider = !m_services.makeOperation;
     if (!m_services.makeOperation) m_services.makeOperation = [] { return std::make_shared<NativeRead>(); };
     m_pool = m_services.pool ? m_services.pool : QThreadPool::globalInstance();
     auto* layout = new QVBoxLayout(this);
@@ -192,6 +197,15 @@ void WizBiometricUnlockWidget::poll()
     if (!task) return;
     const int state = task->state.load(std::memory_order_acquire);
     if (state != Complete && state != Dropped) return;
+    // A system authentication panel can temporarily deactivate Cocoa. Keep
+    // successful native credentials inside the original task until the app is
+    // active again; never deliver/grant body access while another app is active.
+    if (state == Complete && m_nativeProvider && task->result && !task->canceled.load()
+        && QGuiApplication::applicationState() != Qt::ApplicationActive
+        && isVisible() && WizDocumentCallbackEpoch::current(task->ticket) && matches(task->context)) {
+        if (!task->activeDeliveryDeadline.hasExpired()) return;
+        task->result = {Error::Canceled, {}}; // Bounded wait, never a background grant.
+    }
     m_task.reset();
     m_timer->stop();
     if (m_closed || task->canceled.load() || !isVisible()
@@ -205,6 +219,13 @@ void WizBiometricUnlockWidget::poll()
     emit stageChanged();
     if (guard && m_stage == Stage::Verified && WizDocumentCallbackEpoch::current(task->ticket)
         && matches(task->context)) emit credentialReady();
+}
+
+bool WizBiometricUnlockWidget::preserveNativeAuthenticationOnInactive() const
+{
+    return m_nativeProvider && m_stage == Stage::Working && bool(m_task)
+        && isVisible() && window()->isVisible() && !window()->isMinimized()
+        && QGuiApplication::applicationState() == Qt::ApplicationInactive;
 }
 
 WizBiometricKeychain::Result WizBiometricUnlockWidget::takeCredential(const Context& context)

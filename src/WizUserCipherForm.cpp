@@ -209,6 +209,10 @@ void WizUserCipherForm::prepareBiometric(const WizBiometricUnlockWidget::Context
     m_biometric->setVisible(enabled);
 }
 void WizUserCipherForm::cancelBiometric() { m_manualRequestEpoch.invalidate(); m_biometric->cancel(); }
+bool WizUserCipherForm::preserveNativeAuthenticationOnInactive() const
+{
+    return m_biometric->preserveNativeAuthenticationOnInactive();
+}
 WizBiometricKeychain::Result WizUserCipherForm::takeBiometricCredential(const WizBiometricUnlockWidget::Context& context)
 {
     return m_biometric->takeCredential(context);

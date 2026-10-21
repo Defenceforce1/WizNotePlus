@@ -20,6 +20,7 @@ public:
     WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBiometricUnlockWidget::Services services);
     void prepareBiometric(const WizBiometricUnlockWidget::Context& context, bool enabled);
     void cancelBiometric();
+    bool preserveNativeAuthenticationOnInactive() const;
     WizBiometricKeychain::Result takeBiometricCredential(const WizBiometricUnlockWidget::Context& context);
 
     void setPasswordText(const QString& strPasswordText);

@@ -39,6 +39,9 @@ public:
     ~WizBiometricUnlockWidget() override;
     void setContext(const Context& context, bool rememberedAccessEnabled);
     Stage stage() const { return m_stage; }
+    // Only an already-locked host may preserve this request across temporary
+    // application inactivity. Hiding/minimizing/hard session boundaries cancel.
+    bool preserveNativeAuthenticationOnInactive() const;
     // One delivery only. Receiver must still match its live note/account/cert.
     WizBiometricKeychain::Result takeCredential(const Context& context);
     bool authorizedFor(const Context& context) const;
@@ -64,7 +67,7 @@ private:
     Services m_services;
     QPointer<QThreadPool> m_pool;
     Context m_context;
-    bool m_enabled = false, m_closed = false;
+    bool m_enabled = false, m_closed = false, m_nativeProvider = false;
     Stage m_stage = Stage::Unavailable;
     WizBiometricKeychain::Error m_error = WizBiometricKeychain::Error::None;
     WizDocumentCallbackEpoch m_epoch;

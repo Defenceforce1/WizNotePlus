@@ -12,6 +12,7 @@
 #include "share/WizWebEngineView.h"
 #include "share/WizCertificateCreation.h"
 #include "share/WizBiometricNoteAccess.h"
+#include "share/WizSessionAccess.h"
 #include "share/WizLegacyLightAppearance.h"
 #include "share/WizZiwReader.h"
 #include "sync/WizApiEntry.h"
@@ -21,6 +22,8 @@
 #include "gui/documentviewer/WizDocumentWebView.h"
 #include "gui/documentviewer/WizNoteInfoForm.h"
 #include "widgets/WizScreenShotWidget.h"
+#include "widgets/WizBiometricManageHost.h"
+#include "widgets/WizBiometricUnlockWidget.h"
 #include <QApplication>
 #include <QAction>
 #include <QCheckBox>
@@ -34,6 +37,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLineEdit>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QNetworkProxy>
@@ -43,6 +47,8 @@
 #include <QStyleFactory>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QThreadPool>
+#include <QUuid>
 #include <QWebEngineProfile>
 #include <QWebEngineUrlRequestInterceptor>
 #include <atomic>
@@ -73,8 +79,29 @@ QVariant js(QWebEnginePage* page,const QString& script,quint32 world=0){
 }
 QByteArray bytes(const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();}
 bool writeNew(const QString& path,const QByteArray& data){QFile f(path);return f.open(QIODevice::WriteOnly|QIODevice::NewOnly)&&f.write(data)==data.size();}
+// Observe ownership for exact finally-cleanup. Calls the real native backend,
+// never supplies authentication results or replaces the default read provider.
+class ObservedNativeManage final : public WizBiometricManageWidget::Operation {
+    std::shared_ptr<std::atomic<bool>> owned;
+public:
+    explicit ObservedNativeManage(std::shared_ptr<std::atomic<bool>> value):owned(std::move(value)){}
+    WizBiometricKeychain::Error enroll(const WizBiometricKeychain::Scope& s,const QString& p)override{
+        const auto r=WizBiometricKeychain::enroll(s,p,true);
+        if(r==WizBiometricKeychain::Error::None)owned->store(true);
+        return r;
+    }
+    WizBiometricKeychain::Error forget(const WizBiometricKeychain::Scope& s)override{
+        const auto r=WizBiometricKeychain::forget(s,true);
+        if(r==WizBiometricKeychain::Error::None||r==WizBiometricKeychain::Error::Missing)owned->store(false);
+        return r;
+    }
+};
 }
 int wizNativeFeatureAcceptance(int argc,char** argv){
+    const bool biometricMain=qEnvironmentVariable("WIZNOTE_TEST_FOCUS")=="biometric-main-window";
+    const bool manualOnly=argc==2&&QByteArray(argv[1])=="--biometric-save-quit-probe";
+    if(biometricMain&&(argc!=2||(!manualOnly&&QByteArray(argv[1])!="--biometric-main-window-probe")
+        ||qgetenv("WIZNOTE_SYNTHETIC_TOUCH_ID_CONSENT")!="create-read-delete"))return 2;
     const QString artifacts=qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
     if(!QFileInfo(artifacts).isAbsolute()||!QDir(artifacts).exists()||QFileInfo::exists(artifacts+"/frontend-result.json"))return 2;
     QTemporaryDir root;if(!root.isValid())return 2;QDir().mkpath(root.filePath("tmp"));
@@ -116,6 +143,8 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(&interceptor);
     window.show();[NSApp activateIgnoringOtherApps:YES];window.raise();window.activateWindow();window.init();
     QJsonArray results;int failures=0;bool cleanup=false,exitRequested=false;QString password;QByteArray encryptedBefore;
+    WizBiometricKeychain::Scope ownedScope;auto ownedItem=std::make_shared<std::atomic<bool>>(false);
+    bool nativeAuthenticated=false,syntheticItemAbsent=!biometricMain;int workspaceNotificationsPosted=0;
     const auto capture=[&](QWidget* widget,const QString& name){return widget&&widget->grab().save(artifacts+"/"+name+".png");};
     const auto check=[&](bool ok,const QString& label){results.append(QJsonObject{{"name",label},{"passed",ok}});qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;if(!ok){++failures;capture(&window,"failure");throw std::runtime_error(label.toStdString());}};
     const auto ready=[&]{return window.docView()&&window.docView()->noteLoaded()&&window.docView()->canReadCurrentNote()&&js(window.docView()->web()->page(),"!!(window.WizNativeEditorSetup&&WizNativeEditorSetup.state==='ready')").toBool();};
@@ -140,6 +169,96 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     });dialogs.start();
     QObject::connect(&app,&QApplication::aboutToQuit,&window,[&]{auto* p=window.findChild<QProgressDialog*>();cleanup=p&&p->minimum()==0&&p->maximum()==11;});
     QTimer::singleShot(0,&app,[&]{try{
+        if(biometricMain){
+            using namespace WizBiometricKeychain;
+            QObject::connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,&app,[](bool hard){qInfo()<<"Synthetic main session retired hard"<<hard<<"application state"<<int(QGuiApplication::applicationState());});
+            check(hasSigningPrerequisites(),"actual main-window executable has development signing and keychain authorization");
+            {WizBiometricManageHost noCertificate(window,&window);
+                check(noCertificate.management()->stage()==WizBiometricManageWidget::Stage::Disabled,"signed normal host remains unavailable without an existing certificate");}
+            db.setMeta("Account","GUID",QUuid::createUuid().toString(QUuid::WithoutBraces));
+            password="Synthetic-main-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+            const auto generated=WizCertificateCreation::generate(password,password,{});const auto c=generated.certificate;
+            check(bool(generated)&&db.setUserCert(c.n,c.e,c.encryptedD,{})&&db.cacheCertPasswordLocally(password,c.n,c.e,c.encryptedD)
+                  &&db.encryptDocument(protectedNote),"temporary actual database encrypts the synthetic note and retains save cache");
+            encryptedBefore=bytes(db.getDocumentFileName(protectedNote.strGUID));
+            WizCommonApiEntry::setEnterpriseServerIP("https://synthetic-main-window.invalid/");
+            ownedScope=WizBiometricNoteAccess::snapshot(db,db,WizCommonApiEntry::server());
+            check(!itemIdentity(ownedScope).isEmpty()&&!WizBiometricNoteAccess::optedIn(window.userSettings(),ownedScope),"new random account scope has no remembered-access policy");
+            {WizBiometricManageHost normalHost(window,&window);
+                check(normalHost.management()->stage()==WizBiometricManageWidget::Stage::Ready
+                      &&!WizBiometricNoteAccess::optedIn(window.userSettings(),ownedScope),"normal settings host offers management only for signed existing certificate without automatic opt-in");}
+            openNote(protectedNote);
+            check(waitFor(ready,20000),"actual main window initially opens synthetic encrypted note through legacy warm cache");
+            WizBiometricManageHost::Services services;services.explicitlyAvailable=true;
+            services.makeOperation=[ownedItem]{return std::make_shared<ObservedNativeManage>(ownedItem);};
+            WizBiometricManageHost host(window,std::move(services),&window);host.setWindowFlags(Qt::Dialog);
+            host.setWindowTitle(QStringLiteral("仅合成账号 — Touch ID 管理验收"));host.show();
+            auto* management=host.management();
+            auto* edit=management->findChild<QLineEdit*>("biometricManagePassword");
+            auto* consent=management->findChild<QCheckBox*>("biometricManageConsent");
+            auto* enrollButton=management->findChild<QPushButton*>("biometricManageEnroll");
+            auto* forgetButton=management->findChild<QPushButton*>("biometricManageForget");
+            check(edit&&consent&&enrollButton&&forgetButton&&management->stage()==WizBiometricManageWidget::Stage::Ready,"actual host binds personal certificate and management controls");
+            edit->setText(password);consent->setChecked(true);enrollButton->click();
+            check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Succeeded;},15000)&&ownedItem->load()
+                  &&WizBiometricNoteAccess::optedIn(window.userSettings(),ownedScope),"management UI completes native enrollment then persists synthetic opt-in");
+            check(!window.docView()->canReadCurrentNote()&&!db.getCertPassword().isEmpty(),"new policy retires already-open main-window access without clearing save cache");
+            edit->setText(password);consent->setChecked(true);enrollButton->click();
+            check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Conflict;})&&ownedItem->load(),"actual management duplicate reports conflict without overwriting or deleting");
+            host.hide();window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
+            WIZDOCUMENTDATAEX ex;ex=protectedNote;window.viewDocument(ex,false);
+            const auto locked=[&]{auto* v=window.docView();auto* f=v?v->findChild<WizUserCipherForm*>():nullptr;return f&&f->isVisible()&&!v->canReadCurrentNote();};
+            check(waitFor(locked),"reopened protected note requires fresh authorization despite cached password");
+            auto* form=window.docView()->findChild<WizUserCipherForm*>();
+            auto* biometric=form->findChild<WizBiometricUnlockWidget*>("cipherBiometricUnlock");
+            auto* start=biometric?biometric->findChild<QPushButton*>("biometricUnlockStart"):nullptr;
+            check(start&&start->isVisible()&&start->isEnabled(),"actual password page offers the native Touch ID action");
+            biometric->cancel();check(locked()&&!window.docView()->canReadCurrentNote(),"cancel before read leaves actual note locked");
+            QElapsedTimer focusSettled;focusSettled.start();
+            check(waitFor([&]{return focusSettled.elapsed()>=350&&app.applicationState()==Qt::ApplicationActive&&window.isActiveWindow();},5000),"main window settles in active Cocoa state before explicit biometric gesture");
+            if(!manualOnly)qInfo()<<"READY_FOR_TOUCH_ID: main-window synthetic note; fingerprint requested once.";
+            QObject::connect(biometric,&WizBiometricUnlockWidget::stageChanged,&app,[biometric]{qInfo()<<"Main synthetic biometric stage"<<int(biometric->stage());});
+            const auto manual=[&]{auto* f=window.docView()->findChild<WizUserCipherForm*>();auto* e=f?f->findChild<QLineEdit*>("editUserCipher"):nullptr;if(!e)return false;e->setText(password);return QMetaObject::invokeMethod(f,"onButtonOK_clicked",Qt::DirectConnection);};
+            if(manualOnly){qInfo()<<"Focused save/quit continuation: no native authentication request.";manual();}
+            else start->click();
+            const bool opened=waitFor([&]{return ready()&&js(window.docView()->web()->page(),"document.body.textContent.includes('KEEP-ORIGINAL-BODY')").toBool();},90000);
+            writeNew(artifacts+"/biometric-open-diagnostic.json",QJsonDocument(QJsonObject{{"widgetStage",int(biometric->stage())},{"canRead",window.docView()->canReadCurrentNote()},{"noteLoaded",window.docView()->noteLoaded()},{"passwordPageVisible",form->isVisible()},{"applicationActive",app.applicationState()==Qt::ApplicationActive},{"renderer",QJsonValue::fromVariant(js(window.docView()->web()->page(),"({ready:!!(window.WizNativeEditorSetup&&WizNativeEditorSetup.state==='ready'),bodyMarker:document.body.textContent.includes('KEEP-ORIGINAL-BODY')})"))}}).toJson());
+            nativeAuthenticated=opened&&!manualOnly;
+            check(opened,manualOnly?"focused continuation opens protected renderer with fresh synthetic password":"real system Touch ID opens actual protected main-window renderer through default password-page widget");
+            check(bytes(db.getDocumentFileName(protectedNote.strGUID))==encryptedBefore,"opening does not rewrite original encrypted note archive");
+            // Post only to THIS process's workspace notification center. This
+            // verifies native subscription glue, not an actual device/session lock.
+            [[NSWorkspace sharedWorkspace].notificationCenter postNotificationName:NSWorkspaceSessionDidResignActiveNotification object:nil];
+            ++workspaceNotificationsPosted;
+            check(waitFor(locked)&&!db.getCertPassword().isEmpty(),"workspace session notification retires main-window access and preserves save cache");
+            check(manual()&&waitFor(ready,20000),"fresh manual certificate password reopens main window after re-lock");
+            host.show();consent->setChecked(true);forgetButton->click();
+            check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Succeeded;})&&!ownedItem->load(),"actual management UI deletes only this synthetic remembered item");
+            check(!window.docView()->canReadCurrentNote()&&WizBiometricNoteAccess::optedIn(window.userSettings(),ownedScope)
+                  &&!db.getCertPassword().isEmpty(),"forgetting retires open grant but retains fresh-authorization policy and save cache");
+            syntheticItemAbsent=forget(ownedScope,true)==Error::Missing;
+            check(syntheticItemAbsent&&db.hasCert()&&bytes(db.getDocumentFileName(protectedNote.strGUID))==encryptedBefore,"exact item absence confirmed; certificate and encrypted archive remain intact");
+            host.hide();window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
+            window.viewDocument(ex,false);check(waitFor(locked),"after forgetting the main password page remains required");
+            form=window.docView()->findChild<WizUserCipherForm*>();biometric=form->findChild<WizBiometricUnlockWidget*>("cipherBiometricUnlock");
+            start=biometric?biometric->findChild<QPushButton*>("biometricUnlockStart"):nullptr;
+            check(start&&start->isEnabled(),"explicit retry action remains available after deletion");start->click();
+            check(waitFor([&]{auto* label=biometric->findChild<QLabel*>("biometricUnlockStatus");return label&&label->text().contains(QStringLiteral("没有此证书"));})&&locked(),"actual missing-item result returns to manual password without exposing note");
+            check(manual()&&waitFor(ready,20000),"manual password still opens encrypted note after local memory removal");
+            auto* web=window.docView()->web();window.docView()->setEditorMode(modeEditor);
+            check(waitFor([&]{return js(web->page(),"!!document.querySelector('.wiz-editor-body[contenteditable=true]')").toBool();}),"actual protected renderer enters editor after manual fallback");
+            check(js(web->page(),"(function(){const b=document.querySelector('.wiz-editor-body');b.insertAdjacentHTML('beforeend','<p>QUIT-SAVED-SYNTHETIC</p>');return b.textContent.includes('QUIT-SAVED-SYNTHETIC');})()").toBool(),"latest unsaved synthetic DOM added before lock and quit");web->setModified(true);
+            // The first posted session notification deliberately did not change
+            // the real session. Model its intervening active/resumed event so
+            // the second independent notification is not correctly coalesced.
+            WizSessionAccess::Monitor::applicationMonitor()->observeApplicationState(Qt::ApplicationActive);
+            [[NSWorkspace sharedWorkspace].notificationCenter postNotificationName:NSWorkspaceWillSleepNotification object:nil];
+            ++workspaceNotificationsPosted;
+            auto dirty=std::make_shared<std::pair<bool,bool>>(false,false);
+            web->isModified([dirty](bool modified){dirty->first=true;dirty->second=modified;});
+            check(waitFor(locked)&&waitFor([dirty]{return dirty->first;})&&dirty->second&&js(web->page(),"document.body.textContent.includes('QUIT-SAVED-SYNTHETIC')").toBool(),"native sleep-notification route locks access without canceling dirty DOM or pending save");
+            exitRequested=true;window.on_actionExit_triggered();return;
+        }
         if(newNoteModes){
             window.userSettings().setNoteViewMode(viewmodeAlwaysReading);
             math.tCreated=QDateTime::currentDateTime();check(db.modifyDocumentInfo(math),"synthetic note has immediate creation timestamp");
@@ -243,11 +362,21 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         exitRequested=true;window.on_actionExit_triggered();
     }catch(const std::exception& e){qWarning()<<"Stopped focused native workflow:"<<e.what();app.quit();}});
     app.exec();dialogs.stop();window.hide();
+    if(biometricMain){
+        QThreadPool::globalInstance()->waitForDone();
+        if(ownedItem->load()){
+            const auto removed=WizBiometricKeychain::forget(ownedScope,true);
+            syntheticItemAbsent=removed==WizBiometricKeychain::Error::None
+                &&WizBiometricKeychain::forget(ownedScope,true)==WizBiometricKeychain::Error::Missing;
+            results.append(QJsonObject{{"name","failure cleanup deletes only native-add-owned synthetic item"},{"passed",syntheticItemAbsent}});
+            if(!syntheticItemAbsent)++failures;
+        }
+    }
     if(exitRequested){WIZDOCUMENTDATA d;const bool loaded=db.documentFromGuid(protectedNote.strGUID,d);const QString extracted=root.filePath("verify-exit/");QDir().mkpath(extracted);const bool exported=loaded&&db.documentToHtmlFile(d,extracted);
         const bool preserved=exported&&bytes(extracted+"index.html").contains("QUIT-SAVED-SYNTHETIC")&&bytes(extracted+"index.html").contains("KEEP-ORIGINAL-BODY");
         results.append(QJsonObject{{"name","normal quit saved latest dirty content before eleven-stage cleanup"},{"passed",preserved&&cleanup}});if(!preserved||!cleanup)++failures;
     }
-    const QJsonObject result{{"focus",newNoteModes?"new-note-modes":"foreground-features"},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
+    const QJsonObject result{{"focus",biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features")},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
     const bool output=writeNew(artifacts+"/frontend-result.json",QJsonDocument(result).toJson());
     qInfo()<<"native-feature-acceptance checks"<<results.size()<<"failures"<<failures;
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(nullptr);

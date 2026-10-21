@@ -31,7 +31,7 @@ public:
 }
 
 WizBiometricManageHost::WizBiometricManageHost(WizExplorerApp& app,QWidget* parent)
-    :WizBiometricManageHost(app,Services{},parent){}
+    :WizBiometricManageHost(app,Services{WizBiometricKeychain::hasSigningPrerequisites(),{},nullptr},parent){}
 WizBiometricManageHost::WizBiometricManageHost(WizExplorerApp& app,Services services,QWidget* parent)
     :QWidget(parent)
 {
@@ -60,6 +60,8 @@ WizBiometricManageHost::WizBiometricManageHost(WizExplorerApp& app,Services serv
     connect(m_management,&WizBiometricManageWidget::scopeAccessRetired,this,[](const QString& id){
         if(auto* events=PolicyEvents::applicationEvents())events->retire(id);
     });
-    // No signing probes, Keychain calls or policy writes during presentation.
+    // Presentation performs only the self-signature prerequisite check above.
+    // No authentication, Keychain credential calls or policy writes here; an
+    // existing valid certificate and explicit checkbox/button action are needed.
     m_management->setContext(snapshotCurrent(),services.explicitlyAvailable);
 }

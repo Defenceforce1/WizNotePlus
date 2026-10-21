@@ -33,9 +33,9 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
     ui->setupUi(this);
     setWindowIcon(QIcon());
     setWindowTitle(tr("Settings"));
-    // Visible but unavailable until lawful signing/native acceptance. Opening
-    // settings does not query Keychain, enroll, forget or enable policy.
-    ui->tabWidget->addTab(new WizBiometricManageHost(m_app,ui->tabWidget),tr("Touch ID（尚未启用）"));
+    // Management requires valid self-signing and an existing certificate.
+    // Opening settings does not read Keychain credentials or enable policy.
+    ui->tabWidget->addTab(new WizBiometricManageHost(m_app,ui->tabWidget),tr("Touch ID"));
 
     connect(ui->btnClose, SIGNAL(clicked()), SLOT(accept()));
 

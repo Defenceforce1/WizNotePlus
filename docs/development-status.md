@@ -1,10 +1,57 @@
-# Personal-use development checkpoint: signed Touch ID test
+# Personal-use development checkpoint: main-window Touch ID coordination
 
 Development version: **14.4.25**. A new personal-use candidate has been built
 locally with explicit consent. It is ad-hoc signed, unnotarized, not automatically installed and
 not publicly distributed; system-authentication acceptance remains incomplete.
 
-## Signed main-client Touch ID test completed
+## Main-window native authentication and conditional management
+
+The independently signed main-window workflow exposed a real integration bug:
+the system Touch ID panel temporarily deactivated Cocoa, and the host canceled
+the pending authentication. Two initial attempts failed and cleaned their owned
+synthetic items. The fix preserves an explicit **native pending request only on
+an already-locked password page**, not a body grant. The default native widget
+delivers success only after the app is active again, with a 15-second bounded
+delivery wait. Hard session events, hide/minimize, navigation and context changes
+still revoke; manual/injected providers do not get this native-only exception.
+
+After the fix, actual system Touch ID successfully opened the protected renderer
+through the production main window and default password-page widget. Enrollment,
+duplicate conflict, re-lock, exact deletion, missing-item and password fallback
+also passed. That run passed **25 of 26 checks**, not a complete success: its last
+synthetic notification lacked the intervening resumed event and was correctly
+coalesced. The fixture was corrected; only the no-fingerprint save/quit continuation
+was rerun, passing **27/0**, then **29/0** with conditional-entry checks added.
+These are separate evidence, not a claim that all 29 used native authentication.
+Two workspace notifications are posted only inside the synthetic process, with a
+modeled resume between them; the actual Mac session/sleep state is never changed.
+
+Normal source management is now available only with valid self-signing/keychain
+prerequisites and an existing compatible certificate. Signed-without-certificate
+and unsigned cases remain disabled. The settings tab is simply **Touch ID**.
+Presentation performs no authentication/credential reads or policy writes.
+Explicit checkbox/button action, a correct certificate password and successful
+native enrollment are still required to opt in. No automatic policy enablement,
+credential remembering, real-note conversion or password-recovery backdoor.
+
+Only affected regressions ran: unlock widget **99**, document routing **1174**,
+note access/management **83**, settings **29**; **1385/0**, 17.67 seconds. The final
+synthetic Cocoa main-window continuation **29/0** verifies conditionally available
+management, native item enrollment/conflict/deletion, manual fallback, dirty DOM
+preserved while locked and latest content saved before normal eleven-stage quit.
+The earlier actual fingerprint success remains separately recorded. All owned
+synthetic items are confirmed absent. Initial fixture build errors and failed
+runs are retained; no unrelated full suite or PDF repetition.
+
+Only new signed test copies were prepared. Forty-six previously audited bundled
+components and other inherited bytes/links are unchanged; the current main's
+arm64/code/dependencies, strict recursive signature and actual bundled-Qt mapping
+are checked incrementally. Existing App, frozen candidates and the previous test
+App are untouched. No install/binary/profile/identity/raw-log upload. Broader real
+account/multiwindow/physical lock/cancel-panel acceptance and the authoritative
+first-certificate service contract remain distinct. Recovery OFF, automation PAUSED.
+
+## Earlier focused system/widget test (phase 175)
 
 With explicit user permission, a separate self-contained Apple Development-signed
 main-client test App was prepared locally with the matching development profile.
@@ -142,8 +189,9 @@ acceptance gates below are unchanged; this does not complete system acceptance.
 - Export transaction/rollback work and an experimental persistent-recovery
   implementation. Persistent Markdown recovery remains **OFF** by default.
 - Local compatible-certificate generation/backup components and biometric
-  components. Normal Touch ID enrollment remains **disabled**; first server-side
-  certificate registration and native authentication are not accepted as complete.
+  components. Normal management is now conditionally available as described
+  above; explicit enrollment remains required. First server-side certificate
+  registration and broader native acceptance are not accepted as complete.
 - Simplified-Chinese resource selection, Settings naming, title-only group sync
   default, and scoped account-page cache configuration.
 - Revocable document-read/output permissions across the implemented export,
@@ -477,8 +525,8 @@ specific reason. Historical results are not silently counted as current acceptan
 2. **External prerequisite:** an authoritative compatible first-certificate
    registration service contract. Development signing/profile configuration and
    the focused native-backend/widget Touch ID chain are now accepted above;
-   normal biometric operations remain disabled pending normal-client integration
-   acceptance. No service probing.
+   source management is conditionally available as described above, with policy
+   default-off and explicit native enrollment required. No service probing.
 3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
    normal-account and separate-window/shared-modal combinations,
@@ -503,7 +551,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest test manifest is [checkpoints/2026-10-22-phase175.json](checkpoints/2026-10-22-phase175.json).
+The latest integration manifest is [checkpoints/2026-10-22-phase176.json](checkpoints/2026-10-22-phase176.json).
+The focused system/widget test is [phase175](checkpoints/2026-10-22-phase175.json).
 The signing setup is [phase174](checkpoints/2026-10-21-phase174.json).
 The UI change remains [phase172](checkpoints/2026-10-21-phase172.json).
 The frozen local candidate is [phase171](checkpoints/2026-10-21-phase171.json),

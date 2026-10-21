@@ -1063,6 +1063,13 @@ void WizDocumentView::onSessionAccessRetired(bool hard)
     // Legacy/non-opted-in behavior is unchanged. Retire access, not the saved
     // password, DOM, snapshot producer or queued local saves.
     if(!m_biometricEnabled||m_accessClosing)return;
+    // The native Touch ID panel itself may temporarily deactivate the app.
+    // This exception preserves only an explicit pending native request while
+    // the note is ALREADY locked. It preserves no body grant; the widget holds
+    // success until active. Hard boundaries and hide/navigation still revoke.
+    if(!hard && m_stack->currentWidget()==m_passwordView
+        && m_biometricGate.requiresAuthorization(true)
+        && m_passwordView->preserveNativeAuthenticationOnInactive()) return;
     const QPointer<WizDocumentView> self(this);
     revokeBiometricAccess(false,!hard);
     if(!self)return;
