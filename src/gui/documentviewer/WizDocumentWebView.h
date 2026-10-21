@@ -177,7 +177,7 @@ private:
     void initEditorActions();
     WizDocumentSaverThread* readDocumentSaver() const;
 
-    void addDefaultScriptsToDocumentHtml(QString htmlFileName);
+    bool addDefaultScriptsToDocumentHtml(QString htmlFileName);
     void loadDocumentInWeb(WizEditorMode editorMode);
 
     void getAllEditorScriptAndStyleFileName(std::map<QString, QString>& arrayFile);
@@ -223,6 +223,7 @@ private:
 
     QString m_strNoteHtmlFileName;
     QString m_currentNoteHtml;
+    WIZDOCUMENTDATA m_currentNoteHtmlDocument;
 
     bool m_bContentsChanged;
     quint64 m_contentChangeSequence = 0;
@@ -244,7 +245,7 @@ private:
     WizDocumentCallbackEpoch m_linkUiCallbacks;
     WizPdfExportRequest m_pdfExportRequest;
     WizPdfPageOperations m_pdfPageOperations;
-    void invalidateDocumentCallbacks();
+    WizDocumentCallbackEpoch::Ticket invalidateDocumentCallbacks();
     void cancelMarkdownRecovery();
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
     QPointer<WizMarkdownExportRecoverySession> m_markdownRecoverySession;

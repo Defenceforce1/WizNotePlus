@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase151",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "a69cfbba5ebfd3c8003323010a72fe69bae7d1ce",
+  "sourceCheckpoint": "phase151",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 3,
+    "pass": 994,
+    "fail": 0,
+    "seconds": 9.93,
+    "routingChecks": 829,
+    "newRoutingChecks": 52,
+    "runs": 1,
+    "associatedDocumentAsync": 98,
+    "associatedPdfLifecycle": 67,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "checks": 782,
+    "failures": 5,
+    "normalExit": true,
+    "intermediateFixedChecks": 782,
+    "intermediateFixedFailures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "HTML caches bind owning note/knowledge base, including the actual editor-save producer; stale/unowned cache is refused without clearing bytes. Initial preparation retains the original permit across publication/script/CSS steps and atomically replaces the temporary BOM file; failure prevents load. Loading retains original host access/page/loader sequence across its own invalidation and loadStarted. Returned invalidation tickets and clear/open/reload guards stop stale retirement or owner destruction. Save/DOM/cache remain; dispatched load is not retroactively retracted. Actual method bodies, temp DB/files and save producer execute; script/CSS, focus/title, navigation/loadStarted/notifications, snapshot delivery and FIFO handoff are synthetic. Asynchronous editor setup/plugin notification and loader dispatch-to-completion ownership remain unfinished. Final checks are incremental, not whole-client/system-authentication acceptance.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 119124,
+      "chars": 119012,
+      "gitBlobSha": "0464938754b36ed814974c0489d4f8f69325f24b",
+      "sha256": "09c36aec140660c1a9e62ea8f61cdd9f41067b467bea43b17b7e05f2d225ae49"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 15098,
+      "chars": 15096,
+      "gitBlobSha": "f5df5c0928107d075fa645bbe81a0e13bd753dac",
+      "sha256": "b681f6449f423eea34c3431b693934f13cf22e12311a9d8c0cb9dc29614def6b"
+    },
+    {
+      "path": "src/share/WizDocumentAsync.h",
+      "mode": "100644",
+      "bytes": 6384,
+      "chars": 6384,
+      "gitBlobSha": "9cd279d9d918d9facb2e6bf7f1647b5851c8aa88",
+      "sha256": "55a9fd4d13022bc53adbbb5b376df034cb59a63866da7628cff0c0bc468a5fc5"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 280556,
+      "chars": 280463,
+      "gitBlobSha": "17c600bdb4ee18f69c533eff26b1b3192f83092d",
+      "sha256": "98d4f940f06f083d92d58b9229d0039b983b88fc6e92b44c34fccc54780a01c4"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 33142,
+      "chars": 33142,
+      "gitBlobSha": "53b7353867b5b8703ce4b70482f27de9b17d8da6",
+      "sha256": "bbd51c583ec126d6544dc6fb859f1aeea054c61efbb1fedd4480c603eb5ea50f"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 7297,
+      "chars": 7297,
+      "gitBlobSha": "1af6c5ea861dc5e060550c34f3c64957fcfc692e",
+      "sha256": "ad19e283b9439b31867edb3e3b0792d2e734df46a58b9a60a756a17d740eb9d5"
+    }
+  ]
+}

@@ -828,8 +828,10 @@ WizDocumentReadPermit WizDocumentWebView::noteReadPermit() const
 
 void WizDocumentWebView::clear()
 {
+    const QPointer<WizDocumentWebView> self(this);
     m_loadSequence.next();
-    invalidateDocumentCallbacks();
+    const auto opening = invalidateDocumentCallbacks();
+    if (!self || !WizDocumentCallbackEpoch::current(opening)) return;
     load(QUrl("about:blank"));
 }
 
@@ -902,10 +904,13 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
 
 void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode)
 {
-    invalidateDocumentCallbacks();
+    const QPointer<WizDocumentWebView> self(this);
+    const WIZDOCUMENTDATA document = doc;
+    const auto opening = invalidateDocumentCallbacks();
+    if (!self || !WizDocumentCallbackEpoch::current(opening)) return;
     // set data
     // FIXME: not very well to decide a file is new through create time
-    qint64 seconds = doc.tCreated.secsTo(QDateTime::currentDateTime());
+    qint64 seconds = document.tCreated.secsTo(QDateTime::currentDateTime());
     m_bNewNote = (seconds >= 0 && seconds <= 1) ? true : false;
     m_bNewNoteTitleInited = m_bNewNote ? false : true;
     //
@@ -918,20 +923,24 @@ void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode 
     }
 
     // ask extract and load
-    Q_EMIT loadDocumentRequested(doc, editorMode, m_loadSequence.next());
+    Q_EMIT loadDocumentRequested(document, editorMode, m_loadSequence.next());
 }
 
 void WizDocumentWebView::reloadNoteData(const WIZDOCUMENTDATA& data)
 {
     Q_ASSERT(!data.strGUID.isEmpty());
+    const QPointer<WizDocumentWebView> self(this);
+    const WIZDOCUMENTDATA document = data;
 
     // reset only if user not in editing mode
     if (isEditing() && hasFocus())
         return;
+    if (!self) return;
 
     // reload may triggered when update from server or locally reflected by modify
-    invalidateDocumentCallbacks();
-    Q_EMIT loadDocumentRequested(data, m_currentEditorMode, m_loadSequence.next());
+    const auto opening = invalidateDocumentCallbacks();
+    if (!self || !WizDocumentCallbackEpoch::current(opening)) return;
+    Q_EMIT loadDocumentRequested(document, m_currentEditorMode, m_loadSequence.next());
 }
 
 
@@ -1453,6 +1462,7 @@ void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bo
             self->reportSnapshotSaveFailure(); callback(false); return;
         }
         self->m_currentNoteHtml = result.html;
+        self->m_currentNoteHtmlDocument = doc;
         if (self->m_contentChangeSequence == changeSequence) self->m_bContentsChanged = false;
         // This is the existing handoff to the FIFO saver, not a disk-save ack.
         // Its separate failure signal and the quit-time drain remain required.
@@ -1655,26 +1665,32 @@ void WizDocumentWebView::insertScriptAndStyleCore(QString& strHtml, const std::m
 }
 
 
-void WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
+bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return false;
+    const WIZDOCUMENTDATA document = view()->note();
     QString strHtml;
     bool ret = WizLoadUnicodeTextFromFile(htmlFileName, strHtml);
-    if (!ret) {
-        // hide client and show error
-        return;
-    }
+    if (!self || !read.current() || !ret) return false;
 
     m_currentNoteHtml = strHtml;
+    m_currentNoteHtmlDocument = document;
     emit currentHtmlChanged();
+    if (!self || !read.current()) return false;
 
     std::map<QString, QString> files;
     getAllEditorScriptAndStyleFileName(files);
+    if (!self || !read.current()) return false;
     insertScriptAndStyleCore(strHtml, files);
+    if (!self || !read.current()) return false;
 
     replaceDefaultCss(strHtml);
+    if (!self || !read.current()) return false;
 
-    ::WizSaveUnicodeTextToUtf8File(htmlFileName, strHtml, true);
-
+    const bool written = WizDocumentReadOutput::writeUtf8(read, htmlFileName, strHtml, true);
+    return self && read.current() && written;
 }
 
 
@@ -1684,7 +1700,21 @@ void WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
  */
 void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
 {
-    QString strGUID = view()->note().strGUID;
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    const QPointer<WizDocumentView> host(view());
+    const QPointer<QObject> source(page());
+    const WIZDOCUMENTDATA document = host->note();
+    const auto access = host->noteReadTicket();
+    const auto sequence = m_loadSequence.current();
+    const auto current = [self,host,source,document,access,sequence] {
+        return self && host && source && self->view() == host && self->page() == source
+            && self->m_loadSequence.current() == sequence && host->acceptsNoteRead(access)
+            && host->note().strGUID == document.strGUID && host->note().strKbGUID == document.strKbGUID;
+    };
+    const auto preparing = [current,read] { return current() && read.current(); };
+    QString strGUID = document.strGUID;
     QString strFileName = m_mapFile.value(strGUID);
     if (strFileName.isEmpty()) {
         return;
@@ -1692,12 +1722,9 @@ void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
     //
     QString strHtml;
     bool ret = WizLoadUnicodeTextFromFile(strFileName, strHtml);
-    if (!ret) {
-        // hide client and show error
-        return;
-    }
+    if (!preparing() || !ret) return;
 
-    addDefaultScriptsToDocumentHtml(strFileName);
+    if (!addDefaultScriptsToDocumentHtml(strFileName) || !preparing()) return;
 
     WizEditorMode oldMode = m_currentEditorMode;
     m_currentEditorMode = editorMode;
@@ -1708,15 +1735,21 @@ void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
         } else {
             Q_EMIT focusOut();
         }
-
+        if (!preparing()) return;
         view()->titleBar()->setEditorMode(m_currentEditorMode);
+        if (!preparing()) return;
     }
 
     m_strNoteHtmlFileName = strFileName;
-    invalidateDocumentCallbacks();
+    // Own invalidation retires transient reads. Keep the originating host
+    // access ticket and load sequence, not a newly issued authorization.
+    const auto opening = invalidateDocumentCallbacks();
+    if (!current() || !WizDocumentCallbackEpoch::current(opening)) return;
     load(QUrl::fromLocalFile(strFileName));
 
-    onNoteLoadFinished();
+    // loadStarted may legitimately retire opening; it must not change the
+    // original host/access/loader context before the legacy notification.
+    if (current()) onNoteLoadFinished();
 }
 
 void WizDocumentWebView::onNoteLoadFinished()
@@ -2014,16 +2047,22 @@ void WizDocumentWebView::cancelLinkInsert()
     if (form) form->reject();
 }
 
-void WizDocumentWebView::invalidateDocumentCallbacks()
+WizDocumentCallbackEpoch::Ticket WizDocumentWebView::invalidateDocumentCallbacks()
 {
     const QPointer<WizDocumentWebView> self(this);
     m_documentCallbacks.invalidate();
+    const auto ticket = m_documentCallbacks.ticket();
+    const auto current = [self,ticket] { return self && WizDocumentCallbackEpoch::current(ticket); };
     cancelLinkInsert();
+    if (!current()) return ticket;
     cancelFindReplace();
+    if (!current()) return ticket;
     cancelScreenShot();
-    if (!self) return;
+    if (!current()) return ticket;
     cancelPdfExport();
+    if (!current()) return ticket;
     cancelMarkdownRecovery();
+    return ticket;
 }
 
 void WizDocumentWebView::cancelMarkdownRecovery()
@@ -2981,6 +3020,9 @@ bool WizDocumentWebView::isPersonalDocument()
 QString WizDocumentWebView::getCurrentNoteHtml()
 {
     if (!noteReadPermit().current()) return QString();
+    const auto& document = view()->note();
+    if (m_currentNoteHtmlDocument.strGUID != document.strGUID
+        || m_currentNoteHtmlDocument.strKbGUID != document.strKbGUID) return QString();
     return m_currentNoteHtml;
 }
 

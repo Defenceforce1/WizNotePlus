@@ -90,6 +90,16 @@ signals:
 namespace {
 using namespace WizBiometricNoteAccess;
 enum { modeReader, modeEditor };
+// Phase151: real temporary file I/O, with explicit reentrant boundaries.
+struct InitialOps {
+    static inline int reads=0,writes=0;static inline bool failWrite=false;
+    static inline std::function<void()> duringRead,duringWrite;
+    static void reset(){reads=writes=0;failWrite=false;duringRead={};duringWrite={};}
+    static bool read(const QString& path,QString& text){++reads;const bool ok=WizLoadUnicodeTextFromFile(path,text);const auto hook=duringRead;if(hook)hook();return ok;}
+    static bool legacyWrite(const QString& path,const QString& text,bool bom){++writes;const bool ok=!failWrite&&WizSaveUnicodeTextToUtf8File(path,text,bom);const auto hook=duringWrite;if(hook)hook();return ok;}
+    static bool write(const WizDocumentReadPermit& permit,const QString& path,const QString& text,bool bom){++writes;const bool ok=!failWrite&&WizDocumentReadOutput::writeUtf8(permit,path,text,bom);const auto hook=duringWrite;if(hook)hook();return ok;}
+};
+// End Phase151 file collaborator.
 struct MemoryClipboard {
     std::unique_ptr<QMimeData> data=std::make_unique<QMimeData>();int writes=0;
     const QMimeData* mimeData() const {return data.get();}
@@ -266,6 +276,48 @@ struct Web : InspectorShell {
     std::function<void(const WIZDOCUMENTDATA&)> handoff;
     QString body;
     QString m_currentNoteHtml;
+    // Phase151 initial snapshot fields and collaborators.
+    WIZDOCUMENTDATA m_currentNoteHtmlDocument;
+    WizDocumentLoadSequence m_loadSequence;
+    int m_currentEditorMode=modeReader;
+    bool m_bNewNote=false;
+    QString m_strNoteHtmlFileName;
+    int initialLoadCalls=0,initialNotifications=0,htmlPublications=0;
+    int initialLoaderRequests=0;WIZDOCUMENTDATA requestedInitialDocument;quint64 requestedInitialSequence=0;
+    void loadDocumentRequested(const WIZDOCUMENTDATA& doc,int,quint64 sequence){++initialLoaderRequests;requestedInitialDocument=doc;requestedInitialSequence=sequence;}
+    void routeClear();void routeViewDocument(const WIZDOCUMENTDATA&,int);void routeReloadNoteData(const WIZDOCUMENTDATA&);
+    struct SnapshotBroker {
+        std::function<void(const QVariant&)> completion;
+        void snapshot(ReadPage*,std::function<bool()>,const QString&,std::function<void(const QVariant&)> done){completion=std::move(done);}
+        void deliver(const QVariant& value){auto done=std::move(completion);if(done)done(value);}
+    } m_pdfPageOperations;
+    int initialSaveHandoffs=0,snapshotFailures=0;QString savedInitialHtml;
+    void saveEditingViewDocument(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>);
+    void saveDocumentRequested(const WIZDOCUMENTDATA&,const QString& html,const QString&,int){++initialSaveHandoffs;savedInitialHtml=html;initialStage("saveHandoff");}
+    void reportSnapshotSaveFailure(){++snapshotFailures;}
+    bool simulateLoadStarted=true;
+    QStringList initialStages;QList<QUrl> initialUrls;
+    std::function<void(const QString&)> duringInitialStage;
+    void initialStage(const QString& stage){initialStages.push_back(stage);const auto hook=duringInitialStage;if(hook)hook(stage);}
+    void currentHtmlChanged(){++htmlPublications;initialStage("publish");}
+    void getAllEditorScriptAndStyleFileName(std::map<QString,QString>&){initialStage("files");}
+    void insertScriptAndStyleCore(QString& html,const std::map<QString,QString>&){html+="<!-- synthetic core -->";initialStage("core");}
+    void replaceDefaultCss(QString& html){html+="<!-- synthetic CSS -->";initialStage("css");}
+    void load(const QUrl& url){++initialLoadCalls;initialUrls.push_back(url);if(simulateLoadStarted)invalidateDocumentCallbacks();initialStage("load");}
+    void onNoteLoadFinished(){++initialNotifications;initialStage("notify");}
+    void focusOut(){++focusSignals;initialStage("focusOut");}
+    void cancelMarkdownRecovery(){}
+#ifdef WIZNOTE_INITIAL_FIXED
+    bool addDefaultScriptsToDocumentHtml(QString);
+    WizDocumentCallbackEpoch::Ticket invalidateDocumentCallbacks();
+    bool prepareInitial(const QString& path){return addDefaultScriptsToDocumentHtml(path);}
+#else
+    void addDefaultScriptsToDocumentHtml(QString);
+    void invalidateDocumentCallbacks();
+    bool prepareInitial(const QString& path){addDefaultScriptsToDocumentHtml(path);return true;}
+#endif
+    void loadDocumentInWeb(int);
+    // End Phase151 initial declarations.
     bool editing=false;std::function<void()> duringEditing;
     int documentsOpened=0,attachmentsOpened=0,saveActions=0,reloadActions=0;
     QString dispatchedUrl,dispatchedKb;
@@ -298,7 +350,7 @@ struct Web : InspectorShell {
     int pasteRequests=0,focusRequests=0,focusSignals=0;std::function<void()> duringFocus;
     void onActionTriggered(QWebEnginePage::WebAction);void tryResetTitle();
     void doPaste();void onReturn();void undo();void redo();void editorFocus();
-    void focusIn(){++focusSignals;}
+    void focusIn(){++focusSignals;initialStage("focusIn");}
     void setFocus(Qt::FocusReason reason){++focusRequests;QWidget::setFocus(reason);const auto hook=duringFocus;if(hook)hook();}
     quint64 m_contentChangeSequence=0;bool m_bContentsChanged=false;
     void setModified(bool);
@@ -384,7 +436,7 @@ struct Web : InspectorShell {
     void isPersonalDocumentChanged(){} void hasEditPermissionOnCurrentNoteChanged(){}
     void triggerPageAction(QWebEnginePage::WebAction){++closes;}
 };
-struct Title {void setNote(const WIZDOCUMENTDATA&,int,bool){}};
+struct Title {void setNote(const WIZDOCUMENTDATA&,int,bool){} void setEditorMode(int){const auto hook=duringMode;if(hook)hook();}std::function<void()> duringMode;};
 struct Info {void setDocument(const WIZDOCUMENTDATA&){}};
 namespace WizMessageBox {
 int messages=0;
@@ -416,6 +468,7 @@ public:
     ~RoutingView() override {m_passwordView->blockSignals(true);revokeBiometricAccess(true);}
     const WIZDOCUMENTDATAEX& note() const {return m_note;}
     Web* web() const {return m_web;}
+    Title* titleBar(){return m_title;}
     bool noteLoaded() const {return m_noteLoaded;}
     void initStat(const WIZDOCUMENTDATA&,bool edit){m_editorMode=edit?modeEditor:modeReader;}
     void stopDocumentEditingStatus(){} void sendDocumentEditingStatus(){}
@@ -668,6 +721,7 @@ struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime ti
 #include WIZNOTE_LINK_METHODS
 #include WIZNOTE_FIND_METHODS
 #include WIZNOTE_SCREENSHOT_METHODS
+#include WIZNOTE_INITIAL_METHODS
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -1068,6 +1122,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     {
         RoutingView owner(explorer);owner.show();owner.viewNote(a,false);submit(owner);
         auto* web=owner.m_web;web->body="retained dirty DOM";web->m_currentNoteHtml="<html>retained source cache</html>";
+        web->m_currentNoteHtmlDocument=owner.note(); // Phase151: source-cache fixture now records its owner.
         const auto saveTicket=web->m_documentCallbacks.ticket();int delivered=0;QString value;
         const auto reply=[&](const QString& text){++delivered;value=text;};
         const auto valid=[](QString text){return QVariantMap{{"ok",true},{"value",text}};};
@@ -2840,6 +2895,88 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
     }
     // End Phase150 screenshot tests.
+    // Phase151 initial HTML preparation and cache ownership.
+    {
+        QTemporaryDir files;const QString file=files.filePath("initial.html");
+        const QString original="<html><body>synthetic initial source</body></html>";
+        const auto seed=[&]{WizSaveUnicodeTextToUtf8File(file,original,true);InitialOps::reset();};
+        const auto prepare=[&](RoutingView& owner){owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->m_mapFile[a.strGUID]=file;owner.m_web->m_loadSequence.next();};
+        seed();RoutingView locked(explorer);prepare(locked);locked.hide();locked.m_web->prepareInitial(file);
+        check(InitialOps::reads==0&&InitialOps::writes==0&&locked.m_web->htmlPublications==0,"locked initial preparation never reads publishes or rewrites the extracted body");
+        seed();RoutingView publish(explorer);prepare(publish);auto* web=publish.m_web;web->duringInitialStage=[&](const QString& stage){if(stage=="publish"){publish.hide();publish.show();submit(publish);}};web->prepareInitial(file);
+        check(InitialOps::writes==0&&!web->initialStages.contains("files"),"initial publication revoked and reauthorized synchronously cannot resume script or CSS preparation");
+        seed();RoutingView header(explorer);prepare(header);web=header.m_web;web->duringInitialStage=[&](const QString& stage){if(stage=="core")header.revokeBiometricAccess();};web->prepareInitial(file);
+        check(InitialOps::writes==0&&!web->initialStages.contains("css"),"initial script insertion revocation stops before CSS and file output");
+        seed();RoutingView oldCache(explorer);prepare(oldCache);web=oldCache.m_web;web->m_currentNoteHtml="old protected body";web->m_currentNoteHtmlDocument=a;oldCache.viewNote(b,true);submit(oldCache);
+        check(web->getCurrentNoteHtml().isEmpty()&&web->m_currentNoteHtml=="old protected body","newly authorized different note cannot expose an older note's retained HTML cache");
+        seed();RoutingView loadFailure(explorer);prepare(loadFailure);web=loadFailure.m_web;InitialOps::failWrite=true;web->loadDocumentInWeb(0);
+        check(web->initialLoadCalls==0&&web->initialNotifications==0,"failed initial file preparation does not load or announce an unprepared page");
+        // Extended Phase151: exercise current producer/load bodies; script/CSS,
+        // window navigation and saver handoff are recording collaborators.
+        seed();RoutingView success(explorer);prepare(success);web=success.m_web;const auto priorRead=web->noteReadPermit();web->body="unsaved initial DOM";const auto changes=web->m_contentChangeSequence;web->loadDocumentInWeb(0);
+        QString result;WizLoadUnicodeTextFromFile(file,result);
+        check(result==original+"<!-- synthetic core --><!-- synthetic CSS -->"&&web->m_currentNoteHtml==original&&web->m_currentNoteHtmlDocument.strGUID==a.strGUID&&web->getCurrentNoteHtml()==original,"initial success writes only the decorated temporary page and keeps an owned raw-source cache");
+        check(web->initialLoadCalls==1&&web->initialNotifications==1&&web->initialUrls==QList<QUrl>({QUrl::fromLocalFile(file)})&&!priorRead.current()&&web->noteReadPermit().current(),"own invalidation plus simulated loadStarted still permit exactly one load and legacy completion notification");
+        check(web->body=="unsaved initial DOM"&&web->m_contentChangeSequence==changes&&db.getCertPassword()==password,"initial loading does not clear pending body native dirty generation or password save cache");
+        for(const QString stage:{"publish","files","core","css"}){
+            seed();RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="keep source DOM";const auto ticket=target->documentCallbackTicket();
+            target->duringInitialStage=[&](const QString& at){if(at==stage){owner.hide();owner.show();submit(owner);}};
+            const bool ok=target->prepareInitial(file);QString contents;WizLoadUnicodeTextFromFile(file,contents);
+            check(!ok&&InitialOps::writes==0&&contents==original,"revocation at each preparation boundary preserves the original temporary-file bytes");
+            check(target->body=="keep source DOM"&&WizDocumentCallbackEpoch::current(ticket)&&db.getCertPassword()==password,"aborted initial preparation preserves body independent save ticket and cached password");
+        }
+        seed();RoutingView readRevoke(explorer);prepare(readRevoke);web=readRevoke.m_web;InitialOps::duringRead=[&]{readRevoke.hide();readRevoke.show();submit(readRevoke);};const bool readOk=web->prepareInitial(file);
+        check(!readOk&&web->htmlPublications==0&&InitialOps::writes==0,"revoked file-read result is never published or rewritten after a fresh authorization");
+        seed();RoutingView writeFailure(explorer);prepare(writeFailure);web=writeFailure.m_web;InitialOps::failWrite=true;const bool writeOk=web->prepareInitial(file);QString retained;WizLoadUnicodeTextFromFile(file,retained);
+        check(!writeOk&&retained==original&&web->initialLoadCalls==0,"failed atomic preparation reports failure without altering the original file");
+        seed();RoutingView missing(explorer);prepare(missing);web=missing.m_web;const auto missingPath=files.filePath("missing.html");
+        check(!web->prepareInitial(missingPath)&&web->htmlPublications==0&&InitialOps::writes==0,"missing initial input fails before cache publication or output");
+        for(const QString stage:{"read","publish","files","core","css","write"}){
+            seed();auto* owner=new RoutingView(explorer);prepare(*owner);auto* target=owner->m_web;QPointer<Web> weak(target);
+            if(stage=="read")InitialOps::duringRead=[&]{delete owner;};else if(stage=="write")InitialOps::duringWrite=[&]{delete owner;};else target->duringInitialStage=[&](const QString& at){if(at==stage)delete owner;};
+            const bool ok=target->prepareInitial(file);InitialOps::reset();check(!weak&&!ok,"owner destruction at each preparation boundary returns without a later member access");
+        }
+        seed();RoutingView loadMode(explorer);prepare(loadMode);web=loadMode.m_web;loadMode.title.duringMode=[&]{loadMode.hide();loadMode.show();submit(loadMode);};web->loadDocumentInWeb(1);
+        check(web->initialLoadCalls==0&&web->initialNotifications==0,"title-bar mode notification revoked and reauthorized cannot load the old prepared page");
+        seed();RoutingView modeFocus(explorer);prepare(modeFocus);web=modeFocus.m_web;web->duringInitialStage=[&](const QString& stage){if(stage=="focusIn")modeFocus.revokeBiometricAccess();};web->loadDocumentInWeb(1);
+        check(web->initialLoadCalls==0&&web->initialNotifications==0,"focus notification revocation prevents remaining initial mode and page-load steps");
+        seed();RoutingView superseded(explorer);prepare(superseded);web=superseded.m_web;web->m_screenShotWindow=&web->screenWindow;web->duringScreenWindow=[&](bool visible){if(visible)web->m_loadSequence.next();};web->loadDocumentInWeb(0);
+        check(web->initialLoadCalls==0&&web->initialNotifications==0,"loader sequence superseded during transient-UI retirement prevents loading an obsolete prepared page");
+        seed();RoutingView invalidation(explorer);prepare(invalidation);web=invalidation.m_web;web->m_screenShotWindow=&web->screenWindow;web->duringScreenWindow=[&](bool visible){if(visible)web->m_documentCallbacks.invalidate();};web->loadDocumentInWeb(0);
+        check(web->initialLoadCalls==0&&web->initialNotifications==0,"reentrant document invalidation expires the returned opening ticket before load dispatch");
+        seed();RoutingView lateLoad(explorer);prepare(lateLoad);web=lateLoad.m_web;web->duringInitialStage=[&](const QString& stage){if(stage=="load"){lateLoad.hide();lateLoad.show();submit(lateLoad);}};web->loadDocumentInWeb(0);
+        check(web->initialLoadCalls==1&&web->initialNotifications==0,"already-dispatched load is not retracted but loses its late completion notification after renewed authorization");
+        seed();RoutingView lateSequence(explorer);prepare(lateSequence);web=lateSequence.m_web;web->duringInitialStage=[&](const QString& stage){if(stage=="load")web->m_loadSequence.next();};web->loadDocumentInWeb(0);
+        check(web->initialLoadCalls==1&&web->initialNotifications==0,"new same-note loader sequence during dispatch suppresses the obsolete completion notification");
+        for(const QString stage:{"firstRead","publish","focusIn","title","retire","load","notify"}){
+            seed();auto* owner=new RoutingView(explorer);prepare(*owner);auto* target=owner->m_web;QPointer<Web> weak(target);
+            if(stage=="firstRead")InitialOps::duringRead=[&]{delete owner;};else if(stage=="title")owner->title.duringMode=[&]{delete owner;};else if(stage=="retire"){target->m_screenShotWindow=&target->screenWindow;target->duringScreenWindow=[&](bool visible){if(visible)delete owner;};}
+            else target->duringInitialStage=[&](const QString& at){if(at==stage)delete owner;};
+            target->loadDocumentInWeb(stage=="focusIn"||stage=="title"?1:0);InitialOps::reset();check(!weak,"owner destruction at load orchestration boundaries stops the initial-load continuation");
+        }
+        seed();RoutingView cache(explorer);prepare(cache);web=cache.m_web;web->m_currentNoteHtml="retained unrelated cache";web->m_currentNoteHtmlDocument=a;
+        check(web->getCurrentNoteHtml()==web->m_currentNoteHtml,"current-note metadata retains the existing authorized source-cache contract");
+        web->m_currentNoteHtmlDocument.strKbGUID="other synthetic KB";check(web->getCurrentNoteHtml().isEmpty(),"source cache belonging to another knowledge base is not exposed for the current note");
+        web->m_currentNoteHtmlDocument={};check(web->getCurrentNoteHtml().isEmpty()&&web->m_currentNoteHtml=="retained unrelated cache","unowned cache is refused without clearing retained bytes");
+        // Actual editor-save producer still finishes after a relock; only the
+        // snapshot provider and FIFO handoff are synthetic, never a real note.
+        seed();RoutingView save(explorer);prepare(save);web=save.m_web;web->m_strNoteHtmlFileName=file;web->m_bContentsChanged=true;int completed=0;bool saved=false;
+        web->saveEditingViewDocument(a,true,[&](const QVariant& value){++completed;saved=value.toBool();});save.hide();
+        const QString snapshot="<html><body>new synthetic save cache</body></html>";web->m_pdfPageOperations.deliver(QVariantMap{{"ok",true},{"changed",true},{"html",snapshot}});
+        check(completed==1&&saved&&web->initialSaveHandoffs==1&&web->savedInitialHtml==snapshot&&web->m_currentNoteHtml==snapshot&&web->m_currentNoteHtmlDocument.strGUID==a.strGUID&&web->getCurrentNoteHtml().isEmpty(),"actual save producer finishes its handoff and tags retained cache while relocked reads remain refused");
+        save.show();submit(save);check(web->getCurrentNoteHtml()==snapshot&&web->initialSaveHandoffs==1,"fresh authorization can read the same note's newly saved cache without rerunning or canceling its completed save");
+        for(const QString action:{"clear","open","reload"}){
+            const auto dispatch=[&](Web* target,RoutingView& owner){if(action=="clear")target->routeClear();else if(action=="open")target->routeViewDocument(owner.note(),0);else target->routeReloadNoteData(owner.note());};
+            seed();RoutingView normal(explorer);prepare(normal);auto* target=normal.m_web;const auto sequence=target->m_loadSequence.current();target->m_bContentsChanged=true;dispatch(target,normal);
+            check(action=="clear"?(target->initialLoadCalls==1&&target->initialUrls.last()==QUrl("about:blank")&&target->initialLoaderRequests==0):(target->initialLoaderRequests==1&&target->requestedInitialDocument.strGUID==a.strGUID&&target->requestedInitialSequence==sequence+1),"actual clear/open/reload preserves its original authorized blank-load or loader-request contract");
+            seed();RoutingView obsolete(explorer);prepare(obsolete);target=obsolete.m_web;target->m_bContentsChanged=true;target->m_screenShotWindow=&target->screenWindow;target->duringScreenWindow=[&](bool visible){if(visible)target->m_documentCallbacks.invalidate();};dispatch(target,obsolete);
+            check(target->initialLoadCalls==0&&target->initialLoaderRequests==0&&target->m_bContentsChanged,"reentrant invalidation stops old clear/open/reload before dispatch or resetting a newer dirty marker");
+            seed();auto* owner=new RoutingView(explorer);prepare(*owner);target=owner->m_web;QPointer<Web> weak(target);target->m_screenShotWindow=&target->screenWindow;target->duringScreenWindow=[&](bool visible){if(visible)delete owner;};dispatch(target,*owner);
+            check(!weak,"owner destruction while retiring transient UI stops actual clear/open/reload without further member access");
+        }
+        InitialOps::reset();
+    }
+    // End Phase151 initial tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

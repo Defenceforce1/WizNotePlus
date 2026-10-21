@@ -68,6 +68,7 @@ class WizDocumentLoadSequence final
 {
 public:
     quint64 next() { return ++m_sequence; }
+    quint64 current() const { return m_sequence; }
     bool accepts(const QObject* owner, const QPointer<QObject>& requester, quint64 sequence) const {
         return owner && requester == owner && sequence != 0 && sequence == m_sequence;
     }
