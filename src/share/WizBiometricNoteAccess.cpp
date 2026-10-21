@@ -4,6 +4,8 @@
 #include <QCryptographicHash>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QCoreApplication>
+#include <QThread>
 namespace WizBiometricNoteAccess {
 namespace {
 bool text(const QString& s, int max, bool empty = false)
@@ -29,6 +31,20 @@ bool optedIn(WizUserSettings& settings, const WizBiometricKeychain::Scope& scope
 {
     const auto id = policyIdentity(scope);
     return !id.isEmpty() && settings.get("BiometricUnlock",id) == "1";
+}
+PolicyEvents* PolicyEvents::applicationEvents()
+{
+    auto* app=QCoreApplication::instance();
+    if(!app||QThread::currentThread()!=app->thread())return nullptr;
+    static QPointer<PolicyEvents> events;
+    if(!events)events=new PolicyEvents(app);
+    return events;
+}
+void PolicyEvents::retire(const QString& policy)
+{
+    if(QThread::currentThread()!=thread()||policy.size()!=64)return;
+    for(const auto c:policy)if(!((c>='0'&&c<='9')||(c>='a'&&c<='f')))return;
+    emit accessRetired(policy); // Receivers may destroy this object.
 }
 void Gate::begin(const Context& context, bool required) { revoke(); m_context=context; m_required=required; }
 void Gate::revoke() { m_epoch.invalidate(); m_authorized=false; }

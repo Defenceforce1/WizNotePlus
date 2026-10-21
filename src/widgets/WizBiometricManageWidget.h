@@ -44,6 +44,7 @@ public Q_SLOTS:
     void beginShutdown();
 Q_SIGNALS:
     void accessRetired(); // Host must revoke open-note grants, never save cache.
+    void scopeAccessRetired(const QString& policy); // Start and successful commit.
 protected:
     void hideEvent(QHideEvent*) override;
 private:

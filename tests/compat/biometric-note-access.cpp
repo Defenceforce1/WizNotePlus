@@ -1,5 +1,9 @@
 #include "share/WizBiometricNoteAccess.h"
 #include "widgets/WizBiometricManageWidget.h"
+#include "widgets/WizBiometricManageHost.h"
+#include "sync/WizApiEntry.h"
+#include "WizPreferenceDialog.h"
+#include <QTabWidget>
 #include "share/WizSessionAccess.h"
 #include "share/WizSettings.h"
 #include "share/WizGlobal.h"
@@ -240,6 +244,61 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         auto* gone=new WizSessionAccess::Monitor(false);QPointer<WizSessionAccess::Monitor> weak(gone);QObject::connect(gone,&WizSessionAccess::Monitor::accessRetired,&app,[&]{delete gone;});gone->systemBoundary();check(!weak,"session receiver may destroy the monitor during retirement without later member access");
     }
     // End Phase164 management/session tests.
+    // Phase165 actual disabled host, scoped policy bridge and stale contexts.
+    {
+        using Manage=WizBiometricManageWidget;
+        WizCommonApiEntry::setEnterpriseServerIP("https://synthetic-host.invalid/");
+        const auto hostScope=snapshot(db,db,WizCommonApiEntry::server());const auto id=policyIdentity(hostScope);
+        settings.set("BiometricUnlock",id,"0");QThreadPool pool;const auto probe=std::make_shared<ManageState>();probe->gui=QThread::currentThread();
+        const auto click=[&](Manage* widget,bool forget){widget->findChild<QLineEdit*>("biometricManagePassword")->setText(password);widget->findChild<QCheckBox*>("biometricManageConsent")->setChecked(true);widget->findChild<QPushButton*>(forget?"biometricManageForget":"biometricManageEnroll")->click();};
+        auto* events=PolicyEvents::applicationEvents();QStringList notified;
+        const auto connection=QObject::connect(events,&PolicyEvents::accessRetired,&app,[&](const QString& key){notified.append(key);});
+        events->retire({});events->retire(QString(64,'G'));check(notified.isEmpty(),"policy bus refuses malformed retirement identifiers without notifying any host");
+        WizBiometricManageHost disabled(explorer);disabled.show();click(disabled.management(),false);
+        check(disabled.management()->stage()==Manage::Stage::Disabled&&!optedIn(settings,hostScope)&&notified.isEmpty(),"normal host construction and presentation are unavailable and do not write policy or publish access changes");
+        {
+            WizPreferenceWindow settingsWindow(explorer,nullptr);auto* tabs=settingsWindow.findChild<QTabWidget*>("tabWidget");
+            auto* manage=tabs?tabs->widget(tabs->count()-1)->findChild<Manage*>():nullptr;
+            check(manage&&manage->stage()==Manage::Stage::Disabled&&tabs->currentIndex()==0,"actual Settings constructor adds the disabled management page without changing the initial tab");
+            settingsWindow.showPrintMarginPage();check(tabs&&tabs->currentWidget()->objectName()=="tabPrint","actual print-margin settings navigation retains its original page after the management tab is appended");
+            if(manage){tabs->setCurrentIndex(tabs->count()-1);click(manage,false);}
+            check(manage&&!optedIn(settings,hostScope)&&notified.isEmpty(),"selecting the actual Settings management page and clicking its disabled button cannot write policy or launch an operation");
+        }
+        WizBiometricManageHost host(explorer,{true,[probe]{return std::make_shared<ManageOperation>(probe);},&pool});host.show();
+        click(host.management(),false);
+        check(until([&]{return host.management()->stage()==Manage::Stage::Succeeded;})&&probe->enroll==1&&optedIn(settings,hostScope)&&notified==QStringList{id,id},"actual host enables only its current personal scope after provider success and broadcasts scoped retirement at start and commit");
+        notified.clear();probe->result=Error::AlreadyExists;click(host.management(),false);
+        check(until([&]{return host.management()->stage()==Manage::Stage::Conflict;})&&probe->forget==0&&notified==QStringList{id},"actual host conflict retires existing access but never deletes or overwrites the existing local record");
+        notified.clear();probe->result=Error::None;click(host.management(),true);
+        check(until([&]{return host.management()->stage()==Manage::Stage::Succeeded;})&&probe->forget==1&&optedIn(settings,hostScope)&&notified==QStringList{id,id},"actual forget bridge retains required policy and publishes no credential or certificate data");
+        check(db.getCertPassword()==password&&snapshot(db,db,WizCommonApiEntry::server()).certificate.encryptedD==hostScope.certificate.encryptedD,"actual management host leaves certificate and active save password unchanged");
+        for(const int field:{0,1,2}){
+            const auto pending=std::make_shared<ManageState>();pending->gui=QThread::currentThread();pending->hold=true;QThreadPool held;
+            WizBiometricManageHost stale(explorer,{true,[pending]{return std::make_shared<ManageOperation>(pending);},&held});stale.show();settings.set("BiometricUnlock",id,"0");notified.clear();click(stale.management(),false);
+            const bool started=until([&]{return pending->enroll==1;});
+            if(field==0)db.setMeta("Account","GUID","other-synthetic-host");
+            if(field==1)WizCommonApiEntry::setEnterpriseServerIP("https://other-synthetic-host.invalid/");
+            if(field==2)db.setUserCert(hostScope.certificate.n,hostScope.certificate.e,hostScope.certificate.encryptedD+"A",hostScope.certificate.hint);
+            pending->release.release();const bool joined=held.waitForDone(3000);
+            check(started&&joined&&until([&]{return stale.management()->stage()==Manage::Stage::Disabled;})&&!optedIn(settings,hostScope)&&notified==QStringList{id},"account server or encrypted certificate revision change rejects a late management result without enabling either scope");
+            db.setMeta("Account","GUID","synthetic-account");WizCommonApiEntry::setEnterpriseServerIP("https://synthetic-host.invalid/");db.setUserCert(hostScope.certificate.n,hostScope.certificate.e,hostScope.certificate.encryptedD,hostScope.certificate.hint);
+        }
+        settings.set("BiometricUnlock",id,"1");notified.clear();const int before=probe->enroll.load();
+        auto* destroyed=new WizBiometricManageHost(explorer,{true,[probe]{return std::make_shared<ManageOperation>(probe);},&pool});destroyed->show();QPointer<WizBiometricManageHost> weak(destroyed);
+        const auto death=QObject::connect(events,&PolicyEvents::accessRetired,&app,[&](const QString& key){if(key==id&&weak)delete destroyed;});click(destroyed->management(),false);
+        check(!weak&&probe->enroll==before,"policy receiver may destroy the management host during start before worker dispatch");QObject::disconnect(death);
+        {
+            const auto heldProbe=std::make_shared<ManageState>();heldProbe->hold=true;heldProbe->gui=QThread::currentThread();QThreadPool held;
+            WizBiometricManageHost first(explorer,{true,[heldProbe]{return std::make_shared<ManageOperation>(heldProbe);},&held});first.show();click(first.management(),false);
+            const bool started=until([&]{return heldProbe->enroll==1;});
+            const auto otherProbe=std::make_shared<ManageState>();otherProbe->gui=QThread::currentThread();WizBiometricManageHost second(explorer,{true,[otherProbe]{return std::make_shared<ManageOperation>(otherProbe);},&pool});second.show();click(second.management(),true);
+            check(started&&until([&]{return second.management()->stage()==Manage::Stage::Failed;})&&otherProbe->forget==0,"separate management hosts cannot overlap enrollment and deletion or silently queue an obsolete second intent");
+            first.hide();heldProbe->release.release();const bool joined=held.waitForDone(3000);click(second.management(),true);
+            check(joined&&until([&]{return second.management()->stage()==Manage::Stage::Succeeded;})&&otherProbe->forget==1,"retired host completion releases process-wide mutation lease for a new explicit management action");
+        }
+        QObject::disconnect(connection);pool.waitForDone();
+    }
+    // End Phase165 host tests.
     check(db.getCertPassword()==password,"UI cancellation and note permission revocation never clear the existing save cache");
     WizDatabase::clearCertPassword();
     qInfo().noquote()<<"biometric-note-access checks"<<checks<<"failures"<<failures;

@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 164
+# Personal-use development checkpoint: phase 165
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -73,6 +73,38 @@ release, installation, or completed system-authentication acceptance.
   Already dispatched JavaScript is not retroactively canceled.
 
 ## Latest local verification
+
+Phase 165 connects the default-disabled management host to Settings and scoped
+open-note retirement, and prevents concurrent management mutations from separate
+hosts. The actual Settings constructor and print-margin navigation run offscreen
+against an isolated database. Its new page stays disabled; opening/selecting it
+does not query Keychain, enable policy or dispatch a management operation.
+
+The actual host snapshots the personal account/server/certificate and rechecks it
+before starting and accepting results. Policy persistence is read back only after
+provider enrollment success. Account, server or encrypted-key revision changes
+reject late results. A process-wide try-lock prevents overlapping enrollment and
+forget operations, without queuing an obsolete intent or automatically retrying.
+Hiding a dispatched host does not release that mutation until its worker returns.
+
+Management start and successful completion publish only a policy digest. Matching
+encrypted open notes retire their old grants; newly opted-in legacy gates become
+fresh-authentication gates even with a warm save password. Plain notes and other
+scopes are unchanged. DOM, certificate, backups and queued-save credentials stay.
+No notification grants access. Destroyed views detach; reentrant host destruction
+prevents dispatch. Providers are synthetic and document handlers use the actual
+extracted source, not a normal MainWindow instance.
+
+Final verification is **2 associated groups: 1203 PASS, 0 FAIL in 13.56s**
+(83 note/host/settings, 1120 routing/quit), once after the final build. All previous
+1178 assertions remain unchanged, with 25 new checks. No full-suite or native
+authentication rerun. A missing application type include caused one intermediate
+build failure. An initial test placed the policy write before its unrelated-scope
+assertion; the existing read gate correctly refused access. The test order was
+fixed without weakening the product gate. Failed evidence and the earlier 1200
+passing checkpoint are retained separately, not added to the final pass count.
+
+### Retained phase 164 evidence
 
 Phase 164 completes three associated isolated stages: an explicit biometric
 management component, session-access retirement, and the complete extracted
@@ -190,9 +222,10 @@ specific reason. Historical results are not silently counted as current acceptan
    This bounded external-editor method-level phase is closed; whole-application
    quit and manual conflict reconciliation remain separate.
    Real external processes remain outside isolated verification.
-3. Explicit biometric management is implemented and isolated-tested; normal-host
-   entry, policy-change broadcast/open-note integration and signed native
-   enrollment/conflict/forget acceptance remain gated and disabled.
+3. The actual Settings management host is wired but disabled. Its scope checks,
+   policy broadcast/open-note retirement and cross-host exclusion pass isolated
+   tests. User-configured signing and real native enrollment/conflict/forget
+   acceptance remain gated; no default enablement or password recovery is added.
 4. Public session subscriptions compile; deterministic retirement and the full
    extracted save-first quit method pass. Actual OS events, lock/authentication
    interaction and normal MainWindow end-to-end quit remain unaccepted.
@@ -206,7 +239,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase164.json](checkpoints/2026-10-21-phase164.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase165.json](checkpoints/2026-10-21-phase165.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

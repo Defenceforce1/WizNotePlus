@@ -583,6 +583,7 @@ public:
     bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket&) const;
     void revokeBiometricAccess(bool closing=false);
     void onSessionAccessRetired();
+    void onBiometricPolicyRetired(const QString& policy);
     bool prepareEncryptedAccess(WizDatabase&);
     bool biometricRequestCurrent(const Context&,const Gate::Ticket&) const;
     bool completeBiometricUnlock(const QString&,const Context&,const Gate::Ticket&);
@@ -3937,6 +3938,34 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(owner.canReadCurrentNote()&&db.getCertPassword()==password,"canceled normal quit keeps the current note usable and original save credential intact");LaunchMessage::errors=0;
     }
     // End Phase164 session/quit tests.
+    // Phase165 scoped policy changes upgrade open legacy gates, never saves.
+    {
+        settings.set("BiometricUnlock",policy,"0");
+        RoutingView first(explorer),second(explorer),plainView(explorer);first.show();second.show();plainView.show();first.viewNote(a,false);second.viewNote(b,false);plainView.viewNote(c,false);
+        auto* events=PolicyEvents::applicationEvents();
+        for(auto* target:{&first,&second,&plainView})QObject::connect(events,&PolicyEvents::accessRetired,target,&RoutingView::onBiometricPolicyRetired);
+        const auto oldFirst=first.noteReadTicket(),oldSecond=second.noteReadTicket();const auto body=first.m_web->body;
+        events->retire(policy);
+        check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"management retirement alone cannot opt legacy notes into a policy not actually persisted");
+        auto other=scope;other.accountGuid+="-other";events->retire(policyIdentity(other));
+        check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"unrelated account retirement cannot lock or rebind current open-note access");
+        settings.set("BiometricUnlock",policy,"1");
+        events->retire(policy);
+        check(first.m_biometricEnabled&&second.m_biometricEnabled&&first.m_biometricGate.requiresAuthorization(true)&&second.m_biometricGate.requiresAuthorization(true)&&!first.canReadCurrentNote()&&!second.canReadCurrentNote(),"persisted new opt-in upgrades all matching open legacy gates even with an existing warm password cache");
+        check(!first.acceptsNoteRead(oldFirst)&&!second.acceptsNoteRead(oldSecond)&&first.m_web->body==body&&db.getCertPassword()==password,"policy broadcast invalidates old tickets while retaining unsaved DOM and original save credential");
+        check(plainView.canReadCurrentNote()&&!plainView.m_biometricEnabled,"scope retirement does not require authentication for an unencrypted plain note");
+        submit(first);submit(second);const auto fresh=first.noteReadTicket();
+        check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"both open notes can obtain fresh independent manual authorization after policy upgrade");
+        events->retire(policy);
+        check(!first.canReadCurrentNote()&&!second.canReadCurrentNote()&&!first.acceptsNoteRead(fresh),"forget or enrollment retirement invalidates already granted open-note access without clearing policy");
+        first.onSessionAccessRetired();first.show();submit(first);const auto before=first.noteReadTicket();
+        WizCommonApiEntry::setEnterpriseServerIP("https://other-policy.invalid/");events->retire(policy);WizCommonApiEntry::setEnterpriseServerIP("https://synthetic-routing.invalid/");
+        check(first.acceptsNoteRead(before),"old-account notification after a live server switch cannot retire the previous scope's ticket");
+        first.revokeBiometricAccess(true);events->retire(policy);check(first.m_accessClosing&&!first.canReadCurrentNote(),"policy broadcast cannot reopen or reauthorize a closing document");
+        RoutingView* gone=new RoutingView(explorer);gone->show();gone->viewNote(a,false);QPointer<RoutingView> weak(gone);QObject::connect(events,&PolicyEvents::accessRetired,gone,&RoutingView::onBiometricPolicyRetired);delete gone;events->retire(policy);
+        check(!weak&&db.getCertPassword()==password,"destroyed views detach automatically from policy notifications without disrupting pending-save credentials");
+    }
+    // End Phase165 policy routing tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

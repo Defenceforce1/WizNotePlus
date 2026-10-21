@@ -10,6 +10,17 @@ WizBiometricKeychain::Scope snapshot(WizDatabase& personal, WizDatabase& target,
 // legacy bypass merely because the certificate changed.
 QString policyIdentity(const WizBiometricKeychain::Scope& scope);
 bool optedIn(WizUserSettings& settings, const WizBiometricKeychain::Scope& scope);
+// Process-local retirement only. Carries a framed policy digest, never a
+// password/certificate. Receivers still check their own live scope and policy.
+class PolicyEvents final : public QObject {
+    Q_OBJECT
+public:
+    explicit PolicyEvents(QObject* parent=nullptr):QObject(parent){}
+    static PolicyEvents* applicationEvents();
+    void retire(const QString& policy);
+Q_SIGNALS:
+    void accessRetired(const QString& policy);
+};
 class Gate final {
 public:
     using Ticket = WizDocumentCallbackEpoch::Ticket;

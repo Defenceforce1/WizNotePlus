@@ -1,4 +1,5 @@
 #include "WizBiometricManageWidget.h"
+#include "share/WizBiometricNoteAccess.h"
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QHideEvent>
@@ -103,6 +104,8 @@ void WizBiometricManageWidget::start(bool forget)
     m_consent->setChecked(false);if(!self||!WizDocumentCallbackEpoch::current(ticket))return;
     m_task=task;m_stage=Stage::Working;m_error=Error::None;update();
     if(!self||m_closed||m_task!=task||!WizDocumentCallbackEpoch::current(ticket))return;
+    emit scopeAccessRetired(WizBiometricNoteAccess::policyIdentity(scope));
+    if(!self||m_closed||m_task!=task||!WizDocumentCallbackEpoch::current(ticket))return;
     const auto factory=m_services.makeOperation;
     try{task->operation=factory();}catch(...){}
     if(!self)return;
@@ -131,7 +134,11 @@ void WizBiometricManageWidget::poll()
     }
     m_stage=forgotten||m_error==Error::None?Stage::Succeeded:(m_error==Error::AlreadyExists?Stage::Conflict:Stage::Failed);update();
     // Forgetting intentionally retains required fresh authorization policy.
-    if(self&&(forgotten||m_error==Error::None))emit accessRetired();
+    if(!self||!WizDocumentCallbackEpoch::current(task->ticket))return;
+    if(forgotten||m_error==Error::None){
+        emit scopeAccessRetired(WizBiometricNoteAccess::policyIdentity(task->scope));
+        if(self&&WizDocumentCallbackEpoch::current(task->ticket))emit accessRetired();
+    }
 }
 void WizBiometricManageWidget::update()
 {

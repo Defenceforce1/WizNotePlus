@@ -120,6 +120,7 @@ set(wiznote_SOURCES
     widgets/WizCertificateCreationDialog.cpp
     widgets/WizBiometricUnlockWidget.cpp
     widgets/WizBiometricManageWidget.cpp
+    widgets/WizBiometricManageHost.cpp
     share/WizZiwReader.cpp
     html/WizHtmlReader.cpp
     html/WizHtmlCollector.cpp
@@ -348,6 +349,7 @@ set(wiznote_HEADERS
     widgets/WizCertificateCreationDialog.h
     widgets/WizBiometricUnlockWidget.h
     widgets/WizBiometricManageWidget.h
+    widgets/WizBiometricManageHost.h
     share/WizSessionAccess.h
     widgets/WizSegmentedButton.h
     widgets/WizUserInfoWidget.h

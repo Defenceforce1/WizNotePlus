@@ -99,6 +99,8 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
             this, &WizDocumentView::onBiometricCredentialReady);
     connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,
             this,&WizDocumentView::onSessionAccessRetired);
+    connect(WizBiometricNoteAccess::PolicyEvents::applicationEvents(),&WizBiometricNoteAccess::PolicyEvents::accessRetired,
+            this,&WizDocumentView::onBiometricPolicyRetired);
 
     m_blankView = new QWidget(this);
 
@@ -1058,6 +1060,20 @@ void WizDocumentView::onSessionAccessRetired()
     if(!self)return;
     m_stack->setCurrentWidget(m_passwordView);
     // No focus/reauthentication or navigation while the session is inactive.
+}
+
+void WizDocumentView::onBiometricPolicyRetired(const QString& policy)
+{
+    if(m_accessClosing||m_note.strGUID.isEmpty())return;
+    auto& db=m_dbMgr.db(m_note.strKbGUID);
+    if(!m_note.nProtected&&!db.isEncryptAllData())return;
+    const auto context=biometricContext();
+    if(policy.isEmpty()||policy!=WizBiometricNoteAccess::policyIdentity(context.scope))return;
+    if(!m_biometricEnabled&&!WizBiometricNoteAccess::optedIn(m_userSettings,context.scope))return;
+    // New opt-in must upgrade a previously legacy gate before showing password;
+    // certificate revisions retain the policy but never retain the old grant.
+    m_biometricGate.begin(context,true);m_biometricEnabled=true;
+    onSessionAccessRetired();
 }
 
 bool WizDocumentView::prepareEncryptedAccess(WizDatabase& db)

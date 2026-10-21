@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase165",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "d6f83dcd88c6de013238a8c28a6f79b30f146197",
+  "sourceCheckpoint": "phase165",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1203,
+    "fail": 0,
+    "seconds": 13.56,
+    "noteChecks": 83,
+    "routingChecks": 1120,
+    "newChecks": 25,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAuthenticationRun": false,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Wire an actual default-disabled personal-certificate management host into Settings; scoped policy retirement upgrades matching open encrypted legacy gates and invalidates existing grants while retaining DOM/save credentials. Actual local account/server/certificate snapshot and setting readback; reject late changed-scope results. Process-wide try-lock excludes concurrent host enroll/forget without queue or auto-retry. Actual Settings constructor, disabled tab and print-margin navigation tested offscreen. Providers synthetic; actual document handler source extracted, not a normal MainWindow instance or native authentication acceptance. 25 new checks, all old 1178 assertions/extraction rules/unrelated bytes preserved. Missing application definition include caused one build failure; initial fixture enabled policy before expecting legacy access, correctly refused by existing gate; fix test order, retain failed evidence. Intermediate 1200-pass run not added to final 1203. No Keychain/service/foreground/account/real-note operations. Signing, native system events and first-certificate service contract remain gated.",
+  "files": [
+    {
+      "path": "src/CMakeLists.txt",
+      "mode": "100644",
+      "bytes": 29653,
+      "chars": 29653,
+      "gitBlobSha": "b836366f81feb593363cf00dfaa99190e9693bc7",
+      "sha256": "04aaa13ce1e4fe6c0a0db0627d3e28218019e77b4aa8037d62aa6275434e629e"
+    },
+    {
+      "path": "src/share/WizBiometricNoteAccess.h",
+      "mode": "100644",
+      "bytes": 1656,
+      "chars": 1656,
+      "gitBlobSha": "b094ad293ea9a16beb9bc06ad37755828c16b667",
+      "sha256": "76c0282c6b6c5140d5436f9c0cf29734dea32e03ffdf802692810840362e9cad"
+    },
+    {
+      "path": "src/share/WizBiometricNoteAccess.cpp",
+      "mode": "100644",
+      "bytes": 3082,
+      "chars": 3082,
+      "gitBlobSha": "fa2de082e4631e6fcfc9d8c1ce6af4815ccbb5ae",
+      "sha256": "e9aabac47a4f70e3e91957321431f7c34d949fe92fee788290c2c1b7e264a66b"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageWidget.h",
+      "mode": "100644",
+      "bytes": 2378,
+      "chars": 2378,
+      "gitBlobSha": "4f28e498a441102d078ff0a1cde90605bfc108a8",
+      "sha256": "6bcc74c8c2f140865fae342dd95b1350c1546bbc508971419b6823d609b62875"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageWidget.cpp",
+      "mode": "100644",
+      "bytes": 9580,
+      "chars": 9124,
+      "gitBlobSha": "ee08e2e1d0a943e06da18bcef4e80bcfda34fb43",
+      "sha256": "0bdfb2f68ce3e9450bdc5a7c365ef86e08254c39c49dc192e545e6f0e0248351"
+    },
+    {
+      "path": "src/WizPreferenceDialog.cpp",
+      "mode": "100644",
+      "bytes": 20152,
+      "chars": 19950,
+      "gitBlobSha": "0d110849529798f2070f374b02fee718ff7dcb67",
+      "sha256": "4255e9ea31c985460ff321ff13d6e08b58aaf82cf1e6c9f70acdb6a5aba36224"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 53794,
+      "chars": 53364,
+      "gitBlobSha": "d18959a35797f7732db56d91085435e336dcbc1b",
+      "sha256": "daf878eb1f7f62f98ff6086e5196d76299e8d21261922d83e21aaac7e96c3e53"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8386,
+      "chars": 8384,
+      "gitBlobSha": "ed9bceb1367d69e4ce3163e985d71e92416072c4",
+      "sha256": "6e6950a428c88832e4cd6f0bdbee631a18e12dab561026ee67e5c897829fea0a"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 29641,
+      "chars": 29641,
+      "gitBlobSha": "1595c964856e1f2a0d7e09df92c8c8ead3ece5bd",
+      "sha256": "4b30bbe9bd3c2a91007f17338024f119d5a805e6a5efd80e455175138c04003c"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 397213,
+      "chars": 397088,
+      "gitBlobSha": "3e17db95f056cf684e3e0f6346163bec81783e46",
+      "sha256": "a10c3519fe9ca2a329107656c94175d5dcd5dda78c56a733b55cc8435f51131a"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 16205,
+      "chars": 16205,
+      "gitBlobSha": "e698a6ac5290adb5c030a4b0aaf8f2be35718a0a",
+      "sha256": "5cd27e52963d0535eb062af1700e4dd6cc09e459b8e2882a09f88a2ba4a0be5e"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageHost.h",
+      "mode": "100644",
+      "bytes": 777,
+      "chars": 777,
+      "gitBlobSha": "54e1ee230fba424460c64276a374e3f9e55ade1e",
+      "sha256": "ba70315970a0845b6d2ead058c4dd1471303f458f82db5395731637a0a65a108"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageHost.cpp",
+      "mode": "100644",
+      "bytes": 3317,
+      "chars": 3317,
+      "gitBlobSha": "218a0849b04eb0b5c74238df8216907c7bbbdf5d",
+      "sha256": "f445753e0d436a7fb6cce6bfabdc87eb6b762ca08608c28c49d2028a189c6df7"
+    }
+  ]
+}
