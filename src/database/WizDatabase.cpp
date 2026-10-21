@@ -4841,29 +4841,9 @@ bool WizDatabase::compressFolderToZiwFile(WIZDOCUMENTDATA& document, const QStri
 
 bool WizDatabase::cancelDocumentEncryption(WIZDOCUMENTDATA& document)
 {
-    if (!document.nProtected || kbGUID() != document.strKbGUID)
-        return false;
-
-    //
-    if (!initZiwReaderForEncryption())
-        return false;
-
-    QString strFolder = Utils::WizPathResolve::tempDocumentFolder(document.strGUID);
-    if (!extractZiwFileToFolder(document, strFolder))
-    {
-        TOLOG("extract ziw file failed!");
-        return false;
-    }
-
-    //
-    document.nProtected = 0;
-    QString strFileName = getDocumentFileName(document.strGUID);
-    if (compressFolderToZiwFile(document, strFolder, strFileName))
-    {
-        emit documentDataModified(document);
-        return true;
-    }
-
+    Q_UNUSED(document);
+    // Normal UI uses the fresh-password, explicit-consent backup workflow.
+    TOLOG("Permanent unprotect requires explicit confirmation and backup workflow");
     return false;
 }
 

@@ -14,12 +14,12 @@ public:
     ~Monitor() override;
     static Monitor* applicationMonitor();
     void observeApplicationState(Qt::ApplicationState state);
-    void systemBoundary();
+    void systemBoundary(bool hard=true);
     void beginShutdown();
 Q_SIGNALS:
-    void accessRetired();
+    void accessRetired(bool hard);
 private:
-    bool m_closed=false,m_retired=false;
+    bool m_closed=false,m_retired=false,m_hardRetired=false;
     std::function<void()> m_unsubscribe;
 };
 // Native registration is separate so isolated tests never invoke OS sessions.

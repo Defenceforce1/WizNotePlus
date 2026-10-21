@@ -22,21 +22,21 @@ Monitor* Monitor::applicationMonitor()
 void Monitor::observeApplicationState(Qt::ApplicationState state)
 {
     if(m_closed)return;
-    if(state==Qt::ApplicationActive){m_retired=false;return;}
-    systemBoundary();
+    if(state==Qt::ApplicationActive){m_retired=false;m_hardRetired=false;return;}
+    systemBoundary(false);
 }
-void Monitor::systemBoundary()
+void Monitor::systemBoundary(bool hard)
 {
-    if(m_closed||m_retired)return;
-    m_retired=true;
-    emit accessRetired(); // No members touched after a receiver may destroy us.
+    if(m_closed||(m_retired&&(!hard||m_hardRetired)))return;
+    m_retired=true;m_hardRetired=m_hardRetired||hard;
+    emit accessRetired(hard); // A hard event must escalate a prior soft hide.
 }
 void Monitor::beginShutdown()
 {
     if(m_closed)return;
     m_closed=true;
     const auto cleanup=std::move(m_unsubscribe);if(cleanup)cleanup();
-    emit accessRetired();
+    emit accessRetired(true);
 }
 #ifndef Q_OS_MAC
 std::function<void()> subscribeWorkspace(QObject*,std::function<void()>){return {};}

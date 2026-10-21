@@ -14,6 +14,7 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-keychain.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-unlock-ui.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-note-access.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/document-unprotect.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp)
     include(${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-methods.cmake)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/settings-ui.cpp)
@@ -114,6 +115,8 @@ set(wiznote_SOURCES
     share/WizWindowsHelper.cpp
     share/WizEnc.cpp
     share/WizCertificateCreation.cpp
+    share/WizDocumentUnprotect.cpp
+    widgets/WizUnprotectDialog.cpp
     share/WizBiometricKeychainScope.cpp
     share/WizBiometricNoteAccess.cpp
     share/WizSessionAccess.cpp

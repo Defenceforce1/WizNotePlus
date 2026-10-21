@@ -57,6 +57,7 @@ public:
     QWidget* client() const { return m_stack; }
     WizDocumentWebView* web() const { return m_web; }
     quint64 noteOpenSequence() const { return m_openSequence; }
+    void awaitScreenShotAuthorization();
     WizWebEngineView* commentView() const;
     WizLocalProgressWebView* commentWidget() const { return m_commentWidget; }
     WizDocumentTransitionView* transitionView() { return m_transitionView; }
@@ -199,8 +200,8 @@ public Q_SLOTS:
 
 private:
     WizBiometricNoteAccess::Context biometricContext() const;
-    void revokeBiometricAccess(bool closing = false);
-    void onSessionAccessRetired();
+    void revokeBiometricAccess(bool closing = false,bool preserveCapture = false);
+    void onSessionAccessRetired(bool hard = true);
     void onBiometricPolicyRetired(const QString& policy);
     bool prepareEncryptedAccess(WizDatabase& db);
     bool biometricRequestCurrent(const WizBiometricNoteAccess::Context& context,

@@ -464,6 +464,10 @@ int main(int argc, char *argv[])
         extern int wizBiometricDocumentRoutingSelfTest(int, char**);
         return wizBiometricDocumentRoutingSelfTest(argc, argv);
     }
+    if (argc == 2 && QByteArray(argv[1]) == "--document-unprotect-self-test") {
+        extern int wizDocumentUnprotectSelfTest(int, char**);
+        return wizDocumentUnprotectSelfTest(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--biometric-note-access-self-test") {
         extern int wizBiometricNoteAccessSelfTest(int, char**);
         return wizBiometricNoteAccessSelfTest(argc, argv);

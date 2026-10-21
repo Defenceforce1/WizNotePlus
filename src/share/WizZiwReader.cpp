@@ -17,7 +17,7 @@ WizZiwReader::WizZiwReader(QObject *parent)
 
 QString WizZiwReader::certPassword()
 {
-    return m_pDatabase->getCertPassword();
+    return !m_operationPassword.isEmpty() ? m_operationPassword : (m_pDatabase ? m_pDatabase->getCertPassword() : QString());
 }
 
 bool WizZiwReader::loadZiwHeader(const QString& strFileName, WIZZIWHEADER& header)

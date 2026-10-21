@@ -1,10 +1,19 @@
-# Personal-use development checkpoint: bounded closeout
+# Personal-use development checkpoint: remaining feature implementation
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
 
 ## Improvements since the previous GitHub checkpoint
 
+- Personal-note permanent decryption now requires a fresh certificate password
+  and explicit confirmation after the save frontier. It preserves the complete
+  encrypted archive, stages the original plaintext ZIP and rolls metadata/file
+  changes back on ordinary failure. Automatic rollback failure is reported with
+  the retained backup path; this is not crash/concurrent-writer atomicity.
+- Opted-in protected-note screenshot capture retains pixels in memory across
+  intentional hiding. Insertion requires a new authorization on the original
+  note after capture; navigation, certificate/page change, policy retirement,
+  hard session/sleep boundaries and shutdown discard pending pixels.
 - Markdown display-math environments and common LaTeX-style theorem containers,
   retaining source text and cross-references.
 - PDF equation numbering and internal destinations; separate electronic-reading
@@ -73,6 +82,42 @@ release, installation, or completed system-authentication acceptance.
   Already dispatched JavaScript is not retroactively canceled.
 
 ## Latest local verification
+
+The two unfinished local features are implemented in one combined batch. Both
+existing cancel-encryption UI entrypoints use the new save-first, fresh-password,
+explicit-confirmation workflow. The old password-free database API refuses
+conversion. The encrypted backup includes the full original archive and remains
+available after success or an ordinary late failure. Certificate and shared
+save-password cache are not deleted or changed. Lists and the current note receive
+post-commit metadata/body updates; the now-plain note retires its old access gate.
+Groups and encrypt-all databases are outside this personal-note conversion scope.
+
+Only three directly affected groups ran: **1287 PASS, 0 FAIL in 15.11s**:
+permanent decryption 30, document routing 1174, note access/session 83. Tests use
+actual temporary databases, native ZIW encryption/decryption, ZIP/binary resource
+bytes, atomic file replacement, SQL rollback, saver FIFO fences and extracted
+production routing methods. Prompts, capture, page/editor and session events are
+isolated collaborators, not normal-client/native authentication acceptance.
+
+A final backend-only change preserves the latest ancillary metadata instead of
+copying pre-prompt read counts/flags. Its same 30 checks passed again, including
+an actual database read-count update between preparation and conversion. Only
+that affected group was rerun; the 1287 count does not double-count this repeat.
+
+Protected screenshots publish no resource file before a new successful unlock;
+wrong passwords retain pending pixels without inserting them. Returning to the
+original editor preserves unsaved DOM/save state. Soft inactivity revokes reads
+but retains the capture; hard session events escalate even after earlier soft
+inactivity and discard it. Normal Touch ID remains disabled.
+
+Intermediate builds exposed new-code include/API mistakes, which were corrected.
+The first associated run passed decryption and note-access groups but had three
+routing fixture failures after splitting legacy and opted-in capture behavior.
+The final run follows correction of those fixture assumptions and post-conversion
+reload integration; failing logs remain local. No full-suite rerun, native screen
+grab, real account, Keychain, note-service call, installation or packaging.
+
+### Retained phase 167 evidence
 
 The current local implementation batch is closed, not the entire native-client
 acceptance plan. Sibling saved notifications now reload only after the actual
@@ -259,7 +304,9 @@ specific reason. Historical results are not silently counted as current acceptan
 
 ## Remaining bounded work
 
-1. **Implemented and locally isolated-tested:** document read/output retirement,
+1. **Implemented and locally isolated-tested:** fresh-password, confirmed,
+   backup-preserving personal-note decryption and protected screenshot
+   reauthorization, alongside document read/output retirement,
    initialization/resumption, save receipt/frontier/quit coordination, external
    watcher/retry, export controllers and disabled biometric management. Their
    method-level stages are closed; this does not equal whole-client acceptance.
@@ -271,12 +318,7 @@ specific reason. Historical results are not silently counted as current acceptan
    chooser/capture/search/inspector, external process/manual conflict handling,
    representative attachment/encryption and new-candidate avatar update/reopen.
    Current permissions do not authorize normal-account/foreground operations.
-4. **Unfinished feature scope:** protected-note screenshot reauthorization UX and
-   the explicitly confirmed, backup-preserving known-password permanent-decryption
-   workflow are not complete. The latter has legacy cancel-encryption entrypoints;
-   their existence is not acceptance of a new transactional workflow. Do not
-   silently turn these into new testing-only subphases or convert real notes.
-5. **Retained limitations:** historical intermittent offline account-chooser
+4. **Retained limitations:** historical intermittent offline account-chooser
    fixture failure is not explained (the normal account override stays disabled);
    special-filename legacy HTML resource URL behavior and crash/concurrent-writer
    atomicity are not accepted. No repeated rerun is scheduled to hide these gaps.
@@ -291,7 +333,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase167.json](checkpoints/2026-10-21-phase167.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase168.json](checkpoints/2026-10-21-phase168.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

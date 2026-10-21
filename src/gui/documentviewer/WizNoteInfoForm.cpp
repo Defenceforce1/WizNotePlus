@@ -1,5 +1,7 @@
 ﻿#include "WizNoteInfoForm.h"
 #include "ui_WizNoteInfoForm.h"
+#include "widgets/WizUnprotectDialog.h"
+#include <QSignalBlocker>
 
 #include <QFile>
 
@@ -250,8 +252,18 @@ void WizNoteInfoForm::on_checkEncrypted_clicked(bool checked)
         {
             if (doc.nProtected)
             {
-                if (!db.cancelDocumentEncryption(doc))
-                    return;
+                const QPointer<WizNoteInfoForm> self(this);const QPointer<WizMainWindow> window(WizMainWindow::instance());
+                const auto guid=m_docGuid,kb=m_docKbGuid;
+                if(!window)return;
+                window->trySaveCurrentNote([self,window,doc,guid,kb](const QVariant& saved){
+                    if(!self||!window)return;
+                    if(saved.userType()==QMetaType::Bool&&saved.toBool()&&self->m_docGuid==guid&&self->m_docKbGuid==kb){
+                        WizUnprotectDialog::Services services;
+                        services.contextCurrent=[self,guid,kb]{return self&&self->m_docGuid==guid&&self->m_docKbGuid==kb;};
+                        WizUnprotectDialog::run(self,WizDatabaseManager::instance()->db(kb),doc,window->docSaver(),services);
+                    }
+                    if(self&&self->m_docGuid==guid&&self->m_docKbGuid==kb){WIZDOCUMENTDATA current;if(WizDatabaseManager::instance()->db(kb).documentFromGuid(guid,current)){const QSignalBlocker blocker(self->ui->checkEncrypted);self->ui->checkEncrypted->setChecked(current.nProtected!=0);}}
+                });
             }
         }
     }

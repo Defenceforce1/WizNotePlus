@@ -445,6 +445,7 @@ foreach(pair "void WizDocumentWebView::on_editorCommandExecuteScreenShot_imageAc
     string(SUBSTRING "${read_text}" ${begin} ${length} body)
     string(REPLACE "WizDocumentWebView" "Web" body "${body}")
     string(REPLACE "WizScreenShotHelper" "SyntheticScreenShotHelper" body "${body}")
+    string(REPLACE "WizDocumentView" "RoutingView" body "${body}")
     string(REPLACE "WizAnalyzer" "ToolbarAnalyzer" body "${body}")
     string(REPLACE "TOLOG(" "AttachmentOps::log(" body "${body}")
     string(APPEND screenshot_bodies "${body}")

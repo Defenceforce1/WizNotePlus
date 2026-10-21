@@ -238,9 +238,9 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
     {
         WizSessionAccess::Monitor monitor(false);int notifications=0;QObject::connect(&monitor,&WizSessionAccess::Monitor::accessRetired,&app,[&]{++notifications;});
         monitor.observeApplicationState(Qt::ApplicationInactive);monitor.systemBoundary();monitor.observeApplicationState(Qt::ApplicationHidden);
-        check(notifications==1,"session monitor coalesces repeated inactive/sleep boundaries without issuing credentials");
-        monitor.observeApplicationState(Qt::ApplicationActive);check(notifications==1,"activation rearms notifications only and never restores access automatically");monitor.systemBoundary();check(notifications==2,"a later session boundary retires a freshly active session again");
-        monitor.beginShutdown();monitor.observeApplicationState(Qt::ApplicationActive);monitor.systemBoundary();monitor.beginShutdown();check(notifications==3,"shutdown retires once and prevents further session reactivation");
+        check(notifications==2,"hard sleep/session boundary escalates prior soft inactivity once without issuing credentials");
+        monitor.observeApplicationState(Qt::ApplicationActive);check(notifications==2,"activation rearms notifications only and never restores access automatically");monitor.systemBoundary();check(notifications==3,"a later session boundary retires a freshly active session again");
+        monitor.beginShutdown();monitor.observeApplicationState(Qt::ApplicationActive);monitor.systemBoundary();monitor.beginShutdown();check(notifications==4,"shutdown retires once and prevents further session reactivation");
         auto* gone=new WizSessionAccess::Monitor(false);QPointer<WizSessionAccess::Monitor> weak(gone);QObject::connect(gone,&WizSessionAccess::Monitor::accessRetired,&app,[&]{delete gone;});gone->systemBoundary();check(!weak,"session receiver may destroy the monitor during retirement without later member access");
     }
     // End Phase164 management/session tests.

@@ -33,6 +33,8 @@ public:
     void setDatabase(WizDatabase* pDatabase) { m_pDatabase = pDatabase; }
 
     QString certPassword();
+    // Operation-local password; never changes the database's queued-save cache.
+    void setOperationPassword(const QString& password) { m_operationPassword=password; }
     QString certPasswordHint() const { return m_strHint; }
 
     void setRSAKeys(const QByteArray& strN, \
@@ -66,6 +68,7 @@ private:
     QByteArray m_d;
     QByteArray m_encrypted_d;
     QString m_strHint;
+    QString m_operationPassword;
 
     static bool loadZiwHeader(const QString& strFileName, WIZZIWHEADER& header);
     static bool loadZiwData(const QString& strFileName, QByteArray& strData);

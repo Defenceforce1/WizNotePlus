@@ -1036,7 +1036,7 @@ WizBiometricNoteAccess::Context WizDocumentView::biometricContext() const
             m_note.strGUID,m_openSequence};
 }
 
-void WizDocumentView::revokeBiometricAccess(bool closing)
+void WizDocumentView::revokeBiometricAccess(bool closing,bool preserveCapture)
 {
     const QPointer<WizDocumentView> self(this);
     m_openEpoch.invalidate();
@@ -1047,20 +1047,20 @@ void WizDocumentView::revokeBiometricAccess(bool closing)
     if (!self) return;
     m_web->cancelFindReplace();
     if (!self) return;
-    m_web->cancelScreenShot(!closing);
+    if(!preserveCapture)m_web->cancelScreenShot(!closing);
     if (!self) return;
     m_web->closeDevTools();
     if (!self) return;
     m_passwordView->cancelBiometric();
 }
 
-void WizDocumentView::onSessionAccessRetired()
+void WizDocumentView::onSessionAccessRetired(bool hard)
 {
     // Legacy/non-opted-in behavior is unchanged. Retire access, not the saved
     // password, DOM, snapshot producer or queued local saves.
     if(!m_biometricEnabled||m_accessClosing)return;
     const QPointer<WizDocumentView> self(this);
-    revokeBiometricAccess();
+    revokeBiometricAccess(false,!hard);
     if(!self)return;
     m_web->cancelPdfExport();
     if(!self)return;
@@ -1082,11 +1082,24 @@ void WizDocumentView::onBiometricPolicyRetired(const QString& policy)
     onSessionAccessRetired();
 }
 
+void WizDocumentView::awaitScreenShotAuthorization()
+{
+    if(m_accessClosing||!m_biometricEnabled)return;
+    const QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess(false,true);if(!self)return;
+    if(!prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))&&self)
+        m_passwordView->setPasswordText(tr("重新输入证书密码以插入刚才的截图；切换笔记将丢弃截图"));
+}
+
 bool WizDocumentView::prepareEncryptedAccess(WizDatabase& db)
 {
     if (m_accessClosing) return false;
     if (!m_openSequence) ++m_openSequence;
     const auto context = biometricContext();
+    if(!m_note.nProtected&&!db.isEncryptAllData()){
+        if(m_biometricEnabled){m_biometricGate.begin(context,false);m_biometricEnabled=false;m_biometricPrepared=false;}
+        return true;
+    }
     const bool enabled = WizBiometricNoteAccess::optedIn(m_userSettings,context.scope)
         || (m_biometricEnabled && WizBiometricNoteAccess::policyIdentity(context.scope).isEmpty());
     if (enabled != m_biometricEnabled || !m_biometricGate.current(context)) {
@@ -1147,6 +1160,7 @@ bool WizDocumentView::completeBiometricUnlock(const QString& password, const Wiz
         if (!self || !biometricRequestCurrent(context,ticket)) return false;
         m_web->resumeEditorSetup();
     }
+    if(self&&biometricRequestCurrent(context,ticket))m_web->resumePendingScreenShot();
     return true;
 }
 

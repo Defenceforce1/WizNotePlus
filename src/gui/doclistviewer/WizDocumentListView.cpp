@@ -1,6 +1,7 @@
 ﻿#include "WizDocumentListView.h"
 
 #include <QPixmapCache>
+#include "widgets/WizUnprotectDialog.h"
 #include <QApplication>
 #include <QMenu>
 #include <QSet>
@@ -2050,19 +2051,15 @@ void WizDocumentListView::on_action_encryptDocument()
 
 void WizDocumentListView::on_action_cancelEncryption()
 {
-    WizMainWindow::instance()->trySaveCurrentNote([=](const QVariant& vRet) {
-        //
-        ::WizGetAnalyzer().logAction("documentListMenuCancelEncryptionn");
-        //
-        foreach(WizDocumentListViewDocumentItem* item, m_rightButtonFocusedItems)
-        {
-            WIZDOCUMENTDATA doc = item->document();
-            if (doc.nProtected)
-            {
-                WizDatabase& db = m_dbMgr.db(doc.strKbGUID);
-                if (!db.cancelDocumentEncryption(doc))
-                    return;
-            }
+    QList<WIZDOCUMENTDATA> documents;
+    for(auto* item:m_rightButtonFocusedItems)if(item->document().nProtected)documents.append(item->document());
+    const QPointer<WizDocumentListView> self(this);const QPointer<WizMainWindow> window(WizMainWindow::instance());
+    if(!window)return;
+    window->trySaveCurrentNote([self,window,documents](const QVariant& saved) {
+        if(!self||!window||saved.userType()!=QMetaType::Bool||!saved.toBool())return;
+        for(const auto& doc:documents){
+            if(!self||!window)return;
+            if(!WizUnprotectDialog::run(self,self->m_dbMgr.db(doc.strKbGUID),doc,window->docSaver()))return;
         }
     });
 }

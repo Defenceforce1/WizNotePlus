@@ -119,6 +119,8 @@ set_tests_properties(wiznote_certificate_creation_ui PROPERTIES
 add_test(NAME wiznote_biometric_keychain COMMAND $<TARGET_FILE:WizNotePlus> --biometric-keychain-self-test)
 add_test(NAME wiznote_biometric_unlock_ui COMMAND $<TARGET_FILE:WizNotePlus> --biometric-unlock-ui-self-test)
 add_test(NAME wiznote_biometric_note_access COMMAND $<TARGET_FILE:WizNotePlus> --biometric-note-access-self-test)
+add_test(NAME wiznote_document_unprotect COMMAND $<TARGET_FILE:WizNotePlus> --document-unprotect-self-test)
+set_tests_properties(wiznote_document_unprotect PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
 set_tests_properties(wiznote_biometric_note_access PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
 add_test(NAME wiznote_biometric_document_routing COMMAND $<TARGET_FILE:WizNotePlus> --biometric-document-routing-self-test)
 set_tests_properties(wiznote_biometric_document_routing PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)

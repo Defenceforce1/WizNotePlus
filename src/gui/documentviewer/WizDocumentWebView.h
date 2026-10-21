@@ -4,6 +4,7 @@
 #include <QWebEngineView>
 #include <QTimer>
 #include <QPointer>
+#include <QPixmap>
 #include "share/WizDocumentLinkRequest.h"
 #include "share/WizPdfExportRequest.h"
 #include "share/WizPdfPageOperations.h"
@@ -280,6 +281,9 @@ private:
     QPointer<QWidget> m_screenShotWindow;
     WizDocumentReadPermit m_screenShotReadPermit;
     WizDocumentCallbackEpoch m_screenShotCallbacks;
+    bool m_screenShotRequiresReauth=false;
+    QPixmap m_pendingScreenShot;
+    std::function<bool()> m_screenShotOriginCurrent;
 
     ApiWizHtmlEditorApp* m_htmlEditorApp;
 
@@ -290,6 +294,8 @@ public:
     void cancelLinkInsert();
     void cancelFindReplace();
     WizDocumentCallbackEpoch::Ticket cancelScreenShot(bool restoreWindow = true);
+    void resumePendingScreenShot();
+    void insertScreenShot(const QPixmap&,const WizDocumentReadPermit&,const WizDocumentCallbackEpoch::Ticket&);
     void cancelPdfExport();
     void onNoteLoadFinished(); // editor callback
     void discardChanges();

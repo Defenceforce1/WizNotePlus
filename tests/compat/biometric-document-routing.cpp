@@ -512,6 +512,11 @@ struct Web : InspectorShell {
     QPointer<SyntheticScreenShotHelper> m_screenShotHelper;
     WizDocumentReadPermit m_screenShotReadPermit;
     WizDocumentCallbackEpoch m_screenShotCallbacks;
+    bool m_screenShotRequiresReauth=false;
+    QPixmap m_pendingScreenShot;
+    std::function<bool()> m_screenShotOriginCurrent;
+    void resumePendingScreenShot();
+    void insertScreenShot(const QPixmap&,const WizDocumentReadPermit&,const WizDocumentCallbackEpoch::Ticket&);
     QWidget screenWindow;QPointer<QWidget> m_screenShotWindow;
     QList<bool> screenVisibility;std::function<void(bool)> duringScreenWindow;
     void setWindowVisibleOnScreenShot(bool visible){if(visible){if(!m_screenShotWindow)return;m_screenShotWindow=nullptr;}else m_screenShotWindow=&screenWindow;screenVisibility.push_back(visible);const auto hook=duringScreenWindow;if(hook)hook(visible);}
@@ -606,8 +611,9 @@ public:
     WizDocumentCallbackEpoch::Ticket noteReadTicket() const {return m_biometricGate.ticket();}
     bool canReadLegacyHiddenNote() const;
     bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket&) const;
-    void revokeBiometricAccess(bool closing=false);
-    void onSessionAccessRetired();
+    void revokeBiometricAccess(bool closing=false,bool preserveCapture=false);
+    void onSessionAccessRetired(bool hard=true);
+    void awaitScreenShotAuthorization();
     void onBiometricPolicyRetired(const QString& policy);
     bool prepareEncryptedAccess(WizDatabase&);
     bool biometricRequestCurrent(const Context&,const Gate::Ticket&) const;
@@ -3075,6 +3081,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         const auto prepare=[&](RoutingView& owner){owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->editing=true;owner.m_web->imageResources=resources.path()+"/";};
         RoutingView locked(explorer);prepare(locked);locked.hide();const int created=SyntheticScreenShotHelper::instances.size();locked.m_web->editorCommandExecuteScreenShot();
         check(SyntheticScreenShotHelper::instances.size()==created&&locked.m_web->screenVisibility.empty(),"locked screenshot refuses helper construction and window hiding");
+        settings.set("BiometricUnlock",policy,"0");
         RoutingView stale(explorer);prepare(stale);auto* web=stale.m_web;web->editorCommandExecuteScreenShot();auto helper=SyntheticScreenShotHelper::instances.last();stale.hide();stale.show();submit(stale);const int reads=web->resourcePathReads;
         QPixmap pixels(12,8);pixels.fill(Qt::blue);helper->deliver(pixels);
         check(web->resourcePathReads==reads&&web->sourcePage.commands.empty(),"late screenshot after renewed authorization cannot read resources or insert pixels");
@@ -3110,7 +3117,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!web->m_screenShotHelper&&web->resourcePathReads==0&&web->sourcePage.commands.empty(),"actual note navigation cancels the old screenshot before a different note becomes authorized");
         for(const QString stage:{"restore","resources"}){
             RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="keep screenshot DOM";const auto ticket=target->documentCallbackTicket();target->editorCommandExecuteScreenShot();auto pending=target->m_screenShotHelper;
-            const auto revoke=[&]{owner.hide();owner.show();submit(owner);};
+            const auto revoke=[&]{owner.revokeBiometricAccess();owner.prepareEncryptedAccess(db);};
             if(stage=="restore")target->duringScreenWindow=[&](bool visible){if(visible)revoke();};else target->duringResourcePath=revoke;
             const int count=QDir(resources.path()).entryList({"*.png"},QDir::Files).size();pending->deliver(pixels);
             check(target->sourcePage.commands.empty()&&QDir(resources.path()).entryList({"*.png"},QDir::Files).size()==count,"revocation during restore or resource lookup stops before writing or inserting pixels");
@@ -3134,13 +3141,39 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
             }
             check(!guard,"owner destruction at synthetic window or resource boundaries stops screenshot continuations safely");
         }
-        // The deliberate main-window hide must not silently reauthorize an
-        // opt-in encrypted opening. Legacy/plain notes get a synchronous
-        // post-hide permit; no fresh permit is acquired by timers/results.
-        RoutingView protectedHide(explorer);prepare(protectedHide);web=protectedHide.m_web;web->duringScreenWindow=[&](bool visible){if(visible)protectedHide.show();else protectedHide.hide();};web->editorCommandExecuteScreenShot();
-        check(!web->m_screenShotHelper&&web->resourcePathReads==0&&protectedHide.m_stack->currentWidget()==protectedHide.m_passwordView&&web->screenVisibility==QList<bool>({false,true}),"actual opt-in view hide refuses capture and restores at the password view without bypassing authorization");
+        // Phase168: opt-in capture survives only the intentional soft hide.
+        // No resource path or file output precedes a new explicit unlock.
+        settings.set("BiometricUnlock",policy,"1");
+        RoutingView protectedHide(explorer);prepare(protectedHide);web=protectedHide.m_web;web->body="unsaved protected capture";const auto protectedSaveTicket=web->documentCallbackTicket();web->duringScreenWindow=[&](bool visible){if(visible)protectedHide.show();else protectedHide.hide();};web->editorCommandExecuteScreenShot();
+        helper=web->m_screenShotHelper;
+        check(helper&&web->resourcePathReads==0&&!web->m_screenShotReadPermit.current()&&protectedHide.m_stack->currentWidget()==protectedHide.m_passwordView,"protected capture survives hide with no body read permit");
+        if(helper)helper->deliver(pixels);
+        check(!web->m_screenShotHelper&&!web->m_pendingScreenShot.isNull()&&web->resourcePathReads==0&&web->sourcePage.commands.empty()&&protectedHide.m_stack->currentWidget()==protectedHide.m_passwordView,"protected pixels remain only in memory awaiting a new password on the original note");
+        submit(protectedHide,"wrong");
+        check(!web->m_pendingScreenShot.isNull()&&web->resourcePathReads==0,"wrong fresh password cannot publish or discard pending protected pixels");
+        submit(protectedHide);
+        check(web->m_pendingScreenShot.isNull()&&web->sourcePage.commands.size()==1&&web->resourcePathReads>0,"fresh verified password inserts pending pixels exactly once");
+        web->resumePendingScreenShot();check(web->sourcePage.commands.size()==1,"repeated unlock completion cannot insert the same pixels twice");
+        check(web->body=="unsaved protected capture"&&WizDocumentCallbackEpoch::current(protectedSaveTicket)&&db.getCertPassword()==password,"post-capture unlock preserves unsaved protected DOM independent save ticket and password cache");
         RoutingView hideReauth(explorer);prepare(hideReauth);web=hideReauth.m_web;web->duringScreenWindow=[&](bool visible){if(!visible){hideReauth.hide();hideReauth.show();submit(hideReauth);}};web->editorCommandExecuteScreenShot();
-        check(!web->m_screenShotHelper&&web->resourcePathReads==0,"synchronous renewed opt-in authorization during intentional hide cannot revive the originating screenshot");
+        helper=web->m_screenShotHelper;if(helper)helper->deliver(pixels);
+        check(!web->m_pendingScreenShot.isNull()&&web->resourcePathReads==0&&!hideReauth.canReadCurrentNote(),"authorization before capture completion cannot substitute for the required post-capture unlock");
+        hideReauth.onSessionAccessRetired(false);
+        check(!web->m_pendingScreenShot.isNull(),"soft inactivity preserves pending pixels but retires access");
+        hideReauth.onSessionAccessRetired(true);
+        check(web->m_pendingScreenShot.isNull()&&web->sourcePage.commands.empty(),"hard sleep/session boundary discards pending pixels without insertion");
+        for(const QString boundary:{"navigation","certificate","page","policy","shutdown"}){
+            RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->editorCommandExecuteScreenShot();auto pending=target->m_screenShotHelper;if(pending)pending->deliver(pixels);
+            ReadPage alternate;
+            if(boundary=="navigation")owner.viewNote(b,true);
+            else if(boundary=="certificate"){db.setUserCert(generated.certificate.n,generated.certificate.e,generated.certificate.encryptedD+"A",{});}
+            else if(boundary=="page")target->activePage=&alternate;
+            else if(boundary=="policy")owner.onBiometricPolicyRetired(policy);
+            else owner.revokeBiometricAccess(true);
+            target->resumePendingScreenShot();
+            check(target->m_pendingScreenShot.isNull()&&target->sourcePage.commands.empty()&&target->resourcePathReads==0,"changed origin policy or hard shutdown discards pending capture without body output");
+            target->activePage=&target->sourcePage;db.setUserCert(generated.certificate.n,generated.certificate.e,generated.certificate.encryptedD,{});
+        }
         settings.set("BiometricUnlock",policy,"0");
         RoutingView legacy(explorer);legacy.show();legacy.viewNote(c,true);web=legacy.m_web;web->imageResources=resources.path()+"/";web->editing=true;const auto beforeHide=web->noteReadPermit();
         web->duringScreenWindow=[&](bool visible){if(visible)legacy.show();else legacy.hide();};web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;
@@ -4139,6 +4172,15 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!weak&&db.getCertPassword()==password,"destroyed sibling receiver safely ignores pending clean-state replies without clearing save credentials");
     }
     // End Phase167 bounded checks. No new testing subphases scheduled.
+    {
+        WIZDOCUMENTDATAEX convertedNote;
+        if(!check(create("unprotect-transition",1,convertedNote),"isolated encrypted note exists for post-conversion reload"))return 1;
+        RoutingView owner(explorer);owner.show();owner.viewNote(convertedNote,true);submit(owner);
+        auto updated=convertedNote;updated.nProtected=0;
+        const bool stored=db.WizIndex::updateDocumentDataMD5(updated,plain,false);
+        owner.reloadNote();
+        check(stored&&!owner.m_biometricEnabled&&owner.m_web->reloads==1&&owner.canReadCurrentNote()&&db.getCertPassword()==password,"post-conversion metadata reload retires old protected gate without requiring a password for the now-plain note");
+    }
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

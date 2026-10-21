@@ -2678,8 +2678,32 @@ void WizDocumentWebView::on_editorCommandExecuteScreenShot_imageAccepted(QPixmap
     if (!m_screenShotHelper || sender() != m_screenShotHelper) return;
     const QPointer<WizDocumentWebView> self(this);
     const auto read = m_screenShotReadPermit;
+    const bool reauth=m_screenShotRequiresReauth;
+    const auto origin=m_screenShotOriginCurrent;
     // Retire before restoring the window: show() can start a newer request.
     const auto retired = cancelScreenShot();
+    if(reauth){
+        if(!self||pix.isNull()||!origin||!origin()||!WizDocumentCallbackEpoch::current(retired))return;
+        m_pendingScreenShot=pix;m_screenShotOriginCurrent=origin;
+        view()->awaitScreenShotAuthorization();
+        return;
+    }
+    if(self)insertScreenShot(pix,read,retired);
+}
+
+void WizDocumentWebView::resumePendingScreenShot()
+{
+    if(m_pendingScreenShot.isNull())return;
+    if(!m_screenShotOriginCurrent||!m_screenShotOriginCurrent()){cancelScreenShot();return;}
+    const auto read=noteReadPermit();if(!read.current())return;
+    const QPixmap pix=m_pendingScreenShot;const auto ticket=m_screenShotCallbacks.ticket();
+    m_pendingScreenShot={};m_screenShotOriginCurrent={};
+    insertScreenShot(pix,read,ticket);
+}
+
+void WizDocumentWebView::insertScreenShot(const QPixmap& pix,const WizDocumentReadPermit& read,const WizDocumentCallbackEpoch::Ticket& retired)
+{
+    const QPointer<WizDocumentWebView> self(this);
     const auto allowed = [self,read,retired] {
         return self && read.current() && WizDocumentCallbackEpoch::current(retired);
     };
@@ -2707,6 +2731,7 @@ WizDocumentCallbackEpoch::Ticket WizDocumentWebView::cancelScreenShot(bool resto
     m_screenShotCallbacks.invalidate();
     const auto retired = m_screenShotCallbacks.ticket();
     m_screenShotReadPermit = {};
+    m_screenShotRequiresReauth=false;m_pendingScreenShot={};m_screenShotOriginCurrent={};
     const QPointer<WizScreenShotHelper> helper(m_screenShotHelper);
     m_screenShotHelper = nullptr;
     if (helper) {
@@ -2921,39 +2946,51 @@ void WizDocumentWebView::editorCommandExecuteScreenShot()
     if (!initialRead.current()) return;
     const bool legacyHide = view()->canReadLegacyHiddenNote();
     // One request per editor. Do not restore/hide the window for a duplicate click.
-    if (m_screenShotHelper) return;
+    if (m_screenShotHelper || !m_pendingScreenShot.isNull()) return;
     const QPointer<WizScreenShotHelper> helper(new WizScreenShotHelper());
     helper->setParent(this);
     m_screenShotHelper = helper;
+    m_screenShotRequiresReauth=!legacyHide;
+    const QPointer<WizDocumentView> host(view());const QPointer<QObject> source(page());
+    const WIZDOCUMENTDATA note=host->note();const auto opening=host->noteOpenSequence();
+    const auto identity=WizBiometricKeychain::itemIdentity(WizBiometricNoteAccess::snapshot(m_dbMgr.db(),m_dbMgr.db(note.strKbGUID),WizCommonApiEntry::server()));
+    m_screenShotOriginCurrent=[self,host,source,document,note,opening,identity,legacyHide]{
+        return self&&host&&source&&self->page()==source&&WizDocumentCallbackEpoch::current(document)
+            &&host->noteOpenSequence()==opening&&host->note().strGUID==note.strGUID&&host->note().strKbGUID==note.strKbGUID
+            &&(legacyHide||identity==WizBiometricKeychain::itemIdentity(WizBiometricNoteAccess::snapshot(self->m_dbMgr.db(),self->m_dbMgr.db(note.strKbGUID),WizCommonApiEntry::server())));
+    };
     m_screenShotCallbacks.invalidate();
     const auto request = m_screenShotCallbacks.ticket();
-    const auto current = [self,helper,request,document] {
+    const auto alive = [self,helper,request] {
         return self && helper && self->m_screenShotHelper == helper
-            && WizDocumentCallbackEpoch::current(request)
-            && WizDocumentCallbackEpoch::current(document);
+            && WizDocumentCallbackEpoch::current(request);
     };
-    connect(helper, &WizScreenShotHelper::screenShotCaptured, this, [self,current](QPixmap pix) {
+    const auto current = [self,alive,document] {
+        return alive() && WizDocumentCallbackEpoch::current(document)
+            && self->m_screenShotOriginCurrent && self->m_screenShotOriginCurrent();
+    };
+    connect(helper, &WizScreenShotHelper::screenShotCaptured, this, [self,current,alive](QPixmap pix) {
         if (current()) self->on_editorCommandExecuteScreenShot_imageAccepted(pix);
+        else if(alive())self->cancelScreenShot();
     });
-    connect(helper, &WizScreenShotHelper::shotScreenQuit, this, [self,current] {
-        if (current()) self->on_editorCommandExecuteScreenShot_finished();
+    connect(helper, &WizScreenShotHelper::shotScreenQuit, this, [self,alive] {
+        if (alive()) self->on_editorCommandExecuteScreenShot_finished();
     });
     connect(helper, &QObject::destroyed, this, [self,request] {
         if (self && WizDocumentCallbackEpoch::current(request) && !self->m_screenShotHelper)
             self->cancelScreenShot();
     });
     setWindowVisibleOnScreenShot(false);
-    if (!current()) return;
-    // The intentional hide revokes the old ticket. Only legacy/non-opt-in
-    // notes can issue a permit while hidden; never reauthorize an opt-in note.
-    // Bind it now, synchronously, not when a timer/result arrives later.
-    if (!initialRead.current() && !legacyHide) { cancelScreenShot(); return; }
-    const auto read = noteReadPermit();
-    if (!read.current()) { cancelScreenShot(); return; }
+    if (!current()) { if(alive())cancelScreenShot();return; }
+    // The intentional hide revokes the old ticket. Legacy notes bind their
+    // hidden permit now. Protected captures retain pixels only in memory;
+    // returning to the original note requires fresh authorization to insert.
+    const auto read = legacyHide?noteReadPermit():WizDocumentReadPermit();
+    if (legacyHide&&!read.current()) { cancelScreenShot(); return; }
     m_screenShotReadPermit = read;
-    QTimer::singleShot(200, helper, [self,helper,current,read] {
-        if (!current()) return;
-        if (!read.current()) { self->cancelScreenShot(); return; }
+    QTimer::singleShot(200, helper, [self,helper,current,alive,read,legacyHide] {
+        if (!current()) {if(alive())self->cancelScreenShot();return;}
+        if (legacyHide&&!read.current()) { self->cancelScreenShot(); return; }
         helper->startScreenShot();
     });
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();

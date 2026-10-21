@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase168",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "6699b2e209d35d8ad8b1333117907910675357d1",
+  "sourceCheckpoint": "remaining-two-local-features-combined",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 3,
+    "uniquePass": 1287,
+    "pass": 1287,
+    "fail": 0,
+    "combinedRuns": 1,
+    "seconds": 15.11,
+    "documentUnprotect": 30,
+    "documentRouting": 1174,
+    "noteAccess": 83,
+    "backendOnlyFinalRerun": 30,
+    "fullSuiteRerun": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "fullProjectComplete": false,
+  "localExecutableFeatureListComplete": true,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Combined implementation, not another generic checking stage. Personal-note permanent decryption requires save fence, a fresh known certificate password and explicit confirmation. Preserve the complete encrypted archive; stage/validate original ZIP; atomic file publication with ordinary SQL/file rollback; report backup/recovery-required instead of claiming crash/concurrent-writer atomicity. Existing list/info entrypoints use the new workflow; legacy password-free API refuses conversion. Post-commit metadata/body notifications and plain-note gate transition. Protected screenshots retain pixels only in memory after intentional hide; new post-capture authorization on the exact original note/page/certificate is required before resource writes or insertion. Hard session/lock/sleep escalates earlier soft inactivity and discards capture; unsaved DOM/saves remain. Actual temporary database/ZIW/ZIP/resources/saver/fences/file replacement/rollback and extracted routing methods, synthetic UI/capture/page/session collaborators. Three affected groups1287/0; no full/native suite. Intermediate include/API build errors and three legacy-vs-protected capture fixture failures retained locally. Remaining external lawful signing/service contract and actual native-client acceptance are not local feature implementation tasks. Normal Touch ID disabled, recovery OFF, automation PAUSED. No real accounts/notes/Keychain/services/security tests/package/install. Source-only backup.",
+  "files": [
+    {
+      "path": "src/CMakeLists.txt",
+      "mode": "100644",
+      "bytes": 29826,
+      "chars": 29826,
+      "gitBlobSha": "8fd583113137030fc21513a5d2ddea1055442fd2",
+      "sha256": "65e10f946b3ba572da2e1e29109df8114540bcf32f3754fc9f846db501b52922"
+    },
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "bytes": 23459,
+      "chars": 23191,
+      "gitBlobSha": "99fbb55beb7b179516af9185a83d4341c3d890a4",
+      "sha256": "fe4414109b530d903f5330c7fa8d22a6a8972b7217a7600a8a3a05a9e41011e8"
+    },
+    {
+      "path": "src/database/WizDatabase.cpp",
+      "mode": "100755",
+      "bytes": 145903,
+      "chars": 145297,
+      "gitBlobSha": "9e741fec7bd83e05ca56f6a5f054c60ba5ad6199",
+      "sha256": "fd3a3387d21b1fbc73097c4f91a4cb00cd90f563391943985fb2f7e0e1a3174a"
+    },
+    {
+      "path": "src/share/WizZiwReader.h",
+      "mode": "100755",
+      "bytes": 2960,
+      "chars": 2958,
+      "gitBlobSha": "f45b41e21b41ee53414f0700772b2c46062d3791",
+      "sha256": "e0a11dc7c45d489afb7d4c9bc332abaedb188949ff74ace78f2cfef965364f23"
+    },
+    {
+      "path": "src/share/WizZiwReader.cpp",
+      "mode": "100755",
+      "bytes": 9310,
+      "chars": 9308,
+      "gitBlobSha": "4cfa66e9de5cf3ec6f6c676f827ae655c165bb48",
+      "sha256": "661c1d654a2be603525869d574cbac69f624ec326cc478ad40ea002a9716e6be"
+    },
+    {
+      "path": "src/share/WizSessionAccess.h",
+      "mode": "100644",
+      "bytes": 945,
+      "chars": 945,
+      "gitBlobSha": "cb8d9ddc45dc8fa3534785a6c8f61ee8d4ef57f3",
+      "sha256": "fc133b53663d912dad60b723149b66ea561f4e4fed0b31f005d4c817e7d96c08"
+    },
+    {
+      "path": "src/share/WizSessionAccess.cpp",
+      "mode": "100644",
+      "bytes": 1553,
+      "chars": 1553,
+      "gitBlobSha": "e6031caac2bd32b0d3590f605a434cec8500a9bc",
+      "sha256": "c477268d32a681fe6bff396e2f0abbf8a322083f6c82452174297b6333887448"
+    },
+    {
+      "path": "src/gui/doclistviewer/WizDocumentListView.cpp",
+      "mode": "100755",
+      "bytes": 79337,
+      "chars": 79255,
+      "gitBlobSha": "5aa4556ff138902ab8e75a23f4206e4dd0792b53",
+      "sha256": "a04e0df11b4a21b47f49604668409476701153dfbe5d6596b010d9de29cad2f8"
+    },
+    {
+      "path": "src/gui/documentviewer/WizNoteInfoForm.cpp",
+      "mode": "100644",
+      "bytes": 8742,
+      "chars": 8740,
+      "gitBlobSha": "6d41369556ccee9748051cc802ce26d9185dacbc",
+      "sha256": "2eb5362da6e58b4e9b4bf4a2956fab2cb434be1cbaf90214213502c3bcc4c664"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 55529,
+      "chars": 55047,
+      "gitBlobSha": "40a0587c37344b7a1924fdb506968b1bc62f59f2",
+      "sha256": "22d3ba3f5f441cc7a3e803ef48a6f804fe4131ca8448ec5b506fde18c8358566"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8472,
+      "chars": 8470,
+      "gitBlobSha": "580e3a316527dc2b50b2b594653727171c23e9cf",
+      "sha256": "36d787a552c9769504f5b9e77878979cff79e4e891e71c6ab7f0c4a1a8791ccd"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 136111,
+      "chars": 135999,
+      "gitBlobSha": "6d3ff7f5ff8d311623af8d7465e4c8b318d04cfc",
+      "sha256": "a7d7cdc96e5ccd2e01fd2c142c81457344c3621364534525eb79f7ff7c76a888"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 17098,
+      "chars": 17096,
+      "gitBlobSha": "92326a2031028b5ef1681436b1b3910895178f2f",
+      "sha256": "3ee2a10fdc8eeaf95141ed8941877bc3ce537db36c63586d1b8ff5148bb42fe5"
+    },
+    {
+      "path": "tests/compat/CMakeLists.txt",
+      "mode": "100644",
+      "bytes": 12030,
+      "chars": 12030,
+      "gitBlobSha": "cc361994f1fb545cb9c187c4312ae8d160e8749d",
+      "sha256": "99dab273053627fab0d71e7635700b1101b8e380d7516ad59d7c65274f47a086"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 420936,
+      "chars": 420811,
+      "gitBlobSha": "498f1d4e58f46b35c55a6f35de3a4c22e2ae3e03",
+      "sha256": "07542da3a7c14f027ecf6654f7586efd62a400d1978fd4aefbcf6c5b1a3eb149"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 29645,
+      "chars": 29645,
+      "gitBlobSha": "8ffe3354ee8be80e9d2594104a84d5dba97c67b8",
+      "sha256": "fb13d4aa51055fc372f43f4b24cd2f7034745bd4716d1d532cd38c43679d48ef"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 22282,
+      "chars": 22282,
+      "gitBlobSha": "540e27549fde89a50d667ae332d1ec2da74d7c6d",
+      "sha256": "9bfbb3683c4029e5b148e78ad6717b1f84bad507b3802a836a7574917dfc0419"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 48716,
+      "chars": 48716,
+      "gitBlobSha": "ddae50aef8e972acf6b7b061f77c8a253331d58f",
+      "sha256": "5ba4a9f3a23908455a1e9e770a8d62cccf8d6c3a7558ef3992637f578c843d01"
+    },
+    {
+      "path": "src/share/WizDocumentUnprotect.h",
+      "mode": "100644",
+      "bytes": 1026,
+      "chars": 1026,
+      "gitBlobSha": "3d6f4f41ae99130779b137dc3475bd3b52f56659",
+      "sha256": "74eb30e144799990334330197dd3597c87c9e7b3734634bc4d0ea9a183b04359"
+    },
+    {
+      "path": "src/share/WizDocumentUnprotect.cpp",
+      "mode": "100644",
+      "bytes": 7392,
+      "chars": 7392,
+      "gitBlobSha": "69ca70d5c698a6797dba910835ecf9f51af5e951",
+      "sha256": "3ea44d64942b63e402ed8c00273ed04a010f064f2fd75d19535c30577c068295"
+    },
+    {
+      "path": "src/widgets/WizUnprotectDialog.h",
+      "mode": "100644",
+      "bytes": 499,
+      "chars": 499,
+      "gitBlobSha": "9a65ae29060d0e22da7dbb8c0a6ba63b53b1cd13",
+      "sha256": "0a6673a0a80173b8b06a497ef1463927ec630af6201a73703fc754bb95f29659"
+    },
+    {
+      "path": "src/widgets/WizUnprotectDialog.cpp",
+      "mode": "100644",
+      "bytes": 3781,
+      "chars": 3345,
+      "gitBlobSha": "bc43322915547674d8c7f6cf1ca96d337029ec1a",
+      "sha256": "4dc73b6c5f24c237d5bcf88d1856f8194d152603c82507860d620e73c5a047ba"
+    },
+    {
+      "path": "tests/compat/document-unprotect.cpp",
+      "mode": "100644",
+      "bytes": 11501,
+      "chars": 11497,
+      "gitBlobSha": "584d1eab5c5d9ca265b8bace35f31d6f91333534",
+      "sha256": "90527ece0c77066f5fa136539706fbcf971b6be961b7a7c6c6fce5383db5aefe"
+    }
+  ]
+}
