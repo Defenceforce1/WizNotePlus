@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase162",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "f88445a75e2b580e596b87bc7d151edd219dbb7d",
+  "sourceCheckpoint": "phase162",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "pass": 1086,
+    "fail": 0,
+    "seconds": 12.37,
+    "routingChecks": 1086,
+    "newRoutingChecks": 21,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "prematurePreviousBinaryRunExcluded": true,
+    "fullSuiteRerun": false,
+    "nativeAsyncRerun": false,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Registered external tasks retain digest of initial or last admitted converted body. One successful read supplies conversion and SHA-256, retaining existing importer codec/BOM/text/HTML behavior; failed read is not blank save. Read-only final check refuses changed/missing/unreadable/invalid/unbased tasks and busy/failed external saver without submitting save, overwriting versions, deleting tasks or clearing errors. Normal MainWindow quit checks before initial local save and after final local save; two callsites source-verified/compiled, not whole-window runtime acceptance. Unchanged old cache cannot overwrite independently newer note. Six importer equivalence cases plus actual temporary encrypted archive/FIFO saver/read/quit-refusal bodies; process/modal UI remain recorders. All old 1065 assertions and unrelated product bytes/MainWindow BOM/CRLF preserved. An early test started while linking and used old 1065-check binary: retained/excluded, final new-source 1086-check run after build only. No negative-control claim. Refusal preserves possible conflicts rather than merging; external edits not written and direct/forced termination are outside guarantee. Sticky external-save retry/reconciliation and whole-app quit remain next.",
+  "files": [
+    {
+      "path": "src/WizMainWindow.cpp",
+      "mode": "100644",
+      "bytes": 172330,
+      "chars": 169018,
+      "gitBlobSha": "154e5afa8a3fff7f520758171cada192fde20769",
+      "sha256": "c391dbcc104d124d1e8d5565e676d8069e51c8a67a2a0d97e53eb1e79161bbe8"
+    },
+    {
+      "path": "src/utils/ExternalEditorLauncher.cpp",
+      "mode": "100644",
+      "bytes": 13694,
+      "chars": 13530,
+      "gitBlobSha": "c44467626a1a495988818c917a46c31e09d7a76e",
+      "sha256": "2ce051843398a4871c611da21b2dca6faab66a66a73f22681dd3ebb0aeaf2b83"
+    },
+    {
+      "path": "src/utils/ExternalEditorLauncher.h",
+      "mode": "100644",
+      "bytes": 2011,
+      "chars": 2011,
+      "gitBlobSha": "7551c51f8213b1be3214e759e66a0d88301c2efc",
+      "sha256": "e177022d609a02ce8eb0d919ef2c6aac5dcc3e86d927819728a6b43b5b19b459"
+    },
+    {
+      "path": "src/share/WizExternalEditorSnapshot.h",
+      "mode": "100644",
+      "bytes": 978,
+      "chars": 978,
+      "gitBlobSha": "c658a6a96860349b27cfd6c621157291928ddd2d",
+      "sha256": "e76a28f44cf7dd67fa72d4569eb178966e4693310852f16f7c0707afdeb25aa1"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 380517,
+      "chars": 380392,
+      "gitBlobSha": "b1aea6be47b9a510dab91a3b6506c6bbb9b88bc7",
+      "sha256": "49fb4aa2240814057638a4bb0dee062fc86e705b57fa553a2190de1a80ee8dda"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 42180,
+      "chars": 42180,
+      "gitBlobSha": "f318c7b98b72503c62a8f2b3bed1e09b51eaa578",
+      "sha256": "cd99c5a54fd0d70935286b09f75ec6b956f1d9196f6155bd0d75487bc4f8a40f"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 10208,
+      "chars": 10208,
+      "gitBlobSha": "764db6e718931dbde58a138dbb8251dd08bf17da",
+      "sha256": "0a86a9107dce4aa0c8853578ba01234df94e298f87f416743bd3759b2af61669"
+    }
+  ]
+}

@@ -13,6 +13,7 @@
 #include "utils/WizMisc.h"
 #include "share/WizMisc.h"
 #include "share/WizDocumentReadOutput.h"
+#include "share/WizExternalEditorSnapshot.h"
 #include "database/WizDatabaseManager.h"
 #include "database/WizDatabase.h"
 #include "WizFileImporter.h"
@@ -148,6 +149,8 @@ void ExternalEditorLauncher::startExternalEditor(
         || !QFileInfo(cacheFileName).isFile()
         || m_externalEditorTasks.contains(cacheFileName)
         || m_externalEditorFileWatcher->files().contains(cacheFileName)) return;
+    const auto initial = WizExternalEditorSnapshot::read(cacheFileName, editorData.TextEditor != 0);
+    if (!initial.ok) return;
 
     // Register before dispatch so an immediate editor write cannot arrive
     // before its origin is known. A failed launch rolls back only this session.
@@ -159,7 +162,7 @@ void ExternalEditorLauncher::startExternalEditor(
         return;
     }
     if (!current()) return;
-    WizExternalEditTask newTask = { editorData, noteData, cacheFileName };
+    WizExternalEditTask newTask = { editorData, noteData, cacheFileName, initial.digest };
     m_externalEditorTasks.insert(cacheFileName, newTask);
 
     // Launch external editor process
@@ -241,22 +244,42 @@ void ExternalEditorLauncher::saveWatchedFile(const QString &fileName)
     if (!changedFileInfo.isFile())
         return;
 
-    bool isPlainText = task.editorData.TextEditor == 0 ? false : true;
-    // Get modified document's text
-    QString strHtml;
-    if (isPlainText) {
-        // Plain Text
-        strHtml = WizFileImporter::loadTextFileToHtml(fileName, "UTF-8");
-        //TODO: add markdown img to <link rel="File-List" type="image/png" href="" /> elements in html head.
-        strHtml = QString("<!DOCTYPE html><html><head></head><body>%1</body></html>").arg(strHtml);
-    } else {
-        strHtml = WizFileImporter::loadHtmlFileToHtml(fileName, "UTF-8");
-    }
+    const auto snapshot = WizExternalEditorSnapshot::read(fileName, task.editorData.TextEditor != 0);
+    if (!snapshot.ok) return;
     // Get document's file name
     //FIXME: Windows client has encoding problem.
     QString indexFileName = Utils::WizMisc::extractFilePath(fileName) + "index.html";
     // Start saver thread
-    saver->save(task.docData, strHtml, indexFileName, 0, true);
+    saver->save(task.docData, snapshot.html, indexFileName, 0, true);
+    // Admission is not a disk acknowledgement. Quit also checks saver errors.
+    m_externalEditorTasks[fileName].admittedHtmlSha256 = snapshot.digest;
+}
+
+QStringList ExternalEditorLauncher::pendingExternalChanges() const
+{
+    QStringList pending;
+    for (auto it=m_externalEditorTasks.cbegin(); it!=m_externalEditorTasks.cend(); ++it) {
+        const auto& task=it.value();
+        if (task.cacheFileName!=it.key() || task.docData.strGUID.isEmpty()) {
+            pending.append(it.key());continue;
+        }
+        const auto snapshot=WizExternalEditorSnapshot::read(it.key(),task.editorData.TextEditor!=0);
+        if (!snapshot.ok || task.admittedHtmlSha256.isEmpty()
+            || snapshot.digest!=task.admittedHtmlSha256) pending.append(it.key());
+    }
+    return pending;
+}
+
+bool ExternalEditorLauncher::verifyExternalChangesForQuit() const
+{
+    if (pendingExternalChanges().isEmpty() && (!m_watchedDocSaver
+        || (m_watchedDocSaver->isIdleForTransfer() && !m_watchedDocSaver->hasTransferError()))) return true;
+    // This is a refusal, never a prompt to overwrite either version.
+    QMessageBox::critical(m_app.mainWindow(), QStringLiteral("未退出"),
+        QStringLiteral("外部编辑文件的修改尚未确认读取或保存成功，已取消退出。"
+                       "请保留当前窗口和外部文件，重新保存外部文件并确认笔记回写后再退出；"
+                       "若笔记也已修改，请先分别保留两份内容。"));
+    return false;
 }
 
 /*!

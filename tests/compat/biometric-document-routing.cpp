@@ -2,6 +2,7 @@
 #include "share/WizDocumentReadPermit.h"
 #include "share/WizDocumentReadOutput.h"
 #include "share/WizDocumentReadSave.h"
+#include "share/WizExternalEditorSnapshot.h"
 #include "share/WizThreads.h"
 #include "share/WizQtCompat.h"
 #include "share/WizMarkdownExportTransaction.h"
@@ -686,6 +687,7 @@ struct WatchLauncher : QObject {
     void saveWatchedFile(const QString&);
     void onWatchedDocumentChanged(const QString&);
     void waitForDone();
+    QStringList pendingExternalChanges() const;
 };
 #include WIZNOTE_WATCH_METHODS
 // Phase161: exact launch/registration body, with no process or modal UI.
@@ -716,6 +718,8 @@ struct LaunchShell : QObject {
     QMap<QString,WizExternalEditTask> m_externalEditorTasks;
     static QStringList splitCommand(const QString& args){return ExternalEditorLauncher::splitCommand(args);}
     void startExternalEditor(QString,const WizExternalEditorData&,const WIZDOCUMENTDATAEX&);
+    QStringList pendingExternalChanges() const;
+    bool verifyExternalChangesForQuit() const;
 };
 #include WIZNOTE_LAUNCH_METHODS
 // Only delay the worker's start; queue, disk saves, failure tracking, fences and
@@ -3780,6 +3784,58 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     }
 #endif
     // End Phase161 launch tests.
+    // Phase162 final unadmitted file changes are quit refusals, never flushes.
+    {
+        const auto bytes=[](const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();};
+        const auto put=[](const QString& path,const QByteArray& value){QSaveFile f(path);return f.open(QIODevice::WriteOnly)&&f.write(value)==value.size()&&f.commit();};
+        WIZDOCUMENTDATAEX note;if(!check(create("final-external-synthetic",1,note),"final external preflight creates isolated encrypted note"))return 1;
+        const QString file=root.filePath("final-external.txt");const WizExternalEditorData text={"synthetic","never-run",QString("%1"),2,1};
+        LaunchShell launcher(explorer);WizDocumentSaverThread idle(manager,nullptr);launcher.m_watchedDocSaver=&idle;LaunchProcess::reset();LaunchMessage::errors=0;
+        put(file,"original external body");launcher.startExternalEditor(file,text,note);const auto archiveBefore=bytes(db.getDocumentFileName(note.strGUID));
+        check(launcher.pendingExternalChanges().isEmpty()&&launcher.verifyExternalChangesForQuit()&&LaunchMessage::errors==0,"unchanged registered external cache permits quit without rewriting any note");
+        put(file,"unnotified final external body");
+        check(launcher.pendingExternalChanges()==QStringList{file}&&!launcher.verifyExternalChangesForQuit()&&LaunchMessage::errors==1&&bytes(db.getDocumentFileName(note.strGUID))==archiveBefore&&bytes(file)=="unnotified final external body","unadmitted atomic external replacement cancels quit and preserves both archive and changed cache");
+        const bool wroteNewer=db.updateDocumentData(note,"<html><body>newer independent note body</body></html>","",0,false);const auto newer=bytes(db.getDocumentFileName(note.strGUID));
+        check(wroteNewer&&!launcher.verifyExternalChangesForQuit()&&bytes(db.getDocumentFileName(note.strGUID))==newer&&bytes(file)=="unnotified final external body","potential note/file conflict is not resolved by flushing stale or unadmitted external text over newer archive");
+        put(file,"original external body");
+        check(launcher.verifyExternalChangesForQuit()&&bytes(db.getDocumentFileName(note.strGUID))==newer,"unchanged old cache never overwrites a newer independently edited note during final check");
+        const QString retained=root.filePath("retained-final-external.txt");const bool moved=QFile::rename(file,retained);
+        check(moved&&!launcher.verifyExternalChangesForQuit()&&launcher.m_externalEditorTasks.size()==1&&bytes(retained)=="original external body","missing registered external file refuses quit without dropping task or deleting retained content");
+        QFile::rename(retained,file);launcher.m_externalEditorTasks[file].admittedHtmlSha256.clear();
+        check(!launcher.verifyExternalChangesForQuit()&&bytes(db.getDocumentFileName(note.strGUID))==newer,"task without a comparison baseline refuses rather than guessing file or note freshness");
+        launcher.m_externalEditorTasks[file].admittedHtmlSha256=WizExternalEditorSnapshot::read(file,true).digest;
+        launcher.m_externalEditorTasks[file].cacheFileName="wrong synthetic identity";
+        check(!launcher.verifyExternalChangesForQuit(),"invalid registered cache identity remains a pending quit issue rather than a retargeted save");
+        launcher.m_externalEditorTasks[file].cacheFileName=file;
+        for(const bool plain:{false,true})for(const QByteArray input:{QByteArray(),QByteArray::fromHex("efbbbf")+QString("中文 <tag> & x\r\nnext line").toUtf8(),QByteArray::fromHex("fffe41000a004200")}){
+            put(file,input);const auto actual=WizExternalEditorSnapshot::read(file,plain);QString expected=plain?WizFileImporter::loadTextFileToHtml(file,"UTF-8"):WizFileImporter::loadHtmlFileToHtml(file,"UTF-8");
+            if(plain)expected=QString("<!DOCTYPE html><html><head></head><body>%1</body></html>").arg(expected);
+            check(actual.ok&&actual.html==expected&&actual.digest==QCryptographicHash::hash(expected.toUtf8(),QCryptographicHash::Sha256),"single-read comparison preserves existing importer behavior for empty, Unicode/BOM and UTF-16 detected files");
+        }
+        check(!WizExternalEditorSnapshot::read(root.path(),true).ok&&!WizExternalEditorSnapshot::read(root.filePath("no-snapshot.txt"),false).ok,"single-read external snapshot refuses directory or missing-file reads instead of fabricating blank content");
+        idle.waitForDone();LaunchProcess::reset();LaunchMessage::errors=0;
+    }
+    {
+        const auto put=[](const QString& path,const QByteArray& value){QSaveFile f(path);return f.open(QIODevice::WriteOnly)&&f.write(value)==value.size()&&f.commit();};
+        WIZDOCUMENTDATAEX note;if(!check(create("final-queued-external",1,note),"final queued external case creates isolated encrypted note"))return 1;
+        const QString file=root.filePath("final-queued-external.txt");const WizExternalEditorData text={"synthetic","never-run",{},2,1};put(file,"old text");
+        WatchLauncher watcher;HeldSaver saver(manager,nullptr);watcher.m_watchedDocSaver=&saver;watcher.m_externalEditorTasks.insert(file,{text,note,file,WizExternalEditorSnapshot::read(file,true).digest});
+        put(file,"actually admitted new text");check(watcher.pendingExternalChanges()==QStringList{file},"a final changed file is pending before its normal watcher save is admitted");
+        watcher.saveWatchedFile(file);const bool entered=saver.entered.tryAcquire(1,3000);
+        LaunchShell quit(explorer);quit.m_watchedDocSaver=&saver;quit.m_externalEditorTasks=watcher.m_externalEditorTasks;LaunchMessage::errors=0;
+        check(entered&&watcher.pendingExternalChanges().isEmpty()&&!quit.verifyExternalChangesForQuit()&&LaunchMessage::errors==1,"admitted snapshot digest is not a disk acknowledgement; busy actual saver still refuses quit");
+        saver.release.release();const bool finished=until([&]{return saver.isIdleForTransfer();});
+        check(finished&&quit.verifyExternalChangesForQuit()&&db.getCertPassword()==password,"completed actual queued external save clears final-read refusal without clearing save credential");
+        put(file,"second unadmitted text");const int count=watcher.m_externalEditorTasks.size();
+        check(!quit.verifyExternalChangesForQuit()&&watcher.m_externalEditorTasks.size()==count,"a later file replacement after an earlier successful save is detected again without submitting another save");
+        watcher.waitForDone();LaunchMessage::errors=0;
+    }
+    {
+        WIZDOCUMENTDATAEX missing=a;missing.strGUID="missing-final-save-note";HeldSaver saver(manager,nullptr);saver.save(missing,"<html>cannot save</html>","",0);const bool entered=saver.entered.tryAcquire(1,3000);saver.release.release();const bool finished=until([&]{return saver.isIdleForTransfer();});
+        LaunchShell quit(explorer);quit.m_watchedDocSaver=&saver;LaunchMessage::errors=0;
+        check(entered&&finished&&!quit.verifyExternalChangesForQuit()&&LaunchMessage::errors==1&&saver.hasTransferError(),"actual external saver failure refuses final quit even without a changed file and never clears the error");saver.waitForDone();LaunchMessage::errors=0;
+    }
+    // End Phase162 final external tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

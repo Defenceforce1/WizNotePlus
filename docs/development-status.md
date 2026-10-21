@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 161
+# Personal-use development checkpoint: phase 162
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -74,40 +74,39 @@ release, installation, or completed system-authentication acceptance.
 
 ## Latest local verification
 
-External launch requests now bind the launcher's original saver lifetime as well
-as the originating document read permit. Closed admission refuses before saving;
-closure or replacement during save reply, destination preparation or rendered
-HTML reply prevents new output, renderer queries and launch. Existing snapshots,
-queued saves and watched tasks are not canceled by this read-side refusal.
+External tasks now retain a SHA-256 comparison of their initial or most recently
+admitted converted body. A single successful file read supplies both the body
+and comparison; the previous importer's UTF codec/BOM, HTML/text conversion and
+empty-file behavior are retained. Read failure is not a successful blank save.
+An admitted comparison is not a disk acknowledgement.
 
-The launch method rejects closed admission, missing cache/note, unsupported
-format and paths already owned by a task or watch. It registers the origin/watch
-before process dispatch so an immediate editor write has an owner. Watch failure
-prevents dispatch; launch failure removes only that task/watch and retains cache
-bytes and unrelated sessions. The original program, command splitting, quoted
-Unicode/spaced paths and working directory remain. An already dispatched process
-is not retroactively terminated by closure or owner destruction.
+Normal quit checks external tasks before local-save preparation and again after
+its final local-save pass. Changed, missing, unreadable, invalid or untracked
+baseline files refuse quit. Busy or failed external saves also refuse. The check
+never submits a save, rewrites either version, removes a task or clears an error.
+The existing window, note and external file remain for reconciliation. Unchanged
+stale cache cannot overwrite an independently newer note. This is conservative
+conflict preservation, not automatic merging or a guarantee for external edits
+not yet written to disk. Direct/forced termination is outside normal quit checks.
 
-Phase 161 uses **1 incremental/associated group: 1065 PASS, 0 FAIL in 12.85s**,
-one final run, with 25 new checks and all old 1040 assertions unchanged. The
-original-source 1041-check control fails launch-failure rollback normally; that
-probe remains unchanged. Only request and launch method bodies change. Old
-extraction rules, unrelated product bytes and encoding are preserved. Compiled
-bodies differ only in named class/process/modal collaborators. One fixture-only
-missing-origin variable compilation error was corrected before the final run.
+Phase 162 uses **1 incremental/associated group: 1086 PASS, 0 FAIL in 12.37s**,
+one final run, with 21 new checks and all old 1065 assertions unchanged. Actual
+pending-file, save and quit-refusal bodies run with real temporary files, Qt,
+FIFO saver and encrypted archives; process/modal UI remain collaborators. Six
+conversion cases compare the new single-read path with the original importer.
+MainWindow's two callsites are source-verified and compiled, not runtime accepted.
+Unrelated source bytes, MainWindow BOM/CRLF and old evidence are verified.
 
-Actual Qt lifetimes, temporary files and QFileSystemWatcher registrations
-participate. Process startup and modal/bubble UI are recording collaborators;
-shutdown and destructive reentry are injected, not whole-application quit. The
-associated group also retains the actual watcher/importer/saver chain. No real
-external process, account, native UI or network service is used. Engine mapping
-verification is not native editor acceptance. No native-async/full-suite rerun.
+A prematurely started test ran the previous binary while the build linked. Its
+1065-check result is retained but excluded; the final run starts after the build
+and identifies the new source digest and 1086 assertions. No product failure or
+old-source negative control is claimed. Native async/full suite were not rerun.
 
-Launch/request/registration method-level work is complete for this scope. Final
-unadmitted file changes and conflict-preserving quit coordination remain; drain
-still guarantees queued saves, not external edits not yet written. Do not flush
-unchanged stale cache files over newer notes. Actual MainWindow saved-handler,
-real process/UI and whole-application quit remain separate acceptance boundaries.
+The final-file guard is a refusal, not a routine approval or overwrite prompt.
+Normally save the external file again and verify return-save before retrying
+quit; conflicting versions must be retained separately first. Sticky saver
+failure retry/reconciliation and whole-application quit remain distinct work.
+No external process, normal account, native UI or service request participates.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -134,9 +133,10 @@ specific reason. Historical results are not silently counted as current acceptan
    integration remain separate from this isolated chain. Registered external
    watcher return-save and queued-save drain now have actual local watcher/DB
    checks. Launch registration/rollback and closed-lifetime request admission are
-   now isolated-tested. Next is identifying final pending external file changes
-   and preserving conflicts during save-first quit, without unconditional stale
-   cache writeback. Real external processes remain outside isolated verification.
+   now isolated-tested. Final pending external changes preserve both versions
+   through a normal-quit refusal; automatic merging is not intended. Sticky
+   external-save failure retry/reconciliation and whole-application quit remain.
+   Real external processes remain outside isolated verification.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -149,7 +149,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase161.json](checkpoints/2026-10-21-phase161.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase162.json](checkpoints/2026-10-21-phase162.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

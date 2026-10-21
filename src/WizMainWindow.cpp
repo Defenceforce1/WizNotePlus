@@ -416,6 +416,8 @@ bool WizMainWindow::prepareForQuit()
     WizMarkdownExportRecoveryApp::QuitScope markdownRecoveryQuit;
 #endif
     WizQuitUiGuard actions(this, m_quiting);
+    // Read-only external-file preflight; never flush stale caches over notes.
+    if (m_externalEditorLauncher && !m_externalEditorLauncher->verifyExternalChangesForQuit()) return false;
     const auto saveLocally = [&](bool force) {
         QList<QPointer<WizDocumentView>> views;
         processAllDocumentViews([&](WizDocumentView* view) { views.append(view); });
@@ -486,6 +488,7 @@ bool WizMainWindow::prepareForQuit()
     // to exit. Do not start a second cloud attempt; any late local update can
     // sync next time. A failure still cancels quit and restores ordinary input.
     if (!saveLocally(false)) { reportLocalFailure(); return false; }
+    if (m_externalEditorLauncher && !m_externalEditorLauncher->verifyExternalChangesForQuit()) return false;
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
     markdownRecoveryQuit.commit();
 #endif

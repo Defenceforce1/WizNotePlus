@@ -26,6 +26,7 @@ struct WizExternalEditTask
     WizExternalEditorData editorData;
     WIZDOCUMENTDATAEX docData;
     QString cacheFileName;
+    QByteArray admittedHtmlSha256;
 };
 
 class ExternalEditorLauncher : public QObject
@@ -39,6 +40,9 @@ public:
     void saveWatchedFile(const QString& path);
     WizDocumentSaverThread* watchedDocSaver() { return m_watchedDocSaver; }
     void waitForDone();
+    // Read-only quit preflight: never flush an unobserved cache over a note.
+    QStringList pendingExternalChanges() const;
+    bool verifyExternalChangesForQuit() const;
 
     static QStringList splitCommand(const QString &command);
 

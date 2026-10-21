@@ -595,7 +595,8 @@ set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routi
 set(watch_bodies "")
 foreach(pair "void ExternalEditorLauncher::waitForDone(|/*!"
              "void ExternalEditorLauncher::onWatchedDocumentChanged(|/*!"
-             "void ExternalEditorLauncher::saveWatchedFile(|/*!")
+             "void ExternalEditorLauncher::saveWatchedFile(|QStringList ExternalEditorLauncher::pendingExternalChanges()"
+             "QStringList ExternalEditorLauncher::pendingExternalChanges()|bool ExternalEditorLauncher::verifyExternalChangesForQuit()")
     string(REPLACE "|" ";" bounds "${pair}")
     list(GET bounds 0 first)
     list(GET bounds 1 last)
@@ -628,6 +629,11 @@ if(begin LESS 0 OR end LESS begin)
 endif()
 math(EXPR length "${end} - ${begin}")
 string(SUBSTRING "${external_text}" ${begin} ${length} launch_body)
+string(FIND "${external_text}" "QStringList ExternalEditorLauncher::pendingExternalChanges()" pending_begin)
+string(SUBSTRING "${external_text}" ${pending_begin} -1 pending_suffix)
+string(FIND "${pending_suffix}" "/*!" pending_length)
+string(SUBSTRING "${pending_suffix}" 0 ${pending_length} pending_body)
+string(APPEND launch_body "${pending_body}")
 string(REPLACE "ExternalEditorLauncher" "LaunchShell" launch_body "${launch_body}")
 string(REPLACE "QProcess" "LaunchProcess" launch_body "${launch_body}")
 string(REPLACE "QMessageBox::critical" "LaunchMessage::critical" launch_body "${launch_body}")
