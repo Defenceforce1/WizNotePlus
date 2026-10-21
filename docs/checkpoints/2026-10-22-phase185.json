@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase185",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "5c9de5f06dcdbb84388b04c5eb302b675d6fb914",
+  "phase": 185,
+  "date": "2026-10-22",
+  "documentationOnly": true,
+  "productCodeChanged": false,
+  "testCodeChanged": false,
+  "buildInputsChanged": false,
+  "developerExecutableChanged": false,
+  "sourceChecklistClosed": true,
+  "deliveryPending": true,
+  "userAcceptancePending": true,
+  "latestInstallerContainsPhase183184Fixes": false,
+  "latestAcceptedSignedTestContainsPhase183184Fixes": false,
+  "newSourceMatchedSignedTestPrepared": false,
+  "firstCertificateCreationInCurrentScope": false,
+  "realAccountStarted": false,
+  "realNotesAccessed": false,
+  "certificateServiceCalled": false,
+  "realCertificatesOrSecretsRead": false,
+  "installed": false,
+  "repackagedInstaller": false,
+  "signingChanged": false,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "tests": {
+    "functionalTestsRun": 0,
+    "buildsRun": 0,
+    "continuityAndHandoffChecksOnly": true,
+    "latestHistoricalFunctionalAcceptance": {
+      "phase": 184,
+      "checks": 1181,
+      "failures": 0,
+      "baseline": "outputs/baselines/development-20261022-phase184.json",
+      "sha256": "ef70fbd21ddacc99beaa6039a3152a093f35e5e5503d064dd3e3130c52af9874"
+    }
+  },
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Reduced source checklist has no remaining identified independent defect after183decryption43/0 and184open/relock/encrypted-save1181/0;historical tests not rerun. Remaining delivery prerequisite and user-operated acceptance explicitly retained. Frozen14.4.25installer is171 and latest accepted signed test181:neither contains183/184fixes despite shared version label. Current source/developer exe contain fixes,but no new signed test/installer delivered;do not ask user to validate new fixes in old artifact or to self-build. A source-matched independent signed test must precede user session;no implicit packaging/install authority. Consolidated checklist covers original-data backup/no concurrent writers,known existing certificate,Mac unlock/relock/save/explicit biometric management,official iPhone round-trip,representative resources and optional permanent decryption of disposable note. No password/private-key transfer. Native capture/avatar/service writes and real accounts require user action/explicit scope. Broader combos,historical chooser cause and crash/concurrent atomicity retained,not expanded. Existing20minute automation paused through manager per user condition,read back with original prompt/name/cadence/target retained,no deletion. Docs/plan only;all mapped source/test/build inputs,developer exe,signed copies,frozen candidates,HEAD/index unchanged;no build/functional tests/signing/packaging/install/account/authentication. RecoveryOFF,full-client/iPhone acceptance not complete. Repository docs destination retained,no external Page created.",
+  "files": [
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 58288,
+      "sha256": "bcfabc3da341f362c26c941e686634763b19828e58cb6b60f7c5e80062deb99b",
+      "gitBlobSha": "184a3462c2ad1860792f00d9cbde0bc9b6d9c80b"
+    },
+    {
+      "path": "docs/user-acceptance-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 4987,
+      "sha256": "06360d8e89d6d4f996b8774092509b8d1edb07701d7fddf5a5a4b0890f2e318d",
+      "gitBlobSha": "e2eebd45094cddcbcc1ff9c2ace5dcd1f66d7259"
+    }
+  ]
+}

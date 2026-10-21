@@ -1,5 +1,37 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
+## Current handoff: source work closed, delivery and user acceptance outstanding
+
+Phase185 reconciles the reduced checklist with the latest evidence. No additional
+concrete source defect remains identified in that checklist; this is not complete
+App acceptance. The existing-certificate use fixes are in source and the developer
+executable: permanent-decryption feedback43/0 in phase183 and opening/review,
+relocking/encrypted-save routing1181/0 in phase184. Neither group is rerun here.
+
+There is an explicit **delivery gap** before the next user test. The frozen
+14.4.25 installer is the phase171 build, and the latest accepted signed test copy
+is phase181. Neither includes the phase183/184 fixes, despite sharing the same
+development version label. Do not ask the user to validate these fixes in either
+old artifact. A new independently signed test build matching the current source
+must be prepared before that session, preserving the installed App and frozen
+candidates. It has not been prepared or installed; the user is not expected to
+build it themselves. Do not equate a source commit or incremental build with a
+new delivered installer, or silently expand continuation into packaging/install.
+
+The consolidated [user acceptance checklist](user-acceptance-existing-certificate.zh-CN.md)
+covers prerequisites, existing-certificate Mac use, official iPhone round trip,
+representative resources and optional plaintext conversion on a disposable note.
+It distinguishes required account/device actions from optional specialized native
+workflows and retained historical limitations; no passwords/keys need to be sent.
+Actual normal-account/iPhone/native-control outcomes remain unaccepted.
+
+The user requested pausing once only delivery/user-dependent acceptance remains.
+The existing automation is now **PAUSED**, with its 20-minute cadence and saved
+instructions retained. No product/test/build-input changes or functional tests,
+signing, packaging, installation, real-note/account access or authentication took
+place in this documentation-only handoff. Recovery stays OFF. Resume source fixes
+only for concrete findings or an explicit next delivery/test step, not idle loops.
+
 ## Phase 184: existing-certificate opening, relock and encrypted-save routing
 
 The initial affected group reproduced **1181 checks, 2 failures**: opening
@@ -783,7 +815,7 @@ specific reason. Historical results are not silently counted as current acceptan
    backup-preserving personal-note decryption and protected screenshot
    reauthorization, alongside document read/output retirement,
    initialization/resumption, save receipt/frontier/quit coordination, external
-   watcher/retry, export controllers and disabled biometric management. Their
+   watcher/retry, export controllers and conditional opt-in biometric management. Their
    method-level stages are closed; this does not equal whole-client acceptance.
 2. **Existing-certificate prerequisite, not first registration:** a compatible
    account certificate and its known password are required for the relevant
@@ -794,7 +826,9 @@ specific reason. Historical results are not silently counted as current acceptan
    default-off and explicit native enrollment required. First-certificate service
    registration and its unresolved contract are outside the current user scope.
    No service probing, automatic certificate creation or replacement.
-3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
+3. **Delivery and actual-client acceptance, not repeated source tasks:** a new
+   source-matched signed test build is needed before user acceptance; frozen
+   installer171 and signed test181 do not contain fixes183/184. The focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
    normal-account and separate-window/shared-modal combinations,
    switch-user and broader system-event combinations (user-operated lock accepted
@@ -823,7 +857,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest focused integration manifest is [checkpoints/2026-10-22-phase184.json](checkpoints/2026-10-22-phase184.json).
+The latest handoff manifest is [checkpoints/2026-10-22-phase185.json](checkpoints/2026-10-22-phase185.json).
+The latest focused functional integration is [phase184](checkpoints/2026-10-22-phase184.json).
 Permanent-decryption feedback is recorded in [phase183](checkpoints/2026-10-22-phase183.json).
 The existing-certificate scope decision is [phase182](checkpoints/2026-10-22-phase182.json).
 The latest signed physical-session acceptance is [phase181](checkpoints/2026-10-22-phase181.json).
