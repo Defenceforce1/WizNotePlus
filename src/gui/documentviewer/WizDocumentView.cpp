@@ -536,6 +536,7 @@ void WizDocumentView::initStat(const WIZDOCUMENTDATA& data, bool forceEdit)
 void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
 {
     QPointer<WizDocumentView> self(this);
+    const auto pendingLoad = m_web->pendingLoadSequence();
     const auto requestSequence = ++m_openSequence;
     m_accessClosing = false;
     revokeBiometricAccess();
@@ -551,6 +552,8 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
         // An unloaded password/blank page has no snapshot to save (false is normal).
         if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
         if (hadLoadedNote && (ret.userType() != QMetaType::Bool || !ret.toBool())) {
+            m_web->continuePendingLoadAfterFailedOpen(pendingLoad);
+            if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
             if (m_biometricEnabled) prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID));
             return;
         }

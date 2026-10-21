@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 153
+# Personal-use development checkpoint: phase 154
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -74,32 +74,29 @@ release, installation, or completed system-authentication acceptance.
 
 ## Latest local verification
 
-Loader requests now retain the original host authorization, weak page, opening,
-navigation and request sequence. A newer authorization cannot revive an obsolete
-worker success or failure. Accepted results are consumed once, and rejected
-results cannot publish an extracted path. Current failures are reported once.
-Unlock/show can reissue only an unfinished extraction from that same opening and
-page, with a new sequence. It does not reset modification markers, retained DOM,
-save-cache bytes or pending saves. Completed loads/failures, explicit clear,
-closing, replacement pages and unrelated navigation are not automatically retried.
-The host's loadNote continuation now checks weak lifetime/opening after dispatch
-and metadata callbacks. The main-window failure consumer uses one-shot acceptance.
+Original-authorization loader acceptance and unfinished-extraction resumption
+from phase 153 remain. A failed new-opening save now explicitly retains only the
+captured pending extraction belonging to the still-current note/page/navigation.
+Its old permit and worker sequence retire before it is assigned to the retained
+opening. Protected notes await fresh authorization; legacy notes can reissue
+immediately. The refreshed request cannot accept an old worker result.
+Overlapping/duplicate stale save notifications cannot adopt a newer request.
+Already consumed loads/failures, clear and unrelated navigation are not retried;
+dirty DOM, cached save bytes and mandatory save callbacks are not cleared.
 
-Phase 153 uses **2 incremental/associated groups: 1007 PASS, 0 FAIL**, one final
-run. Routing has 904 checks (26 new); native document-async retains 103. Original
-product-source controls fail 6 assertions normally in the initial 892-check
-corpus; the fix passes that same corpus. Final cases add real Qt queued delivery,
-plain hide/show, same/different-note replacement, duplicate failures, page/opening
-replacement, same-page navigation, close/clear and dispatch-time destruction.
-The retained renderer's actual loaded mapping is verified. The earlier 1006-pass
-run preceded the added same-page-navigation guard and is not final acceptance.
-Old 878 routing assertions and extraction rules are preserved. No full-suite
-rerun is claimed; phase-149 whole-suite results remain historical only.
+Phase 154 uses **2 incremental/associated groups: 1019 PASS, 0 FAIL in 10.80s**,
+one final run. Routing has 916 checks (12 new); native document-async retains 103.
+Original-source controls fail 3 assertions normally in the initial 912-check
+corpus. The final run preserves those assertions and adds duplicate completion,
+clear during save, successful replacement and dispatch-time owner destruction.
+Old 904 routing assertions and extraction rules are unchanged. The retained
+renderer's actual loaded mapping is verified. No whole-suite rerun is claimed;
+phase-149 whole-suite results remain historical only.
 
-Current loader acceptance/dispatch, host load/show/unlock methods, actual Qt
-lifetime/queued delivery and temporary database execute. Worker extraction,
-navigation, metadata UI and save handoff use recording collaborators; this is not
-actual worker-to-native-editor, full main-window or system-authentication acceptance.
+Current host opening and loader methods, Qt lifetime and temporary database
+execute. Save results, worker extraction, navigation and metadata UI use recording
+collaborators. This is not real saver-to-host or worker-to-native-editor,
+full-main-window or system-authentication acceptance.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -114,10 +111,10 @@ specific reason. Historical results are not silently counted as current acceptan
    integration remain distinct from isolated checks of implemented method bodies.
 2. Isolated main-window/output integration and external-editor return/save
    behavior. Loader extraction ownership/resumption is implemented at the tested
-   method boundary; worker-to-native-editor integration, interruptions after a
-   result has already been consumed, and failed-new-opening/save handoff remain
-   distinct checks. Guards do not add origin metadata to bare loadFinished or
-   constitute whole-client initialization acceptance.
+   method boundary, including failed-new-opening backout. Real saver-to-host and
+   worker-to-native-editor integration, and interruptions after a result has
+   already been consumed remain distinct checks. Guards do not add origin
+   metadata to bare loadFinished or constitute whole-client initialization acceptance.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -130,7 +127,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase153.json](checkpoints/2026-10-21-phase153.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase154.json](checkpoints/2026-10-21-phase154.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

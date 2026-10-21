@@ -831,6 +831,7 @@ void WizDocumentWebView::clear()
     const QPointer<WizDocumentWebView> self(this);
     m_loadPending = false;
     m_loadRequestCurrent = {};
+    m_loadOriginCurrent = {};
     m_loadReadPermit = {};
     m_loadSequence.next();
     const auto opening = invalidateDocumentCallbacks();
@@ -901,15 +902,17 @@ void WizDocumentWebView::dispatchDocumentLoad(const WIZDOCUMENTDATA& document, W
     const QPointer<QObject> source(page());
     if (!host || !source) return;
     const auto access = host->noteReadTicket();
-    const auto opening = host->noteOpenSequence();
+    m_loadOpening = host->noteOpenSequence();
     const auto navigation = m_documentCallbacks.ticket();
     // loadNote marks the host loaded after dispatch. Capture the original
     // authorization now; only evaluate readability when its result arrives.
-    m_loadRequestCurrent = [self,host,source,document,opening,navigation] {
+    m_loadOriginCurrent = [self,host,source,document,navigation] {
         return self && host && source && self->view() == host && self->page() == source
             && WizDocumentCallbackEpoch::current(navigation)
-            && host->noteOpenSequence() == opening
             && host->note().strGUID == document.strGUID && host->note().strKbGUID == document.strKbGUID;
+    };
+    m_loadRequestCurrent = [self,host,origin=m_loadOriginCurrent] {
+        return origin() && self->m_loadOpening == host->noteOpenSequence();
     };
     const auto current = m_loadRequestCurrent;
     m_loadReadPermit = {self,source,access,[current,host,access] {
@@ -931,6 +934,19 @@ bool WizDocumentWebView::resumePendingDocumentLoad()
     // Do not clear/reinitialize dirty state, invalidate saves, or reuse the
     // obsolete worker result. Give the fresh extraction a different sequence.
     dispatchDocumentLoad(document, mode);
+    return true;
+}
+
+bool WizDocumentWebView::continuePendingLoadAfterFailedOpen(quint64 sequence)
+{
+    // Only the current failed-save continuation may keep this original note.
+    // A new request, different page/note or unrelated navigation is not adopted.
+    if (!sequence || !m_loadPending || m_loadSequence.current() != sequence
+        || !m_loadOriginCurrent || !m_loadOriginCurrent()) return false;
+    m_loadReadPermit = {};
+    m_loadSequence.next(); // Retire the old worker result even before reauthorization.
+    m_loadOpening = view()->noteOpenSequence();
+    resumePendingDocumentLoad();
     return true;
 }
 

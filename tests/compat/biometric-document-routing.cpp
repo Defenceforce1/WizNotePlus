@@ -315,6 +315,12 @@ struct Web : InspectorShell {
     bool takeLoadResult(const QString& kb,const QString& guid,QPointer<QObject> requester,quint64 sequence){return acceptsLoadResult(kb,guid,requester,sequence);}
 #endif
     // End Phase153 loader declarations.
+    // Phase154: backout of a failed new-opening save.
+    quint64 m_loadOpening=0;
+    std::function<bool()> m_loadOriginCurrent;
+    quint64 pendingLoadSequence() const {return m_loadPending?m_loadSequence.current():0;}
+    bool continuePendingLoadAfterFailedOpen(quint64);
+    // End Phase154 declarations.
     int m_currentEditorMode=modeReader;
     bool m_bNewNote=false;
     QString m_strNoteHtmlFileName;
@@ -3204,6 +3210,45 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!weak,"destruction inside extraction dispatch stops actual loadNote before touching title metadata or loaded flags");
     }
     // End Phase153 loader tests.
+    // Phase154 failed-new-opening/save backout.
+    {
+        const auto prepare=[&](RoutingView& owner,const WIZDOCUMENTDATAEX& doc){owner.m_web->useActualLoader=true;owner.show();owner.viewNote(doc,true);if(doc.nProtected)submit(owner);};
+        RoutingView failed(explorer);prepare(failed,a);auto* target=failed.m_web;const auto old=target->requestedInitialSequence;
+        target->body="unsaved previous DOM";target->m_bContentsChanged=true;target->m_currentNoteHtml="previous save cache";target->reply=false;
+        failed.viewNote(b,true);
+        check(failed.note().strGUID==a.strGUID&&target->initialLoaderRequests==1&&!failed.canReadCurrentNote(),"failed new-opening save retains the original protected note and asks for fresh authorization before any extraction");
+        submit(failed);const auto fresh=target->requestedInitialSequence;
+        check(target->initialLoaderRequests==2&&fresh>old&&target->requestedInitialDocument.strGUID==a.strGUID&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,fresh),"after failed navigation fresh authorization resumes the retained note's unfinished extraction");
+        check(!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,old)&&target->body=="unsaved previous DOM"&&target->m_bContentsChanged&&target->m_currentNoteHtml=="previous save cache","failed-save backout never revives the old result or clears dirty DOM and cache");
+
+        RoutingView plain(explorer);prepare(plain,c);target=plain.m_web;const auto plainOld=target->requestedInitialSequence;target->reply=QString("not a Bool");plain.viewNote(b,true);
+        check(plain.note().strGUID==c.strGUID&&target->initialLoaderRequests==2&&target->requestedInitialSequence>plainOld&&target->acceptsLoadResult(c.strKbGUID,c.strGUID,target,target->requestedInitialSequence),"legacy note resumes its unfinished extraction immediately when a malformed save result rejects a new opening");
+
+        RoutingView overlapping(explorer);prepare(overlapping,a);target=overlapping.m_web;target->defer=true;overlapping.viewNote(b,true);overlapping.viewNote(c,true);
+        auto callbacks=std::move(target->pending);target->pending.clear();callbacks[0](false);
+        check(target->initialLoaderRequests==1&&overlapping.note().strGUID==a.strGUID,"obsolete failed save cannot take over the newest opening or dispatch pending extraction");
+        callbacks[1](false);submit(overlapping);
+        check(target->initialLoaderRequests==2&&target->requestedInitialDocument.strGUID==a.strGUID&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,target->requestedInitialSequence),"latest failed save restores pending extraction even after multiple overlapping opening attempts");
+
+        RoutingView complete(explorer);prepare(complete,a);target=complete.m_web;target->takeLoadResult(a.strKbGUID,a.strGUID,target,target->requestedInitialSequence);target->body="already loaded dirty DOM";target->reply=false;complete.viewNote(b,true);submit(complete);
+        check(target->initialLoaderRequests==1&&target->body=="already loaded dirty DOM","failed navigation never reloads an already consumed result or overwrites the retained editor");
+
+        RoutingView navigated(explorer);prepare(navigated,a);target=navigated.m_web;target->invalidateDocumentCallbacks();target->reply=false;navigated.viewNote(b,true);submit(navigated);
+        check(target->initialLoaderRequests==1,"failed-save backout cannot adopt extraction retired by unrelated same-page navigation");
+
+        RoutingView duplicate(explorer);prepare(duplicate,c);target=duplicate.m_web;target->defer=true;duplicate.viewNote(b,true);
+        auto done=std::move(target->pending.front());target->pending.clear();done(false);const auto once=target->requestedInitialSequence;done(false);
+        check(target->initialLoaderRequests==2&&target->requestedInitialSequence==once,"duplicate failed-save notification cannot re-adopt or restart the already refreshed extraction");
+
+        RoutingView cleared(explorer);prepare(cleared,a);target=cleared.m_web;target->defer=true;cleared.viewNote(b,true);done=std::move(target->pending.front());target->pending.clear();target->routeClear();done(false);submit(cleared);
+        check(target->initialLoaderRequests==1&&!target->m_loadPending,"clear during a pending new-opening save leaves no extraction to adopt on failure");
+        RoutingView successful(explorer);prepare(successful,a);target=successful.m_web;const auto retired=target->requestedInitialSequence;successful.viewNote(b,true);submit(successful);
+        check(successful.note().strGUID==b.strGUID&&target->initialLoaderRequests==2&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,retired),"successful save/open retains normal replacement behavior rather than keeping the old pending note");
+
+        auto* destroyed=new RoutingView(explorer);prepare(*destroyed,c);target=destroyed->m_web;target->reply=false;QPointer<Web> weak(target);target->duringLoaderRequest=[&]{delete destroyed;};destroyed->viewNote(b,true);
+        check(!weak,"destruction during a plain-note failed-save retry stops the original View continuation safely");
+    }
+    // End Phase154 failed-opening tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

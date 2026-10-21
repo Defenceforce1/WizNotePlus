@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase154",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "ed542156baf7c5c27d02e9342f89de5ffe2e7c4d",
+  "sourceCheckpoint": "phase154",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1019,
+    "fail": 0,
+    "seconds": 10.8,
+    "routingChecks": 916,
+    "nativeAsyncChecks": 103,
+    "newRoutingChecks": 12,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 912,
+    "routingFailures": 3,
+    "normalExit": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "A current failed new-opening save may retain only its captured unfinished extraction from the unchanged original note/page/navigation. Retire old authorization and worker sequence before reassigning its opening; protected notes await fresh authorization and legacy notes may reissue immediately. Stale/duplicate callbacks, consumed results, clear and unrelated navigation cannot revive extraction. Dirty DOM, caches and mandatory saves remain. Current source methods, Qt lifetime and temporary DB execute; save results, worker extraction, navigation and metadata UI are collaborators, not whole-client acceptance. Post-consumption initialization interruptions and actual saver-to-host integration remain.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 123159,
+      "chars": 123047,
+      "gitBlobSha": "672b3f80266629e69749a7eaec3d81c72b7473eb",
+      "sha256": "b4029db0fadd594536b54c68d89b66869f8e9bf3ebf27500fe5a4576c840002d"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 15923,
+      "chars": 15921,
+      "gitBlobSha": "ce2d88be541ce9f93e17614505473c3315d5babc",
+      "sha256": "0e537558f81a52b95b02ac1862f6e11c6216d499003b71b55df7532fa2b8ecf2"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 51989,
+      "chars": 51559,
+      "gitBlobSha": "2022b8dcd27b816595584e54df9c9ba3d81549f7",
+      "sha256": "3e5fee9d776139314ab2272c49cb6e45652d553b43c68563f6a6236554a55817"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 311837,
+      "chars": 311744,
+      "gitBlobSha": "6847280b002c8c19396570b607645ec48e1716cf",
+      "sha256": "398c4e4687e00b6b72d763f22f44001761c696a6513320e1c4f4c38d338f5bc6"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 8648,
+      "chars": 8648,
+      "gitBlobSha": "25230677d53c73e5ab1c37b02ca66e1c0e680035",
+      "sha256": "f2ffa2ea818b0a418bcfbca2b4cdb3cf821060784704ad35d9ed03e55d127329"
+    }
+  ]
+}

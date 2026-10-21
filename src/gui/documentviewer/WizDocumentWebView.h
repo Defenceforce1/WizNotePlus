@@ -81,6 +81,8 @@ public:
     void reloadNoteData(const WIZDOCUMENTDATA& data);
     // Retry only an unfinished extraction from this same opening, never a loaded DOM.
     bool resumePendingDocumentLoad();
+    quint64 pendingLoadSequence() const { return m_loadPending ? m_loadSequence.current() : 0; }
+    bool continuePendingLoadAfterFailedOpen(quint64 sequence);
 
     bool isEditing() const { return m_currentEditorMode == modeEditor; }
     // GUI-only weak ticket for transient toolbar queries, not save receipts.
@@ -238,6 +240,8 @@ private:
     WizEditorMode m_loadEditorMode = modeReader;
     WizDocumentReadPermit m_loadReadPermit;
     std::function<bool()> m_loadRequestCurrent;
+    quint64 m_loadOpening = 0;
+    std::function<bool()> m_loadOriginCurrent;
     void dispatchDocumentLoad(const WIZDOCUMENTDATA& document, WizEditorMode mode);
 
     bool m_ignoreActiveWindowEvent;
