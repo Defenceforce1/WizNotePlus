@@ -1021,11 +1021,8 @@ void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode 
     // Do not queue a baseline reset into the previous document's JS page.
     m_bContentsChanged = false;
 
-    if (m_bNewNote)
-    {
-        editorMode = modeEditor;
-    }
-
+    // The host already chose the mode with its permission/lock policy. Keep
+    // new-note title bookkeeping above without overriding that shared decision.
     // ask extract and load
     dispatchDocumentLoad(document, editorMode);
 }

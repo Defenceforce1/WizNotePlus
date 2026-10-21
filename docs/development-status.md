@@ -1,7 +1,29 @@
-# Personal-use development checkpoint: focused foreground acceptance
+# Personal-use development checkpoint: consistent new-note mode
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
+
+## Latest focused fix
+
+Notes opened within one second of creation used to force the web editor on while
+the host still believed it was reading. A subsequent switch to reading could then
+be skipped. The host now chooses the initial mode once, under the existing lock
+and permission checks, and the web view follows it. New-note title bookkeeping
+remains separate; existing notes and future timestamps retain the reader setting.
+
+The explicitly authorized synthetic Cocoa workflow checks initial host/page
+agreement, actual bare-math rendering after a single reader transition, exact
+Markdown retention on edit/read/edit, production save, existing/future timestamp
+behavior and latest dirty content saved before normal eleven-stage quit cleanup.
+Its final run passes **16 checks, 0 failures**. The one affected document-routing
+group passes **1174 checks, 0 failures** in 12.31s; its stubbed host initializer is
+not evidence for the new mode fix, which is covered by the actual foreground run.
+No unrelated full suite or PDF export was repeated. Failed driver attempts and
+the pre-fix host-reader/page-editor reproduction remain recorded locally.
+
+No normal account, real notes, desktop capture, authentication, installation or
+packaging was used. Remaining signing/service-contract and broader real-client
+acceptance gates below are unchanged; this does not complete system acceptance.
 
 ## Improvements since the previous GitHub checkpoint
 

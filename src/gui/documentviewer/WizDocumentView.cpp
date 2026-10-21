@@ -507,7 +507,11 @@ void WizDocumentView::initStat(const WIZDOCUMENTDATA& data, bool forceEdit)
 
     m_editorMode = modeReader;
     if (!m_bLocked) {
-        if (forceEdit || m_defaultViewMode == viewmodeAlwaysEditing) {
+        // Decide once in the host, before title/toolbar and page initialization.
+        // A page-only new-note override leaves the host believing it is reading.
+        const auto seconds = data.tCreated.secsTo(QDateTime::currentDateTime());
+        const bool newlyCreated = seconds >= 0 && seconds <= 1;
+        if (forceEdit || m_defaultViewMode == viewmodeAlwaysEditing || newlyCreated) {
             m_editorMode = modeEditor;
         }
     }

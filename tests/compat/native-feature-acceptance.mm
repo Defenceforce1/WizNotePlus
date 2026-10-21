@@ -110,6 +110,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     // auto-edit special case. Keep the normal View/Web mode transition intact.
     math.tCreated=math.tCreated.addSecs(-60);protectedNote.tCreated=protectedNote.tCreated.addSecs(-60);
     if(!db.modifyDocumentInfo(math)||!db.modifyDocumentInfo(protectedNote))return 2;
+    const bool newNoteModes=qEnvironmentVariable("WIZNOTE_TEST_FOCUS")=="new-note-modes";
     const QString mathArchive=db.getDocumentFileName(math.strGUID);const auto mathBefore=bytes(mathArchive);
     WizMainWindow window(manager);window.setWindowTitle(QStringLiteral("WizNotePlus — 仅合成资料前台验收"));window.resize(1200,820);
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(&interceptor);
@@ -139,6 +140,38 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     });dialogs.start();
     QObject::connect(&app,&QApplication::aboutToQuit,&window,[&]{auto* p=window.findChild<QProgressDialog*>();cleanup=p&&p->minimum()==0&&p->maximum()==11;});
     QTimer::singleShot(0,&app,[&]{try{
+        if(newNoteModes){
+            window.userSettings().setNoteViewMode(viewmodeAlwaysReading);
+            math.tCreated=QDateTime::currentDateTime();check(db.modifyDocumentInfo(math),"synthetic note has immediate creation timestamp");
+            openNote(math);check(waitFor(ready,20000),"new note loads through actual MainWindow/View/Web");
+            auto* view=window.docView();auto* web=view->web();
+            const auto reopen=[&](const WIZDOCUMENTDATA& doc){
+                WIZDOCUMENTDATAEX ex;ex=doc;window.viewDocument(ex,false);
+                const QString marker=doc.strGUID==math.strGUID?"ENDWIDTH":"KEEP-ORIGINAL-BODY";
+                // Host metadata changes before navigation completes. Old-page
+                // setup readiness alone must not authorize the next command.
+                return waitFor([&]{return view->note().strGUID==doc.strGUID&&ready()
+                    &&js(web->page(),"document.body.textContent.includes('"+marker+"')").toBool();},20000);
+            };
+            const auto editable=[&]{return js(web->page(),"document.body.isContentEditable || !!document.querySelector('.wiz-editor-body[contenteditable=true]')").toBool();};
+            writeNew(artifacts+"/new-note-modes.json",QJsonDocument(QJsonObject{{"hostEditing",view->isEditing()},{"pageEditable",editable()}}).toJson());
+            check(view->isEditing()&&editable(),"immediate new-note host mode and renderer both start editing");
+            view->setEditorMode(modeReader);
+            check(waitFor([&]{return !view->isEditing()&&!editable()&&js(web->page(),"!!(window.MathJax&&MathJax.Hub&&MathJax.Hub.getAllJax().length>=4)").toBool();},20000),"single host transition enters reader and renders bare math");
+            check(js(web->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"reader transition retains exact Markdown source");
+            view->setEditorMode(modeEditor);check(waitFor([&]{return view->isEditing()&&editable();}),"single host transition returns to actual editor");
+            check(js(web->page(),"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"return to editor retains exact Markdown source");
+            bool saved=false;window.trySaveCurrentNote([&](const QVariant& ok){saved=ok.toBool();});
+            check(waitFor([&]{return saved&&window.docSaver()->isIdleForTransfer();}),"new-note edit/read/edit finishes production save");
+            protectedNote.tCreated=QDateTime::currentDateTime().addSecs(60);check(db.modifyDocumentInfo(protectedNote),"synthetic future creation timestamp stored");
+            check(reopen(protectedNote)&&!view->isEditing()&&!editable(),"future timestamp does not force editor");
+            math.tCreated=QDateTime::currentDateTime().addSecs(-60);check(db.modifyDocumentInfo(math),"synthetic existing creation timestamp stored");
+            check(reopen(math)&&!view->isEditing()&&!editable(),"existing note respects reader preference");
+            check(reopen(protectedNote),"quit fixture loads original synthetic HTML");
+            view->setEditorMode(modeEditor);check(waitFor([&]{return editable();}),"quit fixture enters actual editable DOM");
+            check(js(web->page(),"(function(){const b=document.querySelector('.wiz-editor-body');b.insertAdjacentHTML('beforeend','<p>QUIT-SAVED-SYNTHETIC</p>');return b.textContent.includes('QUIT-SAVED-SYNTHETIC');})()").toBool(),"quit fixture inserts latest synthetic DOM content");web->setModified(true);
+            exitRequested=true;window.on_actionExit_triggered();return;
+        }
         openNote(math);check(waitFor(ready,20000),"actual main window loads synthetic Markdown through production page initialization");
         writeNew(artifacts+"/initial-editor-diagnostic.json",QJsonDocument::fromVariant(js(window.docView()->web()->page(),"(function(){var r={body:document.body.isContentEditable,classes:document.body.className,setup:window.WizNativeEditorSetup&&WizNativeEditorSetup.state,initialized:!!window.WizNativeEditorInitialized};try{var h=WizEditor.getContentHtml();r.htmlType=typeof h;r.htmlLength=h&&h.length;r.modified=WizEditor.isModified();}catch(e){r.error=String(e);}return r;})()")).toJson());
         window.docView()->setEditorMode(modeReader);
@@ -206,7 +239,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         // Leave a real dirty editor change for the normal save-first quit handler.
         view=window.docView();web=view->web();view->setEditorMode(modeEditor);
         check(waitFor([&]{return js(web->page(),"!!document.querySelector('.wiz-editor-body')&&document.querySelector('.wiz-editor-body').isContentEditable").toBool();}),"decrypted note enters actual editor for save-priority exit");
-        js(web->page(),"document.querySelector('.wiz-editor-body').insertAdjacentHTML('beforeend','<p>QUIT-SAVED-SYNTHETIC</p>');WizEditor.setModified();");web->setModified(true);
+        js(web->page(),"document.querySelector('.wiz-editor-body').insertAdjacentHTML('beforeend','<p>QUIT-SAVED-SYNTHETIC</p>');");web->setModified(true);
         exitRequested=true;window.on_actionExit_triggered();
     }catch(const std::exception& e){qWarning()<<"Stopped focused native workflow:"<<e.what();app.quit();}});
     app.exec();dialogs.stop();window.hide();
@@ -214,7 +247,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         const bool preserved=exported&&bytes(extracted+"index.html").contains("QUIT-SAVED-SYNTHETIC")&&bytes(extracted+"index.html").contains("KEEP-ORIGINAL-BODY");
         results.append(QJsonObject{{"name","normal quit saved latest dirty content before eleven-stage cleanup"},{"passed",preserved&&cleanup}});if(!preserved||!cleanup)++failures;
     }
-    const QJsonObject result{{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
+    const QJsonObject result{{"focus",newNoteModes?"new-note-modes":"foreground-features"},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
     const bool output=writeNew(artifacts+"/frontend-result.json",QJsonDocument(result).toJson());
     qInfo()<<"native-feature-acceptance checks"<<results.size()<<"failures"<<failures;
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(nullptr);

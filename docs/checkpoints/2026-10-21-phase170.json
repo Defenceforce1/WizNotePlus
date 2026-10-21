@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase170",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "0aa4f8b9d593bf2d8bdeb70721f45a6d8d119f3b",
+  "sourceCheckpoint": "new-note-host-page-mode-consistency",
+  "phase": 170,
+  "accepted": true,
+  "tests": {
+    "foregroundChecks": 16,
+    "foregroundFail": 0,
+    "associatedGroups": 1,
+    "associatedChecks": 1174,
+    "associatedFail": 0,
+    "associatedSeconds": 12.31,
+    "fullSuiteRerun": false,
+    "pdfRerun": false,
+    "actualHostInitializerCoveredByForeground": true,
+    "routingHostInitializerStubbed": true
+  },
+  "justCreatedNoteModeFixed": true,
+  "actualSyntheticForegroundUsed": true,
+  "fullNativeClientAccepted": false,
+  "fullProjectComplete": false,
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "packaged": false,
+  "installed": false,
+  "realAccount": false,
+  "realKeychainAccessed": false,
+  "realNotesChanged": false,
+  "securityTestsRun": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Host chooses initial new-note mode once under existing permission/lock checks; page no longer overrides it. Explicitly authorized synthetic Cocoa MainWindow/View/Web,renderer,saver,normal quit:16/0. Bare math reader,exact Markdown edit/read/edit,production save,existing/future timestamps,latest DOM saved before eleven-stage cleanup. One affected routing group1174/0,12.31s; stubbed host initializer not new-mode evidence. No full suite/PDF rerun. Pre-fix mismatch and driver failures preserved privately, including null-view SIGSEGV,old-tab assertion and removed nonexistent test JS call. No normal account,desktop capture,Keychain,auth,services,package/install. Signing/service-contract and broader client acceptance gates unchanged.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 55854,
+      "chars": 55372,
+      "gitBlobSha": "b907555aef5564a3f36ac7a8d19a472a16736559",
+      "sha256": "77afcca94fad80fa02a205bb9295a021c3c1bdee2361e1ec9935bc6f5e8f93a2"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 136203,
+      "chars": 136091,
+      "gitBlobSha": "47c389f4c6d563b529c0f78f508dcb6747789c9e",
+      "sha256": "ed9cee7309fbf254ed017be20729edb461877842fd4fb8c110c97f9f28dffd81"
+    },
+    {
+      "path": "tests/compat/native-feature-acceptance.mm",
+      "mode": "100644",
+      "bytes": 26612,
+      "chars": 26502,
+      "gitBlobSha": "8178ef135bfcfb847ecb5c2bb01d55cc0e983406",
+      "sha256": "42394b51401af49c055397aa27d71b84f5c56ff9eb23ad58eafb6a99da800247"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 26779,
+      "chars": 26779,
+      "gitBlobSha": "3eccdd8b704c8ef665f47e21731cb4fef8833881",
+      "sha256": "9117bcaa2059fe2fed1765997048a6e6b7c97d9283d5dcde7d8041f7f9d678ba"
+    }
+  ]
+}
