@@ -122,6 +122,7 @@ public:
     void setEditorFocus();
     bool noteLoaded() const { return m_noteLoaded; }
     bool canReadCurrentNote() const;
+    bool canReadLegacyHiddenNote() const;
     WizDocumentCallbackEpoch::Ticket noteReadTicket() const { return m_biometricGate.ticket(); }
     bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket& ticket) const;
     void changeType(QString type) { m_note.strType = type; }

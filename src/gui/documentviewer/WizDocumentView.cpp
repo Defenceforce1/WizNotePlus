@@ -994,6 +994,11 @@ bool WizDocumentView::acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket& ti
         && !own.owner_before(ticket) && !ticket.owner_before(own);
 }
 
+bool WizDocumentView::canReadLegacyHiddenNote() const
+{
+    return !m_biometricEnabled && canReadCurrentNote();
+}
+
 WizBiometricNoteAccess::Context WizDocumentView::biometricContext() const
 {
     return {WizBiometricNoteAccess::snapshot(m_dbMgr.db(),m_dbMgr.db(m_note.strKbGUID),WizCommonApiEntry::server()),
@@ -1010,6 +1015,8 @@ void WizDocumentView::revokeBiometricAccess(bool closing)
     m_web->cancelLinkInsert();
     if (!self) return;
     m_web->cancelFindReplace();
+    if (!self) return;
+    m_web->cancelScreenShot(!closing);
     if (!self) return;
     m_web->closeDevTools();
     if (!self) return;

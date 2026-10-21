@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 149
+# Personal-use development checkpoint: phase 150
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -41,27 +41,41 @@ release, installation, or completed system-authentication acceptance.
   checks each display step; the original overload and find/replace behavior stay.
   Already dispatched searches/replacements are not retroactively undone.
 
+- Screenshot orchestration binds an originating document/request and a read
+  permit, coalesces duplicate clicks, and refuses obsolete timers/results.
+  Capture helpers are detached and deleted later, not inside their signal stack.
+  Restore targets only the originally hidden visible window; shutdown does not
+  reopen it. Resource lookup, PNG output and insertion retain the bound permit.
+  Intentional hiding must not bypass opt-in authorization. Legacy notes bind a
+  permit synchronously after that hide, never when a delayed result arrives.
+  The protected opt-in hide path currently stops and restores the password view;
+  its future capture/reauthorization UX is not claimed complete.
+
 ## Latest local verification
 
-Phase 149: **26/26 permitted regression groups; 1,821 PASS, 0 FAIL** in 211.7s.
-Six focused groups repeated five times: **5,435 PASS, 0 FAIL**. Both runs verify
-the retained renderer runtime's actual loaded mapping. The routing corpus has
-747 checks, including 52 new checks. The actual original-source control failed 5
-assertions normally in the initial 700-check corpus, which passed after the fix;
-the expanded 747-check corpus also passed. Actual search fields/buttons, close
-events, QObject destruction and queued Qt signals execute offscreen. Find/JS
-dispatch and activation/raise boundaries are recording collaborators, not native
-whole-client or Blink text-location acceptance.
+Phase 150 uses incremental/associated tests as requested: **5 distinct groups,
+1,081 distinct assertions, 0 FAIL**. The 777-check routing group runs three times;
+four directly associated groups run once, totaling **2,635 PASS in 28.60s**.
+Loaded retained-runtime mappings are verified for each invocation. No full-suite
+rerun is claimed. The last complete permitted run remains historical phase 149:
+26 groups, 1,821 PASS, 0 FAIL; it is not current whole-suite acceptance.
+
+The actual original screenshot methods fail 3 assertions normally in the initial
+751-check corpus; the intermediate fix passes that corpus. Final routing has 30
+new checks beyond phase 149. Actual Qt timers, queued signals, QObject destruction,
+temporary databases, PNG files and image-to-HTML conversion execute. Screen capture
+and main-window visibility are synthetic collaborators. Native capture/overlay,
+whole-client and system-lock/authentication acceptance remain separate.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
-transport collaborators are synthetic. The current routine excludes spellcheck,
-native clipper, shutdown, network-security and standalone-startup groups; historical
-results for those groups are not silently counted as current acceptance.
+transport collaborators are synthetic. Unchanged/unrelated groups are not rerun
+automatically; wider regression requires an affected boundary, failure or other
+specific reason. Historical results are not silently counted as current acceptance.
 
 ## Remaining bounded work
 
-1. Synthetic-only screenshot orchestration and late-result handling. Native
+1. Native screenshot/overlay and opt-in capture/reauthorization integration;
    search/selection, clipboard/paste/drop, link-window/editor and file-chooser
    integration remain distinct from isolated checks of implemented method bodies.
 2. Actual navigation, initial read/snapshot/output and isolated main-window
@@ -78,7 +92,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase149.json](checkpoints/2026-10-21-phase149.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase150.json](checkpoints/2026-10-21-phase150.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

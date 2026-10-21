@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase150",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "0ba3c6f4d0026f721eb048111d6ff9c0b05cdc01",
+  "sourceCheckpoint": "phase150",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 5,
+    "uniquePass": 1081,
+    "totalPassIncludingRoutingRepeats": 2635,
+    "fail": 0,
+    "seconds": 28.6,
+    "routingChecks": 777,
+    "routingRuns": 3,
+    "relatedGroupsOnce": 4,
+    "actualRetainedRuntimeMappingVerifiedPerInvocation": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "checks": 751,
+    "failures": 3,
+    "normalExit": true,
+    "intermediateFixedChecks": 751,
+    "intermediateFixedFailures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Screenshot dispatch and delayed results bind the originating document/request and read permit. Duplicate requests coalesce; helper retirement disconnects, detaches and defers deletion. Resource lookup, PNG output and insertion retain permission; original command and native dirty rules remain. Only the originally hidden visible window is restored, not during shutdown. Intentional opt-in hide revocation stops capture and restores the password view, even with synchronous reauthorization; that capture UX remains incomplete. Qt signals/timers/queued delivery, temporary DB, PNG and conversion execute; screen and main-window visibility are synthetic. Native capture/overlay, whole-client and system-authentication acceptance remain separate. Tests are incremental as requested; historical full-suite results are not current acceptance.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 116269,
+      "chars": 116157,
+      "gitBlobSha": "fd8b8759697c73562bf4eea0359d659c2305cdaa",
+      "sha256": "36b8f2cbeaa85540231cdb1566c53b7b92ab8b1c100b8be6537d2a1a5a2cfd24"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 15023,
+      "chars": 15021,
+      "gitBlobSha": "a5e131eef372e6fc40cdacdff68f43229f471199",
+      "sha256": "e5c8766fbf1d212315b9ad9cf19a4a3092e93e6c36207b4a99335470dbbce73e"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 50897,
+      "chars": 50467,
+      "gitBlobSha": "68ca9073cb4b0a0e27f975eb0f34bf4a99303b17",
+      "sha256": "1f686403921e3fe3e00a34bd56c79184a3d9678ed9fa0a5ab4bac2050576e15e"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8229,
+      "chars": 8227,
+      "gitBlobSha": "5c0f75a80d0dd813c379be236ba56bebe0b52572",
+      "sha256": "3ed4100e2f0402e3a2a5ef170a4e2478b6b73cb77f0f5fbf157e2071c26a181b"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 263320,
+      "chars": 263227,
+      "gitBlobSha": "a0a893d4883ce1a9f8ddd74de569bdf8015208ff",
+      "sha256": "edc49ba64959d67e86f4beb95c54edb7d0e2ea72aa1ff6ddd556f93b54f0b4a7"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 30062,
+      "chars": 30062,
+      "gitBlobSha": "f28adc8ce37cbef3b3bfa6925cf772cb728c60f1",
+      "sha256": "ae33cc8c2fdb6221aba14a90dc347189c1bcd89dfc33eec2a8e1e07bf59f39d1"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 6204,
+      "chars": 6204,
+      "gitBlobSha": "5a50c5233e893542833f66e8c70ef6b51cbef3c7",
+      "sha256": "cafc68079e03cd11502d62a8039620529ddd2d907cdf69c1b14f83b710a1d7a3"
+    }
+  ]
+}

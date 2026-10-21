@@ -32,6 +32,7 @@ class WizDocumentTransitionView;
 class CWizDocumentWebViewWorker;
 class QNetworkDiskCache;
 class WizSearchReplaceWidget;
+class WizScreenShotHelper;
 class WizMarkdownExportRecoverySession;
 
 struct WIZODUCMENTDATA;
@@ -251,6 +252,10 @@ private:
 
     QPointer<WizSearchReplaceWidget> m_searchReplaceWidget;
     WizDocumentCallbackEpoch m_findUiCallbacks;
+    QPointer<WizScreenShotHelper> m_screenShotHelper;
+    QPointer<QWidget> m_screenShotWindow;
+    WizDocumentReadPermit m_screenShotReadPermit;
+    WizDocumentCallbackEpoch m_screenShotCallbacks;
 
     ApiWizHtmlEditorApp* m_htmlEditorApp;
 
@@ -260,6 +265,7 @@ public:
     // Close only transient link UI; do not cancel required save callbacks.
     void cancelLinkInsert();
     void cancelFindReplace();
+    WizDocumentCallbackEpoch::Ticket cancelScreenShot(bool restoreWindow = true);
     void cancelPdfExport();
     void onNoteLoadFinished(); // editor callback
     void discardChanges();

@@ -247,6 +247,7 @@ WizDocumentWebView::~WizDocumentWebView()
     cancelMarkdownRecovery();
     cancelLinkInsert();
     cancelFindReplace();
+    cancelScreenShot(false);
     cancelPdfExport();
     m_documentCallbacks.cancel();
 }
@@ -1129,10 +1130,16 @@ void WizDocumentWebView::on_insertCommentToNote_request(const QString& docGUID, 
 
 void WizDocumentWebView::setWindowVisibleOnScreenShot(bool bVisible)
 {
-    WizMainWindow* mainWindow = qobject_cast<WizMainWindow *>(m_app.mainWindow());
-    if (mainWindow)
-    {
-        bVisible ? mainWindow->show() : mainWindow->hide();
+    if (bVisible) {
+        const QPointer<QWidget> window(m_screenShotWindow);
+        m_screenShotWindow = nullptr;
+        if (window) window->show();
+    } else {
+        const QPointer<WizMainWindow> window(qobject_cast<WizMainWindow*>(m_app.mainWindow()));
+        if (window && window->isVisible()) {
+            m_screenShotWindow = window;
+            window->hide();
+        }
     }
 }
 
@@ -2009,9 +2016,12 @@ void WizDocumentWebView::cancelLinkInsert()
 
 void WizDocumentWebView::invalidateDocumentCallbacks()
 {
+    const QPointer<WizDocumentWebView> self(this);
     m_documentCallbacks.invalidate();
     cancelLinkInsert();
     cancelFindReplace();
+    cancelScreenShot();
+    if (!self) return;
     cancelPdfExport();
     cancelMarkdownRecovery();
 }
@@ -2338,31 +2348,49 @@ void WizDocumentWebView::editorCommandExecuteTableInsert(int row, int col)
 
 void WizDocumentWebView::on_editorCommandExecuteScreenShot_imageAccepted(QPixmap pix)
 {
-    QObject *ssSender = qobject_cast<QObject*>(sender());
-    if (ssSender)
-        delete ssSender;
-
-    setWindowVisibleOnScreenShot(true);
-
-    if (pix.isNull())
-        return;
-
-    CString strFileName = noteResourcesPath() + WizIntToStr(WizGetTickCount()) + ".png";
+    if (!m_screenShotHelper || sender() != m_screenShotHelper) return;
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = m_screenShotReadPermit;
+    // Retire before restoring the window: show() can start a newer request.
+    const auto retired = cancelScreenShot();
+    const auto allowed = [self,read,retired] {
+        return self && read.current() && WizDocumentCallbackEpoch::current(retired);
+    };
+    if (!allowed() || pix.isNull()) return;
+    const QString resources = noteResourcesPath();
+    if (!allowed() || resources.isEmpty()) return;
+    const QString strFileName = resources + WizIntToStr(WizGetTickCount()) + ".png";
     if (!pix.save(strFileName)) {
         TOLOG("ERROR: Can't save clipboard image to file");
         return;
     }
-
-    insertImage(strFileName);
+    if (!allowed()) return;
+    QString html;
+    if (!WizImage2Html(strFileName, html, resources)) return;
+    if (allowed()) self->editorCommandExecuteInsertHtml(html, true);
 }
 
 void WizDocumentWebView::on_editorCommandExecuteScreenShot_finished()
 {
-    QObject *ssSender = qobject_cast<QObject*>(sender());
-    if (ssSender)
-        delete ssSender;
+    if (m_screenShotHelper && sender() == m_screenShotHelper) cancelScreenShot();
+}
 
-    setWindowVisibleOnScreenShot(true);
+WizDocumentCallbackEpoch::Ticket WizDocumentWebView::cancelScreenShot(bool restoreWindow)
+{
+    m_screenShotCallbacks.invalidate();
+    const auto retired = m_screenShotCallbacks.ticket();
+    m_screenShotReadPermit = {};
+    const QPointer<WizScreenShotHelper> helper(m_screenShotHelper);
+    m_screenShotHelper = nullptr;
+    if (helper) {
+        QObject::disconnect(helper, nullptr, this, nullptr);
+        // Signals originate inside the widget/helper stack. Never delete it there.
+        helper->setParent(nullptr);
+        helper->deleteLater();
+    }
+    if (restoreWindow) setWindowVisibleOnScreenShot(true);
+    else m_screenShotWindow = nullptr;
+    return retired;
 }
 
 void WizDocumentWebView::editorCommandExecuteInsertHorizontal()
@@ -2560,15 +2588,47 @@ void WizDocumentWebView::editorCommandExecuteMobileImage(bool bReceiveImage)
 
 void WizDocumentWebView::editorCommandExecuteScreenShot()
 {
-    WizScreenShotHelper* helper = new WizScreenShotHelper();
-
-    connect(helper, SIGNAL(screenShotCaptured(QPixmap)),
-            SLOT(on_editorCommandExecuteScreenShot_imageAccepted(QPixmap)));
-    connect(helper, SIGNAL(shotScreenQuit()), SLOT(on_editorCommandExecuteScreenShot_finished()));
-
+    const QPointer<WizDocumentWebView> self(this);
+    const auto initialRead = noteReadPermit();
+    const auto document = m_documentCallbacks.ticket();
+    if (!initialRead.current()) return;
+    const bool legacyHide = view()->canReadLegacyHiddenNote();
+    // One request per editor. Do not restore/hide the window for a duplicate click.
+    if (m_screenShotHelper) return;
+    const QPointer<WizScreenShotHelper> helper(new WizScreenShotHelper());
+    helper->setParent(this);
+    m_screenShotHelper = helper;
+    m_screenShotCallbacks.invalidate();
+    const auto request = m_screenShotCallbacks.ticket();
+    const auto current = [self,helper,request,document] {
+        return self && helper && self->m_screenShotHelper == helper
+            && WizDocumentCallbackEpoch::current(request)
+            && WizDocumentCallbackEpoch::current(document);
+    };
+    connect(helper, &WizScreenShotHelper::screenShotCaptured, this, [self,current](QPixmap pix) {
+        if (current()) self->on_editorCommandExecuteScreenShot_imageAccepted(pix);
+    });
+    connect(helper, &WizScreenShotHelper::shotScreenQuit, this, [self,current] {
+        if (current()) self->on_editorCommandExecuteScreenShot_finished();
+    });
+    connect(helper, &QObject::destroyed, this, [self,request] {
+        if (self && WizDocumentCallbackEpoch::current(request) && !self->m_screenShotHelper)
+            self->cancelScreenShot();
+    });
     setWindowVisibleOnScreenShot(false);
-    QTimer::singleShot(200, helper, SLOT(startScreenShot()));
-
+    if (!current()) return;
+    // The intentional hide revokes the old ticket. Only legacy/non-opt-in
+    // notes can issue a permit while hidden; never reauthorize an opt-in note.
+    // Bind it now, synchronously, not when a timer/result arrives later.
+    if (!initialRead.current() && !legacyHide) { cancelScreenShot(); return; }
+    const auto read = noteReadPermit();
+    if (!read.current()) { cancelScreenShot(); return; }
+    m_screenShotReadPermit = read;
+    QTimer::singleShot(200, helper, [self,helper,current,read] {
+        if (!current()) return;
+        if (!read.current()) { self->cancelScreenShot(); return; }
+        helper->startScreenShot();
+    });
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("screenShot");
 }

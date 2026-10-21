@@ -70,6 +70,23 @@
 #include <stdexcept>
 #include "share/jsoncpp/json/json.h"
 
+// Phase150: Qt signals/timers only; this helper cannot capture a screen.
+class SyntheticScreenShotHelper final : public QObject {
+    Q_OBJECT
+public:
+    static inline QList<QPointer<SyntheticScreenShotHelper>> instances;
+    static inline bool survivedEmission=false;
+    int starts=0;
+    SyntheticScreenShotHelper(){instances.push_back(this);}
+    void deliver(const QPixmap& pix){QPointer<SyntheticScreenShotHelper> self(this);emit screenShotCaptured(pix);survivedEmission=bool(self);}
+    void quit(){emit shotScreenQuit();}
+public slots:
+    void startScreenShot(){++starts;}
+signals:
+    void screenShotCaptured(QPixmap pix);
+    void shotScreenQuit();
+};
+// End Phase150 helper.
 namespace {
 using namespace WizBiometricNoteAccess;
 enum { modeReader, modeEditor };
@@ -242,6 +259,7 @@ struct InspectorShell : QWidget {
 #include WIZNOTE_INSPECTOR_METHODS
 struct Web : InspectorShell {
     explicit Web(WizDatabaseManager& manager):m_dbMgr(manager){}
+    ~Web(){cancelScreenShot(false);}
     using Completion=std::function<void(const QVariant&)>;
     std::vector<Completion> pending;
     bool defer=false; QVariant reply=true; int saves=0,loads=0,reloads=0,closes=0;
@@ -324,6 +342,25 @@ struct Web : InspectorShell {
     void findText(QString text,QWebEnginePage::FindFlags flags={}){finds.push_back({text,flags});const auto hook=duringFind;if(hook)hook();}
     void editorCommandExecuteFindReplace();void cancelFindReplace();void innerFindText(QString,bool,bool);void findPre(QString,bool);void findNext(QString,bool);
     void hideEvent(QHideEvent*) override;
+    // Phase150 screenshot collaborators and actual-method declarations.
+    QPointer<SyntheticScreenShotHelper> m_screenShotHelper;
+    WizDocumentReadPermit m_screenShotReadPermit;
+    WizDocumentCallbackEpoch m_screenShotCallbacks;
+    QWidget screenWindow;QPointer<QWidget> m_screenShotWindow;
+    QList<bool> screenVisibility;std::function<void(bool)> duringScreenWindow;
+    void setWindowVisibleOnScreenShot(bool visible){if(visible){if(!m_screenShotWindow)return;m_screenShotWindow=nullptr;}else m_screenShotWindow=&screenWindow;screenVisibility.push_back(visible);const auto hook=duringScreenWindow;if(hook)hook(visible);}
+    void editorCommandExecuteScreenShot();void on_editorCommandExecuteScreenShot_imageAccepted(QPixmap);void on_editorCommandExecuteScreenShot_finished();
+#ifdef WIZNOTE_SCREENSHOT_FIXED
+    WizDocumentCallbackEpoch::Ticket cancelScreenShot(bool restoreWindow=true);
+#else
+    void cancelScreenShot(bool=true){}
+#endif
+    void insertImage(const QString& file){QString html;if(WizImage2Html(file,html,noteResourcesPath()))editorCommandExecuteInsertHtml(html,true);}
+    void connect(SyntheticScreenShotHelper* helper,const char* signal,const char*){
+        if(QByteArray(signal).contains("screenShotCaptured"))QObject::connect(helper,&SyntheticScreenShotHelper::screenShotCaptured,this,[this](QPixmap pix){on_editorCommandExecuteScreenShot_imageAccepted(pix);});
+        else QObject::connect(helper,&SyntheticScreenShotHelper::shotScreenQuit,this,[this]{on_editorCommandExecuteScreenShot_finished();});
+    }
+    // End Phase150 screenshot declarations.
     void connect(SearchForm* form,const char* signal,const char*){
         const QByteArray name(signal);
         if(name.contains("findPre("))QObject::connect(form,&WizSearchReplaceWidget::findPre,this,[this](QString text,bool flag){findPre(text,flag);});
@@ -389,6 +426,7 @@ public:
     Context biometricContext() const;
     bool canReadCurrentNote() const;
     WizDocumentCallbackEpoch::Ticket noteReadTicket() const {return m_biometricGate.ticket();}
+    bool canReadLegacyHiddenNote() const;
     bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket&) const;
     void revokeBiometricAccess(bool closing=false);
     bool prepareEncryptedAccess(WizDatabase&);
@@ -629,6 +667,7 @@ struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime ti
 #include WIZNOTE_PICKER_METHODS
 #include WIZNOTE_LINK_METHODS
 #include WIZNOTE_FIND_METHODS
+#include WIZNOTE_SCREENSHOT_METHODS
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -2718,9 +2757,94 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!predicateWeak&&SearchForm::steps.empty(),"guarded presentation rechecks its weak dialog after the predicate destroys it");SearchForm::reset();
     }
     // End Phase149 search tests.
+    // Phase150: synthetic screenshot dispatch, never a screen grab.
+    {
+        QTemporaryDir resources;
+        const auto prepare=[&](RoutingView& owner){owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->editing=true;owner.m_web->imageResources=resources.path()+"/";};
+        RoutingView locked(explorer);prepare(locked);locked.hide();const int created=SyntheticScreenShotHelper::instances.size();locked.m_web->editorCommandExecuteScreenShot();
+        check(SyntheticScreenShotHelper::instances.size()==created&&locked.m_web->screenVisibility.empty(),"locked screenshot refuses helper construction and window hiding");
+        RoutingView stale(explorer);prepare(stale);auto* web=stale.m_web;web->editorCommandExecuteScreenShot();auto helper=SyntheticScreenShotHelper::instances.last();stale.hide();stale.show();submit(stale);const int reads=web->resourcePathReads;
+        QPixmap pixels(12,8);pixels.fill(Qt::blue);helper->deliver(pixels);
+        check(web->resourcePathReads==reads&&web->sourcePage.commands.empty(),"late screenshot after renewed authorization cannot read resources or insert pixels");
+        check(SyntheticScreenShotHelper::survivedEmission,"screenshot signal sender is deferred rather than deleted inside its emission stack");
+        RoutingView normal(explorer);prepare(normal);web=normal.m_web;web->editorCommandExecuteScreenShot();helper=SyntheticScreenShotHelper::instances.last();helper->deliver(QPixmap());
+        check(web->screenVisibility==QList<bool>({false,true})&&web->resourcePathReads==0,"null screenshot restores the initiating window once without reading resources");
+        // Extended Phase150: real Qt signals/timers and PNG conversion, with
+        // main-window visibility and screen capture replaced by collaborators.
+        RoutingView good(explorer);prepare(good);web=good.m_web;web->body="unsaved screenshot body";const auto saveTicket=web->documentCallbackTicket();const auto dirty=web->m_contentChangeSequence;
+        web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;const int duplicateCreated=SyntheticScreenShotHelper::instances.size();web->editorCommandExecuteScreenShot();
+        check(helper&&helper->parent()==web&&SyntheticScreenShotHelper::instances.size()==duplicateCreated&&web->screenVisibility==QList<bool>({false}),"pending duplicate screenshot does not construct another helper or hide the window twice");
+        check(until([&]{return helper&&helper->starts==1;}),"authorized actual Qt single-shot timer starts only the synthetic capture collaborator");
+        helper->deliver(pixels);
+        check(!web->m_screenShotHelper&&helper&&helper->parent()==nullptr&&web->screenVisibility==QList<bool>({false,true}),"successful screenshot retires its request and detaches a still-live sender before restoring once");
+        const QStringList files=QDir(resources.path()).entryList({"*.png"},QDir::Files);
+        QString expectedHtml;const bool converted=files.size()==1&&WizImage2Html(resources.filePath(files.first()),expectedHtml,resources.path()+"/");
+        QString encoded=WizStringToBase64(expectedHtml);encoded.remove('\r');encoded.remove('\n');
+        check(converted&&QImage(resources.filePath(files.first())).convertToFormat(QImage::Format_ARGB32)==pixels.toImage().convertToFormat(QImage::Format_ARGB32)&&web->sourcePage.commands==QStringList({QString("WizEditor.insertB64Html('%1')").arg(encoded)})&&web->m_contentChangeSequence==dirty,"synthetic pixels are saved losslessly and converted into the exact original insert command without inventing a native dirty update");
+        helper->deliver(pixels);helper->quit();
+        check(web->sourcePage.commands.size()==1&&web->screenVisibility.size()==2,"duplicate capture and quit signals cannot insert or restore a completed request twice");
+        check(web->body=="unsaved screenshot body"&&WizDocumentCallbackEpoch::current(saveTicket)&&db.getCertPassword()==password,"screenshot completion preserves unsaved body independent save epoch and cached password");
+        RoutingView canceled(explorer);prepare(canceled);web=canceled.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;web->cancelScreenShot();
+        QElapsedTimer delay;delay.start();while(delay.elapsed()<230){app.processEvents();QThread::msleep(1);}
+        check((!helper||helper->starts==0)&&web->screenVisibility==QList<bool>({false,true})&&web->resourcePathReads==0,"cancel before the real Qt timer prevents capture and restores without reading resources");
+        RoutingView quit(explorer);prepare(quit);web=quit.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;helper->quit();
+        check(!web->m_screenShotHelper&&helper&&web->screenVisibility==QList<bool>({false,true})&&web->resourcePathReads==0,"actual helper quit signal retires without deleting its sender or reading resources");
+        RoutingView queued(explorer);prepare(queued);web=queued.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;
+        auto* worker=QThread::create([helper,pixels]{helper->deliver(pixels);});worker->start();worker->wait();delete worker;web->cancelScreenShot();web->editorCommandExecuteScreenShot();const auto newer=web->m_screenShotHelper;app.processEvents();
+        check(newer&&web->m_screenShotHelper==newer&&web->resourcePathReads==0&&web->sourcePage.commands.empty()&&web->screenVisibility==QList<bool>({false,true,false}),"actual already-queued capture cannot consume or restore a newer screenshot after disconnection");web->cancelScreenShot();
+        RoutingView pageChange(explorer);prepare(pageChange);web=pageChange.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;ReadPage replacement;web->activePage=&replacement;helper->deliver(pixels);
+        check(web->resourcePathReads==0&&replacement.commands.empty()&&!web->m_screenShotHelper,"replaced page rejects late screenshot pixels and retires its UI request");web->activePage=&web->sourcePage;
+        RoutingView navigation(explorer);prepare(navigation);web=navigation.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;navigation.viewNote(b,true);submit(navigation);if(helper)helper->deliver(pixels);
+        check(!web->m_screenShotHelper&&web->resourcePathReads==0&&web->sourcePage.commands.empty(),"actual note navigation cancels the old screenshot before a different note becomes authorized");
+        for(const QString stage:{"restore","resources"}){
+            RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="keep screenshot DOM";const auto ticket=target->documentCallbackTicket();target->editorCommandExecuteScreenShot();auto pending=target->m_screenShotHelper;
+            const auto revoke=[&]{owner.hide();owner.show();submit(owner);};
+            if(stage=="restore")target->duringScreenWindow=[&](bool visible){if(visible)revoke();};else target->duringResourcePath=revoke;
+            const int count=QDir(resources.path()).entryList({"*.png"},QDir::Files).size();pending->deliver(pixels);
+            check(target->sourcePage.commands.empty()&&QDir(resources.path()).entryList({"*.png"},QDir::Files).size()==count,"revocation during restore or resource lookup stops before writing or inserting pixels");
+            check(target->body=="keep screenshot DOM"&&WizDocumentCallbackEpoch::current(ticket)&&db.getCertPassword()==password,"screenshot cancellation at either boundary preserves original body save ticket and cache");
+        }
+        RoutingView nested(explorer);prepare(nested);web=nested.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;web->duringScreenWindow=[&](bool visible){if(visible){web->duringScreenWindow={};web->editorCommandExecuteScreenShot();}};helper->deliver(pixels);
+        check(web->m_screenShotHelper&&web->m_screenShotHelper!=helper&&web->resourcePathReads==0&&web->sourcePage.commands.empty(),"new screenshot started during window restoration survives while the old result is discarded");web->cancelScreenShot();
+        RoutingView nestedQuit(explorer);prepare(nestedQuit);web=nestedQuit.m_web;web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;web->duringScreenWindow=[&](bool visible){if(visible){web->duringScreenWindow={};web->editorCommandExecuteScreenShot();web->m_screenShotHelper->quit();}};helper->deliver(pixels);
+        check(!web->m_screenShotHelper&&web->resourcePathReads==0,"a reentrant request that immediately quits still invalidates the older result");
+        RoutingView independent(explorer);prepare(independent);web=independent.m_web;web->editorCommandExecuteScreenShot();delete web->m_screenShotHelper.data();
+        check(!web->m_screenShotHelper&&web->screenVisibility==QList<bool>({false,true}),"independent helper destruction restores its initiating window and clears the weak field");
+        auto* destroyed=new RoutingView(explorer);prepare(*destroyed);auto* target=destroyed->m_web;target->editorCommandExecuteScreenShot();helper=target->m_screenShotHelper;QPointer<Web> weak(target);delete destroyed;
+        check(!weak&&helper&&helper->parent()==nullptr,"owner destruction detaches the capture helper and leaves deletion deferred rather than deleting an emitter on stack");
+        for(const QString stage:{"hide","restore","resources"}){
+            auto* owner=new RoutingView(explorer);prepare(*owner);target=owner->m_web;QPointer<Web> guard(target);
+            if(stage=="hide")target->duringScreenWindow=[&](bool visible){if(!visible)delete owner;};
+            target->editorCommandExecuteScreenShot();if(stage!="hide"){
+                helper=target->m_screenShotHelper;
+                if(stage=="restore")target->duringScreenWindow=[&](bool visible){if(visible)delete owner;};else target->duringResourcePath=[&]{delete owner;};
+                helper->deliver(pixels);
+            }
+            check(!guard,"owner destruction at synthetic window or resource boundaries stops screenshot continuations safely");
+        }
+        // The deliberate main-window hide must not silently reauthorize an
+        // opt-in encrypted opening. Legacy/plain notes get a synchronous
+        // post-hide permit; no fresh permit is acquired by timers/results.
+        RoutingView protectedHide(explorer);prepare(protectedHide);web=protectedHide.m_web;web->duringScreenWindow=[&](bool visible){if(visible)protectedHide.show();else protectedHide.hide();};web->editorCommandExecuteScreenShot();
+        check(!web->m_screenShotHelper&&web->resourcePathReads==0&&protectedHide.m_stack->currentWidget()==protectedHide.m_passwordView&&web->screenVisibility==QList<bool>({false,true}),"actual opt-in view hide refuses capture and restores at the password view without bypassing authorization");
+        RoutingView hideReauth(explorer);prepare(hideReauth);web=hideReauth.m_web;web->duringScreenWindow=[&](bool visible){if(!visible){hideReauth.hide();hideReauth.show();submit(hideReauth);}};web->editorCommandExecuteScreenShot();
+        check(!web->m_screenShotHelper&&web->resourcePathReads==0,"synchronous renewed opt-in authorization during intentional hide cannot revive the originating screenshot");
+        settings.set("BiometricUnlock",policy,"0");
+        RoutingView legacy(explorer);legacy.show();legacy.viewNote(c,true);web=legacy.m_web;web->imageResources=resources.path()+"/";web->editing=true;const auto beforeHide=web->noteReadPermit();
+        web->duringScreenWindow=[&](bool visible){if(visible)legacy.show();else legacy.hide();};web->editorCommandExecuteScreenShot();helper=web->m_screenShotHelper;
+        check(helper&&!beforeHide.current()&&web->m_screenShotReadPermit.current()&&!legacy.isVisible(),"legacy plain screenshot binds a new permit only during the synchronous intentional view hide");
+        if(helper)helper->deliver(pixels);
+        check(legacy.isVisible()&&web->sourcePage.commands.size()==1&&!web->m_screenShotHelper,"plain screenshot still inserts normally after actual view hide and restoration");
+        settings.set("BiometricUnlock",policy,"1");
+        for(auto helper:SyntheticScreenShotHelper::instances)if(helper)helper->deleteLater();
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+    }
+    // End Phase150 screenshot tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();
     qInfo().noquote()<<"biometric-document-routing checks"<<checks<<"failures"<<failures;
     return failures?1:0;
 }
+
+#include "biometric-document-routing.moc"
