@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase183",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "eef41c1961fc7f2530a8f29a926454d6e962dfbf",
+  "phase": 183,
+  "date": "2026-10-22",
+  "documentationOnly": false,
+  "productCodeChanged": true,
+  "testCodeChanged": true,
+  "buildInputsChanged": false,
+  "encryptionAlgorithmChanged": false,
+  "databaseOrSyncSourceChanged": false,
+  "firstCertificateCreationInCurrentScope": false,
+  "existingCompatibleCertificateRequired": true,
+  "missingOrFailedReadMustNotTriggerCreation": true,
+  "firstRegistrationContractResolved": false,
+  "realAccountStarted": false,
+  "realNotesAccessed": false,
+  "certificateServiceCalled": false,
+  "certificateUploaded": false,
+  "realCertificatesOrSecretsRead": false,
+  "installed": false,
+  "repackagedInstaller": false,
+  "signingChanged": false,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "newNativePanelAccepted": false,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "tests": {
+    "focusedGroup": "wiznote_document_unprotect",
+    "checks": 43,
+    "failures": 0,
+    "ctestSeconds": 0.35,
+    "groupsRun": 1,
+    "initialReproductionChecks": 32,
+    "initialReproductionFailures": 2,
+    "initialFailuresRetained": true,
+    "actualTemporaryDatabaseReaderAndSaver": true,
+    "syntheticPromptAndReportCallbacks": true,
+    "fullSuiteOrNativeAuthenticationRerun": false
+  },
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Existing-certificate use only. Two focused defects reproduced32checks/2failures:save frontier returned silently and missing local cert conflated with unsupported note. Preparation now honors local read failure and returns specific category,retaining previous availability rules and all encryption/backup/publication/rollback algorithms. Missing/unusable cert refuses before password/consent,no creation/replacement/service call. Failed save frontier reports once,leaves unresolved failure,pending saves and original content intact;cancel stays silent. Specific password-versus-login guidance,changed scope,read/decrypt,backup,write,metadata and incomplete-rollback messages retain actual backup path without exposing password/key. Incremental developer build and one affected actual-temp-db/reader/archive/saver group43/0,0.35s;synthetic prompt/report callbacks,not real Cocoa/account/iPhone acceptance. Prior failures retained,unrelated/native-auth/PDF/full matrix not rerun. Normal App/real notes/accepted signed Apps/frozen candidates/HEAD/index unchanged,no signing/installer/install. RecoveryOFF,automationPAUSED. First-certificate creation stays out of scope;real-account/iPhone/representative attachment combinations still need actual evidence.",
+  "files": [
+    {
+      "path": "src/share/WizDocumentUnprotect.h",
+      "mode": "100644",
+      "bytes": 1098,
+      "sha256": "cc095a18f3ac66b85d381e5cd1f1800fb248c3805527e71190718405a99f8360",
+      "gitBlobSha": "9282eed4eadaedb0c1099227eb54cc2af5afddce"
+    },
+    {
+      "path": "src/share/WizDocumentUnprotect.cpp",
+      "mode": "100644",
+      "bytes": 7584,
+      "sha256": "f96c01f29c1149a1ec18d52bdecffc610316809fafeb5f835deede7fb8ccd2d1",
+      "gitBlobSha": "b6478478c22fdbc2b396d4c5b309ecfee7bbe7c9"
+    },
+    {
+      "path": "src/widgets/WizUnprotectDialog.h",
+      "mode": "100644",
+      "bytes": 559,
+      "sha256": "663909096533779ddddc760ecb77997e8bda1b2024469d2a6f2ce590bb821bda",
+      "gitBlobSha": "2c00809a71fd9112798c0d9f8a22ca9324475939"
+    },
+    {
+      "path": "src/widgets/WizUnprotectDialog.cpp",
+      "mode": "100644",
+      "bytes": 6251,
+      "sha256": "0d9a1716957de4525dcdbf052db1d122220ea24d3bc5ae636f3f89b39aecc980",
+      "gitBlobSha": "46414e758d077b12b12e519e55a23a506d38885c"
+    },
+    {
+      "path": "tests/compat/document-unprotect.cpp",
+      "mode": "100644",
+      "bytes": 14277,
+      "sha256": "966763ac1d1fe441f525edf441901ec458d4aaa1c72579f4baf05cc9045e02b3",
+      "gitBlobSha": "d2c80219e1e9fa9fd521c3f4c85dc4b37ffa7e36"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 53635,
+      "sha256": "1bc89a851bb7dafcca6bbf1b91201f6cd18441ed4ba67b447f798385321e18de",
+      "gitBlobSha": "370dc6e7f16049ee999cfebffa1922aa2fb24457"
+    },
+    {
+      "path": "docs/encryption-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 6679,
+      "sha256": "eb7e16cfacbb0be04c7abc35212960f2f96639172725ffd366d2c9f4278c72c8",
+      "gitBlobSha": "5d8bc4d3264906b6ceb12459510d0d77695a5dbe"
+    }
+  ]
+}

@@ -41,8 +41,13 @@ Prepared prepare(WizDatabase& db,const WIZDOCUMENTDATA& requested){
     if(!db.documentFromGuid(requested.strGUID,p.document)||!p.document.nProtected||!db.canEditDocument(p.document))return p;
     p.archive=db.getDocumentFileName(p.document.strGUID);const QFileInfo file(p.archive);
     if(!file.isFile()||file.isSymLink()||!WizZiwReader::isEncryptedFile(p.archive))return p;
-    p.account=db.getUserGuid();db.getUserCert(p.certificate.n,p.certificate.e,p.certificate.encryptedD,p.certificate.hint);p.digest=digest(p.archive);
-    p.valid=!p.account.isEmpty()&&!p.digest.isEmpty()&&!WizCertificateCreation::publicFingerprint(p.certificate).isEmpty();return p;
+    p.account=db.getUserGuid();
+    if(!db.getUserCert(p.certificate.n,p.certificate.e,p.certificate.encryptedD,p.certificate.hint)
+       ||WizCertificateCreation::publicFingerprint(p.certificate).isEmpty()){
+        p.error=Error::CertificateUnavailable;return p;
+    }
+    p.digest=digest(p.archive);if(p.digest.isEmpty()){p.error=Error::ReadFailed;return p;}
+    p.valid=!p.account.isEmpty();if(p.valid)p.error=Error::None;return p;
 }
 bool current(WizDatabase& db,const Prepared& expected){
     if(!expected.valid)return false;const auto p=prepare(db,expected.document);
@@ -54,7 +59,7 @@ bool current(WizDatabase& db,const Prepared& expected){
 }
 Result execute(WizDatabase& db,const Prepared& p,const QString& password,bool consent,const std::function<bool()>& ownerCurrent,const std::function<bool(const char*)>& checkpoint){
     Result result;if(!consent){result.error=Error::ConsentRequired;return result;}
-    const std::unique_lock<std::mutex> lock(mutation,std::try_to_lock);if(!lock.owns_lock()||!p.valid){result.error=Error::Unsupported;return result;}
+    const std::unique_lock<std::mutex> lock(mutation,std::try_to_lock);if(!lock.owns_lock()||!p.valid){result.error=!p.valid&&p.error!=Error::None?p.error:Error::Unsupported;return result;}
     const auto allowed=[&]{return (!ownerCurrent||ownerCurrent())&&current(db,p);};
     if(!allowed()){result.error=Error::Changed;return result;}
     if(WizCertificateCreation::verify(p.certificate,password)!=WizCertificateCreation::Error::None){result.error=Error::PasswordInvalid;return result;}

@@ -3,6 +3,7 @@
 class QWidget;
 class WizDocumentSaverThread;
 namespace WizUnprotectDialog {
+QString resultMessage(const WizDocumentUnprotect::Result&);
 struct Services {
     std::function<QString(QWidget*,bool*)> password;
     std::function<bool(QWidget*,const QString&)> confirm;

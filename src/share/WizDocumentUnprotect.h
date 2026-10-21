@@ -4,12 +4,13 @@
 #include <functional>
 class WizDatabase;
 namespace WizDocumentUnprotect {
-enum class Error { None, ConsentRequired, Unsupported, Changed, PasswordInvalid, ReadFailed, BackupFailed, WriteFailed, MetadataFailed, RecoveryRequired };
+enum class Error { None, ConsentRequired, Unsupported, Changed, PasswordInvalid, ReadFailed, BackupFailed, WriteFailed, MetadataFailed, RecoveryRequired, CertificateUnavailable, SaveFailed };
 struct Prepared {
     WIZDOCUMENTDATA document;
     WizCertificateCreation::Certificate certificate;
     QString account,archive,digest;
     bool valid=false;
+    Error error=Error::Unsupported;
 };
 struct Result {
     Error error=Error::ReadFailed;

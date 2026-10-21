@@ -1,5 +1,32 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
+## Phase 183: existing-certificate permanent-decryption failure feedback
+
+Two concrete use-path defects reproduced before the fix: a failed save frontier
+returned silently, and an unavailable local certificate was reported as a generic
+unsupported note. The focused group initially had **32 checks, 2 failures**.
+
+Preparation now preserves a specific failure category and honors certificate-read
+failure; certificate availability rules and encryption/archive/rollback algorithms
+are unchanged. Missing/unusable local certificates stop before password or consent
+prompts, with no automatic creation/replacement or server request. Save-frontier
+failure produces one report and preserves the unresolved save failure, pending
+work and original content. Intentional cancellation still produces no error popup.
+
+Messages distinguish certificate password from account login password, changed
+scope, read/decrypt failure, backup failure, write/metadata failure and incomplete
+rollback. Any retained backup path stays visible; password/key bytes are excluded.
+The incomplete-rollback instruction still stops editing/sync rather than claiming
+success. Successful conversion, backup retention and original resource bytes stay
+covered by the same affected group.
+
+Only incremental main-client compilation and **one directly related test group**
+ran: **43/0, 0.35s**. It uses actual temporary database/reader/archive/saver code
+with synthetic prompt/report callbacks, not a real Cocoa dialog, account or iPhone
+round trip. No PDF/native-auth/old-matrix rerun, signing, installer or installation.
+Normal App, real notes, accepted signed copies and frozen candidates are unchanged;
+recovery OFF, automation PAUSED. First-certificate creation remains out of scope.
+
 ## Current scope decision: phase 182, 2026-10-22
 
 The user has removed Mac first-certificate creation/registration from the current
@@ -763,8 +790,9 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest scope/record manifest is [checkpoints/2026-10-22-phase182.json](checkpoints/2026-10-22-phase182.json).
-The latest functional acceptance is [phase181](checkpoints/2026-10-22-phase181.json).
+The latest focused integration manifest is [checkpoints/2026-10-22-phase183.json](checkpoints/2026-10-22-phase183.json).
+The existing-certificate scope decision is [phase182](checkpoints/2026-10-22-phase182.json).
+The latest signed physical-session acceptance is [phase181](checkpoints/2026-10-22-phase181.json).
 The manual lock/application-inactive acceptance is [phase180](checkpoints/2026-10-22-phase180.json).
 The bounded chooser-fixture improvement is [phase179](checkpoints/2026-10-22-phase179.json).
 The HTML resource URL correction is [phase178](checkpoints/2026-10-22-phase178.json).
