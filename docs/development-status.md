@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 147
+# Personal-use development checkpoint: phase 148
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -29,16 +29,23 @@ release, installation, or completed system-authentication acceptance.
   stale continuations cannot consume a newer request. Original URL normalization,
   application modality and one-shot command behavior are preserved.
 
+- Attachment/image paste, attachment insertion and thumbnail continuations now
+  retain the original read permit. An obsolete paste is consumed instead of
+  falling through to browser default paste. Completed copies/attachments remain
+  in the original note; subsequent insertions stop. Image-conversion failure now
+  explicitly returns false rather than falling off a non-void function.
+
 ## Latest local verification
 
-Phase 147: **26/26 permitted regression groups; 1,718 PASS, 0 FAIL** in 212.11s.
-Six focused groups repeated five times: **4,920 PASS, 0 FAIL**. Both runs verify
+Phase 148: **26/26 permitted regression groups; 1,769 PASS, 0 FAIL** in 211.02s.
+Six focused groups repeated five times: **5,175 PASS, 0 FAIL**. Both runs verify
 the retained renderer runtime's actual loaded mapping. The routing corpus has
-644 checks, including 31 new checks. Original source failed 3 assertions normally
-in the initial 619-check corpus; that corpus passed after the fix. The first
-expanded run found missing hide cancellation and an incorrect URL-normalization
-expectation; these were corrected before the final successful runs. An initial
-test-only Qt-header namespace build failure is retained, not counted as execution.
+695 checks, including 51 new checks. Original source failed 6 assertions normally
+in the initial 650-check corpus; that corpus passed after the fix. A test-only
+logging-adapter build failure and an expanded fixture counter error are retained.
+An existing test resource getter was also corrected to snapshot its value before
+a destruction hook. Earlier successful runs are archived separately; the final
+repeated and full runs use the corrected fixture.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -48,9 +55,9 @@ results for those groups are not silently counted as current acceptance.
 
 ## Remaining bounded work
 
-1. Attachment clipboard and find/selection lifecycles; synthetic-only screenshot
-   orchestration. Full native link-window/editor integration, native file-chooser
-   and operating-system clipboard acceptance remain distinct from isolated checks.
+1. Find/selection lifecycles and synthetic-only screenshot orchestration. Native
+   clipboard/paste/drop, link-window/editor and file-chooser integration remain
+   distinct from isolated checks of the implemented method bodies.
 2. Actual navigation, initial read/snapshot/output and isolated main-window
    integration, including external-editor return/save behavior.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
@@ -65,7 +72,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase147.json](checkpoints/2026-10-21-phase147.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase148.json](checkpoints/2026-10-21-phase148.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

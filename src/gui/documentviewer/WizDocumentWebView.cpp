@@ -290,38 +290,69 @@ WizDocumentWebViewPage* WizDocumentWebView::getPage() {
 
 bool WizDocumentWebView::onPasteCommand()
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    // A revoked paste is consumed, not passed to Chromium's default paste.
+    const auto aborted = [self, read] { return !self || !read.current(); };
+    if (aborted()) return true;
     QClipboard* clip = QApplication::clipboard();
-    Q_ASSERT(clip);
+    if (aborted()) return true;
+    if (!clip) return false;
 
-    if (isEditing())
+    const bool editing = isEditing();
+    if (aborted()) return true;
+    if (editing)
     {
-        const QMimeData *mimeData = clip->mimeData();
-        qDebug() << "Clipboard MIME Data has formats: " << mimeData->formats();
+        const QPointer<const QMimeData> mimeData(clip->mimeData());
+        if (aborted()) return true;
+        if (!mimeData) return false;
+        const auto formats = mimeData->formats();
+        if (aborted()) return true;
+        if (!mimeData) return false;
+        qDebug() << "Clipboard MIME Data has formats: " << formats;
+        if (aborted()) return true;
+        if (!mimeData) return false;
         // On MacOS: copying files will result in "text/uri-list", "text/plain", "application/x-qt-image" formats.
         // So, we should test `hasUrls()` before `hasImage()`.
-        if (mimeData->hasUrls()) {
+        const bool hasUrls = mimeData->hasUrls();
+        if (aborted()) return true;
+        if (!mimeData) return false;
+        if (hasUrls) {
             int nAccepted = 0;
 
             QList<QUrl> urls = mimeData->urls();
+            if (aborted()) return true;
             QList<QUrl>::const_iterator it;
             for (it = urls.constBegin(); it != urls.constEnd(); it++) {
+                if (aborted()) return true;
                 QUrl url = *it;
                 if (acceptUrlAsAttachment(url))
                     nAccepted++;
+                if (aborted()) return true;
             }
 
             return nAccepted > 0;
-        } else if (mimeData->hasImage()) {
+        }
+        const bool hasImage = mimeData->hasImage();
+        if (aborted()) return true;
+        if (hasImage) {
             // save clipboard image to
             QString strImagePath = noteResourcesPath();
+            if (aborted()) return true;
             CString strFileName = strImagePath + WizIntToStr(WizGetTickCount()) + ".png";
-            if (!clip->image().save(strFileName)) {
+            const QImage image = clip->image();
+            if (aborted()) return true;
+            const bool saved = image.save(strFileName);
+            if (aborted()) return true;
+            if (!saved) {
                 TOLOG("ERROR: Can't save clipboard image to file");
                 return false;
             }
 
             QString strHtml;
-            if (!WizImage2Html(strFileName, strHtml, strImagePath))
+            const bool converted = WizImage2Html(strFileName, strHtml, strImagePath);
+            if (aborted()) return true;
+            if (!converted)
                 return false;
 
             editorCommandExecuteInsertHtml(strHtml, true);
@@ -655,6 +686,9 @@ void WizDocumentWebView::tryResetTitle()
 
 bool WizDocumentWebView::acceptUrlAsAttachment(const QUrl &url)
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return false;
     //paste image file as images, add attachment for other file
     QString strFileName = url.toLocalFile();
 
@@ -665,6 +699,7 @@ bool WizDocumentWebView::acceptUrlAsAttachment(const QUrl &url)
     }
 #endif
 
+    if (!self || !read.current()) return false;
     QFileInfo info(strFileName);
 
     //FIXME: //TODO: should merged with add attachment in attachment list
@@ -679,9 +714,14 @@ bool WizDocumentWebView::acceptUrlAsAttachment(const QUrl &url)
     }
 
     QList<QByteArray> imageFormats = QImageReader::supportedImageFormats();
+    if (!self || !read.current()) return false;
     if (imageFormats.contains(info.suffix().toLower().toUtf8())) {
         QString strHtml;
-        if (WizImage2Html(strFileName, strHtml, noteResourcesPath())) {
+        const QString resources = noteResourcesPath();
+        if (!self || !read.current()) return false;
+        const bool converted = WizImage2Html(strFileName, strHtml, resources);
+        if (!self || !read.current()) return false;
+        if (converted) {
             editorCommandExecuteInsertHtml(strHtml, true);
             return true;
         }
@@ -689,9 +729,13 @@ bool WizDocumentWebView::acceptUrlAsAttachment(const QUrl &url)
     else {
         WIZDOCUMENTDATA doc = view()->note();
         WizDatabase& db = m_dbMgr.db(doc.strKbGUID);
+        if (!self || !read.current()) return false;
         WIZDOCUMENTATTACHMENTDATA data;
         data.strKbGUID = doc.strKbGUID; // needed by under layer
-        if (!db.addAttachment(doc, strFileName, data))
+        const bool added = db.addAttachment(doc, strFileName, data);
+        // An already completed attachment remains in its original note.
+        if (!self || !read.current()) return false;
+        if (!added)
         {
             TOLOG1("[drop] add attachment failed %1", strFileName);
             return false;
@@ -699,6 +743,7 @@ bool WizDocumentWebView::acceptUrlAsAttachment(const QUrl &url)
         addAttachmentThumbnail(strFileName, data.strGUID);
         return true;
     }
+    return false;
 }
 
 void WizDocumentWebView::dropEvent(QDropEvent* event)
@@ -1114,14 +1159,21 @@ void WizDocumentWebView::insertImage(const QString& strFileName)
 
 void WizDocumentWebView::addAttachmentThumbnail(const QString strFile, const QString& strGuid)
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     QImage img;
     qreal scale = 2;
     ::WizCreateThumbnailForAttachment(img, strFile, QSize(32, 32), scale);
+    if (!self || !read.current()) return;
     QString strDestFile = Utils::WizPathResolve::tempPath() + WizGenGUIDLowerCaseLetterOnly() + ".png";
+    if (!self || !read.current()) return;
     img.save(strDestFile, "PNG");
+    if (!self || !read.current()) return;
     QString strLink = QString("wiz://open_attachment?guid=%1").arg(strGuid);
     QSize szImg = img.size();
     QString strHtml = WizGetImageHtmlLabelWithLink(strDestFile, szImg / scale, strLink);
+    if (!self || !read.current()) return;
     editorCommandExecuteInsertHtml(strHtml, true);
 }
 

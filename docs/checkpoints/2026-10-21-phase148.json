@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase148",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "64dbcb784cbb31ac48290f588a0c9a9edc649b2f",
+  "sourceCheckpoint": "phase148",
+  "localRegression": {
+    "groups": 26,
+    "pass": 1769,
+    "fail": 0,
+    "seconds": 211.02,
+    "focusedRepeatedPass": 5175,
+    "routingChecks": 695,
+    "actualRetainedRuntimeMappingVerified": true,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "checks": 650,
+    "failures": 6,
+    "normalExit": true,
+    "sameInitialCorpusAfterFixPass": 650
+  },
+  "expandedControl": {
+    "firstChecks": 695,
+    "firstFailures": 1,
+    "fixtureCounterCorrected": true,
+    "resourceGetterFixtureSnapshotsBeforeDestruction": true,
+    "earlierFocusedRunArchivedAndNotSubstituted": true,
+    "finalChecks": 695,
+    "finalFailures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Only three WebView paste/attachment/thumbnail product methods changed. Original read permits stop obsolete continuations, consuming stale paste instead of falling through to browser paste. Already completed copies/attachments remain in the original note. Real temporary DB attachment writes and PNG conversion execute; clipboard, native icon, warning and page collaborators are synthetic. Existing queued-paste boundary stub remains separate. Native clipboard/paste/drop/client and system authentication remain unaccepted.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 111033,
+      "gitBlobSha": "fc08ce7e484de68047df8f3e9b5c8534d97f3fb4",
+      "sha256": "b3a76d7417ffe0024905345acf04484634d26c6ff56f6a49d34d2531d3818721"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 233900,
+      "gitBlobSha": "59dbdcf1a2232e6e94c24a0771f58bae16a8c445",
+      "sha256": "139511540e1775fcef531e6193bf888f93c8274649963773c576286595a36f52"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 26107,
+      "gitBlobSha": "0c178f13a14bc8289d7196179d65feb05dd14dfd",
+      "sha256": "ad31132d682e6afb1bfae7712347fc9ef40580f126d7e2e3895388d3246bf0ca"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 4839,
+      "gitBlobSha": "349f31c74b028aefe2ed08c9d84ce9e80f49872e",
+      "sha256": "a93ac018a4a35ff57fdfa94d1337a0c9b67a3eac51380d3c039902398178c17d"
+    }
+  ]
+}

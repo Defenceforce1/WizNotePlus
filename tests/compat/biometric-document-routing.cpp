@@ -22,6 +22,8 @@
 #include "utils/WizPathResolve.h"
 #include "gui/documentviewer/DocumentLoaderSaver.h"
 #include "gui/documentviewer/WizEditorInsertLinkForm.h"
+#include "mac/WizMacHelper.h"
+#include <QImageReader>
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
@@ -88,6 +90,37 @@ struct PasteMimeData : QMimeData {
         return result;
     }
 };
+// Phase148 collaborators: a separate in-memory clipboard, with actual file,
+// image conversion and DB operations. Never access the system clipboard.
+struct AttachmentClipboard {
+    std::unique_ptr<QMimeData> data=std::make_unique<QMimeData>();QImage pixels;
+    std::function<void()> duringMime,duringImage;
+    const QMimeData* mimeData()const{const auto* value=data.get();const auto hook=duringMime;if(hook)hook();return value;}
+    QImage image()const{const auto value=pixels;const auto hook=duringImage;if(hook)hook();return value;}
+};
+struct AttachmentApp {
+    static inline AttachmentClipboard value;static inline int reads=0;static inline bool missing=false;static inline std::function<void()> duringAccess;
+    static AttachmentClipboard* clipboard(){++reads;const auto hook=duringAccess;if(hook)hook();return missing?nullptr:&value;}
+    static void reset(){value.data=std::make_unique<QMimeData>();value.pixels={};value.duringMime={};value.duringImage={};duringAccess={};reads=0;missing=false;}
+};
+struct AttachmentMime : QMimeData {
+    mutable std::function<void()> onFormats;mutable std::function<void(const QString&)> onHasFormat,onData;
+    QStringList formats()const override{const auto result=QMimeData::formats();auto hook=std::move(onFormats);onFormats={};if(hook)hook();return result;}
+    bool hasFormat(const QString& mime)const override{const bool result=QMimeData::hasFormat(mime);const auto hook=onHasFormat;if(hook)hook(mime);return result;}
+    QVariant retrieveData(const QString& mime,QMetaType type)const override{const auto result=QMimeData::retrieveData(mime,type);const auto hook=onData;if(hook)hook(mime);return result;}
+};
+struct AttachmentOps {
+    static inline int conversions=0,adds=0,thumbnails=0;
+    static inline QStringList logs;
+    static inline std::function<void()> afterConversion,afterAdd,afterThumbnail;
+    static bool imageToHtml(const QString& file,QString& html,QString dest){++conversions;const bool ok=::WizImage2Html(file,html,dest);const auto hook=afterConversion;if(hook)hook();return ok;}
+    static bool add(WizDatabase& db,const WIZDOCUMENTDATA& doc,const QString& file,WIZDOCUMENTATTACHMENTDATA& data){++adds;const bool ok=db.addAttachment(doc,file,data);const auto hook=afterAdd;if(hook)hook();return ok;}
+    static bool thumbnail(QImage& img,const QString&,const QSize& size,qreal scale){++thumbnails;img=QImage(size*scale,QImage::Format_ARGB32);img.fill(Qt::blue);const auto hook=afterThumbnail;if(hook)hook();return true;}
+    static void log(const QString& text){logs.push_back(text);}
+    static void log1(const QString& text,const QString& value){logs.push_back(text.arg(value));}
+    static void reset(){conversions=adds=thumbnails=0;logs.clear();afterConversion={};afterAdd={};afterThumbnail={};AttachmentApp::reset();}
+};
+// End Phase148 collaborators.
 struct PickerFiles {
     static inline int copies=0;static inline std::function<void()> afterCopy;
     static bool copy(const QString& from,const QString& to){
@@ -255,12 +288,13 @@ struct Web : InspectorShell {
     }
     using QObject::connect;
     QString imageResources;int resourcePathReads=0;std::function<void()> duringResourcePath;
-    QString noteResourcesPath(){++resourcePathReads;const auto hook=duringResourcePath;if(hook)hook();return imageResources;}
+    QString noteResourcesPath(){++resourcePathReads;const auto value=imageResources;const auto hook=duringResourcePath;if(hook)hook();return value;}
     void saveAsHtml();
     void saveAsPlainMarkdown(QString&,std::function<void(QString)>);
     void saveAsPlainText(QString&,std::function<void(QString)>);
     void saveAsRenderedHtml(QString&,std::function<void(QString)>);
     bool onPasteCommand(){++pasteRequests;return false;}
+    bool runPasteCommand();bool acceptUrlAsAttachment(const QUrl&);void addAttachmentThumbnail(QString,const QString&);
     void trySaveDocument(const WIZDOCUMENTDATA& doc,bool,Completion done) {
         ++saves;if(defer)pending.push_back(std::move(done));else {
             if(reply.userType()==QMetaType::Bool&&reply.toBool()&&handoff)handoff(doc);
@@ -369,6 +403,11 @@ QString getSaveFileName(QWidget*,const QString&,const QString&,const QString&){
 }
 }
 #include WIZNOTE_READ_METHODS
+namespace WizMessageBox {
+int attachmentWarnings=0;std::function<void()> duringAttachmentWarning;
+void warning(QWidget*,const QString&,const QString&){++attachmentWarnings;const auto hook=duringAttachmentWarning;if(hook)hook();}
+}
+#include WIZNOTE_ATTACHMENT_METHODS
 struct DiskWeb : Web {
     using Web::Web;
     QPointer<WizDocumentSaverThread> diskSaver;
@@ -2491,6 +2530,85 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(web->sourcePage.commands==QStringList({"WizEditor.link.setCurrentLink(\"https://example.invalid/new\");"}),"superseded acceptance does not cancel or consume the newer link request");
         reset();
     }
+    // Phase148: actual paste/attachment method bodies with a memory clipboard.
+    {
+        const auto files=[](const QString& dir){return QDir(dir).entryList(QDir::Files);};
+        const auto prepare=[&](RoutingView& owner,const QString& name){AttachmentOps::reset();owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->editing=true;owner.m_web->imageResources=root.filePath(name)+"/";QDir().mkpath(owner.m_web->imageResources);owner.m_web->sourcePage.commands.clear();AttachmentApp::value.data->setImageData(QImage(4,4,QImage::Format_ARGB32));AttachmentApp::value.pixels=QImage(4,4,QImage::Format_ARGB32);AttachmentApp::value.pixels.fill(Qt::red);};
+        RoutingView locked(explorer);prepare(locked,"paste-locked");auto* web=locked.m_web;locked.hide();web->runPasteCommand();
+        check(AttachmentApp::reads==0,"locked raw paste refuses before reading the clipboard");
+        check(files(web->imageResources).empty()&&web->resourcePathReads==0,"locked raw paste never writes an image resource");
+        RoutingView renewed(explorer);prepare(renewed,"paste-renewed");web=renewed.m_web;AttachmentApp::duringAccess=[&]{renewed.hide();renewed.show();submit(renewed);};web->runPasteCommand();AttachmentApp::duringAccess={};
+        check(files(web->imageResources).empty()&&web->sourcePage.commands.empty(),"raw paste cannot borrow authorization renewed during clipboard access");
+        RoutingView path(explorer);prepare(path,"paste-path");web=path.m_web;web->duringResourcePath=[&]{path.hide();path.show();submit(path);};web->runPasteCommand();web->duringResourcePath={};
+        check(files(web->imageResources).empty()&&web->sourcePage.commands.empty(),"raw paste stops after resource lookup revocation");
+        RoutingView direct(explorer);prepare(direct,"attachment-locked");web=direct.m_web;const QString file=root.filePath("synthetic-attachment.txt");{QFile f(file);if(!f.open(QIODevice::WriteOnly)||f.write("synthetic attachment only")<0)return 1;}
+        const int before=db.getDocumentAttachmentCount(a.strGUID);direct.hide();web->acceptUrlAsAttachment(QUrl::fromLocalFile(file));
+        check(db.getDocumentAttachmentCount(a.strGUID)==before&&AttachmentOps::adds==0,"locked direct attachment refuses before actual database insertion");
+        check(AttachmentOps::thumbnails==0,"locked direct attachment never creates a thumbnail");
+        // Extended Phase148 matrix; old routing tests retain their paste stub.
+        RoutingView normal(explorer);prepare(normal,"paste-normal");web=normal.m_web;const auto image=AttachmentApp::value.pixels;
+        check(web->runPasteCommand()&&files(web->imageResources).size()==1&&AttachmentOps::conversions==1&&web->sourcePage.commands.size()==1,"authorized raw image paste retains one real PNG conversion and HTML insertion");
+        check(QImage(web->imageResources+files(web->imageResources).first())==image,"actual clipboard image bytes decode to the original synthetic pixels");
+        prepare(normal,"paste-reader");web=normal.m_web;web->editing=false;
+        check(!web->runPasteCommand()&&files(web->imageResources).empty(),"read-mode raw paste preserves the original default-paste fallback without writing resources");
+        prepare(normal,"paste-text");web=normal.m_web;AttachmentApp::value.data=std::make_unique<QMimeData>();AttachmentApp::value.data->setText("synthetic ordinary text");
+        check(!web->runPasteCommand()&&web->sourcePage.commands.empty(),"ordinary text retains browser fallback rather than custom attachment handling");
+        prepare(normal,"paste-null-mime");web=normal.m_web;AttachmentApp::value.data.reset();
+        check(!web->runPasteCommand()&&web->sourcePage.commands.empty(),"absent clipboard MIME data returns without dereferencing it");
+        prepare(normal,"paste-null-clipboard");web=normal.m_web;const int missingPaths=web->resourcePathReads;AttachmentApp::missing=true;
+        check(!web->runPasteCommand()&&web->resourcePathReads==missingPaths,"missing clipboard is handled without asserting or accessing note resources");
+        prepare(normal,"paste-save-fail");web=normal.m_web;web->imageResources=root.filePath("nonexistent-paste-parent/child/");
+        check(!web->runPasteCommand()&&AttachmentOps::conversions==0&&web->sourcePage.commands.empty()&&AttachmentOps::logs.size()==1,"real PNG save failure preserves legacy false fallback and logs without inserting HTML");
+        for(const QString step:{"clipboard","editing","mime","formats","has-urls","urls","has-image","pixels","resources"}){
+            RoutingView owner(explorer);prepare(owner,"paste-revoke-"+step);auto* target=owner.m_web;target->body="unsaved paste fixture";const auto ticket=target->documentCallbackTicket();
+            auto value=std::make_unique<AttachmentMime>();auto* mime=value.get();mime->setImageData(image);if(step=="urls")mime->setUrls({QUrl::fromLocalFile(file)});AttachmentApp::value.data=std::move(value);
+            bool fired=false;const auto revoke=[&]{if(!fired){fired=true;owner.hide();owner.show();submit(owner);}};
+            if(step=="clipboard")AttachmentApp::duringAccess=revoke;else if(step=="editing")target->duringEditing=revoke;else if(step=="mime")AttachmentApp::value.duringMime=revoke;else if(step=="formats")mime->onFormats=revoke;
+            else if(step=="has-urls")mime->onHasFormat=[&](const QString& type){if(type=="text/uri-list")revoke();};
+            else if(step=="urls")mime->onData=[&](const QString& type){if(type=="text/uri-list")revoke();};
+            else if(step=="has-image")mime->onHasFormat=[&](const QString& type){if(type=="application/x-qt-image")revoke();};
+            else if(step=="pixels")AttachmentApp::value.duringImage=revoke;else target->duringResourcePath=revoke;
+            const bool consumed=target->runPasteCommand();target->duringEditing={};target->duringResourcePath={};
+            const auto label=("revoked raw paste is consumed without browser fallback at "+step).toUtf8();
+            check(fired&&consumed&&files(target->imageResources).empty()&&target->sourcePage.commands.empty()&&AttachmentOps::adds==0&&AttachmentOps::conversions==0,label.constData());
+            check(target->body=="unsaved paste fixture"&&WizDocumentCallbackEpoch::current(ticket)&&db.getCertPassword()==password,"paste revocation preserves original unsaved body independent save ticket and warm save cache");
+            AttachmentOps::reset();
+        }
+        prepare(normal,"paste-mime-deleted");web=normal.m_web;auto goneMime=std::make_unique<AttachmentMime>();goneMime->setImageData(image);goneMime->onFormats=[]{AttachmentApp::value.data.reset();};AttachmentApp::value.data=std::move(goneMime);
+        check(!web->runPasteCommand()&&files(web->imageResources).empty(),"actual MIME object destruction during format retrieval does not leave a dangling pointer");
+        prepare(normal,"paste-url-first");web=normal.m_web;AttachmentApp::value.data->setUrls({QUrl::fromLocalFile(file)});const int previous=db.getDocumentAttachmentCount(a.strGUID);
+        check(web->runPasteCommand()&&db.getDocumentAttachmentCount(a.strGUID)==previous+1&&AttachmentOps::adds==1&&AttachmentOps::conversions==0&&AttachmentOps::thumbnails==1,"URL MIME retains priority over image MIME and performs one actual database attachment insertion");
+        check(web->sourcePage.commands.size()==1&&web->sourcePage.commands.first().startsWith("WizEditor.insertB64Html("),"authorized attachment preserves the original thumbnail HTML insertion command");
+        prepare(normal,"paste-batch-revoke");web=normal.m_web;AttachmentApp::value.data->setUrls({QUrl::fromLocalFile(file),QUrl::fromLocalFile(file)});const int beforeBatch=db.getDocumentAttachmentCount(a.strGUID);
+        AttachmentOps::afterAdd=[&]{normal.hide();normal.show();submit(normal);};const bool consumed=web->runPasteCommand();AttachmentOps::afterAdd={};
+        check(consumed&&AttachmentOps::adds==1&&db.getDocumentAttachmentCount(a.strGUID)==beforeBatch+1&&AttachmentOps::thumbnails==0&&web->sourcePage.commands.empty(),"revocation after actual attachment commit preserves it but stops remaining URLs thumbnail and fallback");
+        const QString png=root.filePath("attachment-source.png");if(!image.save(png))return 1;
+        prepare(normal,"attachment-image");web=normal.m_web;
+        check(web->acceptUrlAsAttachment(QUrl::fromLocalFile(png))&&files(web->imageResources).size()==1&&AttachmentOps::conversions==1&&web->sourcePage.commands.size()==1,"image-file attachments keep actual conversion and insertion without database attachment creation");
+        prepare(normal,"attachment-image-path");web=normal.m_web;web->duringResourcePath=[&]{normal.hide();normal.show();submit(normal);};const bool pathAccepted=web->acceptUrlAsAttachment(QUrl::fromLocalFile(png));web->duringResourcePath={};
+        check(!pathAccepted&&files(web->imageResources).empty()&&AttachmentOps::conversions==0,"image attachment refuses before copy after resource lookup loses its original permit");
+        prepare(normal,"attachment-image-late");web=normal.m_web;AttachmentOps::afterConversion=[&]{normal.hide();normal.show();submit(normal);};const bool lateAccepted=web->acceptUrlAsAttachment(QUrl::fromLocalFile(png));AttachmentOps::afterConversion={};
+        check(!lateAccepted&&files(web->imageResources).size()==1&&web->sourcePage.commands.empty(),"completed image resource copy is retained but cannot insert HTML after reauthorization");
+        prepare(normal,"attachment-copy-fail");web=normal.m_web;web->imageResources=root.filePath("missing-image-attachment-parent/");
+        check(!web->acceptUrlAsAttachment(QUrl::fromLocalFile(png))&&web->sourcePage.commands.empty(),"actual image copy failure keeps the original no-insertion result");
+        prepare(normal,"attachment-note-switch");web=normal.m_web;const int beforeA=db.getDocumentAttachmentCount(a.strGUID),beforeB=db.getDocumentAttachmentCount(b.strGUID);AttachmentOps::afterAdd=[&]{normal.viewNote(b,true);};
+        const bool added=web->acceptUrlAsAttachment(QUrl::fromLocalFile(file));AttachmentOps::afterAdd={};
+        check(!added&&db.getDocumentAttachmentCount(a.strGUID)==beforeA+1&&db.getDocumentAttachmentCount(b.strGUID)==beforeB&&AttachmentOps::thumbnails==0,"actual completed attachment remains assigned only to the original note after navigation");
+        prepare(normal,"thumbnail-locked");web=normal.m_web;normal.hide();web->addAttachmentThumbnail(file,"synthetic-guid");
+        check(AttachmentOps::thumbnails==0&&web->sourcePage.commands.empty(),"locked direct thumbnail creation refuses before reading the source attachment");
+        prepare(normal,"thumbnail-revoke");web=normal.m_web;const QString temp=Utils::WizPathResolve::tempPath();const auto oldTemp=files(temp);AttachmentOps::afterThumbnail=[&]{normal.hide();normal.show();submit(normal);};web->addAttachmentThumbnail(file,"synthetic-guid");AttachmentOps::afterThumbnail={};
+        check(AttachmentOps::thumbnails==1&&files(temp)==oldTemp&&web->sourcePage.commands.empty(),"revocation inside thumbnail generation prevents subsequent temporary image save and HTML insertion");
+        const QString empty=root.filePath("empty-attachment.txt");{QFile f(empty);if(!f.open(QIODevice::WriteOnly))return 1;}
+        prepare(normal,"attachment-empty");web=normal.m_web;const int warnings=WizMessageBox::attachmentWarnings;
+        check(!web->acceptUrlAsAttachment(QUrl::fromLocalFile(empty))&&WizMessageBox::attachmentWarnings==warnings+1&&AttachmentOps::adds==0,"zero-byte attachment retains its existing warning and no database insertion");
+        for(const QString step:{"clipboard","editing","mime","pixels","resources","conversion","attachment","thumbnail"}){
+            auto* owner=new RoutingView(explorer);prepare(*owner,"paste-destroy-"+step);auto* target=owner->m_web;QPointer<Web> weak(target);
+            if(step=="clipboard")AttachmentApp::duringAccess=[&]{delete owner;};else if(step=="editing")target->duringEditing=[&]{delete owner;};else if(step=="mime")AttachmentApp::value.duringMime=[&]{delete owner;};else if(step=="pixels")AttachmentApp::value.duringImage=[&]{delete owner;};else if(step=="resources")target->duringResourcePath=[&]{delete owner;};else if(step=="conversion")AttachmentOps::afterConversion=[&]{delete owner;};else if(step=="attachment"){AttachmentApp::value.data->setUrls({QUrl::fromLocalFile(file)});AttachmentOps::afterAdd=[&]{delete owner;};}else{AttachmentApp::value.data->setUrls({QUrl::fromLocalFile(file)});AttachmentOps::afterThumbnail=[&]{delete owner;};}
+            const bool handled=target->runPasteCommand();AttachmentOps::reset();check(!weak&&handled,"actual paste owner destruction is consumed without late member access or browser fallback");
+        }
+        AttachmentOps::reset();
+    }
+    // End Phase148 tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();
