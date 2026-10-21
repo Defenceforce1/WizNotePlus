@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 156
+# Personal-use development checkpoint: phase 157
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -74,33 +74,37 @@ release, installation, or completed system-authentication acceptance.
 
 ## Latest local verification
 
-Submitted editor setup can resume readiness observation after reauthorization or
-legacy show. The observer retains the same JavaScript token and original weak
-host/page, opening, navigation, loader sequence, mode and setup attempt. A fresh
-read permit cannot revive the old callback; it can start a separate observer.
-Submission completes before observer startup is queued, including synchronous
-hide/reauthorization. A current access ticket prevents duplicate observers.
-Initial find is attempted at most once; completion retires before plugin delivery.
-Explicit setup failure/timeout is terminal. Replacement contexts cannot resume.
-No initialization script, navigation, dirty DOM or save task is replayed/reset.
-Navigation and successful mode changes retire the stored continuation; failed/no-op
-mode changes preserve the existing attempt. Authorization checks recheck origin
-and weak lifetime after permission evaluation.
+Successful-load Bool notifications now act only as wakeup hints. Document
+navigation uses a fresh non-secret query marker, preserving its local file path
+and stored HTML. Before setup, verify the native page URL and the renderer's
+actual location/complete state under the current read permit, weak host/page,
+opening, loader sequence, mode and independent proof attempt. Duplicate hints
+cannot consume proof twice. A page completed while locked can start its not-yet-
+submitted setup after unlock, without another extraction/navigation. Old proof
+callbacks cannot borrow new authorization. The existing submitted-setup observer
+continues to handle later readiness without replaying initialization.
 
-Phase 156 uses **2 incremental/associated groups: 1058 PASS, 0 FAIL**, one final
-run. Routing has 952 checks (15 new); native document-async has 106 (3 new).
-Original-source controls fail 2 assertions normally in the initial 940-check
-corpus. Old 937 routing and 103 native assertions remain unchanged. Setup JS
-literal templates and serializers remain unchanged; extraction adds only an
-explicit host-class collaborator replacement. The retained renderer's actual
-loaded mapping is verified. A prior passing run before the final origin recheck
-is retained separately, not counted as final. No whole-suite rerun is claimed.
+Native load-start retires renderer proof and may rearm only the same originating
+requested URL. This preserves same-URL refresh/recovery while rejecting foreign
+navigation and prior renderer callbacks. The handwriting-return loader now arms
+the same verifier and stops on preparation failure. Explicit clear retires pending
+proof/reload continuation; save tasks and dirty DOM are not cleared.
 
-Current setup/observer/mode and host show/unlock methods execute with actual Qt
-lifetime, timers and temporary database. Routing setup dispatch, find and plugins
-are recording collaborators. A native delayed-Promise test separately proves
-fresh observation, one initializer run and preserved edited DOM on a real browser
-page; it is not full WizEditor/plugin or main-window acceptance.
+Phase 157 uses **2 incremental/associated groups: 1079 PASS, 0 FAIL in 13.70s**,
+one final run. Routing has 966 checks (14 new); native async has 113 (7 new).
+The original-source 955-check control fails one assertion normally. Old routing
+assertions are retained except one URL assertion now compares the unchanged file
+path while allowing the intentional query marker; old 106 native assertions and
+prior extraction rules are unchanged. A test-only Qt include-scope build failure
+was corrected. An earlier passing run before reload review is retained separately.
+Setup JS literals/serializers are unchanged; the retained renderer mapping is verified.
+
+Native local HTML tests cover Unicode/spaces in filenames, exact marker loading,
+different nonce rejection, relative CSS, equation fragments, same-URL reload and
+source bytes unchanged. Routing uses current methods/Qt timers and temporary DB,
+but navigation/dispatch/metadata/plugins are recording collaborators. This is not
+full WizEditor/handwriting UI/main-window or complete PDF-layout acceptance; no
+installer, real account, keychain or system authentication was exercised.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -117,10 +121,10 @@ specific reason. Historical results are not silently counted as current acceptan
    behavior. Loader extraction ownership/resumption is implemented at the tested
    method boundary, including failed-new-opening backout. Real saver-to-host and
    worker-to-native-editor integration remain distinct checks. Submitted-setup
-   readiness recovery is implemented; an initializer not yet submitted because a
-   load callback arrived while locked is not automatically replayed. Load-finished
-   provenance is still needed: bare loadFinished has no origin metadata and this
-   checkpoint does not claim whole-client initialization acceptance.
+   readiness and locked-completion recovery are implemented with current-renderer
+   proof. A Bool still has no intrinsic event provenance; it cannot authorize setup
+   on its own. Revocation during setup metadata preparation before script submission,
+   native handwriting return and full initialization integration remain distinct checks.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -133,7 +137,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase156.json](checkpoints/2026-10-21-phase156.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase157.json](checkpoints/2026-10-21-phase157.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

@@ -550,3 +550,9 @@ string(FIND "${read_text}" "bool WizDocumentWebView::loadDocumentInWeb(" navigat
 if(navigation_result GREATER -1)
     set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_NAVIGATION_RESULT)
 endif()
+
+# Phase157: retain the real page-completion verifier in the setup method range.
+string(FIND "${read_text}" "void WizDocumentWebView::onEditorPageLoadHint(" verified_load_hint)
+if(verified_load_hint GREATER -1)
+    set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_VERIFIED_LOAD_HINT)
+endif()

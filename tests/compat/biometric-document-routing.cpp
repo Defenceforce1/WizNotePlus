@@ -61,6 +61,8 @@
 #include <QTextDocument>
 #include <QThread>
 #include <QTimer>
+#include <QUrlQuery>
+#include <QUuid>
 #include <QWebEnginePage>
 #include <QScreen>
 #include <QStyle>
@@ -187,6 +189,7 @@ class RoutingView;
 struct ReadPage : QObject {
     QUrl address;std::function<void()> duringUrl;
     QUrl url(){const auto value=address;const auto hook=duringUrl;if(hook)hook();return value;}
+    QUrl requestedUrl() const {return address;}
     int copyActions=0,inspectActions=0;std::function<void()> duringInspect;
     std::vector<std::function<void(const QVariant&)>> scripts;
     std::vector<std::function<void(const QString&)>> html;
@@ -385,6 +388,18 @@ struct Web : InspectorShell {
     bool resumeEditorSetup();
     std::function<void()> armEditorSetupReadiness(const QString&,const QString&,const QString&);
     // End Phase156 readiness declarations.
+    // Phase157 actual page completion proof, not a successful-load Bool.
+    WizDocumentCallbackEpoch m_editorPageCallbacks;
+    std::function<bool()> m_editorPageResume;
+    std::function<void()> m_editorPageRestart;
+    QUrl armEditorPageLoad(const QUrl&,bool =false);
+    void onEditorPageLoadStarted();
+#ifdef WIZNOTE_VERIFIED_LOAD_HINT
+    void onEditorPageLoadHint(bool);
+#else
+    void onEditorPageLoadHint(bool ok){onEditorLoadFinished(ok);}
+#endif
+    // End Phase157 page declarations.
     bool editing=false;std::function<void()> duringEditing;
     int documentsOpened=0,attachmentsOpened=0,saveActions=0,reloadActions=0;
     QString dispatchedUrl,dispatchedKb;
@@ -2987,7 +3002,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         seed();RoutingView success(explorer);prepare(success);web=success.m_web;const auto priorRead=web->noteReadPermit();web->body="unsaved initial DOM";const auto changes=web->m_contentChangeSequence;web->loadDocumentInWeb(0);
         QString result;WizLoadUnicodeTextFromFile(file,result);
         check(result==original+"<!-- synthetic core --><!-- synthetic CSS -->"&&web->m_currentNoteHtml==original&&web->m_currentNoteHtmlDocument.strGUID==a.strGUID&&web->getCurrentNoteHtml()==original,"initial success writes only the decorated temporary page and keeps an owned raw-source cache");
-        check(web->initialLoadCalls==1&&web->initialNotifications==1&&web->initialUrls==QList<QUrl>({QUrl::fromLocalFile(file)})&&!priorRead.current()&&web->noteReadPermit().current(),"own invalidation plus simulated loadStarted still permit exactly one load and legacy completion notification");
+        check(web->initialLoadCalls==1&&web->initialNotifications==1&&web->initialUrls.size()==1&&web->initialUrls.first().adjusted(QUrl::RemoveQuery)==QUrl::fromLocalFile(file)&&!priorRead.current()&&web->noteReadPermit().current(),"own invalidation plus simulated loadStarted still permit exactly one load and legacy completion notification");
         check(web->body=="unsaved initial DOM"&&web->m_contentChangeSequence==changes&&db.getCertPassword()==password,"initial loading does not clear pending body native dirty generation or password save cache");
         for(const QString stage:{"publish","files","core","css"}){
             seed();RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="keep source DOM";const auto ticket=target->documentCallbackTicket();
@@ -3353,6 +3368,47 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         SetupPlugins::reset();
     }
     // End Phase156 readiness tests.
+    // Phase157 verified page completion and unsubmitted setup after unlock.
+    {
+        QTemporaryDir files;const QString html=files.filePath("page.html");
+        const auto prepare=[&](RoutingView& owner){SetupPlugins::reset();InitialOps::reset();WizSaveUnicodeTextToUtf8File(html,"<html><body>synthetic page</body></html>",true);owner.m_web->useActualLoader=true;owner.show();owner.viewNote(a,true);submit(owner);auto* target=owner.m_web;target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,target->requestedInitialSequence);target->sourcePage.address=target->initialUrls.last();};
+        const auto take=[](Web* target){auto done=std::move(target->sourcePage.scripts.front());target->sourcePage.scripts.erase(target->sourcePage.scripts.begin());return done;};
+        RoutingView locked(explorer);prepare(locked);auto* target=locked.m_web;const auto expected=target->initialUrls.last();locked.hide();target->onEditorPageLoadHint(true);
+        check(target->sourcePage.commands.empty()&&target->sourcePage.scripts.empty(),"page completion while locked cannot query or initialize the hidden renderer");
+        locked.show();submit(locked);bool waiting=until([&]{return !target->sourcePage.scripts.empty();});auto proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.size()==1&&target->initialLoadCalls==1&&target->initialLoaderRequests==1,"unlock starts previously unsubmitted setup only after proof of the current completed navigation without reloading");
+        target->onEditorPageLoadHint(true);
+        check(target->sourcePage.commands.size()==1,"duplicate raw load-success hints cannot reinitialize a verified consumed page");
+        check(!expected.query().isEmpty()&&expected.toLocalFile()==html,"per-navigation marker is data only and keeps the original local filename");
+
+        RoutingView mismatch(explorer);prepare(mismatch);target=mismatch.m_web;const auto currentUrl=target->initialUrls.last();target->sourcePage.address=QUrl::fromLocalFile(html);target->onEditorPageLoadHint(true);
+        check(target->sourcePage.scripts.empty()&&target->sourcePage.commands.empty(),"same local filename without the current navigation marker cannot start setup verification");
+        target->sourcePage.address=currentUrl;target->onEditorPageLoadHint(true);target->onEditorPageLoadHint(true);
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("failed");
+        check(waiting&&target->sourcePage.commands.empty(),"mismatched renderer location or incomplete proof never initializes despite matching native page URL");
+        target->onEditorPageLoadHint(true);waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();mismatch.hide();mismatch.show();submit(mismatch);if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.empty(),"renderer proof captured before relock cannot borrow newly granted authorization");
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.size()==1&&target->initialLoadCalls==1,"fresh proof after repeated authorization changes starts initialization without another navigation");
+
+        RoutingView replacement(explorer);prepare(replacement);target=replacement.m_web;const auto firstUrl=target->initialUrls.last();target->onEditorPageLoadHint(true);waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();
+        const auto newUrl=target->armEditorPageLoad(QUrl::fromLocalFile(html));target->sourcePage.address=newUrl;if(proof)proof("ready");
+        check(waiting&&firstUrl!=newUrl&&target->sourcePage.commands.empty(),"rearming the same filename gets a different nonce and rejects an earlier proof");
+        replacement.hide();target->onEditorPageLoadHint(true);target->routeClear();replacement.show();submit(replacement);
+        check(!target->m_editorPageResume&&target->sourcePage.commands.empty(),"explicit clear retires pending unsubmitted initialization before later unlock");
+        RoutingView fragmented(explorer);prepare(fragmented);target=fragmented.m_web;auto fragmentUrl=target->initialUrls.last();fragmentUrl.setFragment("equation-1");target->sourcePage.address=fragmentUrl;target->onEditorPageLoadHint(true);
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.size()==1,"same-document equation fragment is allowed while the navigation query identity stays exact");
+        target->sourcePage.scripts.clear();target->sourcePage.address=target->initialUrls.last();target->onEditorPageLoadStarted();target->onEditorPageLoadHint(true);
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.size()==2&&target->initialLoadCalls==1,"native reload start with the same requested URL retires consumed proof and allows its new renderer to initialize once");
+        RoutingView staleReload(explorer);prepare(staleReload);target=staleReload.m_web;target->onEditorPageLoadHint(true);waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();target->onEditorPageLoadStarted();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.empty(),"proof from before a same-URL reload start cannot initialize its replacement renderer");
+        target->sourcePage.address=QUrl("about:blank");target->onEditorPageLoadStarted();target->onEditorPageLoadHint(true);
+        check(!target->m_editorPageResume&&target->sourcePage.commands.empty(),"unrelated requested navigation retires proof without adopting a foreign document");
+        SetupPlugins::reset();InitialOps::reset();
+    }
+    // End Phase157 page tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

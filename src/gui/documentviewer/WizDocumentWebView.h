@@ -237,6 +237,12 @@ private:
     WizDocumentCallbackEpoch m_editorSetupCallbacks;
     std::function<bool()> m_editorSetupResume;
     std::function<void()> armEditorSetupReadiness(const QString& token, const QString& keywords, const QString& noteType);
+    WizDocumentCallbackEpoch m_editorPageCallbacks;
+    std::function<bool()> m_editorPageResume;
+    std::function<void()> m_editorPageRestart;
+    QUrl armEditorPageLoad(const QUrl& url, bool retainIdentity = false);
+    void onEditorPageLoadStarted();
+    void onEditorPageLoadHint(bool ok);
     WizDocumentLoadSequence m_loadSequence;
     bool m_loadPending = false;
     WIZDOCUMENTDATA m_loadDocument;

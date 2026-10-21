@@ -196,7 +196,7 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
     WizDocumentWebViewPage* page = new WizDocumentWebViewPage(this);
     setupPage(page);
     WizPdfSvgLinks::install(page);
-    connect(this, &QWebEngineView::loadStarted, this, [this] { invalidateDocumentCallbacks(); });
+    connect(this, &QWebEngineView::loadStarted, this, &WizDocumentWebView::onEditorPageLoadStarted);
     connect(page, &WizDocumentWebViewPage::linkClicked,
             this, &WizDocumentWebView::onEditorLinkClicked);
 
@@ -237,7 +237,8 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
     addObjectToJavaScriptClient("WizExplorerApp", mainWindow->publicAPIsObject());
     addObjectToJavaScriptClient("WizQtEditor", m_htmlEditorApp);
 
-    connect(this, SIGNAL(loadFinishedEx(bool)), SLOT(onEditorLoadFinished(bool)));
+    // A Bool is only a wakeup hint; prove the current renderer document first.
+    connect(this, &WizDocumentWebView::loadFinishedEx, this, &WizDocumentWebView::onEditorPageLoadHint);
     connect(view()->titleBar(), SIGNAL(onViewMindMap(bool)), SLOT(onViewMindMap(bool)));
 
 }
@@ -829,6 +830,9 @@ WizDocumentReadPermit WizDocumentWebView::noteReadPermit() const
 void WizDocumentWebView::clear()
 {
     const QPointer<WizDocumentWebView> self(this);
+    m_editorPageCallbacks.invalidate();
+    m_editorPageResume = {};
+    m_editorPageRestart = {};
     m_loadPending = false;
     m_loadRequestCurrent = {};
     m_loadOriginCurrent = {};
@@ -1491,8 +1495,88 @@ std::function<void()> WizDocumentWebView::armEditorSetupReadiness(const QString&
 
 bool WizDocumentWebView::resumeEditorSetup()
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto pageResume = m_editorPageResume;
+    if (pageResume && pageResume()) return true;
+    if (!self) return false;
     const auto resume = m_editorSetupResume;
     return resume && resume();
+}
+
+QUrl WizDocumentWebView::armEditorPageLoad(const QUrl& url, bool retainIdentity)
+{
+    const QUrl expected = retainIdentity ? url : WizDocumentPageReady::navigationUrl(url);
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<QWebEnginePage> source(page());
+    const QPointer<WizDocumentView> host(view());
+    m_editorPageCallbacks.invalidate();
+    m_editorPageResume = {};
+    if (!expected.isValid() || expected.isEmpty() || !source || !host) return {};
+    const auto attempt = m_editorPageCallbacks.ticket();
+    const auto sequence = m_loadSequence.current();
+    const auto opening = host->noteOpenSequence();
+    const auto mode = m_currentEditorMode;
+    const WIZDOCUMENTDATA document = host->note();
+    const auto owner = [self,source,host,sequence,opening,mode,document] {
+        return self && source && host && self->page() == source && self->view() == host
+            && self->m_loadSequence.current() == sequence
+            && host->noteOpenSequence() == opening && self->m_currentEditorMode == mode
+            && host->note().strKbGUID == document.strKbGUID && host->note().strGUID == document.strGUID;
+    };
+    const auto origin = [owner,attempt] { return owner() && WizDocumentCallbackEpoch::current(attempt); };
+    // A native reload may keep its URL. A start event must still retire the
+    // previous renderer proof; do not adopt another note's requested URL.
+    m_editorPageRestart = [self,source,owner,expected] {
+        if (!owner()) return;
+        const auto requested = source->requestedUrl().adjusted(QUrl::RemoveFragment);
+        if (!owner() || requested != expected) return;
+        self->armEditorPageLoad(expected, true);
+    };
+    struct State { bool done=false,watching=false; WizDocumentCallbackEpoch::Ticket access; };
+    const auto state = std::make_shared<State>();
+    m_editorPageResume = [self,source,host,origin,expected,state] {
+        if (!origin() || state->done) return false;
+        const auto read = self->noteReadPermit();
+        if (!read.current() || !origin()) return false;
+        const auto url = source->url().adjusted(QUrl::RemoveFragment);
+        if (!origin() || !read.current() || url != expected) return false;
+        if (state->watching && WizDocumentCallbackEpoch::current(state->access)) return false;
+        state->watching = true;
+        state->access = host->noteReadTicket();
+        const auto access = state->access;
+        const auto current = [origin,read] { return origin() && read.current() && origin(); };
+        WizDocumentPageReady::watch(self, source, WizDocumentPageReady::documentExpression(expected), current,
+            [self,source,origin,current,expected,state,access](bool ready) {
+            if (!current() || state->done || state->access.owner_before(access) || access.owner_before(state->access)) return;
+            state->watching = false;
+            if (!ready) return;
+            const auto url = source->url().adjusted(QUrl::RemoveFragment);
+            if (!current() || url != expected) return;
+            state->done = true;
+            self->m_editorPageResume = {};
+            self->onEditorLoadFinished(true);
+        });
+        return true;
+    };
+    return expected;
+}
+
+void WizDocumentWebView::onEditorPageLoadHint(bool ok)
+{
+    if (!ok) return;
+    const auto resume = m_editorPageResume;
+    if (resume) resume();
+}
+
+void WizDocumentWebView::onEditorPageLoadStarted()
+{
+    const QPointer<WizDocumentWebView> self(this);
+    const auto ticket = invalidateDocumentCallbacks();
+    if (!self || !WizDocumentCallbackEpoch::current(ticket)) return;
+    m_editorPageCallbacks.invalidate();
+    m_editorPageResume = {};
+    const auto restart = m_editorPageRestart;
+    if (restart) restart();
 }
 
 /**
@@ -1919,7 +2003,9 @@ bool WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode, WizDocument
     const auto opening = invalidateDocumentCallbacks();
     if (navigation) *navigation = opening;
     if (!current() || !WizDocumentCallbackEpoch::current(opening)) return false;
-    load(QUrl::fromLocalFile(strFileName));
+    const auto url = armEditorPageLoad(QUrl::fromLocalFile(strFileName));
+    if (!current() || url.isEmpty()) return false;
+    load(url);
 
     // loadStarted may legitimately retire opening; it must not change the
     // original host/access/loader context before the legacy notification.
@@ -3322,8 +3408,9 @@ void WizDocumentWebView::onClickedSvg(const QString& data)
             // the source view; recheck before reloading after it returns.
             auto reload = WizDocumentOwnerAction::forDocument(&owner, ticket,
                 [htmlFile](WizDocumentWebView& current) {
-                    current.addDefaultScriptsToDocumentHtml(htmlFile);
-                    current.load(QUrl::fromLocalFile(htmlFile));
+                    if (!current.addDefaultScriptsToDocumentHtml(htmlFile)) return;
+                    const auto url = current.armEditorPageLoad(QUrl::fromLocalFile(htmlFile));
+                    if (!url.isEmpty()) current.load(url);
                 });
             editHandwritingNote(owner.m_dbMgr, note, htmlFile, data, WizMainWindow::instance());
             reload();

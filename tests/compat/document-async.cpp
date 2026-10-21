@@ -472,6 +472,26 @@ int main(int argc, char** argv) {
             evaluate(page,"document.body.innerHTML="+QString::fromUtf8(QJsonDocument(QJsonArray{originalBody}).toJson(QJsonDocument::Compact))+"[0];");
         }
         // End Phase156 native readiness tests.
+        // Phase157: native local-file proof and relative resources with navigation query.
+        {
+            QTemporaryDir local;const QString file=local.filePath("公式 page.html"),css=local.filePath("note.css");
+            QFile style(css);style.open(QIODevice::WriteOnly);style.write("body { color: rgb(1, 2, 3); }");style.close();
+            QFile html(file);html.open(QIODevice::WriteOnly);const QByteArray original="<html><head><link rel='stylesheet' href='note.css'></head><body><a href='#eq1'>reference</a><p id='eq1'>equation</p></body></html>";html.write(original);html.close();
+            const QUrl first=WizDocumentPageReady::navigationUrl(QUrl::fromLocalFile(file)),second=WizDocumentPageReady::navigationUrl(QUrl::fromLocalFile(file));
+            check(first!=second&&first.toLocalFile()==file&&second.toLocalFile()==file,"native repeated local-file loads have distinct query identities without changing the source path");
+            bool loaded=false;const auto connection=QObject::connect(&page,&QWebEnginePage::loadFinished,&page,[&](bool ok){loaded=ok;});page.load(first);
+            check(waitFor([&]{return loaded;})&&page.url()==first,"native local HTML with a query marker loads using the exact requested navigation identity");
+            check(evaluate(page,WizDocumentPageReady::documentExpression(first)).toString()=="ready"&&evaluate(page,WizDocumentPageReady::documentExpression(second)).toString()=="failed","native renderer proof accepts current document and rejects the same filename with another nonce");
+            check(evaluate(page,"getComputedStyle(document.body).color").toString()=="rgb(1, 2, 3)","native navigation marker preserves relative local CSS resolution");
+            evaluate(page,"document.querySelector('a').click()");
+            check(waitFor([&]{return page.url().fragment()=="eq1";})&&evaluate(page,WizDocumentPageReady::documentExpression(first)).toString()=="ready","native equation anchor navigation keeps the original document proof valid");
+            int reloadStarts=0;QUrl requested;const auto started=QObject::connect(&page,&QWebEnginePage::loadStarted,&page,[&]{++reloadStarts;requested=page.requestedUrl();});loaded=false;page.triggerAction(QWebEnginePage::Reload);
+            check(waitFor([&]{return loaded&&reloadStarts>0;})&&requested.adjusted(QUrl::RemoveFragment)==first&&evaluate(page,WizDocumentPageReady::documentExpression(first)).toString()=="ready","native same-URL reload start exposes the current requested identity and obtains a new complete renderer proof");QObject::disconnect(started);
+            html.open(QIODevice::ReadOnly);const QByteArray unchanged=html.readAll();html.close();
+            check(unchanged==original,"native navigation proof never rewrites original HTML bytes");
+            QObject::disconnect(connection);bool blank=false;const auto restore=QObject::connect(&page,&QWebEnginePage::loadFinished,&page,[&](bool ok){blank=ok;});page.setHtml("<html><body>synthetic restored page</body></html>");waitFor([&]{return blank;});QObject::disconnect(restore);
+        }
+        // End Phase157 native page proof tests.
     }
     {
         QObject owner;

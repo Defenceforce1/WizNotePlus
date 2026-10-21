@@ -6,11 +6,30 @@
 #include <QJsonDocument>
 #include <QPointer>
 #include <QTimer>
+#include <QUrlQuery>
+#include <QUuid>
 #include <QWebEnginePage>
 #include <functional>
 #include <memory>
 
 namespace WizDocumentPageReady {
+// A query (not a fragment) distinguishes repeated loads of the same local file.
+// No stored-note rewrite, credential or account data is put in this URL.
+inline QUrl navigationUrl(QUrl local)
+{
+    if (!local.isLocalFile()) return {};
+    QUrlQuery query(local);
+    query.removeAllQueryItems("wiz-document-load");
+    query.addQueryItem("wiz-document-load", QUuid::createUuid().toString(QUuid::WithoutBraces));
+    local.setQuery(query);
+    return local;
+}
+inline QString documentExpression(const QUrl& expected)
+{
+    const QString literal = QString::fromUtf8(QJsonDocument(QJsonArray{expected.toString(QUrl::FullyEncoded)}).toJson(QJsonDocument::Compact));
+    return "(()=>{try{const actual=new URL(location.href);actual.hash='';"
+        "return actual.href!=="+literal+"[0]?'failed':document.readyState==='complete'?'ready':'pending';}catch(e){return 'failed';}})()";
+}
 // Paths and account display names are data, not JavaScript source. This also
 // preserves quotes, backslashes, line breaks and non-ASCII aliases verbatim.
 inline QString initializeEditorScript(const QString& path, const QString& language,

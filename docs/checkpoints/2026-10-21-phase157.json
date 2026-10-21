@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase157",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "a089e9aecbc2d7899cd4e637daa81269f0dc7754",
+  "sourceCheckpoint": "phase157",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1079,
+    "fail": 0,
+    "seconds": 13.7,
+    "routingChecks": 966,
+    "nativeAsyncChecks": 113,
+    "newRoutingChecks": 14,
+    "newNativeChecks": 7,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 955,
+    "routingFailures": 1,
+    "normalExit": true,
+    "fixtureReplyAdjustedToStateString": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Load-success Bool is only a wakeup. A non-secret per-navigation query identity and native URL plus renderer location/complete-state proof gate setup under current source context/read permit. Unlock can start unsubmitted setup for the proved current page without another navigation. Old replies cannot borrow fresh access. Native starts retire proof and rearm only originating requested URL, preserving same-URL reload. Handwriting return arms the same verifier and stops on preparation failure. One old routing URL assertion intentionally allows the query while retaining file identity; other old assertions and JS setup templates/serializers remain. Native local-file tests cover nonce/Unicode path/CSS/equation anchor/reload/source bytes. Not full PDF-layout, handwriting UI, main-window or system-authentication acceptance. Pre-submission metadata-stage revocation remains.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 132309,
+      "chars": 132197,
+      "gitBlobSha": "eaf8d3288eb8352a2888931fa311cd322fa8b22b",
+      "sha256": "f9f60a73339b32a29b6fcf0526af74a2035241aa04a578f745b3ec7950b4ce86"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 16592,
+      "chars": 16590,
+      "gitBlobSha": "ab0d2fefa07852cbdcd156abd6aaa804422a5d98",
+      "sha256": "541eac1ab9077388da04fe2c3a4e062dd38e702af611466d7485bb8b668d5498"
+    },
+    {
+      "path": "src/share/WizDocumentPageReady.h",
+      "mode": "100644",
+      "bytes": 4808,
+      "chars": 4808,
+      "gitBlobSha": "baba6d75dc662a1cfd90c69d4fef9468bb9f6433",
+      "sha256": "ddaeb2f07f7503073a880c7ab2ff24888d985299757821641640f5b0dd0cc286"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 331006,
+      "chars": 330913,
+      "gitBlobSha": "2effd2a4abdb3e67b5080fd5e2f768d1f00e5cc4",
+      "sha256": "84f14ee55f014fc7fb0beb75c038c37601c069d69f2a901ab68ac76254a2b45b"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 36769,
+      "chars": 36769,
+      "gitBlobSha": "16db093552422a56026de4e65ca98f260699139a",
+      "sha256": "a14c51bc19a72faeeed48bd86398d0c311bf38a6e3b835f903264b47253d3c52"
+    },
+    {
+      "path": "tests/compat/document-async.cpp",
+      "mode": "100644",
+      "bytes": 42524,
+      "chars": 42492,
+      "gitBlobSha": "11a42fd36e741a392d89cd5cd4cff50bb3802574",
+      "sha256": "c414684a52781a8155d0ae2bbec655a8035a7047b972902e884c42276ef8cb1f"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 9456,
+      "chars": 9456,
+      "gitBlobSha": "edf4a451677d5ea001f9ac5938429af7f0f9bd32",
+      "sha256": "76e9321e4237f07f7b94031593276acc7af4f19a5a03e1350c371e49adcb302b"
+    }
+  ]
+}
