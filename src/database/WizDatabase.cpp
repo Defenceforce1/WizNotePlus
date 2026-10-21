@@ -1,6 +1,7 @@
 ﻿#include "WizDatabase.h"
 
 #include "share/WizCertificateCreation.h"
+#include "share/WizHtmlResourceUrl.h"
 #include <QDir>
 #include <QUrl>
 #include <QDebug>
@@ -4723,7 +4724,7 @@ bool WizDatabase::exportToHtmlFile(const WIZDOCUMENTDATA& document, const QStrin
     QString fileTitle = Utils::WizMisc::extractFileTitle(strIndexFileName);
 
     QString strResFolder = fileTitle.toHtmlEscaped() + "_files/";
-    strText.replace("index_files/", strResFolder);
+    strText.replace("index_files/", WizHtmlResourceUrl(fileTitle));
 
     if (!WizSaveUnicodeTextToUtf8File(strIndexFileName, strText))
         return false;

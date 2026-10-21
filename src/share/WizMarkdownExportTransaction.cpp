@@ -1,4 +1,5 @@
 #include "WizMarkdownExportTransaction.h"
+#include "WizHtmlResourceUrl.h"
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
 #include "WizMarkdownExportRecovery.h"
 #endif
@@ -221,9 +222,9 @@ bool writeHtml(const QString& destination, const QString& rendered,
             return file.error() == QFileDevice::NoError;
         }
         QString source = rendered;
-        // Retain the rendered HTML branch's existing basename policy. The DB
-        // exporter still owns saved-HTML/resource naming (including escaping).
-        source.replace(QStringLiteral("index_files/"), Utils::WizMisc::extractFileTitle(destination) + "_files/");
+        // Use the same URL for the DB exporter's existing resource directory.
+        // HTML escaping alone cannot represent a literal filesystem basename.
+        source.replace(QStringLiteral("index_files/"), WizHtmlResourceUrl(Utils::WizMisc::extractFileTitle(destination)));
         bytes = QByteArray::fromHex("efbbbf") + source.toUtf8();
         return true;
     };

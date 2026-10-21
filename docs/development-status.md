@@ -1,4 +1,35 @@
-# Personal-use development checkpoint: native cancellation and multi-window acceptance
+# Personal-use development checkpoint: HTML export resource URLs
+
+## Phase 178: special destination names in HTML exports
+
+The retained HTML resource-URL defect was reproduced without accounts or real
+notes. Eight destination basenames in both archive and rendered modes were loaded
+in an actual isolated local WebEngine page. Before the fix, **12 of 16** failed:
+ampersands, quotes, fragment/query syntax and literal percent escapes did not
+resolve to the on-disk resource directory. No network request was made.
+
+Both the database HTML exporter and rendered-HTML transaction now use one URL
+encoder for the existing HTML-escaped on-disk basename. The legacy directory name,
+merge behavior, BOM policy and body-last transaction/rollback are unchanged.
+Spaces, Unicode and URL metacharacters are encoded as a path segment; a literal
+`%20` remains literal on disk rather than becoming a space. Existing exports are
+not rewritten. Markdown source rewriting and recovery defaults are unchanged.
+
+After the fix, the actual browser matrix passed **16/0**, checking decoded file
+paths, real PNG dimensions and stylesheet application in both modes. Affected
+filesystem transactions passed **50/0** with the experimental Markdown gate OFF
+and **50/0** with it compiled ON; HTML still does not create persistent recovery
+state. Production temporary-database routing **1176/0** passed. The native-transfer
+test's historical byte assertion correctly failed at the intentional URL change;
+its expected encoding was updated while preserving original archive/image checks,
+then the affected group passed **89/0**. Total distinct final checks: **1381/0**.
+This is local HTML destination-name acceptance,
+not every archive-internal asset spelling or complete real-account acceptance.
+
+No foreground window, screen capture, system authentication, service access,
+installation or packaging. Frozen candidates and signed phase177 test App are
+unchanged. Native physical-session acceptance and the authoritative compatible
+first-certificate registration contract remain external gates.
 
 ## Phase 177: native cancellation, first protected load and multi-window acceptance
 
@@ -587,8 +618,9 @@ specific reason. Historical results are not silently counted as current acceptan
    native-authentication grant was used only for the isolated synthetic test above.
 4. **Retained limitations:** historical intermittent offline account-chooser
    fixture failure is not explained (the normal account override stays disabled);
-   special-filename legacy HTML resource URL behavior and crash/concurrent-writer
-   atomicity are not accepted. No repeated rerun is scheduled to hide these gaps.
+   HTML destination-basename resource URLs are accepted in phase178 above;
+   crash/concurrent-writer atomicity is not accepted. No repeated rerun is
+   scheduled to hide these gaps.
 
 VoiceOver, App Store/public binary distribution and zero-group non-default
 selection persistence are intentionally excluded, not pending development work.
@@ -600,7 +632,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest integration manifest is [checkpoints/2026-10-22-phase176.json](checkpoints/2026-10-22-phase176.json).
+The latest integration manifest is [checkpoints/2026-10-22-phase178.json](checkpoints/2026-10-22-phase178.json).
+The synthetic three-window acceptance is [phase177](checkpoints/2026-10-22-phase177.json).
 The focused system/widget test is [phase175](checkpoints/2026-10-22-phase175.json).
 The signing setup is [phase174](checkpoints/2026-10-21-phase174.json).
 The UI change remains [phase172](checkpoints/2026-10-21-phase172.json).

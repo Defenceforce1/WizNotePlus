@@ -151,11 +151,11 @@ int wizNativeNoteTransferSelfTest(int argc, char** argv)
         const QString destination = destinationRoot + QStringLiteral("单笔记 A&B #50%.md");
         const QString resourceName = Utils::WizMisc::extractFileTitle(destination).toHtmlEscaped() + "_files/";
         QByteArray expected = QByteArray::fromHex("efbbbf") + html;
-        expected.replace("index_files/", resourceName.toUtf8());
+        expected.replace("index_files/", QUrl::toPercentEncoding(resourceName, "/"));
         const QByteArray noteBefore = get(db.getDocumentFileName(first.strGUID));
         const int noteCountBefore = count(db);
         check(db.exportToHtmlFile(first, destination), "actual isolated DB single-export extracts the original synthetic ZIW");
-        check(get(destination) == expected, "actual DB single-export preserves BOM and legacy escaped HTML resource paths");
+        check(get(destination) == expected, "actual DB single-export preserves BOM and directory naming with URL-encoded HTML resource paths");
         check(get(destinationRoot + resourceName + "image.png") == image,
               "actual DB single-export preserves stored image bytes");
         WIZDOCUMENTDATA missing = first;

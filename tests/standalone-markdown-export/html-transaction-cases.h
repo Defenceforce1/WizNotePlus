@@ -72,12 +72,12 @@ void run(const QString& root, WizDatabase& database, const WIZDOCUMENTDATA& docu
     check(!WizMarkdownExportTransaction::writeHtml(target,QString(),[](const QString&) {return true;},current,error)
         &&error=="staged HTML read failed"&&unchanged()&&cleanStage(),"missing staged saved HTML refuses without truncating old body");
     check(WizMarkdownExportTransaction::writeHtml(target,QString(),exporter,current,error)
-        &&readFile(target)==QByteArray::fromHex("efbbbf")+QString::fromUtf8("<html><img src='页面_files/a-first.png'><img src='页面_files/z-fails.png'></html>").toUtf8()
+        &&readFile(target)==QByteArray::fromHex("efbbbf")+QString::fromUtf8("<html><img src='%E9%A1%B5%E9%9D%A2_files/a-first.png'><img src='%E9%A1%B5%E9%9D%A2_files/z-fails.png'></html>").toUtf8()
         &&readFile(resources+"/a-first.png")=="NEW A"&&readFile(resources+"/z-fails.png")=="NEW Z",
         "empty HTML render keeps exact saved archive body/BOM and complete resource naming");
     const QString rendered=QString::fromUtf8("<html>定理<img src='index_files/a-first.png'></html>");
     check(WizMarkdownExportTransaction::writeHtml(target,rendered,exporter,current,error)
-        &&readFile(target)==QByteArray::fromHex("efbbbf")+QString::fromUtf8("<html>定理<img src='页面_files/a-first.png'></html>").toUtf8()
+        &&readFile(target)==QByteArray::fromHex("efbbbf")+QString::fromUtf8("<html>定理<img src='%E9%A1%B5%E9%9D%A2_files/a-first.png'></html>").toUtf8()
         &&readFile(resources+"/unrelated")=="KEEP"&&readFile(resources+"/.hidden-directory/nested")=="HIDDEN"&&cleanStage(),
         "rendered Unicode HTML retains BOM, basename rewrite, unrelated and hidden resources");
     const QString first=isolated.filePath("first.html");
@@ -98,11 +98,11 @@ void run(const QString& root, WizDatabase& database, const WIZDOCUMENTDATA& docu
         &&!WizMarkdownExportTransaction::writeHtml(target,rendered,exporter,{},error),"HTML helper requires both exporter and explicit current permission");
     const QString amp=isolated.filePath("A&B.html");
     check(WizMarkdownExportTransaction::writeHtml(amp,QString(),exporter,current,error)
-        &&readFile(amp).contains("A&amp;B_files/")&&readFile(isolated.filePath("A&amp;B_files/a-first.png"))=="NEW A",
-        "saved HTML keeps legacy escaped basename bytes and filesystem resource naming");
+        &&readFile(amp).contains("A%26amp%3BB_files/")&&readFile(isolated.filePath("A&amp;B_files/a-first.png"))=="NEW A",
+        "saved HTML encodes the literal legacy resource directory name as a URL");
     check(WizMarkdownExportTransaction::writeHtml(amp,rendered,exporter,current,error)
-        &&readFile(amp).contains("A&B_files/")&&readFile(isolated.filePath("A&amp;B_files/a-first.png"))=="NEW A",
-        "rendered HTML retains legacy unescaped basename policy without claiming special-name URL compatibility");
+        &&readFile(amp).contains("A%26amp%3BB_files/")&&readFile(isolated.filePath("A&amp;B_files/a-first.png"))=="NEW A",
+        "rendered HTML resolves to the same actual resource directory as archive HTML");
 #ifdef Q_OS_MACOS
     const QByteArray metadata=QFile::encodeName(resources+"/unrelated"),dirMetadata=QFile::encodeName(resources+"/.hidden-directory");
     const bool seeded=QFile::setPermissions(resources+"/unrelated",QFileDevice::ReadOwner|QFileDevice::WriteOwner)

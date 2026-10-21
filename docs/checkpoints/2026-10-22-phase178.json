@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase178",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "16d9b3074b9555af236ce38b28fb078be70b434c",
+  "phase": 178,
+  "accepted": true,
+  "tests": {
+    "browserReproductionChecks": 16,
+    "browserReproductionFailures": 12,
+    "browserFinalChecks": 16,
+    "browserFinalFailures": 0,
+    "externalRequests": 0,
+    "ordinaryTransactionsOff": 50,
+    "ordinaryTransactionsOn": 50,
+    "transactionFailures": 0,
+    "readRouting": 1176,
+    "nativeTransfer": 89,
+    "associatedFailures": 0,
+    "totalDistinctFinalPass": 1381,
+    "actualWebEngine": true,
+    "actualTemporaryDatabaseRouting": true,
+    "browserArchiveExtractionIsSyntheticAdapter": true,
+    "unrelatedFullSuiteRun": false
+  },
+  "productCodeChanged": true,
+  "htmlDestinationBasenameUrlsAccepted": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "realAccountStarted": false,
+  "realNotesAccessed": false,
+  "normalAppModified": false,
+  "signedPhase177TestAppUnchanged": true,
+  "installed": false,
+  "repackaged": false,
+  "binariesUploaded": false,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Fix retained HTML destination-name resource URL mismatch. Actual local WebEngine8 basenames x archive/rendered16 cases initially12 failures,finally16/0 with PNG dimensions,CSS,and decoded disk path assertions;0 external requests. Preserve legacy HTML-escaped directory naming; shared URL path-segment encoder used only by DB HTML exporter and rendered HTML transaction. Literal entities/quotes/#/?/%20/Unicode resolve to existing bytes,not HTML or URL syntax. Existing exports,Markdown source rewriting,merge,BOM,body-last commit/rollback and defaults unchanged. Transactions OFF/ON50/0 each; actual temporary DB read routing1176/0; native transfer89/0 after intentional URL-byte expectation update,old failure retained. Total distinct final1381 passes,no unrelated suites. Browser archive extraction is a synthetic directory adapter,not full DB/account acceptance. Incremental main build passed;phase177 signed test App,frozen candidates,normal App/real notes unchanged. No new signing,foreground UI,authentication,installation or packaging. RecoveryOFF,automationPAUSED. Physical session/real-client combinations and authoritative first-certificate service contract remain external gates.",
+  "files": [
+    {
+      "path": "src/database/WizDatabase.cpp",
+      "mode": "100755",
+      "chars": 145353,
+      "bytes": 145959,
+      "sha256": "ffdd537b78db7745c55e8bfc9a450c8c4e8549e38bba325144c4b95a9c4a1dfd",
+      "gitBlobSha": "110b0e264f3fdb5fa496f52de7f27cd53e8549e6"
+    },
+    {
+      "path": "src/share/WizMarkdownExportTransaction.cpp",
+      "mode": "100644",
+      "chars": 10038,
+      "bytes": 10038,
+      "sha256": "6807ff59f308f0c20c0871101f26a8c941dd6db3e398d01b79f8d36d6b74e1fc",
+      "gitBlobSha": "0e34b48f28584f246aa7ae6c63043b67436e84ef"
+    },
+    {
+      "path": "tests/standalone-markdown-export/CMakeLists.txt",
+      "mode": "100644",
+      "chars": 21993,
+      "bytes": 21993,
+      "sha256": "a836ee8d2f58be7f77c500b076c02ed53724f1cea361eec39d80c50b43815150",
+      "gitBlobSha": "5ca1f098e36de7927f08fdaa57e569e1b3c50c58"
+    },
+    {
+      "path": "tests/standalone-markdown-export/html-transaction-cases.h",
+      "mode": "100644",
+      "chars": 10060,
+      "bytes": 10076,
+      "sha256": "5b4af4a8aaeb672b283f008c111d7ac34f99b7695431da791624217d1a96ec33",
+      "gitBlobSha": "16b0c743afcd22312e954cccc477ab295e51d455"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 42718,
+      "bytes": 42738,
+      "sha256": "eab045a5ccaf85bbd648acaa2871017edbba78d5cb70640870f73b31f2a95050",
+      "gitBlobSha": "e6b5d4114a5701562f5bf20251071ad9f18e616c"
+    },
+    {
+      "path": "tests/compat/native-note-transfer.cpp",
+      "mode": "100644",
+      "chars": 28855,
+      "bytes": 29092,
+      "sha256": "ddf9150ae06ee913a78687d08b1cede660ae31a7a3801879a0fafdae6d90958d",
+      "gitBlobSha": "33b2aee577e1fae9e25541dc2f753b395fcff946"
+    },
+    {
+      "path": "src/share/WizHtmlResourceUrl.h",
+      "mode": "100644",
+      "chars": 499,
+      "bytes": 499,
+      "sha256": "3d3bc35545adfd444cc2737d13594bfb9fe23e3a388dd8c5aeba05c1bab10518",
+      "gitBlobSha": "078a5cbb0d23ae1706438537139efab4e5c7ab1c"
+    },
+    {
+      "path": "tests/standalone-markdown-export/html-resource-browser.cpp",
+      "mode": "100644",
+      "chars": 5904,
+      "bytes": 5920,
+      "sha256": "ec5f0162f85d205c43b38dbb21dd1d80dabb5ba7495f40123d6cc94638107d1d",
+      "gitBlobSha": "1acb9081600117c14ff2ea8b6968d1d4039b6573"
+    }
+  ]
+}

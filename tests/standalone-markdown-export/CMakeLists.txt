@@ -81,7 +81,17 @@ extract_between("${root}/src/share/WizMisc.cpp"
 extract_between("${root}/src/utils/WizMisc.cpp" "CString WizMisc::extractFilePath(" "CString WizMisc::extractLastPathName(" path_body)
 extract_between("${root}/src/database/WizDatabase.cpp" "bool WizDatabase::exportToHtmlFile(" "bool WizDatabase::extractZiwFileToFolder(" database_body)
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/actual-resources.inc"
-  "${copy_body}\n${reader_body}\n${writer_two_body}\nnamespace Utils {\n${names_body}\n${path_body}\n}\n${database_body}\n")
+  "#include \"WizHtmlResourceUrl.h\"\n${copy_body}\n${reader_body}\n${writer_two_body}\nnamespace Utils {\n${names_body}\n${path_body}\n}\n${database_body}\n")
+
+# Actual local WebEngine resolution of synthetic exported HTML/resources. No
+# account, network, normal app, screen capture or native dialog is involved.
+add_executable(html-resource-browser-probe html-resource-browser.cpp
+  "${root}/src/share/WizMarkdownExportTransaction.cpp")
+target_include_directories(html-resource-browser-probe PRIVATE
+  "${CMAKE_CURRENT_BINARY_DIR}" "${root}/src" "${root}/src/share")
+target_link_libraries(html-resource-browser-probe PRIVATE
+  Qt6::Widgets Qt6::WebEngineCore Qt6::Core5Compat)
+target_compile_features(html-resource-browser-probe PRIVATE cxx_std_17)
 file(SHA256 "${root}/src/database/WizDatabase.cpp" database_sha)
 file(SHA256 "${root}/src/share/WizMarkdownExportTransaction.cpp" product_transaction_sha)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
