@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase166",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "8ddb803822b7cd98f1800518c12bf6d5ab0c5709",
+  "sourceCheckpoint": "phase166",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "pass": 1151,
+    "fail": 0,
+    "seconds": 12.78,
+    "routingChecks": 1151,
+    "newChecks": 31,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAuthenticationRun": false,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Fix only Web save-completion and View saved/title-publication bodies: weak ownership across callbacks, checked compatible main window, note/library identity and current stable title, no dirty-edit clearing or read grants. Compile exact main save connections with actual Qt queued receipts, publication signals, FIFO encrypted archives and read fence; preserve failed archive, explicit retry and newly saved main-command HTML output. Compile complete main PDF/HTML/Markdown command and controller bodies; mode forwarding/default, no remembered selection, reservation coalescing, chooser/relock/destruction/obsolete-result protection and atomic previous-output preservation. Active editor, sync, modal UI and renderer transport are collaborators; synthetic PDF bytes test writing, not visual/native print acceptance or a normal MainWindow instance. Add31, preserve1120 prior assertions/extraction rules and unrelated bytes. Retain enum build error and incomplete producer fixture failure; supply extraction paths and existing shell mode convention, no product gate relaxation or old-source control claim. Only affected routing group rerun; signing/native UI/system and first-certificate service contract remain gated.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 54118,
+      "chars": 53688,
+      "gitBlobSha": "f23b1458061783f4c1bfa66cf13378938d513239",
+      "sha256": "4583c1246eb47b84be4aa77fd013323f7bbdc145d6d0a76f90c9aa4a962c1e43"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 133780,
+      "chars": 133668,
+      "gitBlobSha": "71fb8bd97078ae52e854e5778231f318447d2e17",
+      "sha256": "61e22da4e312f6899fb6c29257c6e84ae7b2a79cf2e5eda5c0a55cb22a47a58a"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 413333,
+      "chars": 413208,
+      "gitBlobSha": "c6f3f22459bc8007c077b1161077f74d86cfae46",
+      "sha256": "3cb6b4d1ce096e3b463dc6c297c42ed5fd2dbbab1867505336ee01659314c4ec"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 47620,
+      "chars": 47620,
+      "gitBlobSha": "1bc249575cc002661102c05e9e38c0842ed50095",
+      "sha256": "31bbc464fd2a4fcf9e2e3f012af4a567cd7768654708d41b805e7d2a4f50e8da"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 18633,
+      "chars": 18633,
+      "gitBlobSha": "6d25ac6d69e2efa9c486b281e9a821aaf009f46e",
+      "sha256": "796b97e2d51f308cdec8749fce8d30654edd4d7be750e80290a80eda6a808417"
+    }
+  ]
+}

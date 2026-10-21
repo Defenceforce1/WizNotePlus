@@ -757,16 +757,22 @@ void WizDocumentView::settingsChanged()
 
 void WizDocumentView::sendDocumentSavedSignal(const QString& strGUID, const QString& strKbGUID)
 {
+    if (m_note.strGUID != strGUID || m_note.strKbGUID != strKbGUID) return;
+    const QPointer<WizDocumentView> self(this);
+    const QString savedGuid=strGUID,savedKb=strKbGUID;
     WizDatabase& db = m_dbMgr.db(m_note.strKbGUID);
     if (db.isGroup())
     {
         QString strUserAlias = db.getUserAlias();
-        m_editStatusSyncThread->documentSaved(strUserAlias, strKbGUID, strGUID);
+        m_editStatusSyncThread->documentSaved(strUserAlias, savedKb, savedGuid);
+        if (!self) return;
     }
 
-    emit documentSaved(strGUID, this);
+    emit documentSaved(savedGuid, this);
+    if (!self || m_note.strGUID != savedGuid || m_note.strKbGUID != savedKb) return;
     //FIXME: Is it really necessary?
-    emit titleChanged(m_note.strTitle);
+    const QString title=m_note.strTitle;
+    emit titleChanged(title);
 }
 
 void WizDocumentView::resetTitle(const QString& strTitle)

@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 165
+# Personal-use development checkpoint: phase 166
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -73,6 +73,41 @@ release, installation, or completed system-authentication acceptance.
   Already dispatched JavaScript is not retroactively canceled.
 
 ## Latest local verification
+
+Phase 166 fixes two related save-completion risks and verifies three associated
+chains. Completion now keeps weak editor/view ownership across saved publication
+and checks the compatible main-window cast before requesting sync. Publication
+checks the originating note/library, stops after receiver destruction or a note
+switch, and emits a stable copy of the current title. Failed saves mark retained
+content dirty; successful receipts do not clear newer edits or reauthorize reads.
+
+The exact main-window save connections run with actual Qt queued receipts, actual
+publication signals and temporary FIFO encrypted archives. Failure preserves an
+exact original archive behind an ordinary output blocker; explicit retry reaches
+publication and reconciles the same-note failure. The main HTML command runs
+through the actual snapshot producer, queue, archive receipt, read fence and body
+transaction, publishing the newly saved content rather than a stale archive.
+
+The full main PDF/HTML/Markdown command and export-controller bodies are compiled
+from current source. Reading-width/default and explicit A4 forwarding, no remembered
+mode, in-flight coalescing, dialog cancellation/relock, obsolete replies, newer
+reservations, invalid data/settings and owner destruction preserve prior output.
+Markdown queries retain their original authorization before resource/body commit.
+Renderer bytes, active-editor selection, sync requests and modal UI are recording
+collaborators. Synthetic PDF headers/end markers test atomic writing, not visual
+layout or native printing. The normal MainWindow is not instantiated.
+
+Final verification runs **only 1 affected group: 1151 PASS, 0 FAIL in 12.78s**,
+once after the final build, with 31 new checks and all old 1120 routing assertions
+unchanged. Note/management and native/full suites were not rerun. The first fixture
+omitted the producer's extracted file paths and used the product enum rather than
+the existing shell mode convention, causing one failure; required synthetic state
+was supplied without weakening product checks. That run and an intermediate enum
+qualification build error remain separate evidence, not negative-control claims.
+Only the two completion/publication product bodies change; export/layout and
+main-window source bytes otherwise remain unchanged.
+
+### Retained phase 165 evidence
 
 Phase 165 connects the default-disabled management host to Settings and scoped
 open-note retirement, and prevents concurrent management mutations from separate
@@ -206,13 +241,15 @@ specific reason. Historical results are not silently counted as current acceptan
    behavior. Loader extraction ownership/resumption is implemented at the tested
    method boundary, including failed-new-opening backout. Actual snapshot
    producers through real saver/frontier to text output are now isolated-tested;
-   MainWindow saved-handler and worker-to-native-editor integration remain distinct.
+   The actual saved-handler/publication bodies and main save bindings now pass
+   isolated Qt/FIFO tests. Normal-window and worker-to-native-editor integration
+   remain distinct.
    Submitted-setup
    readiness and locked-completion recovery are implemented with current-renderer
    proof. A Bool still has no intrinsic event provenance; it cannot authorize setup
    on its own. The bounded initialization method-level recovery stages are now
    implemented, including pre-submission metadata interruption. Native handwriting
-   return, MainWindow host saved-handler/output UI and full initialization
+   return, normal MainWindow/output UI and full initialization
    integration remain separate from this isolated chain. Registered external
    watcher return-save and queued-save drain now have actual local watcher/DB
    checks. Launch registration/rollback and closed-lifetime request admission are
@@ -239,7 +276,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase165.json](checkpoints/2026-10-21-phase165.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase166.json](checkpoints/2026-10-21-phase166.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

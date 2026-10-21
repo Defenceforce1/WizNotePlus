@@ -223,6 +223,12 @@ struct ReadPage : QObject {
 #include "share/WizDocumentPageReady.h"
 #undef WizDocumentPageReady
 #undef QWebEnginePage
+// Phase166 real reservation, recording renderer only; no native printing.
+#define QWebEnginePage ReadPage
+#define WizPdfExportRequest RoutingPdfExportRequest
+#include "share/WizPdfExportRequest.h"
+#undef WizPdfExportRequest
+#undef QWebEnginePage
 struct SetupStyles {
     static inline std::function<void()> after;
     static QString styleSheet(const WizNotePresentation::Style& style){const auto css=WizNotePresentation::styleSheet(style);const auto hook=after;if(hook)hook();return css;}
@@ -344,6 +350,10 @@ struct Web : InspectorShell {
         std::function<void(const QVariant&)> completion;
         void snapshot(ReadPage*,std::function<bool()>,const QString&,std::function<void(const QVariant&)> done){completion=std::move(done);}
         void deliver(const QVariant& value){auto done=std::move(completion);if(done)done(value);}
+        int prints=0;WizPdfExport::Mode printedMode=WizPdfExport::Mode::ReadingWidth;
+        std::function<void(const QByteArray&)> printed;std::function<bool()> printCurrent,documentCurrent;
+        void printWithMode(ReadPage*,std::function<bool()> current,int,const QMarginsF&,WizPdfExport::Mode mode,std::function<void(const QByteArray&)> done,std::function<bool()> document,const QUrl&){++prints;printedMode=mode;printed=std::move(done);printCurrent=std::move(current);documentCurrent=std::move(document);}
+        void deliverPrint(const QByteArray& bytes){auto done=std::move(printed);if(done)done(bytes);}
     } m_pdfPageOperations;
     int initialSaveHandoffs=0,snapshotFailures=0;QString savedInitialHtml;
     void saveEditingViewDocument(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>);
@@ -385,8 +395,10 @@ struct Web : InspectorShell {
     QString setupType="common",setupKeywords="'alpha'";QStringList setupStages;
     std::function<void(const QString&)> duringSetup;
     struct SetupApp {
-        struct Settings {std::function<void()> during;bool isEnableSpellCheck(){const auto hook=during;if(hook)hook();return true;}} settings;
+        struct Settings {std::function<void()> during;bool isEnableSpellCheck(){const auto hook=during;if(hook)hook();return true;}int marginUnit=0;int printMarginUnit(){return marginUnit;}double printMarginValue(int){return 10;}} settings;
         Settings& userSettings(){return settings;}
+        QPointer<QWidget> window;std::function<void()> duringMainWindow;
+        QWidget* mainWindow(){const auto result=window;const auto hook=duringMainWindow;if(hook)hook();return result;}
     } m_app;
     void setupStage(const QString& stage){setupStages.push_back(stage);const auto hook=duringSetup;if(hook)hook(stage);}
     QString getNoteType(){const auto value=setupType;setupStage("type");return value;}
@@ -480,6 +492,9 @@ struct Web : InspectorShell {
     QString imageResources;int resourcePathReads=0;std::function<void()> duringResourcePath;
     QString noteResourcesPath(){++resourcePathReads;const auto value=imageResources;const auto hook=duringResourcePath;if(hook)hook();return value;}
     void saveAsHtml();
+    void saveAsPDF(WizPdfExport::Mode);void saveAsMarkdown();void saveAsMarkdown(QString&,bool =true);
+    RoutingPdfExportRequest m_pdfExportRequest;
+    void onDocumentSaved(QString,QString,bool,QPointer<QObject>);
     void saveAsPlainMarkdown(QString&,std::function<void(QString)>);
     void saveAsPlainText(QString&,std::function<void(QString)>);
     void saveAsRenderedHtml(QString&,std::function<void(QString)>);
@@ -528,7 +543,7 @@ struct Web : InspectorShell {
     // Older routing cases isolate consumers by substituting their save result.
     // DiskWeb below instead compiles the actual adapter and actual FIFO helper.
     virtual void trySaveDocumentForRead(const WIZDOCUMENTDATA& doc,bool force,Completion done){trySaveDocument(doc,force,std::move(done));}
-    void cancelLinkInsert(); void cancelPdfExport(){} void clear(){body.clear();}
+    void cancelLinkInsert(); void cancelPdfExport(){m_pdfExportRequest.cancel();} void clear(){body.clear();}
     void viewDocument(const WIZDOCUMENTDATA& doc,int mode){++loads;if(useActualLoader)routeViewDocument(doc,mode);else body="loaded:"+doc.strGUID;}
     void reloadNoteData(const WIZDOCUMENTDATA& doc){++reloads;if(useActualLoader)routeReloadNoteData(doc);else body="reloaded";}
     void isPersonalDocumentChanged(){} void hasEditPermissionOnCurrentNoteChanged(){}
@@ -541,6 +556,7 @@ int messages=0;
 void information(QWidget*,const QString&,const QString&){++messages;}
 }
 class RoutingView : public QWidget {
+    Q_OBJECT
 public:
     WizDatabaseManager& m_dbMgr; WizUserSettings& m_userSettings;
     Web* m_web; WizUserCipherForm* m_passwordView; QStackedWidget* m_stack;
@@ -573,7 +589,14 @@ public:
     void initStat(const WIZDOCUMENTDATA&,bool edit){m_editorMode=edit?modeEditor:modeReader;}
     void stopDocumentEditingStatus(){} void sendDocumentEditingStatus(){}
     void downloadNoteFromServer(const WIZDOCUMENTDATA&){++downloads;}
-    void titleChanged(const QString&){} void pageCloseRequested(){++closedSignals;}
+    void pageCloseRequested(){++closedSignals;}
+Q_SIGNALS:
+    void titleChanged(const QString&);
+    void documentSaved(const QString&,RoutingView*);
+public:
+    struct EditStatus {void documentSaved(const QString&,const QString&,const QString&){};} editStatus;
+    EditStatus* m_editStatusSyncThread=&editStatus;
+    void sendDocumentSavedSignal(const QString&,const QString&);
     void waitForThread(){++threadWaits;}
     bool reload(){return m_dbMgr.db(m_note.strKbGUID).documentFromGuid(m_note.strGUID,m_note);}
     Context biometricContext() const;
@@ -921,6 +944,38 @@ struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime ti
 #include WIZNOTE_SCREENSHOT_METHODS
 #include WIZNOTE_INITIAL_METHODS
 #include WIZNOTE_SETUP_METHODS
+// Phase166 actual main-window output commands and save bindings; active-editor,
+// sync dispatch, modal UI and renderer transport remain explicit collaborators.
+struct OutputDiagnostics {
+    static inline int errors=0;static inline QStringList actions;
+    static void log(const QString&){++errors;}
+    static OutputDiagnostics& analyzer(){static OutputDiagnostics value;return value;}
+    void logAction(const QString& action){actions.append(action);}
+};
+struct OutputMessage {static inline int errors=0;static int critical(QWidget*,const QString&,const QString&){++errors;return 0;}};
+class ReceiptWeb final : public ProducerDiskWeb {
+    Q_OBJECT
+public:
+    using ProducerDiskWeb::ProducerDiskWeb;
+Q_SIGNALS:
+    void saveDocumentRequested(const WIZDOCUMENTDATA&,const QString&,const QString&,int,bool);
+};
+class SyncOutputHost : public QWidget {
+    Q_OBJECT
+public:
+    QPointer<Web> active;QStringList synced;
+    Web* getActiveEditor(){return active;}
+    void quickSyncKb(const QString& kb){synced.append(kb);}
+    void on_actionSaveAsPDF_triggered();void saveAsPDF(WizPdfExport::Mode);
+    void on_actionSaveAsHtml_triggered();void on_actionSaveAsMarkdown_triggered();
+    void bind(ReceiptWeb* newWebView,WizDocumentSaverThread* m_docSaver){
+#include WIZNOTE_HOST_SAVE_BINDINGS
+    }
+};
+#include WIZNOTE_SAVE_COMPLETION_METHODS
+#include WIZNOTE_OUTPUT_UI_METHODS
+#include WIZNOTE_OUTPUT_HOST_METHODS
+// End Phase166 main-window collaborators.
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -3966,6 +4021,97 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!weak&&db.getCertPassword()==password,"destroyed views detach automatically from policy notifications without disrupting pending-save credentials");
     }
     // End Phase165 policy routing tests.
+    // Phase166 actual save receipts/publication and main-window output chain.
+    const auto installReceipt=[&](RoutingView& owner,SyncOutputHost& host){
+        delete owner.m_web;auto* web=new ReceiptWeb(manager);owner.m_web=web;web->owner=&owner;web->setParent(owner.m_docView);web->m_app.window=&host;host.active=web;return web;
+    };
+    const auto outputBytes=[](const QString& path){QFile file(path);return file.open(QIODevice::ReadOnly)?file.readAll():QByteArray();};
+    {
+        SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);
+        int notices=0,titles=0;QObject::connect(&owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){++notices;});QObject::connect(&owner,&RoutingView::titleChanged,&app,[&](const QString&){++titles;});
+        QObject unrelatedSender;const int errors=OutputDiagnostics::errors;web->m_bContentsChanged=false;
+        web->onDocumentSaved(a.strKbGUID,a.strGUID,false,&unrelatedSender);web->onDocumentSaved("other-kb",a.strGUID,false,web);web->onDocumentSaved(a.strKbGUID,b.strGUID,false,web);
+        check(notices==0&&titles==0&&!web->m_bContentsChanged&&OutputDiagnostics::errors==errors&&host.synced.isEmpty(),"save receipt rejects another requester knowledge base or note before changing dirty state or publishing metadata");
+        web->body="unsaved receipt DOM";owner.hide();web->onDocumentSaved(a.strKbGUID,a.strGUID,false,web);
+        check(web->m_bContentsChanged&&web->body=="unsaved receipt DOM"&&!owner.canReadCurrentNote()&&notices==0&&host.synced.isEmpty(),"failed save after lock marks retained content dirty without granting access publishing success or requesting sync");
+        web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);
+        check(notices==1&&titles==1&&host.synced==QStringList{a.strKbGUID}&&web->m_bContentsChanged&&!owner.canReadCurrentNote(),"successful save while locked may publish metadata and request original-kb sync without clearing dirty edits or restoring read access");
+        owner.sendDocumentSavedSignal(b.strGUID,b.strKbGUID);check(notices==1&&titles==1,"direct publication cannot describe a different current note");
+        owner.show();submit(owner);titles=0;
+        const auto switched=QObject::connect(&owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){owner.m_note=b;});web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);
+        check(titles==0&&owner.note().strGUID==b.strGUID,"note switch inside documentSaved suppresses a stale title update for the newly selected note");QObject::disconnect(switched);
+    }
+    for(const bool duringMainWindow:{false,true}){
+        SyncOutputHost host;auto* owner=new RoutingView(explorer);auto* web=installReceipt(*owner,host);owner->show();owner->viewNote(a,false);submit(*owner);QPointer<RoutingView> weak(owner);
+        if(duringMainWindow)web->m_app.duringMainWindow=[&]{delete owner;};else QObject::connect(owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){delete owner;});
+        web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);
+        check(!weak&&host.synced.isEmpty(),"owner destruction during saved publication or main-window lookup safely stops the completion before sync");
+    }
+    {
+        SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);QWidget notMain;web->m_app.window=&notMain;
+        web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);check(host.synced.isEmpty()&&owner.canReadCurrentNote(),"missing compatible main window does not dereference a null cast or disturb the successful local save");
+    }
+    {
+        SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);int titles=0;
+        QObject::connect(&owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){owner.m_note.strTitle="newer current title";});QObject::connect(&owner,&RoutingView::titleChanged,&app,[&](const QString& title){if(title=="newer current title")++titles;});
+        owner.sendDocumentSavedSignal(a.strGUID,a.strKbGUID);check(titles==1,"same-note title changes during saved publication emit the newest title rather than an earlier cached title");
+    }
+    {
+        SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);WizDocumentSaverThread saver(manager,nullptr);web->diskSaver=&saver;host.bind(web,&saver);
+        int successes=0;QObject::connect(&owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){++successes;});
+        web->snapshotHandoff=[web](const WIZDOCUMENTDATA& doc,const QString& html,const QString& file,int flags){web->saveDocumentRequested(doc,html,file,flags,false);};
+        const QString archive=db.getDocumentFileName(a.strGUID),backup=archive+".phase166-original";const auto original=outputBytes(archive);
+        const bool retained=QFile::rename(archive,backup)&&QDir().mkpath(archive);web->saveDocumentRequested(a,"<html><body>failure marker</body></html>",{},0,false);
+        const bool failed=until([&]{return web->m_bContentsChanged&&saver.isIdleForTransfer();});
+        check(retained&&failed&&successes==0&&host.synced.isEmpty()&&outputBytes(backup)==original,"actual main-window save connections deliver worker failure to the original editor and retain the complete encrypted archive backup");
+        const bool restored=QDir().rmdir(archive)&&QFile::rename(backup,archive);web->saveDocumentRequested(a,"<html><body>actual receipt retry</body></html>",{},0,false);
+        check(restored&&until([&]{return successes==1;})&&!saver.hasUnresolvedSaveFailure()&&host.synced.size()==1,"actual queued success receipt reconciles same-note persistence and reaches metadata publication after an explicit retry");
+        QString source;const bool extracted=db.documentToTempHtmlFile(a,source);web->m_mapFile[a.strGUID]=source;web->m_strNoteHtmlFileName=root.filePath("phase166-edited.html");
+        web->m_currentEditorMode=1; // Existing extracted Web editing-mode convention.
+        const QString output=root.filePath("phase166-main-output.html");WizSaveUnicodeTextToUtf8File(output,"previous main output",false);QFileDialog::destination=output;host.on_actionSaveAsHtml_triggered();
+        check(extracted&&bool(web->m_pdfPageOperations.completion)&&outputBytes(output)=="previous main output","actual main HTML command waits for the real save producer instead of exporting a stale archive");
+        web->m_pdfPageOperations.deliver(QVariantMap{{"ok",true},{"changed",true},{"html","<html><body>main saved frontier output</body></html>"}});
+        check(until([&]{return outputBytes(output).contains("main saved frontier output");})&&successes==2&&WizZiwReader::isEncryptedFile(archive),"main command through actual snapshot FIFO archive receipt and fence publishes the newly saved HTML while retaining encryption");
+        saver.waitForDone();
+    }
+    {
+        SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);
+        const QString output=root.filePath("phase166-modes.pdf");const QByteArray oldPdf="%PDF-1.7\n% previous synthetic\n%%EOF\n",newPdf="%PDF-1.7\n% current synthetic\n%%EOF\n";QString error;WizPdfExport::writeFile(output,oldPdf,error);QFileDialog::destination=output;
+        host.on_actionSaveAsPDF_triggered();const int dialogs=QFileDialog::requests;
+        check(web->m_pdfPageOperations.prints==1&&web->m_pdfPageOperations.printedMode==WizPdfExport::Mode::ReadingWidth,"actual main PDF default forwards reading-width mode through the actual save-dialog controller");
+        host.saveAsPDF(WizPdfExport::Mode::A4);check(QFileDialog::requests==dialogs&&web->m_pdfPageOperations.prints==1,"an in-flight PDF reservation coalesces a second menu request before another dialog or print dispatch");
+        web->m_pdfPageOperations.deliverPrint(newPdf);check(outputBytes(output)==newPdf,"actual PDF controller atomically commits a complete synthetic renderer result");
+        host.saveAsPDF(WizPdfExport::Mode::A4);check(web->m_pdfPageOperations.printedMode==WizPdfExport::Mode::A4,"actual main A4 command forwards A4 without changing the default mode");web->m_pdfPageOperations.deliverPrint(oldPdf);
+        host.on_actionSaveAsPDF_triggered();check(web->m_pdfPageOperations.printedMode==WizPdfExport::Mode::ReadingWidth,"a later default PDF command remains reading width rather than remembering the A4 submenu choice");
+        auto expired=std::move(web->m_pdfPageOperations.printed);owner.hide();owner.show();submit(owner);host.saveAsPDF(WizPdfExport::Mode::A4);expired(newPdf);
+        check(outputBytes(output)==oldPdf&&bool(web->m_pdfPageOperations.printed),"a late PDF reply after relock cannot replace the old output or consume a newer reservation");web->m_pdfPageOperations.deliverPrint(newPdf);
+        check(outputBytes(output)==newPdf,"the newer current PDF reservation can still complete after the obsolete reply");
+        const int prints=web->m_pdfPageOperations.prints;QFileDialog::beforeReturn=[&]{owner.hide();};host.saveAsPDF(WizPdfExport::Mode::A4);
+        check(web->m_pdfPageOperations.prints==prints&&outputBytes(output)==newPdf,"lock during the save dialog cancels printing before any output mutation");owner.show();submit(owner);
+        QFileDialog::destination={};host.on_actionSaveAsPDF_triggered();check(web->m_pdfPageOperations.prints==prints,"canceling the actual PDF save dialog releases its reservation without printing");QFileDialog::destination=output;
+        host.on_actionSaveAsPDF_triggered();web->m_pdfPageOperations.deliverPrint("invalid synthetic result");app.processEvents();
+        check(outputBytes(output)==newPdf&&OutputMessage::errors==1,"invalid renderer output preserves the previous PDF and reports failure without a native modal dialog");
+        web->m_app.settings.marginUnit=99;host.on_actionSaveAsPDF_triggered();check(outputBytes(output)==newPdf&&web->m_pdfPageOperations.prints==prints+1&&OutputMessage::errors==2,"invalid page settings refuse PDF dispatch and preserve the existing destination");
+    }
+    {
+        SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);
+        const QString output=root.filePath("phase166-main.md");WizSaveUnicodeTextToUtf8File(output,"previous markdown",false);QFileDialog::destination=output;
+        host.on_actionSaveAsMarkdown_triggered();check(web->sourcePage.scripts.size()==1&&outputBytes(output)=="previous markdown","actual main Markdown command opens its chooser then waits for the original renderer source query");
+        auto reply=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();owner.hide();owner.show();submit(owner);reply("obsolete markdown");
+        check(outputBytes(output)=="previous markdown","late main-menu Markdown reply cannot borrow a newer authorization to replace an existing export");
+        host.on_actionSaveAsMarkdown_triggered();reply=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();reply("current markdown");
+        check(outputBytes(output)=="current markdown","current main-menu Markdown query commits through the actual resource/body transaction");
+        QFileDialog::beforeReturn=[&]{owner.hide();};host.on_actionSaveAsMarkdown_triggered();check(web->sourcePage.scripts.empty()&&outputBytes(output)=="current markdown","Markdown dialog returning after lock does not issue a query or alter output");
+        const int dialogs=QFileDialog::requests;host.active=nullptr;host.on_actionSaveAsPDF_triggered();host.on_actionSaveAsHtml_triggered();host.on_actionSaveAsMarkdown_triggered();
+        check(QFileDialog::requests==dialogs,"actual main export commands without an active editor do not open a chooser or touch output");
+    }
+    for(const bool duringDialog:{false,true}){
+        SyncOutputHost host;auto* owner=new RoutingView(explorer);auto* web=installReceipt(*owner,host);owner->show();owner->viewNote(a,false);submit(*owner);const QString output=root.filePath(duringDialog?"phase166-dialog-close.pdf":"phase166-print-close.pdf");WizSaveUnicodeTextToUtf8File(output,"previous close output",false);QFileDialog::destination=output;QPointer<RoutingView> weak(owner);
+        if(duringDialog)QFileDialog::beforeReturn=[&]{delete owner;};host.on_actionSaveAsPDF_triggered();
+        if(!duringDialog){auto reply=std::move(web->m_pdfPageOperations.printed);delete owner;if(reply)reply("%PDF-1.7\n% obsolete synthetic\n%%EOF\n");}
+        check(!weak&&outputBytes(output)=="previous close output","closing the owner during PDF chooser or pending print safely preserves previous output");
+    }
+    // End Phase166 completion/output tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();
