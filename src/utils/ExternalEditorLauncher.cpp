@@ -273,7 +273,7 @@ QStringList ExternalEditorLauncher::pendingExternalChanges() const
 bool ExternalEditorLauncher::verifyExternalChangesForQuit() const
 {
     if (pendingExternalChanges().isEmpty() && (!m_watchedDocSaver
-        || (m_watchedDocSaver->isIdleForTransfer() && !m_watchedDocSaver->hasTransferError()))) return true;
+        || (m_watchedDocSaver->isIdleForTransfer() && !m_watchedDocSaver->hasUnresolvedSaveFailure()))) return true;
     // This is a refusal, never a prompt to overwrite either version.
     QMessageBox::critical(m_app.mainWindow(), QStringLiteral("未退出"),
         QStringLiteral("外部编辑文件的修改尚未确认读取或保存成功，已取消退出。"

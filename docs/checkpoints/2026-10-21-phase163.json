@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase163",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "d2d49105e030a3ace723a777ac0cef95a44a63f2",
+  "sourceCheckpoint": "phase163",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "pass": 1095,
+    "fail": 0,
+    "seconds": 14.27,
+    "routingChecks": 1095,
+    "newRoutingChecks": 9,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAsyncRerun": false,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Add locked current unresolved-save-failure query using worker's existing per-note/library set; external quit checks it after idle instead of sticky historical error. Only real successful same-note save retires that current failure; other-note success cannot. Historical transfer-error flag and all other consumers unchanged: no blanket reset or automatic retry. Actual temporary encrypted archives retained behind ordinary output blockers, restored exactly and explicitly retried through watcher-save/FIFO. Independent success/one retry still refuse; all successful retries permit while historical error remains. New unadmitted external changes still refuse. Add 9 checks, preserve all old 1086 assertions/extraction rules and unrelated product bytes. Actual query/failure tracking/archive and quit-refusal bodies participate; process/modal UI remain recorders, MainWindow/full quit not runtime accepted. No native/full rerun or old-source control claim. Bounded external-editor method phase closed; next opt-in management and system-session/save-first whole-quit integration; legal signing/service-contract gates remain.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/DocumentLoaderSaver.cpp",
+      "mode": "100644",
+      "bytes": 9140,
+      "chars": 9140,
+      "gitBlobSha": "986c3f93210cdcda04bf2b07c7c4ff25b18d205b",
+      "sha256": "7551daef7ff5f67968ea15436e3ca419cb74cccb74b2cdd19152b8b65eed8d39"
+    },
+    {
+      "path": "src/gui/documentviewer/DocumentLoaderSaver.h",
+      "mode": "100644",
+      "bytes": 4198,
+      "chars": 4198,
+      "gitBlobSha": "2b8d4527fff571aeb2b325e67afb18edc9016711",
+      "sha256": "dceab862cb0cacec43e4839303459af626cfc010150fc2959bbd1b84bb8bec90"
+    },
+    {
+      "path": "src/utils/ExternalEditorLauncher.cpp",
+      "mode": "100644",
+      "bytes": 13702,
+      "chars": 13538,
+      "gitBlobSha": "410a4c5297475456b6d485a6925181aee7ee0ac7",
+      "sha256": "2c0e3d69a60e1d2a270f3edba32a62be7ad165e36b0c7947ce3ab89a8cc26aba"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 385519,
+      "chars": 385394,
+      "gitBlobSha": "761ddab66b7e4ca50ee2333c672830842c2845e5",
+      "sha256": "46985e91eb014abdf0a4846fdc9d0f5705f6b61f8e9a2bde8dac70e8c2c19f05"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 11065,
+      "chars": 11065,
+      "gitBlobSha": "cb1f76291a9d93c070e8385423365bd9357473a6",
+      "sha256": "16b2e672ce9effe4476598080ea3746724859d7beff6e70194d47e70bfe184d1"
+    }
+  ]
+}

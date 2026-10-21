@@ -339,3 +339,9 @@ bool WizDocumentSaverThread::hasTransferError()
     return m_transferError || !m_failedSaveNotes.isEmpty();
 }
 
+bool WizDocumentSaverThread::hasUnresolvedSaveFailure()
+{
+    QMutexLocker locker(&m_mutex);
+    return !m_failedSaveNotes.isEmpty();
+}
+

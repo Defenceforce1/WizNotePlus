@@ -3836,6 +3836,33 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(entered&&finished&&!quit.verifyExternalChangesForQuit()&&LaunchMessage::errors==1&&saver.hasTransferError(),"actual external saver failure refuses final quit even without a changed file and never clears the error");saver.waitForDone();LaunchMessage::errors=0;
     }
     // End Phase162 final external tests.
+    // Phase163 successful explicit same-note retries reconcile only that note.
+    {
+        const auto bytes=[](const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();};
+        const auto put=[](const QString& path,const QByteArray& value){QSaveFile f(path);return f.open(QIODevice::WriteOnly)&&f.write(value)==value.size()&&f.commit();};
+        WIZDOCUMENTDATAEX first,second,independent;
+        if(!check(create("retry-external-first",1,first)&&create("retry-external-second",1,second)&&create("retry-external-independent",1,independent),"external retry reconciliation creates three isolated encrypted notes"))return 1;
+        const QString fileA=root.filePath("retry-first.txt"),fileB=root.filePath("retry-second.txt");const WizExternalEditorData text={"synthetic","never-run",{},2,1};put(fileA,"retry first body");put(fileB,"retry second body");
+        const QString archiveA=db.getDocumentFileName(first.strGUID),archiveB=db.getDocumentFileName(second.strGUID),retainedA=root.filePath("retry-retained-first.ziw"),retainedB=root.filePath("retry-retained-second.ziw");const auto originalA=bytes(archiveA),originalB=bytes(archiveB);
+        if(!check(QFile::rename(archiveA,retainedA)&&QDir().mkdir(archiveA)&&QFile::rename(archiveB,retainedB)&&QDir().mkdir(archiveB),"ordinary retry output blockers retain both original synthetic archives"))return 1;
+        HeldSaver saver(manager,nullptr);WatchLauncher watcher;watcher.m_watchedDocSaver=&saver;watcher.m_externalEditorTasks.insert(fileA,{text,first,fileA,{}});watcher.m_externalEditorTasks.insert(fileB,{text,second,fileB,{}});
+        QMap<quint64,bool> receipts;QObject::connect(&saver,&WizDocumentSaverThread::saveFenceReached,&app,[&](quint64 id,bool ok){receipts.insert(id,ok);},Qt::QueuedConnection);
+        const auto await=[&](const WIZDOCUMENTDATAEX& note){const auto id=saver.saveFence(note);return id&&until([&]{return receipts.contains(id);})&&receipts.value(id);};
+        watcher.saveWatchedFile(fileA);watcher.saveWatchedFile(fileB);const auto failedFrontier=saver.saveFence(second);const bool entered=saver.entered.tryAcquire(1,3000);saver.release.release();const bool failed=until([&]{return receipts.contains(failedFrontier);});
+        LaunchShell quit(explorer);quit.m_watchedDocSaver=&saver;quit.m_externalEditorTasks=watcher.m_externalEditorTasks;LaunchMessage::errors=0;
+        check(entered&&failed&&!receipts.value(failedFrontier)&&saver.hasUnresolvedSaveFailure()&&saver.hasTransferError()&&!quit.verifyExternalChangesForQuit()&&bytes(retainedA)==originalA&&bytes(retainedB)==originalB,"two failed real external saves retain originals and block quit with unresolved per-note failures");
+        saver.save(independent,"<html><body>independent successful save</body></html>","",0);const bool otherSaved=await(independent);
+        check(otherSaved&&saver.hasUnresolvedSaveFailure()&&!quit.verifyExternalChangesForQuit(),"another note's successful actual save cannot reconcile either failed external note");
+        const bool restoredA=QDir().rmdir(archiveA)&&QFile::rename(retainedA,archiveA);watcher.saveWatchedFile(fileA);const bool firstSaved=await(first);
+        check(restoredA&&firstSaved&&saver.hasUnresolvedSaveFailure()&&saver.hasTransferError()&&!quit.verifyExternalChangesForQuit()&&bytes(retainedB)==originalB,"explicit first-note retry resolves only that note and leaves second-note failure and original archive intact");
+        const bool restoredB=QDir().rmdir(archiveB)&&QFile::rename(retainedB,archiveB);watcher.saveWatchedFile(fileB);const bool secondSaved=await(second);
+        check(restoredB&&secondSaved&&!saver.hasUnresolvedSaveFailure()&&saver.hasTransferError()&&quit.verifyExternalChangesForQuit(),"successful explicit retries of all failed notes permit normal quit while historical transfer error remains recorded");
+        QTemporaryDir extractA,extractB;const bool extractedA=db.documentToHtmlFile(first,extractA.path()+"/"),extractedB=db.documentToHtmlFile(second,extractB.path()+"/");
+        check(extractedA&&extractedB&&bytes(extractA.filePath("index.html")).contains("retry&nbsp;first&nbsp;body")&&bytes(extractB.filePath("index.html")).contains("retry&nbsp;second&nbsp;body")&&WizZiwReader::isEncryptedFile(archiveA)&&WizZiwReader::isEncryptedFile(archiveB),"reconciled retries actually persist each registered external body in its encrypted archive");
+        put(fileB,"new unadmitted after successful retries");check(!quit.verifyExternalChangesForQuit()&&!saver.hasUnresolvedSaveFailure()&&saver.hasTransferError(),"cleared current failures do not bypass a new unadmitted external file change");
+        watcher.waitForDone();check(!saver.rescued&&!saver.isRunning()&&saver.hasTransferError()&&!saver.hasUnresolvedSaveFailure()&&db.getCertPassword()==password,"retry reconciliation preserves historical diagnostics, save credential and original save-first drain");LaunchMessage::errors=0;
+    }
+    // End Phase163 retry tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

@@ -97,6 +97,9 @@ public:
     bool isIdleForTransfer();
     void clearTransferError();
     bool hasTransferError();
+    // Current per-note failures; unlike the historical transfer error this
+    // retires only when the worker actually saves that same note successfully.
+    bool hasUnresolvedSaveFailure();
 
     // Enqueue after the caller's save handoff. The worker reports this note's
     // save status at that exact FIFO frontier, even if no new save was needed.

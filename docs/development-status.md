@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 162
+# Personal-use development checkpoint: phase 163
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -89,23 +89,33 @@ stale cache cannot overwrite an independently newer note. This is conservative
 conflict preservation, not automatic merging or a guarantee for external edits
 not yet written to disk. Direct/forced termination is outside normal quit checks.
 
-Phase 162 uses **1 incremental/associated group: 1086 PASS, 0 FAIL in 12.37s**,
-one final run, with 21 new checks and all old 1065 assertions unchanged. Actual
-pending-file, save and quit-refusal bodies run with real temporary files, Qt,
-FIFO saver and encrypted archives; process/modal UI remain collaborators. Six
-conversion cases compare the new single-read path with the original importer.
-MainWindow's two callsites are source-verified and compiled, not runtime accepted.
-Unrelated source bytes, MainWindow BOM/CRLF and old evidence are verified.
+Phase 163 uses **1 incremental/associated group: 1095 PASS, 0 FAIL in 14.27s**,
+one run after the build completes, with 9 new checks and all old 1086 assertions
+unchanged. A new locked query reports current unresolved per-note failures from
+the saver's existing set. Quit uses that query after checking idle state instead
+of the sticky historical transfer-error flag. Only successful real same-note
+save removes a current failure; another note's success does not reconcile it.
+Historical error state and all other transfer-error consumers remain unchanged.
 
-A prematurely started test ran the previous binary while the build linked. Its
-1065-check result is retained but excluded; the final run starts after the build
-and identifies the new source digest and 1086 assertions. No product failure or
-old-source negative control is claimed. Native async/full suite were not rerun.
+Tests retain two synthetic encrypted archives behind ordinary output blockers,
+observe real failures, restore each exact original, and explicitly retry via
+the actual watcher-save method and FIFO saver. Independent success and only one
+successful retry still refuse quit; after both retry saves succeed it may pass
+while historical error remains set. A new unadmitted file change still refuses.
+Original conversion, caches and save credentials remain. No blanket error reset,
+automatic retry, conflict merge or user-note conversion is introduced.
+
+Actual Qt, temporary files, per-note failure tracking and archive persistence
+participate; process/modal UI remain collaborators. MainWindow's existing two
+callsites are unchanged, source-verified/compiled rather than runtime accepted.
+Unrelated bytes and prior evidence are verified. No native-async/full-suite rerun
+and no old-source negative-control claim for this additive query stage.
 
 The final-file guard is a refusal, not a routine approval or overwrite prompt.
 Normally save the external file again and verify return-save before retrying
-quit; conflicting versions must be retained separately first. Sticky saver
-failure retry/reconciliation and whole-application quit remain distinct work.
+quit; conflicting versions must be retained separately first. Explicit successful
+same-note retry now reconciles current failure without deleting historical error.
+Whole-application quit and real external-process/UI acceptance remain separate.
 No external process, normal account, native UI or service request participates.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
@@ -134,8 +144,10 @@ specific reason. Historical results are not silently counted as current acceptan
    watcher return-save and queued-save drain now have actual local watcher/DB
    checks. Launch registration/rollback and closed-lifetime request admission are
    now isolated-tested. Final pending external changes preserve both versions
-   through a normal-quit refusal; automatic merging is not intended. Sticky
-   external-save failure retry/reconciliation and whole-application quit remain.
+   through a normal-quit refusal; automatic merging is not intended. Explicit
+   external-save retry reconciliation now has actual per-note/FIFO archive tests.
+   This bounded external-editor method-level phase is closed; whole-application
+   quit and manual conflict reconciliation remain separate.
    Real external processes remain outside isolated verification.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
@@ -149,7 +161,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase162.json](checkpoints/2026-10-21-phase162.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase163.json](checkpoints/2026-10-21-phase163.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).
