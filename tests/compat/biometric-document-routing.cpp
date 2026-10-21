@@ -561,6 +561,16 @@ namespace WizMessageBox {
 int messages=0;
 void information(QWidget*,const QString&,const QString&){++messages;}
 }
+struct RoutingCertificate {
+    static inline bool initialization=true,loading=true;
+    static inline int initializations=0,loads=0;
+    static inline std::function<void()> during;
+    static bool initialize(WizDatabase& db){
+        ++initializations;const auto callback=std::move(during);during={};if(callback)callback();
+        return initialization&&db.hasCert();
+    }
+    static bool load(WizDatabase& db){++loads;return loading&&db.loadUserCert();}
+};
 class RoutingView : public QWidget {
     Q_OBJECT
 public:
@@ -620,6 +630,7 @@ public:
     bool completeBiometricUnlock(const QString&,const Context&,const Gate::Ticket&);
     void onBiometricCredentialReady();void onCipherCheckRequest();
     void viewNote(const WIZDOCUMENTDATAEX&,bool);void reviewCurrentNote();
+    void showCertificateUnavailable();
     void loadNote(const WIZDOCUMENTDATAEX&);void reloadNote();
     void onCloseNoteRequested(RoutingView*);
     void waitForDone();bool waitForSave(bool force=false);
@@ -4180,6 +4191,40 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!weak&&db.getCertPassword()==password,"destroyed sibling receiver safely ignores pending clean-state replies without clearing save credentials");
     }
     // End Phase167 bounded checks. No new testing subphases scheduled.
+    {
+        RoutingView owner(explorer);owner.show();owner.viewNote(c,false);
+        const int priorLoads=owner.m_web->loads,priorMessages=WizMessageBox::messages;
+        bool concealedDuringInitialization=false;
+        RoutingCertificate::during=[&]{concealedDuringInitialization=owner.m_stack->currentWidget()==owner.m_blankView;};
+        RoutingCertificate::initialization=false;owner.viewNote(a,false);
+        check(owner.m_web->loads==priorLoads&&WizMessageBox::messages==priorMessages+1
+              &&concealedDuringInitialization&&owner.m_stack->currentWidget()==owner.m_blankView,
+              "failed certificate initialization stops opening and reports unavailable certificate without rendering old or requested body");
+        RoutingCertificate::initialization=true;owner.viewNote(a,false);submit(owner);
+        owner.m_web->body="retained certificate failure dirty DOM";const auto readBefore=owner.m_web->noteReadPermit();
+        const int loadedBefore=owner.m_web->loads,messagesBefore=WizMessageBox::messages;
+        RoutingCertificate::loading=false;owner.reviewCurrentNote();
+        check(WizMessageBox::messages==messagesBefore+1&&owner.m_stack->currentWidget()==owner.m_blankView
+              &&!owner.canReadCurrentNote()&&!readBefore.current()&&owner.m_web->loads==loadedBefore
+              &&owner.m_web->body=="retained certificate failure dirty DOM"&&db.getCertPassword()==password,
+              "certificate reload failure retires reads and hides but retains dirty DOM and save credential with one report");
+        RoutingCertificate::loading=true;owner.reviewCurrentNote();submit(owner);
+        check(owner.canReadCurrentNote()&&owner.m_web->loads==loadedBefore
+              &&owner.m_web->body=="retained certificate failure dirty DOM",
+              "existing certificate recovery and fresh authorization resume dirty editor without reload");
+        const int beforeNested=owner.m_web->loads,beforeNestedCertificateLoads=RoutingCertificate::loads;
+        RoutingCertificate::during=[&]{owner.viewNote(c,false);};owner.viewNote(a,false);
+        check(owner.note().strGUID==c.strGUID&&owner.m_web->loads==beforeNested+1
+              &&owner.m_stack->currentWidget()==owner.m_docView&&!owner.m_biometricEnabled
+              &&RoutingCertificate::loads==beforeNestedCertificateLoads,
+              "new navigation during modal certificate initialization cannot be overwritten by the older encrypted opening");
+        const int beforeClosed=owner.m_web->loads,beforeClosedCertificateLoads=RoutingCertificate::loads;
+        RoutingCertificate::during=[&]{owner.onCloseNoteRequested(&owner);};owner.viewNote(a,false);
+        check(owner.m_accessClosing&&owner.m_web->loads==beforeClosed&&owner.m_stack->currentWidget()==owner.m_blankView
+              &&RoutingCertificate::loads==beforeClosedCertificateLoads,
+              "closing during certificate initialization prevents any stale password page or note rendering");
+        RoutingCertificate::initialization=true;RoutingCertificate::loading=true;RoutingCertificate::during={};
+    }
     {
         WIZDOCUMENTDATAEX convertedNote;
         if(!check(create("unprotect-transition",1,convertedNote),"isolated encrypted note exists for post-conversion reload"))return 1;

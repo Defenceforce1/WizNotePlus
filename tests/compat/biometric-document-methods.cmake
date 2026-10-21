@@ -28,6 +28,10 @@ wiz_extract_routing("void WizDocumentView::waitForDone(" "void WizDocumentView::
 wiz_extract_routing("void WizDocumentView::RequestClose(" "void WizDocumentView::handlePluginSidebarRequest(")
 wiz_extract_routing("void WizDocumentView::wordCount(" "void WizDocumentView::setEditorFocus(")
 wiz_extract_routing("void WizDocumentView::getMailSender(" "void WizDocumentView::shareNoteByLink(")
+# Certificate initialization may run a modal network progress loop in production.
+# Replace only that transport boundary, never contact an account from this test.
+string(REPLACE "db.initCert(false)" "RoutingCertificate::initialize(db)" routing_bodies "${routing_bodies}")
+string(REPLACE "db.loadUserCert()" "RoutingCertificate::load(db)" routing_bodies "${routing_bodies}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-document-methods.inc" "${routing_bodies}")
 file(SHA256 "${routing_source}" routing_sha)
 set(read_source "${CMAKE_CURRENT_SOURCE_DIR}/gui/documentviewer/WizDocumentWebView.cpp")

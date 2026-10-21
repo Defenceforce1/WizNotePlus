@@ -1,5 +1,38 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
+## Phase 184: existing-certificate opening, relock and encrypted-save routing
+
+The initial affected group reproduced **1181 checks, 2 failures**: opening
+ignored certificate-initialization failure and review silently returned after
+certificate reload failure. The encrypted opening now conceals the old body
+before the existing acquisition boundary, checks its result and rechecks owner,
+opening epoch and closing state after that potentially modal call. New navigation
+or close cannot continue the old certificate load or password-page presentation.
+
+Failure retires existing read requests, shows a blank page with an explicit
+existing-certificate-unavailable message, and retains dirty DOM and save cache.
+The blank page refuses reads even on the legacy route; stale password submissions
+outside the password page are ignored. After the existing certificate becomes
+available, review plus fresh authorization resumes retained content without a
+body reload. There is no automatic certificate creation/replacement or retry.
+
+Only incremental main-client compilation and the **one affected routing group**
+ran, finally **1181/0**. Existing wrong-password/relock cases and real temporary-
+database FIFO encrypted-write/save-first-quit assertions remain in that group.
+The exact production routing bodies are compiled with explicit synthetic
+certificate-acquisition, prompt and renderer collaborators; no real account or
+certificate service is contacted. Database/sync/password-algorithm/save source
+is unchanged. No permanent-decryption/PDF/native-auth/physical-session/full-suite
+rerun, signing, installer or installation. Normal App, real notes, accepted signed
+copies and frozen candidates are unchanged. This is not normal-account/iPhone or
+real native-dialog acceptance.
+
+Recovery remains OFF. The user explicitly reactivated the existing 20-minute
+automation after phase183; it is now ACTIVE, not the historical PAUSED state
+recorded below. It follows the current existing-certificate-only scope, avoids
+repeating closed stages, and pauses with a precise list if only user-dependent
+real-data/foreground prerequisites remain.
+
 ## Phase 183: existing-certificate permanent-decryption failure feedback
 
 Two concrete use-path defects reproduced before the fix: a failed save frontier
@@ -790,7 +823,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest focused integration manifest is [checkpoints/2026-10-22-phase183.json](checkpoints/2026-10-22-phase183.json).
+The latest focused integration manifest is [checkpoints/2026-10-22-phase184.json](checkpoints/2026-10-22-phase184.json).
+Permanent-decryption feedback is recorded in [phase183](checkpoints/2026-10-22-phase183.json).
 The existing-certificate scope decision is [phase182](checkpoints/2026-10-22-phase182.json).
 The latest signed physical-session acceptance is [phase181](checkpoints/2026-10-22-phase181.json).
 The manual lock/application-inactive acceptance is [phase180](checkpoints/2026-10-22-phase180.json).

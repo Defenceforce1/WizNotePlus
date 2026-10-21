@@ -601,10 +601,16 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
         data.nProtected = WizZiwReader::isEncryptedFile(strDocumentFileName) ? 1 : 0;
         m_note.nProtected = data.nProtected;
         if (data.nProtected || db.isEncryptAllData()) {
-            //
-            db.initCert(false);
-            //
-            if(!db.loadUserCert()) {
+            // Do not leave the previous note visible while acquiring this
+            // note's certificate. Keep its DOM/save work, not its presentation.
+            m_stack->setCurrentWidget(m_blankView);
+            if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
+            const bool initialized = db.initCert(false);
+            // Certificate download can run a nested event loop. A newer open
+            // or close owns the view after that loop, regardless of the result.
+            if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
+            if(!initialized || !db.loadUserCert()) {
+                showCertificateUnavailable();
                 return;
             }
             //
@@ -652,6 +658,7 @@ void WizDocumentView::reviewCurrentNote()
     // ask user cipher if needed
     if (m_note.nProtected || db.isEncryptAllData()) {
         if(!db.loadUserCert()) {
+            showCertificateUnavailable();
             return;
         }
 
@@ -1011,7 +1018,7 @@ void WizDocumentView::onCloseNoteRequested(WizDocumentView *view)
 // Begin extracted biometric routing methods (isolated synthetic shell tests).
 bool WizDocumentView::canReadCurrentNote() const
 {
-    if (!m_noteLoaded || m_accessClosing) return false;
+    if (!m_noteLoaded || m_accessClosing || m_stack->currentWidget() == m_blankView) return false;
     const auto context = biometricContext();
     WizDatabase& db = m_dbMgr.db(m_note.strKbGUID);
     const bool required = m_biometricEnabled || ((m_note.nProtected || db.isEncryptAllData())
@@ -1056,6 +1063,20 @@ void WizDocumentView::revokeBiometricAccess(bool closing,bool preserveCapture)
     m_web->closeDevTools();
     if (!self) return;
     m_passwordView->cancelBiometric();
+}
+
+void WizDocumentView::showCertificateUnavailable()
+{
+    const QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess();
+    if (!self) return;
+    // Keep the loaded DOM and save credentials. The blank page rejects reads
+    // even for the legacy path; recovery may resume the retained editor.
+    m_stack->setCurrentWidget(m_blankView);
+    if (!self || m_accessClosing) return;
+    WizMessageBox::information(this, tr("WizNote"),
+        tr("本机未能读取可用的已有加密证书。请确认账户同步和原证书可用后重新打开笔记。\n"
+           "不会自动创建或替换证书，也不会清除未保存内容。"));
 }
 
 void WizDocumentView::onSessionAccessRetired(bool hard)
@@ -1200,6 +1221,7 @@ void WizDocumentView::onBiometricCredentialReady()
 
 void WizDocumentView::onCipherCheckRequest()
 {
+    if (m_accessClosing || m_stack->currentWidget() != m_passwordView) return;
     const WIZDOCUMENTDATAEX noteData = note();
     WizDatabase& db = m_dbMgr.db(noteData.strKbGUID);
     //

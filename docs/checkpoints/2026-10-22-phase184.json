@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase184",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "86680818d8edc039f54ec33cd25f1c012b1d864e",
+  "phase": 184,
+  "date": "2026-10-22",
+  "documentationOnly": false,
+  "productCodeChanged": true,
+  "testCodeChanged": true,
+  "buildInputsChanged": true,
+  "encryptionAlgorithmChanged": false,
+  "databaseOrSyncSourceChanged": false,
+  "firstCertificateCreationInCurrentScope": false,
+  "existingCompatibleCertificateRequired": true,
+  "missingOrFailedReadMustNotTriggerCreation": true,
+  "firstRegistrationContractResolved": false,
+  "realAccountStarted": false,
+  "realNotesAccessed": false,
+  "certificateServiceCalled": false,
+  "certificateUploaded": false,
+  "realCertificatesOrSecretsRead": false,
+  "installed": false,
+  "repackagedInstaller": false,
+  "signingChanged": false,
+  "recoveryEnabled": false,
+  "automationPaused": false,
+  "newNativePanelAccepted": false,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "tests": {
+    "focusedGroup": "wiznote_biometric_document_routing",
+    "checks": 1181,
+    "failures": 0,
+    "ctestSeconds": 12.67,
+    "groupsRun": 1,
+    "initialReproductionChecks": 1181,
+    "initialReproductionFailures": 2,
+    "initialFailuresRetained": true,
+    "actualTemporaryDatabaseReaderAndSaver": true,
+    "syntheticCertificateAcquisitionPromptsAndRenderer": true,
+    "fullSuiteOrNativeAuthenticationRerun": false
+  },
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Fix ignored certificate initialization failure and silent review certificate reload failure. Conceal previous body before acquisition;after potentially modal call recheck owner/original opening epoch/closing before any old certificate load or password presentation. Explicit failure retires read requests and shows blank page with guidance,no automatic creation/replacement or DOM/save-cache clearing. Blank page refuses reads and stale password events outside password page are ignored. Certificate recovery plus fresh authorization resumes dirty editor without reload. Exact routing bodies use explicit synthetic acquisition/prompt/renderer collaborators;actual temporary database/reader/FIFO encrypted-write/save-first-quit assertions remain in the one affected group. Initial1181checks/2failures retained;final1181/0,12.67s. Navigation/close page assertions already passed initially;strengthened tests also require no old certificate load. Only incremental builds and affected group;no permanent-decryption/PDF/native-auth/physical-session/full-matrix reruns. Database/sync/password/save code unchanged. Production and header BOM/LF retained,normal App/real notes/accepted signed copies/frozen candidates/HEAD/index unchanged,no signing/installer/install/private-log upload. RecoveryOFF. User reactivated20-minute automation after phase183;currentACTIVE,supersedes historicalPAUSED without modifying old evidence. First-certificate creation remains excluded;real-account/iPhone/representative real-data/native-control acceptance remains distinct",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8511,
+      "sha256": "2791271ea6b13241951ae311903a6b1d42d743e572fed0818abf0b73771e9a0c",
+      "gitBlobSha": "11a05a857917cbe1e3f046e78a22bcc40888acc0"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 58557,
+      "sha256": "eb83ecb637e613dae55d4b501e6dbc73c5a8da18ebcd5179a94e8595378edd90",
+      "gitBlobSha": "b00116769f27f59b1e91566431e84cb9bf0b27c3"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 425297,
+      "sha256": "c5d58270b68213011a6b5e9abe78dce47260436bfde1b9908855c2f36b233cf1",
+      "gitBlobSha": "1f70c512e9b1b50bea6a457ae721f5c1fd643577"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 49090,
+      "sha256": "84af2905688f54940eb478b6282ec5258c06a1276a2ac3079f70011a64851c45",
+      "gitBlobSha": "47519cf7771ed481c5b752a62b1573de893c1ca7"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 55861,
+      "sha256": "f480f3345cf0c68f7d51659f5b05150852b84f4f0ce1b2b990ca5cc415340bbf",
+      "gitBlobSha": "75972c107b5cc17e0ef7f38b2a2b823130c46448"
+    },
+    {
+      "path": "docs/encryption-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 7586,
+      "sha256": "fbca306a9257afe44efafa6237cd557da243bfd4f8645b1978f4f3e8425f392e",
+      "gitBlobSha": "131d630410b741c8621f4e9cfcc821ceedb32949"
+    }
+  ]
+}
