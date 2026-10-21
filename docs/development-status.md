@@ -1,4 +1,32 @@
-# Personal-use development checkpoint: real sleep/wake hard-event acceptance
+# Personal-use development checkpoint: existing-certificate usage only
+
+## Current scope decision: phase 182, 2026-10-22
+
+The user has removed Mac first-certificate creation/registration from the current
+plan. Continue only the use of an existing compatible account certificate:
+password unlock, encrypted save, explicit biometric enrollment/forgetting,
+relocking/read-output retirement and confirmed permanent decryption with backup.
+This is a workflow prerequisite, NOT evidence that a real account has a valid
+certificate. Missing certificates and read/authentication failures must still
+prevent certificate-dependent operations; never infer absence from a failure or
+automatically create, upload, replace or reset a certificate.
+
+The official open-source client exposes `getCert`/`setCert` and the certificate
+fields, but the first-create atomic no-replacement contract, authoritative absent
+response and uncertain-submit reconciliation remain unconfirmed. That issue is
+retained, not solved; it is no longer a prerequisite for this reduced scope.
+Local generation/backup prototypes and their historical tests remain dormant,
+not an enabled product feature. Do not continue their native-panel/registration
+acceptance or remove shared certificate-verification helpers used by decryption.
+
+See [existing-certificate usage and recorded implementation](encryption-existing-certificate.zh-CN.md)
+for the consolidated feature/evidence list and bounded next steps. Previous phase
+records below are historical; references there to first-certificate prerequisites
+do not reinstate that canceled task. Phase 182 changes documentation only, with
+source/evidence continuity checks and no new functional-test or build claims.
+Normal App, real notes, signed test copies and frozen candidates remain unchanged;
+recovery stays OFF and automation PAUSED. Actual account/iPhone interoperability
+and representative real attachment combinations remain unaccepted.
 
 ## Phase 181: user-operated sleep/wake, actual workspace notifications
 
@@ -697,11 +725,15 @@ specific reason. Historical results are not silently counted as current acceptan
    initialization/resumption, save receipt/frontier/quit coordination, external
    watcher/retry, export controllers and disabled biometric management. Their
    method-level stages are closed; this does not equal whole-client acceptance.
-2. **External prerequisite:** an authoritative compatible first-certificate
-   registration service contract. Development signing/profile configuration and
-   the focused native-backend/widget Touch ID chain are now accepted above;
-   source management is conditionally available as described above, with policy
-   default-off and explicit native enrollment required. No service probing.
+2. **Existing-certificate prerequisite, not first registration:** a compatible
+   account certificate and its known password are required for the relevant
+   operations. Do not assume real-account availability from synthetic tests.
+   Development signing/profile configuration and the focused native-backend/widget
+   Touch ID chain are accepted above; source management remains conditional on
+   valid runtime signing/authorization and an existing certificate, with policy
+   default-off and explicit native enrollment required. First-certificate service
+   registration and its unresolved contract are outside the current user scope.
+   No service probing, automatic certificate creation or replacement.
 3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
    normal-account and separate-window/shared-modal combinations,
@@ -731,7 +763,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest integration manifest is [checkpoints/2026-10-22-phase181.json](checkpoints/2026-10-22-phase181.json).
+The latest scope/record manifest is [checkpoints/2026-10-22-phase182.json](checkpoints/2026-10-22-phase182.json).
+The latest functional acceptance is [phase181](checkpoints/2026-10-22-phase181.json).
 The manual lock/application-inactive acceptance is [phase180](checkpoints/2026-10-22-phase180.json).
 The bounded chooser-fixture improvement is [phase179](checkpoints/2026-10-22-phase179.json).
 The HTML resource URL correction is [phase178](checkpoints/2026-10-22-phase178.json).
