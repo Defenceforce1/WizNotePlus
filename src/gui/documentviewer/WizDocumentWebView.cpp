@@ -887,25 +887,42 @@ void WizDocumentWebView::onDocumentReady(const QString kbGUID, const QString str
     const QPointer<WizDocumentWebView> self(this);
     const auto read = m_loadReadPermit;
     const auto current = m_loadRequestCurrent;
+    const QPointer<WizDocumentView> host(view());
+    const QPointer<QObject> source(page());
+    const auto access = host->noteReadTicket();
+    const auto opening = host->noteOpenSequence();
+    const auto document = m_loadDocument;
     WIZDOCUMENTDATA doc;
     if (!m_dbMgr.db(kbGUID).documentFromGuid(strGUID, doc)) return;
     if (!self || !current || !current() || !read.current()
         || !m_loadSequence.accepts(this, requester, sequence)) return;
     m_mapFile.insert(strGUID, strFileName);
-    loadDocumentInWeb(editorMode);
+    WizDocumentCallbackEpoch::Ticket navigation;
+    const bool dispatched = loadDocumentInWeb(editorMode, &navigation);
+    // After navigation dispatch the DOM belongs to the renderer, even when a
+    // synchronous loadStarted callback hides/relocks it. Never reload that DOM.
+    if (dispatched || !self || !host || !source || view() != host || page() != source
+        || !m_loadSequence.accepts(this, requester, sequence)
+        || host->noteOpenSequence() != opening || host->note().strGUID != document.strGUID
+        || host->note().strKbGUID != document.strKbGUID
+        || !WizDocumentCallbackEpoch::current(navigation)
+        || WizDocumentCallbackEpoch::current(access)) return;
+    // Only an authorization interruption before dispatch is retryable here.
+    // Keep the surviving navigation context; unrelated navigation cannot adopt it.
+    if (!bindDocumentLoadOrigin(document, navigation)) return;
+    m_loadReadPermit = {};
+    m_loadPending = true;
+    m_loadSequence.next();
+    if (host->isVisible()) resumePendingDocumentLoad();
 }
 
-void WizDocumentWebView::dispatchDocumentLoad(const WIZDOCUMENTDATA& document, WizEditorMode mode)
+bool WizDocumentWebView::bindDocumentLoadOrigin(const WIZDOCUMENTDATA& document, const WizDocumentCallbackEpoch::Ticket& navigation)
 {
     const QPointer<WizDocumentWebView> self(this);
     const QPointer<WizDocumentView> host(view());
     const QPointer<QObject> source(page());
-    if (!host || !source) return;
-    const auto access = host->noteReadTicket();
+    if (!host || !source || !WizDocumentCallbackEpoch::current(navigation)) return false;
     m_loadOpening = host->noteOpenSequence();
-    const auto navigation = m_documentCallbacks.ticket();
-    // loadNote marks the host loaded after dispatch. Capture the original
-    // authorization now; only evaluate readability when its result arrives.
     m_loadOriginCurrent = [self,host,source,document,navigation] {
         return self && host && source && self->view() == host && self->page() == source
             && WizDocumentCallbackEpoch::current(navigation)
@@ -914,6 +931,18 @@ void WizDocumentWebView::dispatchDocumentLoad(const WIZDOCUMENTDATA& document, W
     m_loadRequestCurrent = [self,host,origin=m_loadOriginCurrent] {
         return origin() && self->m_loadOpening == host->noteOpenSequence();
     };
+    return true;
+}
+
+void WizDocumentWebView::dispatchDocumentLoad(const WIZDOCUMENTDATA& document, WizEditorMode mode)
+{
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<WizDocumentView> host(view());
+    const QPointer<QObject> source(page());
+    if (!bindDocumentLoadOrigin(document, m_documentCallbacks.ticket())) return;
+    // loadNote marks the host loaded after dispatch. Bind original access now,
+    // and evaluate readability when its result arrives, not during dispatch.
+    const auto access = host->noteReadTicket();
     const auto current = m_loadRequestCurrent;
     m_loadReadPermit = {self,source,access,[current,host,access] {
         return current() && host->acceptsNoteRead(access);
@@ -1784,11 +1813,12 @@ bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
  * @brief read text and insert style table and insert rich editter script from note file, then load changed html to page
  * @param editorMode
  */
-void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
+bool WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode, WizDocumentCallbackEpoch::Ticket* navigation)
 {
+    if (navigation) *navigation = m_documentCallbacks.ticket();
     const QPointer<WizDocumentWebView> self(this);
     const auto read = noteReadPermit();
-    if (!read.current()) return;
+    if (!read.current()) return false;
     const QPointer<WizDocumentView> host(view());
     const QPointer<QObject> source(page());
     const WIZDOCUMENTDATA document = host->note();
@@ -1803,14 +1833,14 @@ void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
     QString strGUID = document.strGUID;
     QString strFileName = m_mapFile.value(strGUID);
     if (strFileName.isEmpty()) {
-        return;
+        return false;
     }
     //
     QString strHtml;
     bool ret = WizLoadUnicodeTextFromFile(strFileName, strHtml);
-    if (!preparing() || !ret) return;
+    if (!preparing() || !ret) return false;
 
-    if (!addDefaultScriptsToDocumentHtml(strFileName) || !preparing()) return;
+    if (!addDefaultScriptsToDocumentHtml(strFileName) || !preparing()) return false;
 
     WizEditorMode oldMode = m_currentEditorMode;
     m_currentEditorMode = editorMode;
@@ -1821,21 +1851,23 @@ void WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode)
         } else {
             Q_EMIT focusOut();
         }
-        if (!preparing()) return;
+        if (!preparing()) return false;
         view()->titleBar()->setEditorMode(m_currentEditorMode);
-        if (!preparing()) return;
+        if (!preparing()) return false;
     }
 
     m_strNoteHtmlFileName = strFileName;
     // Own invalidation retires transient reads. Keep the originating host
     // access ticket and load sequence, not a newly issued authorization.
     const auto opening = invalidateDocumentCallbacks();
-    if (!current() || !WizDocumentCallbackEpoch::current(opening)) return;
+    if (navigation) *navigation = opening;
+    if (!current() || !WizDocumentCallbackEpoch::current(opening)) return false;
     load(QUrl::fromLocalFile(strFileName));
 
     // loadStarted may legitimately retire opening; it must not change the
     // original host/access/loader context before the legacy notification.
     if (current()) onNoteLoadFinished();
+    return true;
 }
 
 void WizDocumentWebView::onNoteLoadFinished()

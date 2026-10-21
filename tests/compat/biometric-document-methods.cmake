@@ -544,3 +544,9 @@ string(FIND "${read_text}" "void WizDocumentWebView::dispatchDocumentLoad(" load
 if(loader_fixed GREATER -1)
     set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_LOADER_FIXED)
 endif()
+
+# Phase155: preserve the actual navigation-dispatch result, including no-dispatch.
+string(FIND "${read_text}" "bool WizDocumentWebView::loadDocumentInWeb(" navigation_result)
+if(navigation_result GREATER -1)
+    set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_NAVIGATION_RESULT)
+endif()

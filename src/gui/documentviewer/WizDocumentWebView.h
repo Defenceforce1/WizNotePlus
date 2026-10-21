@@ -182,7 +182,7 @@ private:
     WizDocumentSaverThread* readDocumentSaver() const;
 
     bool addDefaultScriptsToDocumentHtml(QString htmlFileName);
-    void loadDocumentInWeb(WizEditorMode editorMode);
+    bool loadDocumentInWeb(WizEditorMode editorMode, WizDocumentCallbackEpoch::Ticket* navigation = nullptr);
 
     void getAllEditorScriptAndStyleFileName(std::map<QString, QString>& arrayFile);
     void insertScriptAndStyleCore(QString& strHtml, const std::map<QString, QString>& files);
@@ -242,6 +242,7 @@ private:
     std::function<bool()> m_loadRequestCurrent;
     quint64 m_loadOpening = 0;
     std::function<bool()> m_loadOriginCurrent;
+    bool bindDocumentLoadOrigin(const WIZDOCUMENTDATA& document, const WizDocumentCallbackEpoch::Ticket& navigation);
     void dispatchDocumentLoad(const WIZDOCUMENTDATA& document, WizEditorMode mode);
 
     bool m_ignoreActiveWindowEvent;

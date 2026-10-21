@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase155",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "fa22966d0756a632e555536313a7103c70d228ae",
+  "sourceCheckpoint": "phase155",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1040,
+    "fail": 0,
+    "seconds": 11.54,
+    "routingChecks": 937,
+    "nativeAsyncChecks": 103,
+    "newRoutingChecks": 21,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 919,
+    "routingFailures": 3,
+    "normalExit": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Accepted loader results interrupted by authorization revocation before navigation retain a guarded retry context. Navigation preparation reports dispatch and surviving epoch, including its own retirement. Reauthorization re-extracts with a new sequence, never resumes the revoked stack. Unrelated navigation and file failures are not adopted; once navigation is dispatched, automatic reload is forbidden. DOM/dirty state and saves are not cleared. Current loader/preparation bodies, Qt lifetime and temporary files/DB execute; worker, navigation, metadata/script/style and save results are collaborators. Post-dispatch initialization/readiness recovery and whole-client integration remain separate.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 125011,
+      "chars": 124899,
+      "gitBlobSha": "220100f6bc6815212ecb1b6894e3a4cb1423517b",
+      "sha256": "e6c9f6d912519f34fe919dc66862ad4ff081dedb3b0255501f7ac0bf9d5ca668"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 16097,
+      "chars": 16095,
+      "gitBlobSha": "cf41da454247407788ff412ee37b99221ff67de4",
+      "sha256": "4224490d6009504fb80f3931040fb16611f479b44c81cbeea8aa64436a53e955"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 317764,
+      "chars": 317671,
+      "gitBlobSha": "71e4c77f9538484eb0870197509c0f054a07f840",
+      "sha256": "0d9a518be0ae038b22fda4e91a612de44eb20725e919e7265c51f3055ee85698"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 36364,
+      "chars": 36364,
+      "gitBlobSha": "9c1c37f49b6d783530dd341a18deb7d48412eef9",
+      "sha256": "c4e16365d5e66f3566de68c8a3584b0551d4bb1aa667bbc021eade7b5ca18eae"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 8942,
+      "chars": 8942,
+      "gitBlobSha": "6e56ef53a29b49f42df2d41fb40389c07b814221",
+      "sha256": "5390cc01346d08a0802d18382a5609123ad8e8e7d6b94d63a49e0bee1197f6e2"
+    }
+  ]
+}

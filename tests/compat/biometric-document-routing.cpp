@@ -358,7 +358,12 @@ struct Web : InspectorShell {
     void invalidateDocumentCallbacks();
     bool prepareInitial(const QString& path){addDefaultScriptsToDocumentHtml(path);return true;}
 #endif
+#ifdef WIZNOTE_NAVIGATION_RESULT
+    bool loadDocumentInWeb(int,WizDocumentCallbackEpoch::Ticket* =nullptr);
+#else
     void loadDocumentInWeb(int);
+#endif
+    bool bindDocumentLoadOrigin(const WIZDOCUMENTDATA&,const WizDocumentCallbackEpoch::Ticket&);
     // End Phase151 initial declarations.
     // Phase152 asynchronous setup collaborators and declarations.
     WizDocumentCallbackEpoch m_editorSetupCallbacks;
@@ -3249,6 +3254,55 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!weak,"destruction during a plain-note failed-save retry stops the original View continuation safely");
     }
     // End Phase154 failed-opening tests.
+    // Phase155 accepted-result preparation interrupted before navigation.
+    {
+        QTemporaryDir files;const QString html=files.filePath("preparing.html");
+        const auto seed=[&]{WizSaveUnicodeTextToUtf8File(html,"<html><body>synthetic preparation</body></html>",true);InitialOps::reset();};
+        const auto prepare=[&](RoutingView& owner){seed();owner.m_web->useActualLoader=true;owner.show();owner.viewNote(a,true);submit(owner);};
+        RoutingView interrupted(explorer);prepare(interrupted);auto* target=interrupted.m_web;const auto old=target->requestedInitialSequence;
+        target->body="retained unsaved DOM";target->m_bContentsChanged=true;
+        target->duringInitialStage=[&](const QString& stage){if(stage=="publish")interrupted.hide();};
+        target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,old);
+        check(target->initialLoadCalls==0&&target->m_loadPending,"revocation during accepted-result preparation records unfinished work without starting navigation");
+        target->duringInitialStage={};interrupted.show();submit(interrupted);const auto fresh=target->requestedInitialSequence;
+        check(target->initialLoaderRequests==2&&fresh>old&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,old),"fresh authorization re-extracts an interrupted accepted result instead of reviving its old completion");
+        seed();target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,fresh);
+        check(target->initialLoadCalls==1&&target->initialNotifications==1&&target->body=="retained unsaved DOM"&&target->m_bContentsChanged,"fresh result after preparation interruption navigates once and retains dirty DOM until navigation dispatch");
+
+        for(const QString stage:{"read","core","css","write","focusIn","title","retire"}){
+            RoutingView owner(explorer);prepare(owner);target=owner.m_web;const auto sequence=target->requestedInitialSequence;bool fired=false;
+            const auto revoke=[&]{if(!fired){fired=true;owner.hide();}};
+            if(stage=="read")InitialOps::duringRead=revoke;
+            else if(stage=="write")InitialOps::duringWrite=revoke;
+            else if(stage=="title")owner.title.duringMode=revoke;
+            else if(stage=="retire"){target->m_screenShotWindow=&target->screenWindow;target->duringScreenWindow=[&](bool visible){if(visible)revoke();};}
+            else target->duringInitialStage=[&](const QString& point){if(point==stage)revoke();};
+            target->onDocumentReady(a.strKbGUID,a.strGUID,html,1,target,sequence);
+            check(fired&&target->initialLoadCalls==0&&target->m_loadPending,"pre-navigation revocation retains retry context at file/script/style/mode or own-retirement boundary");
+            InitialOps::reset();target->duringInitialStage={};target->duringScreenWindow={};owner.title.duringMode={};owner.show();submit(owner);
+            check(target->initialLoaderRequests==2&&target->requestedInitialSequence>sequence&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,target->requestedInitialSequence),"reauthorization issues one new extraction after an interrupted preparation boundary");
+        }
+        RoutingView synchronous(explorer);prepare(synchronous);target=synchronous.m_web;auto sequence=target->requestedInitialSequence;
+        target->duringInitialStage=[&](const QString& stage){if(stage=="publish"){synchronous.hide();synchronous.show();submit(synchronous);}};
+        target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,sequence);
+        check(target->initialLoaderRequests==2&&target->initialLoadCalls==0&&target->requestedInitialSequence>sequence,"synchronous reauthorization during preparation causes a new extraction instead of continuing the interrupted stack");
+
+        RoutingView otherNavigation(explorer);prepare(otherNavigation);target=otherNavigation.m_web;sequence=target->requestedInitialSequence;
+        target->duringInitialStage=[&](const QString& stage){if(stage=="publish"){otherNavigation.hide();target->invalidateDocumentCallbacks();}};
+        target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,sequence);target->duringInitialStage={};otherNavigation.show();submit(otherNavigation);
+        check(target->initialLoaderRequests==1&&!target->m_loadPending&&target->initialLoadCalls==0,"unrelated navigation during preparation cannot be adopted as a retryable authorization interruption");
+
+        RoutingView dispatched(explorer);prepare(dispatched);target=dispatched.m_web;sequence=target->requestedInitialSequence;
+        target->body="dirty renderer-owned DOM";target->duringInitialStage=[&](const QString& stage){if(stage=="load"){dispatched.hide();dispatched.show();submit(dispatched);}};
+        target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,sequence);target->duringInitialStage={};dispatched.hide();dispatched.show();submit(dispatched);
+        check(target->initialLoaderRequests==1&&target->initialLoadCalls==1&&!target->m_loadPending&&target->body=="dirty renderer-owned DOM","revocation after actual navigation dispatch never re-extracts or reloads renderer-owned dirty DOM");
+
+        RoutingView writeFailure(explorer);prepare(writeFailure);target=writeFailure.m_web;sequence=target->requestedInitialSequence;InitialOps::failWrite=true;
+        target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,sequence);InitialOps::reset();writeFailure.hide();writeFailure.show();submit(writeFailure);
+        check(target->initialLoaderRequests==1&&target->initialLoadCalls==0&&!target->m_loadPending,"ordinary file preparation failure is not silently converted to an automatic authorization retry");
+        InitialOps::reset();
+    }
+    // End Phase155 preparation tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();
