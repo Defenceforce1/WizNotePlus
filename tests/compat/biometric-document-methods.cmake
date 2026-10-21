@@ -59,6 +59,7 @@ foreach(pair "// Begin extracted plaintext read-permit adapter.|// End extracted
     string(REPLACE "QWebEnginePage::triggerAction" "RawActionPageBase::triggerAction" body "${body}")
     string(APPEND read_bodies "\n${body}")
 endforeach()
+
 set(clipboard_source "${CMAKE_CURRENT_SOURCE_DIR}/share/WizWebEngineView.cpp")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${clipboard_source}")
 file(READ "${clipboard_source}" clipboard_text)
@@ -735,3 +736,15 @@ foreach(pair "WIZNOTE_SAVE_COMPLETION_METHODS|biometric-save-completion-methods.
     list(GET fields 1 file)
     set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS "${define}=\"${CMAKE_CURRENT_BINARY_DIR}/${file}\"")
 endforeach()
+
+# Phase167 bounded closeout: receiver preserves dirty DOM on sibling saves.
+wiz_extract_routing("void WizDocumentView::on_document_data_changed(" "void WizDocumentView::on_document_deleted(")
+string(REPLACE "WizDocumentWebView" "Web" routing_bodies "${routing_bodies}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-document-methods.inc" "${routing_bodies}")
+string(FIND "${read_text}" "void WizDocumentWebView::isModified(" modified_begin)
+string(SUBSTRING "${read_text}" ${modified_begin} -1 modified_suffix)
+string(FIND "${modified_suffix}" "\n/**" modified_length)
+string(SUBSTRING "${modified_suffix}" 0 ${modified_length} modified_body)
+string(REPLACE "WizDocumentWebView" "Web" modified_body "${modified_body}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-modified-method.inc" "${modified_body}")
+set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS "WIZNOTE_MODIFIED_METHOD=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-modified-method.inc\"")

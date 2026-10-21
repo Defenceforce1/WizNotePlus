@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase167",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "6b840de56fda8caa3f8801741846edcc3ef4f9c2",
+  "sourceCheckpoint": "bounded-local-closeout",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "uniquePass": 1160,
+    "pass": 1160,
+    "fail": 0,
+    "runs": 1,
+    "seconds": 12.76,
+    "newChecks": 9,
+    "fullSuiteRerun": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "fullProjectComplete": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Close bounded local implementation batch without starting more generic testing-only stages. Sibling saved receiver uses actual conservative modified helper and original read permit before reload: preserve dirty checklist DOM, unknown state, new edits, relock/navigation/destruction; no auto-save/overwrite. Real Qt saved signal and full actual receiver/helper run. Separate-window loadFailed consumes result like main window, source-verified/compiled only. One affected group1160/0/new9; all old1151 assertions/fixtures and unrelated source preserved. Retain intermediate test-binding build error. Historical unmapped tracked Single source reconciled exactly with prior remote blob and inverse snapshots with prior mapped hashes after first preflight stopped. Distinguish implemented isolated-tested work, external signing/service prerequisites, actual native/client acceptance, unfinished screenshot-reauthorization/permanent-decryption features and retained legacy limitations. Whole project not claimed complete. No foreground/accounts/Keychain/services/install/package/security tests.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 54773,
+      "chars": 54343,
+      "gitBlobSha": "014e2fce150b1ccbf37fc1d873bc6a276ba382a5",
+      "sha256": "555b07e5569dda1c3ed1917ac8164f7e3e42d49b87f5e6b1d0ee0f76809ea517"
+    },
+    {
+      "path": "src/gui/documentviewer/WizSingleDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 11565,
+      "chars": 11381,
+      "gitBlobSha": "3fff968d156f892f67e308b130f6fa7a8dca1024",
+      "sha256": "e2ced19ac0489f4232be0e694503b4708f398cfb4e9a7583bae2ea1615a55fa7"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 417009,
+      "chars": 416884,
+      "gitBlobSha": "f71dcfaaa06071a3428a996aac53276750b874fb",
+      "sha256": "0c0563b1759738d40c977eb9f7b96807aa4d5284ba13d272dbca02210cee9a1d"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 48649,
+      "chars": 48649,
+      "gitBlobSha": "7fb2dac1a9644cdf2ccab3ee26661ccc8ddd105c",
+      "sha256": "079437e0a13e70f5eacf88d842c3ffd290604b6ce4de298e4be7bfcca758e86b"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 19522,
+      "chars": 19522,
+      "gitBlobSha": "d9f506d6f59b62aadb4dcdbb68a27da452c50f8f",
+      "sha256": "58243be67a63b826e0552edcfd9572354e45e8481834d5805bae21e7fbbca4f7"
+    }
+  ]
+}

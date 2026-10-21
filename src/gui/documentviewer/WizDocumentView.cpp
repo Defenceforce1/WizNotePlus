@@ -1246,10 +1246,19 @@ void WizDocumentView::on_document_data_modified(const WIZDOCUMENTDATA& data)
 void WizDocumentView::on_document_data_changed(const QString& strGUID,
                                               WizDocumentView* viewer)
 {
-    if (viewer != this && strGUID == note().strGUID && m_editorMode == modeReader)
-    {
-        reloadNote();
-    }
+    if (viewer == this || strGUID != note().strGUID || m_editorMode != modeReader || m_accessClosing) return;
+    const QPointer<WizDocumentView> self(this);
+    const QPointer<WizDocumentWebView> web(m_web);
+    const auto read=web->noteReadPermit();
+    if (!read.current()) return;
+    const auto opening=m_openSequence;
+    // A reader can still contain an unsaved checklist change. Never save or
+    // replace it just because another window published a newer disk version.
+    web->isModified([self,web,read,opening](bool modified) {
+        if (!self || !web || modified || !read.current() || self->m_accessClosing
+            || self->m_web != web || self->m_openSequence != opening || self->m_editorMode != modeReader) return;
+        self->reloadNote();
+    });
 }
 
 void WizDocumentView::on_document_deleted(const WIZDOCUMENTDATA& data)

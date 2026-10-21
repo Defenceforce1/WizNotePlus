@@ -464,6 +464,7 @@ struct Web : InspectorShell {
     void setFocus(Qt::FocusReason reason){++focusRequests;QWidget::setFocus(reason);const auto hook=duringFocus;if(hook)hook();}
     quint64 m_contentChangeSequence=0;bool m_bContentsChanged=false;
     void setModified(bool);
+    void isModified(std::function<void(bool)>);
     void editorCommandExecuteCommand(const QString&,const QString& =QString(),const QString& =QString(),const QString& =QString());
     void editorCommandExecuteParagraph(const QString&);void editorCommandExecuteInsertHtml(const QString&,bool);
     void editorCommandExecuteIndent();void editorCommandExecuteOutdent();void editorCommandExecuteLinkRemove();
@@ -597,6 +598,7 @@ public:
     struct EditStatus {void documentSaved(const QString&,const QString&,const QString&){};} editStatus;
     EditStatus* m_editStatusSyncThread=&editStatus;
     void sendDocumentSavedSignal(const QString&,const QString&);
+    void on_document_data_changed(const QString&,RoutingView*);
     void waitForThread(){++threadWaits;}
     bool reload(){return m_dbMgr.db(m_note.strKbGUID).documentFromGuid(m_note.strGUID,m_note);}
     Context biometricContext() const;
@@ -975,6 +977,7 @@ public:
 #include WIZNOTE_SAVE_COMPLETION_METHODS
 #include WIZNOTE_OUTPUT_UI_METHODS
 #include WIZNOTE_OUTPUT_HOST_METHODS
+#include WIZNOTE_MODIFIED_METHOD
 // End Phase166 main-window collaborators.
 }
 
@@ -4112,6 +4115,30 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(!weak&&outputBytes(output)=="previous close output","closing the owner during PDF chooser or pending print safely preserves previous output");
     }
     // End Phase166 completion/output tests.
+    // Phase167 final bounded sibling-save receiver checks.
+    {
+        RoutingView receiver(explorer),sender(explorer);receiver.show();sender.show();receiver.viewNote(a,false);sender.viewNote(a,false);submit(receiver);submit(sender);
+        auto* web=receiver.m_web;web->body="unsaved reader checklist";web->m_bContentsChanged=true;const int reloads=web->reloads,saves=web->saves;
+        QObject::connect(&sender,&RoutingView::documentSaved,&receiver,&RoutingView::on_document_data_changed);
+        sender.sendDocumentSavedSignal(a.strGUID,a.strKbGUID);
+        check(web->body=="unsaved reader checklist"&&web->reloads==reloads&&web->saves==saves&&web->sourcePage.scripts.empty(),"sibling save never reloads or auto-saves a reader with retained dirty checklist content");
+        web->m_bContentsChanged=false;receiver.on_document_data_changed(a.strGUID,&receiver);receiver.on_document_data_changed(b.strGUID,&sender);
+        check(web->sourcePage.scripts.empty(),"self and unrelated-note notifications do not query or reload the current document");
+        receiver.on_document_data_changed(a.strGUID,&sender);auto clean=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();clean(false);
+        check(web->reloads==reloads+1,"current sibling save reloads only after the actual modified helper confirms clean state");
+        receiver.on_document_data_changed(a.strGUID,&sender);auto unknown=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();unknown(QVariant());
+        check(web->reloads==reloads+1,"unknown renderer modified state is conservative and cannot replace retained content");
+        receiver.on_document_data_changed(a.strGUID,&sender);auto late=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();web->setModified(true);late(false);
+        check(web->reloads==reloads+1&&web->m_bContentsChanged,"new local edits arriving during the clean-state query block sibling reload");
+        web->m_bContentsChanged=false;receiver.on_document_data_changed(a.strGUID,&sender);late=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();receiver.hide();receiver.on_document_data_changed(a.strGUID,&sender);receiver.show();submit(receiver);late(false);
+        check(web->reloads==reloads+1&&web->sourcePage.scripts.empty(),"locked sibling notifications and old clean replies cannot borrow fresh authorization or start another query");
+        receiver.on_document_data_changed(a.strGUID,&sender);late=std::move(web->sourcePage.scripts.back());web->sourcePage.scripts.clear();receiver.viewNote(b,false);submit(receiver);const int currentReloads=web->reloads;late(false);
+        check(web->reloads==currentReloads&&receiver.note().strGUID==b.strGUID,"late clean-state reply cannot reload a replacement note after navigation");
+        receiver.m_editorMode=1;receiver.on_document_data_changed(b.strGUID,&sender);check(web->sourcePage.scripts.empty(),"editing-mode windows do not consume reader-only sibling reload notifications");
+        auto* gone=new RoutingView(explorer);gone->show();gone->viewNote(a,false);submit(*gone);gone->on_document_data_changed(a.strGUID,&sender);auto done=std::move(gone->m_web->sourcePage.scripts.back());QPointer<RoutingView> weak(gone);delete gone;done(false);
+        check(!weak&&db.getCertPassword()==password,"destroyed sibling receiver safely ignores pending clean-state replies without clearing save credentials");
+    }
+    // End Phase167 bounded checks. No new testing subphases scheduled.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

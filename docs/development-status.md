@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 166
+# Personal-use development checkpoint: bounded closeout
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -73,6 +73,31 @@ release, installation, or completed system-authentication acceptance.
   Already dispatched JavaScript is not retroactively canceled.
 
 ## Latest local verification
+
+The current local implementation batch is closed, not the entire native-client
+acceptance plan. Sibling saved notifications now reload only after the actual
+modified-state helper confirms clean content with the original live read permit.
+Dirty checklist content, unknown state, new edits, relock, navigation and owner
+destruction retain DOM and save credentials without an automatic save/overwrite.
+The separate-window failure receiver consumes its load result, matching the main
+window; this small connection fix is source-checked and compiled, not a native
+separate-window acceptance claim.
+
+Only the affected routing group runs: **1160 PASS, 0 FAIL in 12.76s**, with 9 new
+checks and all old 1151 assertions retained. The real saved signal reaches the
+actual receiver/modified helper. No full/native suite, real account, foreground,
+Keychain, service, package or installation. An intermediate test-binding build
+error was corrected; no failing runtime is counted as acceptance. One tracked
+source absent from the old map was explicitly reconciled with the previous
+remote blob before being added to the baseline. The initial snapshot procedure
+stopped on that omission; reconstructed mapped snapshots match the old digests.
+
+The backlog below replaces repeated lists of method-level testing subphases.
+Do not reopen already accepted local chains merely because normal/native
+acceptance remains outstanding. Further changes need a concrete defect, an
+affected integration boundary or an explicitly selected unfinished feature.
+
+### Retained phase 166 evidence
 
 Phase 166 fixes two related save-completion risks and verifies three associated
 chains. Completion now keeps weak editor/view ownership across saved publication
@@ -234,40 +259,30 @@ specific reason. Historical results are not silently counted as current acceptan
 
 ## Remaining bounded work
 
-1. Native screenshot/overlay and opt-in capture/reauthorization integration;
-   search/selection, clipboard/paste/drop, link-window/editor and file-chooser
-   integration remain distinct from isolated checks of implemented method bodies.
-2. Isolated main-window/output integration and external-editor return/save
-   behavior. Loader extraction ownership/resumption is implemented at the tested
-   method boundary, including failed-new-opening backout. Actual snapshot
-   producers through real saver/frontier to text output are now isolated-tested;
-   The actual saved-handler/publication bodies and main save bindings now pass
-   isolated Qt/FIFO tests. Normal-window and worker-to-native-editor integration
-   remain distinct.
-   Submitted-setup
-   readiness and locked-completion recovery are implemented with current-renderer
-   proof. A Bool still has no intrinsic event provenance; it cannot authorize setup
-   on its own. The bounded initialization method-level recovery stages are now
-   implemented, including pre-submission metadata interruption. Native handwriting
-   return, normal MainWindow/output UI and full initialization
-   integration remain separate from this isolated chain. Registered external
-   watcher return-save and queued-save drain now have actual local watcher/DB
-   checks. Launch registration/rollback and closed-lifetime request admission are
-   now isolated-tested. Final pending external changes preserve both versions
-   through a normal-quit refusal; automatic merging is not intended. Explicit
-   external-save retry reconciliation now has actual per-note/FIFO archive tests.
-   This bounded external-editor method-level phase is closed; whole-application
-   quit and manual conflict reconciliation remain separate.
-   Real external processes remain outside isolated verification.
-3. The actual Settings management host is wired but disabled. Its scope checks,
-   policy broadcast/open-note retirement and cross-host exclusion pass isolated
-   tests. User-configured signing and real native enrollment/conflict/forget
-   acceptance remain gated; no default enablement or password recovery is added.
-4. Public session subscriptions compile; deterministic retirement and the full
-   extracted save-first quit method pass. Actual OS events, lock/authentication
-   interaction and normal MainWindow end-to-end quit remain unaccepted.
-5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
-   authoritative first-certificate-registration service contract.
+1. **Implemented and locally isolated-tested:** document read/output retirement,
+   initialization/resumption, save receipt/frontier/quit coordination, external
+   watcher/retry, export controllers and disabled biometric management. Their
+   method-level stages are closed; this does not equal whole-client acceptance.
+2. **External prerequisites:** user-configured lawful signing for native Touch ID
+   and an authoritative compatible first-certificate-registration service
+   contract. Normal biometric operations remain disabled; no service probing.
+3. **Actual-client acceptance, not repeated source tasks:** normal MainWindow/
+   separate-window/shared-modal behavior, OS session/lock, native print/clipboard/
+   chooser/capture/search/inspector, external process/manual conflict handling,
+   representative attachment/encryption and new-candidate avatar update/reopen.
+   Current permissions do not authorize normal-account/foreground operations.
+4. **Unfinished feature scope:** protected-note screenshot reauthorization UX and
+   the explicitly confirmed, backup-preserving known-password permanent-decryption
+   workflow are not complete. The latter has legacy cancel-encryption entrypoints;
+   their existence is not acceptance of a new transactional workflow. Do not
+   silently turn these into new testing-only subphases or convert real notes.
+5. **Retained limitations:** historical intermittent offline account-chooser
+   fixture failure is not explained (the normal account override stays disabled);
+   special-filename legacy HTML resource URL behavior and crash/concurrent-writer
+   atomicity are not accepted. No repeated rerun is scheduled to hide these gaps.
+
+VoiceOver, App Store/public binary distribution and zero-group non-default
+selection persistence are intentionally excluded, not pending development work.
 
 No password-recovery backdoor is intended. Forgetting local biometric memory must
 not delete certificates, backups or notes. Known-password permanent decryption
@@ -276,7 +291,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase166.json](checkpoints/2026-10-21-phase166.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase167.json](checkpoints/2026-10-21-phase167.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).
