@@ -16,6 +16,7 @@
 #include "sync/WizApiEntry.h"
 #include "WizUserCipherForm.h"
 #include "WizFileExporter.h"
+#include "WizNotePresentation.h"
 #include "widgets/FileExportWizard.h"
 #include "utils/WizMisc.h"
 #include "utils/ExternalEditorLauncher.h"
@@ -204,6 +205,23 @@ struct ReadPage : QObject {
 #include "share/WizDocumentUiQuery.h"
 #include "share/WizDocumentLinkRequest.h"
 #undef QWebEnginePage
+// Phase152: exact readiness helper, only the page class/namespace substituted.
+#define QWebEnginePage ReadPage
+#define WizDocumentPageReady RoutingPageReady
+#include "share/WizDocumentPageReady.h"
+#undef WizDocumentPageReady
+#undef QWebEnginePage
+struct SetupStyles {
+    static inline std::function<void()> after;
+    static QString styleSheet(const WizNotePresentation::Style& style){const auto css=WizNotePresentation::styleSheet(style);const auto hook=after;if(hook)hook();return css;}
+};
+struct SetupPlugins {
+    static inline int notifications=0;static inline std::function<void()> during;
+    static SetupPlugins& instance(){static SetupPlugins value;return value;}
+    void handleDocumentChanged(){++notifications;const auto hook=during;if(hook)hook();}
+    static void reset(){notifications=0;during={};SetupStyles::after={};}
+};
+// End Phase152 helper bindings.
 // The actual link form/URL fields and QDialog signals run offscreen. Hooks
 // deliver lifecycle transitions, not normal account or foreground input.
 struct RoutingLinkForm : WizEditorInsertLinkForm {
@@ -318,6 +336,21 @@ struct Web : InspectorShell {
 #endif
     void loadDocumentInWeb(int);
     // End Phase151 initial declarations.
+    // Phase152 asynchronous setup collaborators and declarations.
+    WizDocumentCallbackEpoch m_editorSetupCallbacks;
+    quint64 m_editorModeRequestSequence=0;QTimer m_timerAutoSave;
+    QString setupType="common",setupKeywords="'alpha'";QStringList setupStages;
+    std::function<void(const QString&)> duringSetup;
+    struct SetupApp {
+        struct Settings {std::function<void()> during;bool isEnableSpellCheck(){const auto hook=during;if(hook)hook();return true;}} settings;
+        Settings& userSettings(){return settings;}
+    } m_app;
+    void setupStage(const QString& stage){setupStages.push_back(stage);const auto hook=duringSetup;if(hook)hook(stage);}
+    QString getNoteType(){const auto value=setupType;setupStage("type");return value;}
+    QString getHighlightKeywords(){const auto value=setupKeywords;setupStage("keywords");return value;}
+    void onEditorLoadFinished(bool);void setEditorMode(int);
+    void enableEditor(bool editing){setupStage(editing?"enable":"disable");}
+    // End Phase152 setup declarations.
     bool editing=false;std::function<void()> duringEditing;
     int documentsOpened=0,attachmentsOpened=0,saveActions=0,reloadActions=0;
     QString dispatchedUrl,dispatchedKb;
@@ -469,6 +502,7 @@ public:
     const WIZDOCUMENTDATAEX& note() const {return m_note;}
     Web* web() const {return m_web;}
     Title* titleBar(){return m_title;}
+    void setEditorMode(int mode){m_editorMode=mode;}
     bool noteLoaded() const {return m_noteLoaded;}
     void initStat(const WIZDOCUMENTDATA&,bool edit){m_editorMode=edit?modeEditor:modeReader;}
     void stopDocumentEditingStatus(){} void sendDocumentEditingStatus(){}
@@ -722,6 +756,7 @@ struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime ti
 #include WIZNOTE_FIND_METHODS
 #include WIZNOTE_SCREENSHOT_METHODS
 #include WIZNOTE_INITIAL_METHODS
+#include WIZNOTE_SETUP_METHODS
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -2977,6 +3012,103 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         InitialOps::reset();
     }
     // End Phase151 initial tests.
+    // Phase152 asynchronous editor initialization and late readiness.
+    {
+        const auto prepare=[&](RoutingView& owner){SetupPlugins::reset();owner.show();owner.viewNote(a,true);submit(owner);auto* target=owner.m_web;target->sourcePage.scripts.clear();target->sourcePage.commands.clear();target->sourcePage.queryCommands.clear();target->m_currentEditorMode=0;};
+        const auto take=[](Web* target){auto done=std::move(target->sourcePage.scripts.front());target->sourcePage.scripts.erase(target->sourcePage.scripts.begin());return done;};
+        RoutingView locked(explorer);prepare(locked);locked.hide();locked.m_web->onEditorLoadFinished(true);
+        check(locked.m_web->sourcePage.commands.empty()&&locked.m_web->setupStages.empty(),"locked initialization does not read metadata or dispatch editor setup");
+        RoutingView reauth(explorer);prepare(reauth);auto* target=reauth.m_web;target->onEditorLoadFinished(true);const bool waiting=until([&]{return !target->sourcePage.scripts.empty();});auto old=waiting?take(target):std::function<void(const QVariant&)>();reauth.hide();reauth.show();submit(reauth);if(old)old("ready");
+        check(waiting&&SetupPlugins::notifications==0&&target->finds.empty(),"late initialization readiness cannot borrow a fresh authorization to find text or notify plugins");
+        RoutingView superseded(explorer);prepare(superseded);target=superseded.m_web;target->onEditorLoadFinished(true);const bool pending=until([&]{return !target->sourcePage.scripts.empty();});old=pending?take(target):std::function<void(const QVariant&)>();target->onEditorLoadFinished(true);if(old)old("ready");
+        check(pending&&SetupPlugins::notifications==0&&target->finds.empty(),"a newer initialization attempt on the same page suppresses the older readiness notification");
+        RoutingView find(explorer);prepare(find);target=find.m_web;target->onEditorLoadFinished(true);const bool finding=until([&]{return !target->sourcePage.scripts.empty();});old=finding?take(target):std::function<void(const QVariant&)>();target->duringFind=[&]{find.hide();find.show();submit(find);};if(old)old("ready");
+        check(finding&&target->finds.size()==1&&SetupPlugins::notifications==0,"revocation during the legitimate initial find prevents the subsequent plugin notification");
+        // Extended Phase152: preserve ordinary setup branches while refusing
+        // obsolete native continuations. No real plugins or editor page load.
+        for(const auto& row:QList<QPair<int,QString>>{{0,"common"},{0,"markdown"},{1,"common"},{0,"empty"}}){
+            RoutingView owner(explorer);prepare(owner);target=owner.m_web;target->m_currentEditorMode=row.first;target->setupType=row.second=="empty"?"common":row.second;target->setupKeywords=row.second=="empty"?QString():"'alpha'";target->onEditorLoadFinished(true);
+            const QString code=target->sourcePage.commands.value(0);const bool queued=until([&]{return !target->sourcePage.scripts.empty();});
+            check(queued&&target->sourcePage.commands.size()==1&&SetupPlugins::notifications==0,"ordinary initialization dispatches once and waits for explicit readiness before plugin notification");
+            const bool branch=row.first==1?(code.contains("WizEditor.on(null,resolve)")&&!code.contains("WizEditor.off(")):(code.contains("WizEditor.off(")&&(row.second=="markdown"?code.contains("WizReader.highlight.on(['alpha'])"):!code.contains("WizReader.highlight.on(")));
+            check(branch&&code.contains("WizApplyNoteStyle();WizApplySpellCheck();")&&code.contains("WizSpellCheckEnabled=true"),"reader/editor common/markdown and empty-search setup retain their original JavaScript branch and style/spelling calls");
+            auto done=queued?take(target):std::function<void(const QVariant&)>();if(done){done("ready");done("ready");}
+            const int expectedFind=target->setupType=="common"&&!target->setupKeywords.isEmpty()?1:0;
+            check(SetupPlugins::notifications==1&&target->finds.size()==expectedFind&&(expectedFind==0||target->finds.first().first=="alpha"),"valid setup completion preserves original initial-find rules and notifies plugins only once");
+        }
+        for(const QString stage:{"type","keywords","spell","css","dispatch"}){
+            RoutingView owner(explorer);prepare(owner);target=owner.m_web;target->body="keep pending setup DOM";const auto saveTicket=target->documentCallbackTicket();
+            const auto revoke=[&]{owner.hide();owner.show();submit(owner);};
+            if(stage=="spell")target->m_app.settings.during=revoke;else if(stage=="css")SetupStyles::after=revoke;else if(stage=="dispatch")target->sourcePage.duringScript=revoke;else target->duringSetup=[&](const QString& at){if(at==stage)revoke();};
+            target->onEditorLoadFinished(true);SetupStyles::after={};
+            check(target->sourcePage.commands.size()==(stage=="dispatch"?1:0)&&target->findChildren<QTimer*>().empty()&&SetupPlugins::notifications==0,"revocation at each metadata/style/dispatch boundary stops old setup without allocating a readiness timer");
+            check(target->body=="keep pending setup DOM"&&WizDocumentCallbackEpoch::current(saveTicket)&&db.getCertPassword()==password,"setup cancellation preserves unsaved DOM independent save ticket and cached password");
+        }
+        for(const QString stage:{"type","keywords","spell","css","dispatch"}){
+            auto* owner=new RoutingView(explorer);prepare(*owner);target=owner->m_web;QPointer<Web> weak(target);
+            const auto destroy=[&]{delete owner;};
+            if(stage=="spell")target->m_app.settings.during=destroy;else if(stage=="css")SetupStyles::after=destroy;else if(stage=="dispatch")target->sourcePage.duringScript=destroy;else target->duringSetup=[&](const QString& at){if(at==stage)destroy();};
+            target->onEditorLoadFinished(true);SetupStyles::after={};check(!weak&&SetupPlugins::notifications==0,"owner destruction during metadata/style/dispatch safely stops the setup continuation");
+        }
+        RoutingView replaced(explorer);prepare(replaced);target=replaced.m_web;ReadPage other;target->onEditorLoadFinished(true);bool queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();target->activePage=&other;if(old)old("ready");
+        check(queried&&SetupPlugins::notifications==0&&target->finds.empty(),"replacement page refuses the former page's initialization result");target->activePage=&target->sourcePage;
+        RoutingView navigation(explorer);prepare(navigation);target=navigation.m_web;target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();navigation.viewNote(b,true);submit(navigation);if(old)old("ready");
+        check(queried&&SetupPlugins::notifications==0&&target->finds.empty(),"different-note navigation refuses the original initialization result");
+        RoutingView mode(explorer);prepare(mode);target=mode.m_web;target->m_currentEditorMode=1;target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();target->setEditorMode(0);if(old)old("ready");
+        check(queried&&target->m_currentEditorMode==0&&SetupPlugins::notifications==0&&target->finds.empty(),"actual editor-mode transition retires an earlier setup attempt before its asynchronous ready result");
+        RoutingView noOp(explorer);prepare(noOp);target=noOp.m_web;target->m_currentEditorMode=1;target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();target->setEditorMode(1);if(old)old("ready");
+        check(queried&&SetupPlugins::notifications==1,"actual no-op mode request does not cancel a valid in-progress setup");
+        RoutingView failedMode(explorer);prepare(failedMode);target=failedMode.m_web;target->m_currentEditorMode=1;target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();target->reply=false;target->setEditorMode(0);if(old)old("ready");
+        check(queried&&target->m_currentEditorMode==1&&SetupPlugins::notifications==1,"failed mode-save leaves the original mode and its valid initialization attempt alive");
+        for(const QString stage:{"type","dispatch"}){
+            RoutingView owner(explorer);prepare(owner);target=owner.m_web;
+            if(stage=="type")target->duringSetup=[&](const QString& at){if(at==stage){target->duringSetup={};target->onEditorLoadFinished(true);}};
+            else target->sourcePage.duringScript=[&]{target->sourcePage.duringScript={};target->onEditorLoadFinished(true);};
+            target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();if(old)old("ready");
+            check(queried&&target->findChildren<QTimer*>().size()==1&&SetupPlugins::notifications==1&&target->sourcePage.commands.size()==(stage=="type"?1:2),"reentrant newer initialization survives while the outer attempt cannot create another watcher or publish readiness");
+        }
+        for(const QString stage:{"find","plugin"}){
+            auto* owner=new RoutingView(explorer);prepare(*owner);target=owner->m_web;QPointer<Web> weak(target);target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();
+            if(stage=="find")target->duringFind=[&]{delete owner;};else SetupPlugins::during=[&]{delete owner;};if(old)old("ready");SetupPlugins::during={};
+            check(queried&&!weak&&SetupPlugins::notifications==(stage=="plugin"?1:0),"owner destruction during find or legitimate plugin delivery causes no subsequent setup access");
+        }
+        RoutingView rejected(explorer);prepare(rejected);target=rejected.m_web;target->onEditorLoadFinished(false);
+        check(target->sourcePage.commands.empty()&&target->findChildren<QTimer*>().empty(),"failed page-load notification retains the legacy no-initialization behavior");
+        target->onEditorLoadFinished(true);queried=until([&]{return !target->sourcePage.scripts.empty();});old=queried?take(target):std::function<void(const QVariant&)>();if(old){old("failed");old("ready");}
+        check(queried&&SetupPlugins::notifications==0&&target->finds.empty(),"failed initialization cannot later become a successful duplicate notification");
+        // Generic readiness-helper lifecycle checks use actual Qt timers and a
+        // recording QObject page. Native WebEngine cases run in document-async.
+        {
+            QObject owner;ReadPage page;int calls=0;bool ready=true;
+            RoutingPageReady::watch(&owner,&page,"'pending'",[]{return true;},[&](bool value){++calls;ready=value;},80);
+            check(until([&]{return !page.scripts.empty();})&&page.queryCommands.size()==1,"readiness helper dispatches its first actual-timer query once");
+            auto reply=page.scripts.front();check(until([&]{return calls==1;})&&!ready&&page.queryCommands.size()==1,"unanswered renderer query times out once without overlapping another query");reply("ready");
+            check(calls==1&&!ready,"renderer reply after timeout cannot revive completed readiness");
+        }
+        {
+            auto owner=std::make_unique<QObject>();ReadPage page;int calls=0;int predicates=0;
+            RoutingPageReady::watch(owner.get(),&page,"'ready'",[&]{++predicates;if(predicates==1)owner.reset();return true;},[&](bool){++calls;},80);
+            check(!owner&&page.scripts.empty()&&calls==0,"helper captures weak owner before the initial predicate can destroy it");
+        }
+        {
+            QObject owner;auto page=std::make_unique<ReadPage>();int calls=0;
+            RoutingPageReady::watch(&owner,page.get(),"'ready'",[&]{page.reset();return true;},[&](bool){++calls;},80);
+            check(!page&&owner.findChildren<QTimer*>().empty()&&calls==0,"helper captures weak page before the initial predicate can destroy it");
+        }
+        {
+            QObject owner;auto page=std::make_unique<ReadPage>();int predicates=0,calls=0;bool ready=true;
+            RoutingPageReady::watch(&owner,page.get(),"'ready'",[&]{if(++predicates==2)page.reset();return true;},[&](bool value){++calls;ready=value;},200);
+            check(until([&]{return calls==1;})&&!page&&!ready,"page destruction inside a timer predicate reports failure without calling the dead page");
+        }
+        {
+            auto owner=std::make_unique<QObject>();ReadPage page;int calls=0;
+            RoutingPageReady::watch(owner.get(),&page,"'ready'",[&]{auto* timer=owner?owner->findChild<QTimer*>():nullptr;if(timer&&!timer->isActive())owner.reset();return true;},[&](bool){++calls;},200);
+            queried=until([&]{return !page.scripts.empty();});auto reply=queried?page.scripts.front():std::function<void(const QVariant&)>();if(reply)reply("ready");
+            check(queried&&!owner&&calls==0,"helper rechecks weak owner after the stopped-timer completion predicate destroys it");
+        }
+        SetupPlugins::reset();
+    }
+    // End Phase152 setup tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

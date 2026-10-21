@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 151
+# Personal-use development checkpoint: phase 152
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -62,23 +62,33 @@ release, installation, or completed system-authentication acceptance.
   stale retirement or owner destruction; save work and retained DOM are not
   canceled. Already dispatched navigation is not retroactively retracted.
 
+- Asynchronous editor setup now retains its original read permit, weak page,
+  mode and separate attempt epoch through metadata/style preparation, dispatch,
+  readiness and initial find/plugin notification. New authorization or a newer
+  attempt cannot revive an old result. Successful mode changes retire old setup;
+  no-op or failed-save mode changes keep the valid existing attempt alive.
+- The readiness helper captures weak owner/page before invoking predicates and
+  rechecks liveness after them. Timeout, single in-flight query and one-shot
+  delivery remain; renderer destruction still reports failure when permitted.
+  Already dispatched JavaScript is not retroactively canceled.
+
 ## Latest local verification
 
-Phase 151 uses **3 incremental/associated groups: 994 PASS, 0 FAIL in 9.93s**,
-one final run. Routing has 829 checks, including 52 new checks. Document-async
-98 and PDF-lifecycle 67 are the two directly associated groups. The retained
-renderer's actual loaded mapping is verified. No full-suite rerun is claimed;
-the historical phase-149 full run is not current whole-suite acceptance.
+Phase 152 uses **2 incremental/associated groups: 981 PASS, 0 FAIL in 10.83s**,
+one final run. Routing has 878 checks and native document-async has 103, adding
+49 and 5 checks respectively. The retained renderer's actual loaded mapping is
+verified. No full-suite rerun is claimed; the historical phase-149 full result is
+not current whole-suite acceptance.
 
-The actual original initial-preparation/cache methods fail 5 assertions normally
-in the initial 782-check corpus; the intermediate fix passes that corpus. Actual
-preparation, load/invalidation, clear/open/reload and editor-save producer bodies
-execute with temporary databases and real local file I/O. Script/CSS generation,
-focus/title notifications, navigation/loadStarted, snapshot delivery and FIFO
-handoff are recording collaborators. This is not native whole-client acceptance.
-The old assertion corpus remains, with one cache fixture now declaring its owner
-and explicit title/focus collaborator additions. Real screenshot, native overlay
-and system-lock/authentication acceptance remain separate.
+Original-source controls fail 4 routing and 1 native assertions normally in the
+initial 833/99 corpora. The intermediate fix passes the same corpora. Final tests
+also cover successful/no-op/failed-save mode changes, normal reader/editor and
+common/Markdown branches, replacement/reentrant attempts, owner destruction,
+bounded timeout, late replies and weak-lifetime checks. Old 829/98 assertions and
+extraction rules remain unchanged. JavaScript literal templates and serialization
+helpers remain unchanged. Native readiness uses real WebEngine/Qt timers; full
+setup metadata/settings/find/plugin and dispatch boundaries are recording
+collaborators, not whole-client, real-plugin or system-authentication acceptance.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -91,10 +101,11 @@ specific reason. Historical results are not silently counted as current acceptan
 1. Native screenshot/overlay and opt-in capture/reauthorization integration;
    search/selection, clipboard/paste/drop, link-window/editor and file-chooser
    integration remain distinct from isolated checks of implemented method bodies.
-2. Remaining asynchronous editor setup/readiness/plugin notification and loader
-   dispatch-to-completion ownership; isolated main-window/output integration,
-   including external-editor return/save behavior. Initial synchronous preparation
-   and cache ownership checks do not constitute acceptance of those full paths.
+2. Loader dispatch-to-completion ownership and pending-load orchestration after
+   reauthorization; isolated main-window/output integration, including external-
+   editor return/save behavior. Guarded setup continuations do not add origin
+   metadata to the legacy bare loadFinished signal or constitute whole-client
+   initialization acceptance.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -107,7 +118,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase151.json](checkpoints/2026-10-21-phase151.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase152.json](checkpoints/2026-10-21-phase152.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase152",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "e824ade085bb113f4ce94a74310a9fc863bb5f87",
+  "sourceCheckpoint": "phase152",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 981,
+    "fail": 0,
+    "seconds": 10.83,
+    "routingChecks": 878,
+    "nativeAsyncChecks": 103,
+    "newRoutingChecks": 49,
+    "newNativeChecks": 5,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 833,
+    "routingFailures": 4,
+    "nativeAsyncChecks": 99,
+    "nativeFailures": 1,
+    "normalExit": true,
+    "intermediateSameCorpusFailures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Asynchronous setup binds original permission, weak page, mode and separate attempt epoch through metadata/style, dispatch, readiness and find/plugin delivery. Successful mode commits retire old setup; no-op/failed-save changes preserve a valid attempt. Readiness captures weak objects before predicates and rechecks afterward; single query, timeout, one-shot completion and permitted renderer-destruction failure remain. JS literal templates and serializers, old routing/native assertions and extraction rules are unchanged. Actual Qt/temporary DB and native WebEngine readiness/Promise tests execute; full setup metadata/settings/find/plugins/dispatch are recording collaborators, not whole-client acceptance. Already dispatched JS is not retroactively canceled; bare loadFinished origin metadata and loader dispatch-to-completion orchestration remain unfinished.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 119946,
+      "chars": 119834,
+      "gitBlobSha": "b3fd9afa133b6a8c5d06f0454513176ab08dc979",
+      "sha256": "a203e893846f29a53bd73cdce14c94b1952b3b61c3e75b565c39ebe685e59de1"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 15151,
+      "chars": 15149,
+      "gitBlobSha": "410b491c7ad1def0e3916555b41683ba7ec495ff",
+      "sha256": "f8df3df7d3acb5b3005bdc8aea2175345fa72e5832838a125e54d543e99ec085"
+    },
+    {
+      "path": "src/share/WizDocumentPageReady.h",
+      "mode": "100644",
+      "bytes": 3892,
+      "chars": 3892,
+      "gitBlobSha": "3ad93b0f85a21e7cb12d7eefb62b16a3e39e725b",
+      "sha256": "6940da5ba4c83c297866071faef0758cd2e1c17f2a12fdd6f59fe5a7fdbbbb9e"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 295985,
+      "chars": 295892,
+      "gitBlobSha": "46bc9ad241a89732d547259f5c83fd0cfad013a3",
+      "sha256": "7f78d367446f0ea2a0dfb085c0a698c1d28dee4ef0721081e657af8d6d23b771"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 34598,
+      "chars": 34598,
+      "gitBlobSha": "438e4b0138b27146ddf0cc5a559a3bfbf654427b",
+      "sha256": "18872d244f045579fb46ffae20146e9763825ff9cd77f2d2facd9e0eb9c517f7"
+    },
+    {
+      "path": "tests/compat/document-async.cpp",
+      "mode": "100644",
+      "bytes": 37406,
+      "chars": 37378,
+      "gitBlobSha": "5bed22750f11431d0e9287555ae6368e0cd99def",
+      "sha256": "a0b1dc5ba5c5309845413fb9bb54a5c2465dc4b6f8d6b355e0cc473bfec978f0"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 7996,
+      "chars": 7996,
+      "gitBlobSha": "e7046b1ccd41e1a7428b1cdf8b06b67f9a5fa42c",
+      "sha256": "fd34d7d17f192a067fe8dc550a8ac35d09b28018d515fb12242ce1b8d64b7520"
+    }
+  ]
+}

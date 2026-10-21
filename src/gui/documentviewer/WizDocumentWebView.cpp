@@ -1252,6 +1252,19 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
 {
     if (!ok)
         return;
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<QWebEnginePage> source(page());
+    const auto read = noteReadPermit();
+    if (!read.current() || !source) return;
+    m_editorSetupCallbacks.invalidate();
+    const auto request = m_editorSetupCallbacks.ticket();
+    const auto mode = m_currentEditorMode;
+    const auto current = [self,source,read,request,mode] {
+        if (!self || !source || !WizDocumentCallbackEpoch::current(request)) return false;
+        const bool allowed = read.current();
+        return allowed && self && source && self->page() == source
+            && self->m_currentEditorMode == mode && WizDocumentCallbackEpoch::current(request);
+    };
     //
     QString resPath = Utils::WizPathResolve::resourcesPath() + "files/";
     QString editorPath = resPath + "wizeditor/";
@@ -1259,22 +1272,27 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     QString userGUID = m_dbMgr.db().getUserGuid();
     QString userAlias = m_dbMgr.db().getUserAlias();
     //
-    const WIZDOCUMENTDATAEX& doc = view()->note();
+    const WIZDOCUMENTDATAEX doc = view()->note();
     bool ignoreTable = doc.strURL.startsWith("http");
     //
     QString noteType = getNoteType();
+    if (!current()) return;
     QString keywords = getHighlightKeywords();
+    if (!current()) return;
     // Initialize rich text editor
     const QString setupToken = WizNotePresentation::jsonString(WizGenGUIDLowerCaseLetterOnly());
+    const bool spellCheck = m_app.userSettings().isEnableSpellCheck();
+    if (!current()) return;
+    const QString css = WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()));
+    if (!current()) return;
     QString strCode;
     strCode += QStringLiteral("window.WizSpellCheckEnabled=%1;\n")
-        .arg(m_app.userSettings().isEnableSpellCheck() ? "true" : "false");
-    strCode += "window.WizNoteCss=" + WizNotePresentation::jsonString(
-        WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()))) + ";\n";
+        .arg(spellCheck ? "true" : "false");
+    strCode += "window.WizNoteCss=" + WizNotePresentation::jsonString(css) + ";\n";
     strCode += WizDocumentPageReady::initializeEditorScript(editorPath, lang, userGUID, userAlias, ignoreTable, noteType);
     strCode += "if(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\n";
     strCode += "WizPrepareNoteModeChange();\n";
-    if (m_currentEditorMode == modeEditor) {
+    if (mode == modeEditor) {
         // Open rich text editor when doc is in edit mode
         strCode += "if(!document.body.isContentEditable||document.body.classList.contains('wiz-readonly'))"
             "await new Promise(resolve=>WizEditor.on(null,resolve));";
@@ -1301,14 +1319,14 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
         }
     }
     strCode += "\nif(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\nWizApplyNoteStyle();WizApplySpellCheck();";
-    const QPointer<WizDocumentWebView> self(this);
-    const auto ticket = m_documentCallbacks.ticket();
-    const WIZDOCUMENTDATA document = doc;
-    page()->runJavaScript(WizDocumentPageReady::setupScript(setupToken,strCode));
-    WizDocumentPageReady::watch(this, page(),
+    if (!current()) return;
+    source->runJavaScript(WizDocumentPageReady::setupScript(setupToken,strCode));
+    if (!current()) return;
+    WizDocumentPageReady::watch(this, source,
         WizDocumentPageReady::stateExpression(setupToken),
-        [self,ticket,document] { return self && self->acceptsDocumentCallback(ticket,document); },
-        [self,keywords,noteType](bool ready) {
+        current,
+        [self,current,keywords,noteType](bool ready) {
+        if (!current()) return;
         if(!ready){qWarning()<<"Editor setup failed or timed out";return;}
         if (!keywords.isEmpty()) {
             if (noteType == "common") {
@@ -1316,10 +1334,11 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
                 QString word = keywords.split(",").first()
                                     .section("'", 0, 0, QString::SectionSkipEmpty);
                 self->findText(word);
+                if (!current()) return;
             }
         }
         // Notify plugins only after asynchronous initialization/reader setup.
-        JSPluginManager::instance().handleDocumentChanged();
+        if (current()) JSPluginManager::instance().handleDocumentChanged();
     });
 }
 
@@ -1797,6 +1816,7 @@ void WizDocumentWebView::setEditorMode(WizEditorMode mode)
             self->view()->setEditorMode(previousMode);
             return;
         }
+        self->m_editorSetupCallbacks.invalidate();
         self->m_currentEditorMode = mode;
         if (mode == modeEditor) self->m_timerAutoSave.start();
         else self->m_timerAutoSave.stop();

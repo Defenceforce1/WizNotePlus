@@ -43,28 +43,39 @@ inline void watch(QObject* owner, QWebEnginePage* page, const QString& expressio
                   std::function<bool()> current, std::function<void(bool)> finished,
                   int timeoutMs = 30000)
 {
-    if(!owner||!page||!current())return;
-    struct State { bool done=false; bool inFlight=false; QElapsedTimer elapsed; };
-    const auto state=std::make_shared<State>();state->elapsed.start();
+    if(!owner||!page||!current||!finished)return;
     const QPointer<QObject> context(owner);
     const QPointer<QWebEnginePage> target(page);
-    const QPointer<QTimer> timer(new QTimer(owner));
-    const auto complete=[state,context,timer,current,finished](bool ready) {
+    const auto allowed=[context,current] {
+        if(!context)return false;
+        const bool valid=current();
+        return valid&&context;
+    };
+    if(!allowed()||!target)return;
+    struct State { bool done=false; bool inFlight=false; QElapsedTimer elapsed; };
+    const auto state=std::make_shared<State>();state->elapsed.start();
+    const QPointer<QTimer> timer(new QTimer(context));
+    const auto complete=[state,target,timer,allowed,finished](bool ready) {
         if(state->done)return;
         state->done=true;
         if(timer){timer->stop();timer->deleteLater();}
-        if(context&&current())finished(ready);
+        if(allowed())finished(ready&&bool(target));
     };
     QObject::connect(timer.data(),&QTimer::timeout,owner,
-        [state,context,target,timer,expression,current,complete,timeoutMs] {
-        if(!context||!target||!current()){complete(false);return;}
+        [state,target,expression,allowed,complete,timeoutMs] {
+        if(state->done)return;
+        const bool permitted=allowed();
+        if(state->done)return;
+        if(!target||!permitted){complete(false);return;}
         if(state->elapsed.elapsed()>=timeoutMs){complete(false);return;}
         if(state->inFlight)return;
         state->inFlight=true;
-        target->runJavaScript(expression,[state,context,current,complete](const QVariant& value){
+        target->runJavaScript(expression,[state,target,allowed,complete](const QVariant& value){
             if(state->done)return;
             state->inFlight=false;
-            if(!context||!current()){complete(false);return;}
+            const bool permitted=allowed();
+            if(state->done)return;
+            if(!target||!permitted){complete(false);return;}
             if(value.userType()!=QMetaType::QString||value.toString()=="failed")complete(false);
             else if(value.toString()=="ready")complete(true);
         });

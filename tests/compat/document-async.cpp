@@ -433,6 +433,28 @@ int main(int argc, char** argv) {
         closingPage.reset();
         check(waitFor([completion]{return completion->count>0;})&&!completion->ready&&completion->count==1,
             "destroyed renderer page ends the readiness wait without calling its methods");
+        // Phase152: an owner can disappear during the final permission check.
+        auto finalOwner=std::make_unique<QObject>();bool retired=false;int lateCalls=0;
+        WizDocumentPageReady::watch(finalOwner.get(),&page,"'ready'",[&]{
+            auto* timer=finalOwner?finalOwner->findChild<QTimer*>():nullptr;
+            if(timer&&!timer->isActive()){retired=true;finalOwner.reset();}
+            return true;
+        },[&](bool){++lateCalls;},1000);
+        waitFor([&]{return retired||lateCalls>0;});
+        check(retired&&!finalOwner&&lateCalls==0,"readiness completion rechecks its weak owner after the final permission predicate destroys it");
+        auto entryOwner=std::make_unique<QObject>();int entryCalls=0;
+        WizDocumentPageReady::watch(entryOwner.get(),&page,"'ready'",[&]{entryOwner.reset();return true;},[&](bool){++entryCalls;});
+        check(!entryOwner&&entryCalls==0,"native readiness entry survives owner destruction inside its initial predicate");
+        QObject entryContext;auto entryPage=std::make_unique<QWebEnginePage>(&profile);
+        WizDocumentPageReady::watch(&entryContext,entryPage.get(),"'ready'",[&]{entryPage.reset();return true;},[&](bool){++entryCalls;});
+        check(!entryPage&&entryContext.findChildren<QTimer*>().empty()&&entryCalls==0,"native readiness entry refuses a page destroyed by its initial predicate");
+        WizDocumentPageReady::watch(&entryContext,&page,"'ready'",{},[&](bool){++entryCalls;});
+        WizDocumentPageReady::watch(&entryContext,&page,"'ready'",[]{return true;},{});
+        check(entryContext.findChildren<QTimer*>().empty()&&entryCalls==0,"empty readiness callbacks do not allocate a timer or start native queries");
+        auto deliveredOwner=std::make_unique<QObject>();int delivered=0;
+        WizDocumentPageReady::watch(deliveredOwner.get(),&page,"'ready'",[]{return true;},[&](bool ready){if(ready){++delivered;deliveredOwner.reset();}},1000);
+        check(waitFor([&]{return delivered>0;})&&delivered==1&&!deliveredOwner,"valid native readiness delivery may destroy its owner without another notification");
+        // End Phase152 readiness tests.
     }
     {
         QObject owner;

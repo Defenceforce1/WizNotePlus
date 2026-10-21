@@ -229,6 +229,7 @@ private:
     quint64 m_contentChangeSequence = 0;
     quint64 m_editorModeRequestSequence = 0;
     WizDocumentCallbackEpoch m_documentCallbacks;
+    WizDocumentCallbackEpoch m_editorSetupCallbacks;
     WizDocumentLoadSequence m_loadSequence;
 
     bool m_ignoreActiveWindowEvent;
