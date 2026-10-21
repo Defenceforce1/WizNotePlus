@@ -511,7 +511,7 @@ foreach(pair "void WizDocumentWebView::onEditorLoadFinished(|void WizDocumentWeb
     endif()
     math(EXPR length "${end} - ${begin}")
     string(SUBSTRING "${read_text}" ${begin} ${length} body)
-    foreach(names "WizDocumentWebView|Web" "QPointer<QWebEnginePage>|QPointer<ReadPage>" "WizEditorMode|int" "WizDocumentPageReady|RoutingPageReady" "JSPluginManager|SetupPlugins" "WizNotePresentation::styleSheet(|SetupStyles::styleSheet(")
+    foreach(names "WizDocumentWebView|Web" "WizDocumentView|RoutingView" "QPointer<QWebEnginePage>|QPointer<ReadPage>" "WizEditorMode|int" "WizDocumentPageReady|RoutingPageReady" "JSPluginManager|SetupPlugins" "WizNotePresentation::styleSheet(|SetupStyles::styleSheet(")
         string(REPLACE "|" ";" parts "${names}")
         list(GET parts 0 original)
         list(GET parts 1 replacement)

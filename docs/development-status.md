@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 155
+# Personal-use development checkpoint: phase 156
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -74,32 +74,33 @@ release, installation, or completed system-authentication acceptance.
 
 ## Latest local verification
 
-Original loader ownership and failed-opening/save backout remain. Accepted
-results interrupted by authorization revocation during preparation now retain a
-retry context only if navigation has not been dispatched and the original
-host/page/opening/request survives. Navigation preparation explicitly reports
-dispatch and its surviving epoch, including its own callback retirement.
-Reauthorization re-extracts under a new sequence; it never resumes the revoked
-stack. A shared origin binder avoids duplicating ownership rules. Hidden views
-wait for show/authorization. Ordinary file failures and unrelated navigation are
-not treated as permission retries. Once navigation is dispatched, automatic
-reloading is forbidden, preserving renderer-owned editing state and save work.
+Submitted editor setup can resume readiness observation after reauthorization or
+legacy show. The observer retains the same JavaScript token and original weak
+host/page, opening, navigation, loader sequence, mode and setup attempt. A fresh
+read permit cannot revive the old callback; it can start a separate observer.
+Submission completes before observer startup is queued, including synchronous
+hide/reauthorization. A current access ticket prevents duplicate observers.
+Initial find is attempted at most once; completion retires before plugin delivery.
+Explicit setup failure/timeout is terminal. Replacement contexts cannot resume.
+No initialization script, navigation, dirty DOM or save task is replayed/reset.
+Navigation and successful mode changes retire the stored continuation; failed/no-op
+mode changes preserve the existing attempt. Authorization checks recheck origin
+and weak lifetime after permission evaluation.
 
-Phase 155 uses **2 incremental/associated groups: 1040 PASS, 0 FAIL in 11.54s**,
-one final run. Routing has 937 checks (21 new); native document-async retains 103.
-Original-source controls fail 3 assertions normally in the initial 919-check
-corpus; those assertions remain in the final run. Boundaries include file reads,
-publication, script/style insertion, writes, mode/focus/title callbacks, own
-retirement, synchronous reauthorization, unrelated navigation and file failure.
-Old 916 routing assertions and extraction rules are preserved. The retained
-renderer's actual loaded mapping is verified. No whole-suite rerun is claimed;
-phase-149 whole-suite results remain historical only.
+Phase 156 uses **2 incremental/associated groups: 1058 PASS, 0 FAIL**, one final
+run. Routing has 952 checks (15 new); native document-async has 106 (3 new).
+Original-source controls fail 2 assertions normally in the initial 940-check
+corpus. Old 937 routing and 103 native assertions remain unchanged. Setup JS
+literal templates and serializers remain unchanged; extraction adds only an
+explicit host-class collaborator replacement. The retained renderer's actual
+loaded mapping is verified. A prior passing run before the final origin recheck
+is retained separately, not counted as final. No whole-suite rerun is claimed.
 
-Current loader and preparation bodies, Qt lifetime and temporary files/database
-execute. Worker extraction, navigation, metadata/script/style and save results use
-recording collaborators. This is not real saver-to-host or worker-to-native-editor,
-full-main-window or system-authentication acceptance. Post-dispatch initialization
-recovery remains separate; the change does not reconstruct or reload an existing DOM.
+Current setup/observer/mode and host show/unlock methods execute with actual Qt
+lifetime, timers and temporary database. Routing setup dispatch, find and plugins
+are recording collaborators. A native delayed-Promise test separately proves
+fresh observation, one initializer run and preserved edited DOM on a real browser
+page; it is not full WizEditor/plugin or main-window acceptance.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -115,9 +116,11 @@ specific reason. Historical results are not silently counted as current acceptan
 2. Isolated main-window/output integration and external-editor return/save
    behavior. Loader extraction ownership/resumption is implemented at the tested
    method boundary, including failed-new-opening backout. Real saver-to-host and
-   worker-to-native-editor integration, and initialization interruptions after
-   navigation dispatch remain distinct checks. Pre-dispatch permission recovery
-   does not add origin metadata to bare loadFinished or constitute whole-client acceptance.
+   worker-to-native-editor integration remain distinct checks. Submitted-setup
+   readiness recovery is implemented; an initializer not yet submitted because a
+   load callback arrived while locked is not automatically replayed. Load-finished
+   provenance is still needed: bare loadFinished has no origin metadata and this
+   checkpoint does not claim whole-client initialization acceptance.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -130,7 +133,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase155.json](checkpoints/2026-10-21-phase155.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase156.json](checkpoints/2026-10-21-phase156.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

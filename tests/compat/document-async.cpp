@@ -455,6 +455,23 @@ int main(int argc, char** argv) {
         WizDocumentPageReady::watch(deliveredOwner.get(),&page,"'ready'",[]{return true;},[&](bool ready){if(ready){++delivered;deliveredOwner.reset();}},1000);
         check(waitFor([&]{return delivered>0;})&&delivered==1&&!deliveredOwner,"valid native readiness delivery may destroy its owner without another notification");
         // End Phase152 readiness tests.
+        // Phase156: observe the same live setup token after authorization changes.
+        {
+            QObject resumedOwner;WizDocumentCallbackEpoch authorization;
+            const auto first=authorization.ticket();int oldDelivery=0,newDelivery=0;bool readyAgain=false;
+            const QString originalBody=evaluate(page,"document.body.innerHTML").toString();
+            evaluate(page,"window.resumedSetupRuns=0;");
+            evaluate(page,WizDocumentPageReady::setupScript("'resumed-once'","++window.resumedSetupRuns;await new Promise(resolve=>window.finishResumedSetup=resolve);"));
+            WizDocumentPageReady::watch(&resumedOwner,&page,WizDocumentPageReady::stateExpression("'resumed-once'"),[first]{return WizDocumentCallbackEpoch::current(first);},[&](bool){++oldDelivery;},1000);
+            authorization.invalidate();const auto second=authorization.ticket();
+            evaluate(page,"document.body.innerHTML='<p>unsaved synthetic editor DOM</p>';window.finishResumedSetup();");
+            WizDocumentPageReady::watch(&resumedOwner,&page,WizDocumentPageReady::stateExpression("'resumed-once'"),[second]{return WizDocumentCallbackEpoch::current(second);},[&](bool ready){++newDelivery;readyAgain=ready;},1000);
+            check(waitFor([&]{return newDelivery>0;})&&readyAgain&&newDelivery==1&&oldDelivery==0,"native fresh authorization can observe original delayed setup readiness while the revoked observer stays silent");
+            check(evaluate(page,"resumedSetupRuns").toInt()==1,"native readiness resumption does not replay the submitted asynchronous initializer");
+            check(evaluate(page,"document.body.innerHTML").toString()=="<p>unsaved synthetic editor DOM</p>","native resumed observation preserves renderer-owned edited DOM");
+            evaluate(page,"document.body.innerHTML="+QString::fromUtf8(QJsonDocument(QJsonArray{originalBody}).toJson(QJsonDocument::Compact))+"[0];");
+        }
+        // End Phase156 native readiness tests.
     }
     {
         QObject owner;

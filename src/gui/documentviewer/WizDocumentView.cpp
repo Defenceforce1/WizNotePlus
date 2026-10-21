@@ -393,7 +393,10 @@ void WizDocumentView::showEvent(QShowEvent *event)
     if (!self) return;
     if (m_biometricEnabled && !m_note.strGUID.isEmpty() && !m_accessClosing)
         if (!prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))) return;
-    if (self && !m_accessClosing) m_web->resumePendingDocumentLoad();
+    if (self && !m_accessClosing) {
+        m_web->resumePendingDocumentLoad();
+        if (self) m_web->resumeEditorSetup();
+    }
 }
 
 void WizDocumentView::hideEvent(QHideEvent* event)
@@ -1102,6 +1105,8 @@ bool WizDocumentView::completeBiometricUnlock(const QString& password, const Wiz
             m_biometricReloadPending = false;
             m_web->reloadNoteData(data);
         }
+        if (!self || !biometricRequestCurrent(context,ticket)) return false;
+        m_web->resumeEditorSetup();
     }
     return true;
 }

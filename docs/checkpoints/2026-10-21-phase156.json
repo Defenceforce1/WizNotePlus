@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase156",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "27394e9c61df34a5ad084c2e1236ff723b77a5d5",
+  "sourceCheckpoint": "phase156",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1058,
+    "fail": 0,
+    "seconds": 12.03,
+    "routingChecks": 952,
+    "nativeAsyncChecks": 106,
+    "newRoutingChecks": 15,
+    "newNativeChecks": 3,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 940,
+    "routingFailures": 2,
+    "normalExit": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Submitted setup readiness can resume under a new read permit without replaying its initializer/navigation or clearing DOM/saves. Keep the same JS token, weak host/page, opening/navigation/loader sequence, mode and setup attempt. Submission finishes before observation is queued; stale replies stay denied, find is attempted once, completion retires before plugin delivery and explicit failure/timeout is terminal. Permission evaluation rechecks weak origin. Old routing/native assertions and JS literal templates remain; extraction adds a host collaborator. Current methods/Qt and a native delayed-Promise protocol test execute, but full WizEditor/plugin/main-window acceptance remains separate. Unsubmitted initialization while locked and bare loadFinished provenance remain unfinished.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 127981,
+      "chars": 127869,
+      "gitBlobSha": "d69a874750ba882ad4c16a2c85d9ee8ba80b43b3",
+      "sha256": "ac9dabdd399cd9c740b813e3426bad80f33acd41a9b2a268bade1eb335bf79d6"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 16297,
+      "chars": 16295,
+      "gitBlobSha": "4643c42d30f3b400f4d3ad26e2993d75eaa0df04",
+      "sha256": "72b1a47c7032006f349b7b9a4976a215981551d98c6bd74896a2811d3388a509"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 52164,
+      "chars": 51734,
+      "gitBlobSha": "c1472669a86bf12b1a78a53ba5389aca0cd1cd66",
+      "sha256": "8b7edcece9bd784b254ddf7372b283291ef605d1a4c9f5a4e474dd2349ff9beb"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 324074,
+      "chars": 323981,
+      "gitBlobSha": "6cb4a5c32d7c47e2f1cd7a3ef61616eedb783faf",
+      "sha256": "ca50e92bf0c13f62a753a0f61496277ba2af367e10385ac5b105f81d58b85801"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 36394,
+      "chars": 36394,
+      "gitBlobSha": "12c279e4ba2e2dd63f35143e7e6f464ef4e094cf",
+      "sha256": "eb011694e863f88f0a5163d4402cfa2a81a7d71889d7240784d73f5656558665"
+    },
+    {
+      "path": "tests/compat/document-async.cpp",
+      "mode": "100644",
+      "bytes": 39391,
+      "chars": 39363,
+      "gitBlobSha": "8ef629d575440109799d926b0ef0e8118b443a6a",
+      "sha256": "ac9dbbcddb0a7aadf39a00ace944fc8ddfb3178f2e045d0c5d01878ae6d6da7f"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 9142,
+      "chars": 9142,
+      "gitBlobSha": "5414eeff91f6c419f644531b7c0856c02b6e2089",
+      "sha256": "671d0132e44fd9f83a9da5349f7937eeeb99a3c27a7d1dc6cec5d160877346fc"
+    }
+  ]
+}

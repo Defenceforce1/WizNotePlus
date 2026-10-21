@@ -1353,6 +1353,7 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     const auto read = noteReadPermit();
     if (!read.current() || !source) return;
     m_editorSetupCallbacks.invalidate();
+    m_editorSetupResume = {};
     const auto request = m_editorSetupCallbacks.ticket();
     const auto mode = m_currentEditorMode;
     const auto current = [self,source,read,request,mode] {
@@ -1416,26 +1417,82 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     }
     strCode += "\nif(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\nWizApplyNoteStyle();WizApplySpellCheck();";
     if (!current()) return;
+    const auto submitted = armEditorSetupReadiness(setupToken, keywords, noteType);
+    if (!current() || !submitted) return;
     source->runJavaScript(WizDocumentPageReady::setupScript(setupToken,strCode));
-    if (!current()) return;
-    WizDocumentPageReady::watch(this, source,
-        WizDocumentPageReady::stateExpression(setupToken),
-        current,
-        [self,current,keywords,noteType](bool ready) {
-        if (!current()) return;
-        if(!ready){qWarning()<<"Editor setup failed or timed out";return;}
-        if (!keywords.isEmpty()) {
-            if (noteType == "common") {
-                //FIXME: This is not the best way, it needs the keyword in search line
-                QString word = keywords.split(",").first()
-                                    .section("'", 0, 0, QString::SectionSkipEmpty);
+    submitted();
+}
+
+std::function<void()> WizDocumentWebView::armEditorSetupReadiness(const QString& token, const QString& keywords, const QString& noteType)
+{
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<QWebEnginePage> source(page());
+    const QPointer<WizDocumentView> host(view());
+    if (!host || !source) return {};
+    const auto request = m_editorSetupCallbacks.ticket();
+    const auto navigation = m_documentCallbacks.ticket();
+    const auto opening = host->noteOpenSequence();
+    const auto sequence = m_loadSequence.current();
+    const auto mode = m_currentEditorMode;
+    const WIZDOCUMENTDATA document = host->note();
+    const auto origin = [self,source,host,request,navigation,opening,sequence,mode,document] {
+        return self && source && host && self->page() == source && self->view() == host
+            && WizDocumentCallbackEpoch::current(request) && WizDocumentCallbackEpoch::current(navigation)
+            && host->noteOpenSequence() == opening && self->m_loadSequence.current() == sequence
+            && self->m_currentEditorMode == mode && host->note().strGUID == document.strGUID
+            && host->note().strKbGUID == document.strKbGUID;
+    };
+    struct State {
+        bool submitted=false,done=false,failed=false,findStarted=false;
+        WizDocumentCallbackEpoch::Ticket access;
+    };
+    const auto state = std::make_shared<State>();
+    m_editorSetupResume = [self,source,host,origin,state,token,keywords,noteType] {
+        if (!origin() || !state->submitted || state->done || state->failed
+            || WizDocumentCallbackEpoch::current(state->access)) return false;
+        const auto read = self->noteReadPermit();
+        if (!read.current() || !origin()) return false;
+        state->access = host->noteReadTicket();
+        const auto current = [origin,read] { return origin() && read.current() && origin(); };
+        // Only observe the existing JS token. Never reinitialize/reload the DOM.
+        WizDocumentPageReady::watch(self, source, WizDocumentPageReady::stateExpression(token), current,
+            [self,current,state,keywords,noteType](bool ready) {
+            if (!current() || state->done || state->failed) return;
+            if (!ready) {
+                state->failed = true;
+                self->m_editorSetupResume = {};
+                qWarning()<<"Editor setup failed or timed out";
+                return;
+            }
+            if (!state->findStarted && !keywords.isEmpty() && noteType == "common") {
+                // Mark before the reentrant find; fresh authorization must not repeat it.
+                state->findStarted = true;
+                const QString word = keywords.split(",").first().section("'", 0, 0, QString::SectionSkipEmpty);
                 self->findText(word);
                 if (!current()) return;
             }
-        }
-        // Notify plugins only after asynchronous initialization/reader setup.
-        if (current()) JSPluginManager::instance().handleDocumentChanged();
-    });
+            // Retire before plugin delivery, which can reenter or destroy the view.
+            state->done = true;
+            self->m_editorSetupResume = {};
+            JSPluginManager::instance().handleDocumentChanged();
+        });
+        return true;
+    };
+    return [self,origin,state] {
+        if (!origin()) return;
+        state->submitted = true;
+        // Finish the submission stack before starting a fresh permission-bound
+        // observer, including synchronous hide/reauthorization during dispatch.
+        QTimer::singleShot(0, self, [self,origin] {
+            if (origin()) self->resumeEditorSetup();
+        });
+    };
+}
+
+bool WizDocumentWebView::resumeEditorSetup()
+{
+    const auto resume = m_editorSetupResume;
+    return resume && resume();
 }
 
 /**
@@ -1916,6 +1973,7 @@ void WizDocumentWebView::setEditorMode(WizEditorMode mode)
             return;
         }
         self->m_editorSetupCallbacks.invalidate();
+        self->m_editorSetupResume = {};
         self->m_currentEditorMode = mode;
         if (mode == modeEditor) self->m_timerAutoSave.start();
         else self->m_timerAutoSave.stop();
@@ -2170,6 +2228,7 @@ WizDocumentCallbackEpoch::Ticket WizDocumentWebView::invalidateDocumentCallbacks
 {
     const QPointer<WizDocumentWebView> self(this);
     m_documentCallbacks.invalidate();
+    m_editorSetupResume = {};
     const auto ticket = m_documentCallbacks.ticket();
     const auto current = [self,ticket] { return self && WizDocumentCallbackEpoch::current(ticket); };
     cancelLinkInsert();

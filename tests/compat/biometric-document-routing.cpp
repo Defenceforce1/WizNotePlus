@@ -380,6 +380,11 @@ struct Web : InspectorShell {
     void onEditorLoadFinished(bool);void setEditorMode(int);
     void enableEditor(bool editing){setupStage(editing?"enable":"disable");}
     // End Phase152 setup declarations.
+    // Phase156 readiness recovery never replays dispatched setup JavaScript.
+    std::function<bool()> m_editorSetupResume;
+    bool resumeEditorSetup();
+    std::function<void()> armEditorSetupReadiness(const QString&,const QString&,const QString&);
+    // End Phase156 readiness declarations.
     bool editing=false;std::function<void()> duringEditing;
     int documentsOpened=0,attachmentsOpened=0,saveActions=0,reloadActions=0;
     QString dispatchedUrl,dispatchedKb;
@@ -3303,6 +3308,51 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         InitialOps::reset();
     }
     // End Phase155 preparation tests.
+    // Phase156 post-dispatch readiness resumption.
+    {
+        const auto prepare=[&](RoutingView& owner){SetupPlugins::reset();owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->m_currentEditorMode=0;owner.m_web->sourcePage.scripts.clear();owner.m_web->sourcePage.commands.clear();};
+        const auto take=[](Web* target){auto done=std::move(target->sourcePage.scripts.front());target->sourcePage.scripts.erase(target->sourcePage.scripts.begin());return done;};
+        RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="unsaved renderer DOM";target->m_bContentsChanged=true;target->onEditorLoadFinished(true);
+        const bool queried=until([&]{return !target->sourcePage.scripts.empty();});auto old=queried?take(target):std::function<void(const QVariant&)>();
+        owner.hide();owner.show();submit(owner);if(old)old("ready");
+        check(queried&&SetupPlugins::notifications==0&&target->finds.empty(),"old readiness result remains unauthorized after unlock even when observation can resume");
+        const bool resumed=until([&]{return !target->sourcePage.scripts.empty();});auto fresh=resumed?take(target):std::function<void(const QVariant&)>();if(fresh)fresh("ready");
+        check(resumed&&SetupPlugins::notifications==1&&target->sourcePage.commands.size()==1&&target->initialLoadCalls==0&&target->initialLoaderRequests==0,"unlock resumes observation of the original setup token once without replaying initialization or navigation");
+        check(target->body=="unsaved renderer DOM"&&target->m_bContentsChanged&&target->finds.size()==1,"resumed readiness preserves dirty DOM and applies its initial find at most once");
+
+        owner.hide();owner.show();submit(owner);if(fresh)fresh("ready");
+        check(!target->resumeEditorSetup()&&SetupPlugins::notifications==1&&target->finds.size()==1&&target->sourcePage.commands.size()==1,"completed readiness cannot repeat find or plugin delivery after another unlock");
+
+        RoutingView find(explorer);prepare(find);target=find.m_web;target->onEditorLoadFinished(true);bool waiting=until([&]{return !target->sourcePage.scripts.empty();});auto reply=waiting?take(target):std::function<void(const QVariant&)>();
+        target->duringFind=[&]{find.hide();find.show();submit(find);};if(reply)reply("ready");
+        check(waiting&&target->finds.size()==1&&SetupPlugins::notifications==0,"reauthorization inside initial find leaves plugin delivery pending without repeating the find");
+        target->duringFind={};waiting=until([&]{return !target->sourcePage.scripts.empty();});reply=waiting?take(target):std::function<void(const QVariant&)>();if(reply)reply("ready");
+        check(waiting&&SetupPlugins::notifications==1&&target->finds.size()==1&&target->sourcePage.commands.size()==1,"fresh observation after interrupted find finishes plugin notification once without setup replay");
+
+        RoutingView failed(explorer);prepare(failed);target=failed.m_web;target->onEditorLoadFinished(true);waiting=until([&]{return !target->sourcePage.scripts.empty();});reply=waiting?take(target):std::function<void(const QVariant&)>();if(reply)reply("failed");failed.hide();failed.show();submit(failed);
+        check(waiting&&!target->resumeEditorSetup()&&SetupPlugins::notifications==0&&target->sourcePage.commands.size()==1,"explicit setup failure remains terminal and is not retried automatically on unlock");
+
+        for(const QString replacement:{"page","navigation","opening","sequence","mode"}){
+            RoutingView changed(explorer);prepare(changed);target=changed.m_web;target->onEditorLoadFinished(true);waiting=until([&]{return !target->sourcePage.scripts.empty();});reply=waiting?take(target):std::function<void(const QVariant&)>();ReadPage other;
+            if(replacement=="page")target->activePage=&other;
+            else if(replacement=="navigation")target->invalidateDocumentCallbacks();
+            else if(replacement=="opening")++changed.m_openSequence;
+            else if(replacement=="sequence")target->m_loadSequence.next();
+            else target->m_currentEditorMode=1;
+            changed.hide();changed.show();submit(changed);if(reply)reply("ready");
+            check(waiting&&!target->resumeEditorSetup()&&SetupPlugins::notifications==0&&target->finds.empty(),"replaced page/navigation/opening/request/mode cannot resume the old dispatched setup token");
+        }
+        RoutingView synchronous(explorer);prepare(synchronous);target=synchronous.m_web;target->sourcePage.duringScript=[&]{target->sourcePage.duringScript={};synchronous.hide();synchronous.show();submit(synchronous);};target->onEditorLoadFinished(true);
+        check(target->findChildren<QTimer*>().empty(),"synchronous dispatch reauthorization cannot create an observer inside the obsolete submission stack");
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});reply=waiting?take(target):std::function<void(const QVariant&)>();if(reply)reply("ready");
+        check(waiting&&SetupPlugins::notifications==1&&target->sourcePage.commands.size()==1,"queued post-submission observation recovers synchronous reauthorization without a second initialization script");
+
+        RoutingView legacy(explorer);SetupPlugins::reset();legacy.show();legacy.viewNote(c,true);target=legacy.m_web;target->onEditorLoadFinished(true);waiting=until([&]{return !target->sourcePage.scripts.empty();});reply=waiting?take(target):std::function<void(const QVariant&)>();legacy.hide();legacy.show();if(reply)reply("ready");
+        const bool restarted=until([&]{return !target->sourcePage.scripts.empty();});auto latest=restarted?take(target):std::function<void(const QVariant&)>();if(latest)latest("ready");
+        check(waiting&&restarted&&SetupPlugins::notifications==1&&target->sourcePage.commands.size()==1,"legacy show resumes the same pending setup observation without changing its visibility policy or replaying JavaScript");
+        SetupPlugins::reset();
+    }
+    // End Phase156 readiness tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

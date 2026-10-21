@@ -81,6 +81,7 @@ public:
     void reloadNoteData(const WIZDOCUMENTDATA& data);
     // Retry only an unfinished extraction from this same opening, never a loaded DOM.
     bool resumePendingDocumentLoad();
+    bool resumeEditorSetup();
     quint64 pendingLoadSequence() const { return m_loadPending ? m_loadSequence.current() : 0; }
     bool continuePendingLoadAfterFailedOpen(quint64 sequence);
 
@@ -234,6 +235,8 @@ private:
     quint64 m_editorModeRequestSequence = 0;
     WizDocumentCallbackEpoch m_documentCallbacks;
     WizDocumentCallbackEpoch m_editorSetupCallbacks;
+    std::function<bool()> m_editorSetupResume;
+    std::function<void()> armEditorSetupReadiness(const QString& token, const QString& keywords, const QString& noteType);
     WizDocumentLoadSequence m_loadSequence;
     bool m_loadPending = false;
     WIZDOCUMENTDATA m_loadDocument;
