@@ -388,9 +388,12 @@ WizWebEngineView*WizDocumentView::commentView() const
 
 void WizDocumentView::showEvent(QShowEvent *event)
 {
+    const QPointer<WizDocumentView> self(this);
     QWidget::showEvent(event);
+    if (!self) return;
     if (m_biometricEnabled && !m_note.strGUID.isEmpty() && !m_accessClosing)
-        prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID));
+        if (!prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))) return;
+    if (self && !m_accessClosing) m_web->resumePendingDocumentLoad();
 }
 
 void WizDocumentView::hideEvent(QHideEvent* event)
@@ -860,12 +863,23 @@ void WizDocumentView::on_checkEditStatus_finished(const QString& strGUID, bool e
 
 void WizDocumentView::loadNote(const WIZDOCUMENTDATAEX& doc)
 {
-    m_web->viewDocument(doc, m_editorMode);
-    m_title->setNote(doc, m_editorMode, m_bLocked);
-    m_infoBar->setDocument(doc);
+    const QPointer<WizDocumentView> self(this);
+    const auto opening = m_openEpoch.ticket();
+    const auto sequence = m_openSequence;
+    const WIZDOCUMENTDATAEX document = doc;
+    const auto current = [self,opening,sequence] {
+        return self && WizDocumentCallbackEpoch::current(opening)
+            && self->m_openSequence == sequence && !self->m_accessClosing;
+    };
+    m_web->viewDocument(document, m_editorMode);
+    if (!current()) return;
+    m_title->setNote(document, m_editorMode, m_bLocked);
+    if (!current()) return;
+    m_infoBar->setDocument(document);
+    if (!current()) return;
 
     // save last
-    m_note = doc;
+    m_note = document;
 
     m_noteLoaded = true;
 
@@ -1077,9 +1091,14 @@ bool WizDocumentView::completeBiometricUnlock(const QString& password, const Wiz
     if (!self || !biometricRequestCurrent(context,ticket)) return false;
     // Reauth after hide must not reload/discard a still-dirty editor.
     if (!m_noteLoaded) loadNote(data);
-    else if (m_biometricReloadPending) {
-        m_biometricReloadPending = false;
-        m_web->reloadNoteData(data);
+    else {
+        const bool resumed = m_web->resumePendingDocumentLoad();
+        if (!self || !biometricRequestCurrent(context,ticket)) return false;
+        if (resumed) m_biometricReloadPending = false;
+        else if (m_biometricReloadPending) {
+            m_biometricReloadPending = false;
+            m_web->reloadNoteData(data);
+        }
     }
     return true;
 }

@@ -79,6 +79,8 @@ public:
     void trySaveDocument(const WIZDOCUMENTDATA& data, bool force, std::function<void(const QVariant &)> callback);
     void trySaveDocumentForRead(const WIZDOCUMENTDATA& data, bool force, std::function<void(const QVariant &)> callback);
     void reloadNoteData(const WIZDOCUMENTDATA& data);
+    // Retry only an unfinished extraction from this same opening, never a loaded DOM.
+    bool resumePendingDocumentLoad();
 
     bool isEditing() const { return m_currentEditorMode == modeEditor; }
     // GUI-only weak ticket for transient toolbar queries, not save receipts.
@@ -231,6 +233,12 @@ private:
     WizDocumentCallbackEpoch m_documentCallbacks;
     WizDocumentCallbackEpoch m_editorSetupCallbacks;
     WizDocumentLoadSequence m_loadSequence;
+    bool m_loadPending = false;
+    WIZDOCUMENTDATA m_loadDocument;
+    WizEditorMode m_loadEditorMode = modeReader;
+    WizDocumentReadPermit m_loadReadPermit;
+    std::function<bool()> m_loadRequestCurrent;
+    void dispatchDocumentLoad(const WIZDOCUMENTDATA& document, WizEditorMode mode);
 
     bool m_ignoreActiveWindowEvent;
 
@@ -286,6 +294,7 @@ public Q_SLOTS:
     void onTitleEdited(QString strTitle) override;
 
     bool acceptsLoadResult(const QString& kbGUID, const QString& guid, QPointer<QObject> requester, quint64 sequence) const;
+    bool takeLoadResult(const QString& kbGUID, const QString& guid, QPointer<QObject> requester, quint64 sequence);
     void onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode,
                          QPointer<QObject> requester, quint64 sequence);
     void onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester);

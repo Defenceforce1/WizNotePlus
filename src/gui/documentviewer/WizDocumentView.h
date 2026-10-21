@@ -56,6 +56,7 @@ public:
 
     QWidget* client() const { return m_stack; }
     WizDocumentWebView* web() const { return m_web; }
+    quint64 noteOpenSequence() const { return m_openSequence; }
     WizWebEngineView* commentView() const;
     WizLocalProgressWebView* commentWidget() const { return m_commentWidget; }
     WizDocumentTransitionView* transitionView() { return m_transitionView; }

@@ -297,12 +297,30 @@ struct Web : InspectorShell {
     // Phase151 initial snapshot fields and collaborators.
     WIZDOCUMENTDATA m_currentNoteHtmlDocument;
     WizDocumentLoadSequence m_loadSequence;
+    // Phase153 loader request ownership. Old consumer fixtures remain isolated.
+    bool useActualLoader=false,m_loadPending=false;
+    std::function<void()> duringLoaderRequest;
+    WIZDOCUMENTDATA m_loadDocument;
+    int m_loadEditorMode=modeReader;
+    WizDocumentReadPermit m_loadReadPermit;
+    std::function<bool()> m_loadRequestCurrent;
+    bool acceptsLoadResult(const QString&,const QString&,QPointer<QObject>,quint64) const;
+    void onDocumentReady(QString,QString,QString,int,QPointer<QObject>,quint64);
+    void dispatchDocumentLoad(const WIZDOCUMENTDATA&,int);
+#ifdef WIZNOTE_LOADER_FIXED
+    bool resumePendingDocumentLoad();
+    bool takeLoadResult(const QString&,const QString&,QPointer<QObject>,quint64);
+#else
+    bool resumePendingDocumentLoad(){return false;}
+    bool takeLoadResult(const QString& kb,const QString& guid,QPointer<QObject> requester,quint64 sequence){return acceptsLoadResult(kb,guid,requester,sequence);}
+#endif
+    // End Phase153 loader declarations.
     int m_currentEditorMode=modeReader;
     bool m_bNewNote=false;
     QString m_strNoteHtmlFileName;
     int initialLoadCalls=0,initialNotifications=0,htmlPublications=0;
     int initialLoaderRequests=0;WIZDOCUMENTDATA requestedInitialDocument;quint64 requestedInitialSequence=0;
-    void loadDocumentRequested(const WIZDOCUMENTDATA& doc,int,quint64 sequence){++initialLoaderRequests;requestedInitialDocument=doc;requestedInitialSequence=sequence;}
+    void loadDocumentRequested(const WIZDOCUMENTDATA& doc,int,quint64 sequence){++initialLoaderRequests;requestedInitialDocument=doc;requestedInitialSequence=sequence;const auto hook=duringLoaderRequest;if(hook)hook();}
     void routeClear();void routeViewDocument(const WIZDOCUMENTDATA&,int);void routeReloadNoteData(const WIZDOCUMENTDATA&);
     struct SnapshotBroker {
         std::function<void(const QVariant&)> completion;
@@ -464,8 +482,8 @@ struct Web : InspectorShell {
     // DiskWeb below instead compiles the actual adapter and actual FIFO helper.
     virtual void trySaveDocumentForRead(const WIZDOCUMENTDATA& doc,bool force,Completion done){trySaveDocument(doc,force,std::move(done));}
     void cancelLinkInsert(); void cancelPdfExport(){} void clear(){body.clear();}
-    void viewDocument(const WIZDOCUMENTDATA& doc,int){++loads;body="loaded:"+doc.strGUID;}
-    void reloadNoteData(const WIZDOCUMENTDATA&){++reloads;body="reloaded";}
+    void viewDocument(const WIZDOCUMENTDATA& doc,int mode){++loads;if(useActualLoader)routeViewDocument(doc,mode);else body="loaded:"+doc.strGUID;}
+    void reloadNoteData(const WIZDOCUMENTDATA& doc){++reloads;if(useActualLoader)routeReloadNoteData(doc);else body="reloaded";}
     void isPersonalDocumentChanged(){} void hasEditPermissionOnCurrentNoteChanged(){}
     void triggerPageAction(QWebEnginePage::WebAction){++closes;}
 };
@@ -504,6 +522,7 @@ public:
     Title* titleBar(){return m_title;}
     void setEditorMode(int mode){m_editorMode=mode;}
     bool noteLoaded() const {return m_noteLoaded;}
+    quint64 noteOpenSequence() const {return m_openSequence;}
     void initStat(const WIZDOCUMENTDATA&,bool edit){m_editorMode=edit?modeEditor:modeReader;}
     void stopDocumentEditingStatus(){} void sendDocumentEditingStatus(){}
     void downloadNoteFromServer(const WIZDOCUMENTDATA&){++downloads;}
@@ -535,6 +554,7 @@ protected:
     void showEvent(QShowEvent*) override;void hideEvent(QHideEvent*) override;
 };
 #include WIZNOTE_ROUTING_METHODS
+#include WIZNOTE_LOADER_METHODS
 bool Web::acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& t,const WIZDOCUMENTDATA& doc)const{
     return WizDocumentCallbackEpoch::current(t)&&owner&&owner->note().strGUID==doc.strGUID&&owner->note().strKbGUID==doc.strKbGUID;
 }
@@ -3109,6 +3129,81 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         SetupPlugins::reset();
     }
     // End Phase152 setup tests.
+    // Phase153 loader result ownership and pending extraction resumption.
+    {
+        QTemporaryDir files;const QString html=files.filePath("loader.html");
+        const QByteArray original="<html><body>synthetic loader body</body></html>";
+        const auto seed=[&]{QFile f(html);return f.open(QIODevice::WriteOnly)&&f.write(original)==original.size();};
+        const auto prepare=[&](RoutingView& owner){owner.m_web->useActualLoader=true;owner.show();owner.viewNote(a,true);submit(owner);};
+        RoutingView normal(explorer);prepare(normal);auto* target=normal.m_web;auto seq=target->requestedInitialSequence;
+        check(seq!=0&&target->initialLoaderRequests==1&&normal.noteLoaded()&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq),"loader binds before loadNote marks the host loaded and accepts its authorized original result afterward");
+        check(!target->acceptsLoadResult(b.strKbGUID,b.strGUID,target,seq)&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,unrelated.m_web,seq)&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq+1),"wrong document requester and sequence cannot consume the pending loader result");
+        seed();target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,seq);
+        check(target->initialLoadCalls==1&&target->initialNotifications==1&&target->m_mapFile.value(a.strGUID)==html,"accepted actual loader result prepares and navigates its synthetic HTML exactly once");
+        seed();target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,seq);
+        check(target->initialLoadCalls==1,"duplicate loader completion cannot navigate the same request twice");
+        normal.hide();normal.show();submit(normal);
+        check(target->initialLoaderRequests==1,"reauthorizing an already consumed load never reloads its retained DOM");
+
+        RoutingView interrupted(explorer);prepare(interrupted);target=interrupted.m_web;seq=target->requestedInitialSequence;
+        target->body="unsaved pending DOM";target->m_bContentsChanged=true;target->m_currentNoteHtml="retained save cache";
+        WizDocumentCallbackEpoch saving;const auto saveTicket=saving.ticket();target->defer=true;int savesDone=0;
+        target->trySaveDocument(interrupted.note(),false,[&](const QVariant&){++savesDone;});
+        interrupted.hide();
+        check(!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq),"hidden locked host refuses its original pending loader success or failure");
+        target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,seq);
+        check(target->initialLoadCalls==0&&!target->m_mapFile.contains(a.strGUID),"rejected loader success does not publish its extracted path or start navigation");
+        interrupted.show();submit(interrupted);const auto fresh=target->requestedInitialSequence;
+        check(target->initialLoaderRequests==2&&fresh>seq&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq)&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,fresh),"reauthorization dispatches a fresh pending extraction and never borrows access for its old result");
+        check(target->body=="unsaved pending DOM"&&target->m_bContentsChanged&&target->m_currentNoteHtml=="retained save cache"&&target->pending.size()==1&&WizDocumentCallbackEpoch::current(saveTicket),"pending-load resumption preserves dirty DOM cached save bytes and independent mandatory save completion");
+        target->pending.front()(true);target->pending.clear();
+        check(savesDone==1,"mandatory save still completes exactly once after loader resumption");
+        check(!target->resumePendingDocumentLoad()&&target->initialLoaderRequests==2,"repeated resumption while the original current request is still authorized does not duplicate extraction");
+        seed();target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,fresh);
+        check(target->initialLoadCalls==1&&target->initialNotifications==1,"fresh post-reauthorization loader completion can navigate normally");
+
+        RoutingView failed(explorer);prepare(failed);target=failed.m_web;seq=target->requestedInitialSequence;
+        check(target->takeLoadResult(a.strKbGUID,a.strGUID,target,seq)&&!target->takeLoadResult(a.strKbGUID,a.strGUID,target,seq),"a current extraction failure is consumed once so repeated queued failures cannot repeat its UI");
+        failed.hide();failed.show();submit(failed);
+        check(target->initialLoaderRequests==1,"an already reported extraction failure is not silently retried on unlock");
+
+        RoutingView queued(explorer);prepare(queued);target=queued.m_web;seq=target->requestedInitialSequence;seed();
+        QTimer::singleShot(0,target,[target,seq,html,a]{target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,seq);});
+        queued.hide();queued.show();submit(queued);QApplication::processEvents();
+        check(target->initialLoaderRequests==2&&target->initialLoadCalls==0&&target->m_loadPending,"real queued success from before relock cannot consume the fresh post-unlock request");
+        const auto newSeq=target->requestedInitialSequence;
+        check(!target->takeLoadResult(a.strKbGUID,a.strGUID,target,seq)&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,newSeq),"obsolete extraction failure leaves the newer pending request available");
+
+        RoutingView plain(explorer);plain.m_web->useActualLoader=true;plain.show();plain.viewNote(c,true);target=plain.m_web;seq=target->requestedInitialSequence;
+        plain.hide();check(!target->acceptsLoadResult(c.strKbGUID,c.strGUID,target,seq),"legacy hide still invalidates the captured extraction ticket without changing plain-note visibility policy");
+        plain.show();
+        check(target->initialLoaderRequests==2&&target->requestedInitialDocument.strGUID==c.strGUID&&target->requestedInitialSequence>seq,"showing a legacy plain note resumes only its unfinished extraction with a fresh sequence");
+
+        RoutingView cleared(explorer);prepare(cleared);target=cleared.m_web;seq=target->requestedInitialSequence;target->routeClear();cleared.hide();cleared.show();submit(cleared);
+        check(!target->m_loadPending&&target->initialLoaderRequests==1&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq),"explicit blank clear retires pending extraction so later unlock cannot reopen it");
+        RoutingView closed(explorer);prepare(closed);target=closed.m_web;seq=target->requestedInitialSequence;closed.revokeBiometricAccess(true);
+        check(!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq)&&!target->resumePendingDocumentLoad()&&target->initialLoaderRequests==1,"closing denies pending results and resumption without canceling a save");
+
+        RoutingView replaced(explorer);prepare(replaced);target=replaced.m_web;seq=target->requestedInitialSequence;
+        replaced.viewNote(b,true);submit(replaced);const auto other=target->requestedInitialSequence;
+        check(other>seq&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq)&&target->acceptsLoadResult(b.strKbGUID,b.strGUID,target,other),"a different note's new extraction supersedes both original success and failure");
+        replaced.viewNote(b,true);submit(replaced);
+        check(target->requestedInitialSequence>other&&!target->acceptsLoadResult(b.strKbGUID,b.strGUID,target,other),"opening the same note again still requires its new request identity");
+
+        RoutingView changedPage(explorer);prepare(changedPage);target=changedPage.m_web;seq=target->requestedInitialSequence;ReadPage replacementPage;target->activePage=&replacementPage;
+        changedPage.hide();changedPage.show();submit(changedPage);
+        check(target->initialLoaderRequests==1&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq)&&!target->resumePendingDocumentLoad(),"a replacement page cannot inherit or automatically resume the former page's extraction");
+        RoutingView navigated(explorer);prepare(navigated);target=navigated.m_web;seq=target->requestedInitialSequence;target->invalidateDocumentCallbacks();
+        navigated.hide();navigated.show();submit(navigated);
+        check(target->initialLoaderRequests==1&&!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq)&&!target->resumePendingDocumentLoad(),"unrelated same-page navigation retires extraction ownership and is not treated as a mere reauthorization");
+        RoutingView changedOpening(explorer);prepare(changedOpening);target=changedOpening.m_web;seq=target->requestedInitialSequence;++changedOpening.m_openSequence;
+        check(!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,seq)&&!target->resumePendingDocumentLoad(),"a newer opening waiting on save cannot borrow the preceding opening's pending extraction");
+
+        auto* destroyed=new RoutingView(explorer);destroyed->show();destroyed->m_web->useActualLoader=true;destroyed->viewNote(a,true);
+        QPointer<Web> weak(destroyed->m_web);destroyed->m_web->duringLoaderRequest=[&]{delete destroyed;};submit(*destroyed);
+        check(!weak,"destruction inside extraction dispatch stops actual loadNote before touching title metadata or loaded flags");
+    }
+    // End Phase153 loader tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

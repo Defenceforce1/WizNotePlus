@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase153",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "b4598a12d8f887ccf90a5c04ffc4dd4f11c63c36",
+  "sourceCheckpoint": "phase153",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1007,
+    "fail": 0,
+    "seconds": 10.92,
+    "routingChecks": 904,
+    "nativeAsyncChecks": 103,
+    "newRoutingChecks": 26,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 892,
+    "routingFailures": 6,
+    "normalExit": true,
+    "intermediateSameCorpusFailures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Loader results retain original authorization, weak page/host, opening/navigation and sequence; success/failure is consumed once. Reauthorization/show reissues only an unfinished extraction with a fresh sequence, preserving dirty DOM and saves. Clear/close, replacement opening/page and unrelated navigation cannot resume old extraction. Current method bodies, Qt queued delivery/lifetime and temporary DB participate; worker extraction, navigation, metadata UI and save handoff are recording collaborators, not worker-to-native-editor or whole-client acceptance. Post-consumption interruptions, failed-new-opening/save orchestration and bare loadFinished origin metadata remain separate work.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 122438,
+      "chars": 122326,
+      "gitBlobSha": "76f4896befb0ff490a0398d73b7c314a4f220587",
+      "sha256": "c1d45f08c9cbb7df916fb73e4ebdbb6ab542cd585b5193a9ea6ddb62b8bb5e14"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 15685,
+      "chars": 15683,
+      "gitBlobSha": "fba7cfddf7d192ba5430ce003665660c74a3a485",
+      "sha256": "5479ca44d1af5393b0a17a01cf4fb51ff8c3fa294570101ccfe3ccfb0ebfbd60"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 51765,
+      "chars": 51335,
+      "gitBlobSha": "5d2c4c07da8a103a086d0aeb68989fbe00034ad5",
+      "sha256": "02ef2b0a354303bcb3acafaa4f72c0cea7cd932eb9a85bf7628ad6dbb169d0d5"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8293,
+      "chars": 8291,
+      "gitBlobSha": "f1371575d27c2035a319015b2e68c56980298437",
+      "sha256": "0f6b9e09a7376a697e59b779f1025c6bb4ca0340cd388189b86927a0a6e4935b"
+    },
+    {
+      "path": "src/WizMainWindow.cpp",
+      "mode": "100644",
+      "bytes": 172030,
+      "chars": 168718,
+      "gitBlobSha": "90a93bb455e4da0f2b88c10505f2b8c5d6552f8b",
+      "sha256": "d3afbdfb647df136a55e531cb1ccd383b67b38342aebc437e97d33a849843360"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 306358,
+      "chars": 306265,
+      "gitBlobSha": "cbf1e18cb161e8c7a9bdadff5c582b052d0d5772",
+      "sha256": "efc3a751bd251c220e8b9c20647585e99fd806222ce1f974deaf8e43da12d40e"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 35992,
+      "chars": 35992,
+      "gitBlobSha": "189a8dcc157561f7650bd9f00f443c75de84a275",
+      "sha256": "b980499d648faaacbf2753b2373c2ab947d5ade10261254a51b740004a9cc05f"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 8936,
+      "chars": 8936,
+      "gitBlobSha": "c14ca32d7a2d2ffcfc7fee22fb5d70c176de01d2",
+      "sha256": "b2cc325bfdf800ad26ced1b889e4a6417728323d0687374c3c623b864640868b"
+    }
+  ]
+}

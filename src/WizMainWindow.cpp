@@ -4198,7 +4198,7 @@ WizDocumentView* WizMainWindow::createDocumentView()
         [owner, newDocView](const QString& kbGuid, const QString& docGuid, const QString&, const QString&,
                            QPointer<QObject> requester, quint64 sequence) {
             if (!owner) return;
-            if (!newDocView->web()->acceptsLoadResult(kbGuid, docGuid, requester, sequence)) return;
+            if (!newDocView->web()->takeLoadResult(kbGuid, docGuid, requester, sequence)) return;
             QMessageBox::critical(owner.data(), owner->tr("Error"), owner->tr("Can't view note: (Can't unzip note data)"));
         }, Qt::QueuedConnection);
 

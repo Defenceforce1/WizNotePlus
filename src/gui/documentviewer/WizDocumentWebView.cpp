@@ -829,6 +829,9 @@ WizDocumentReadPermit WizDocumentWebView::noteReadPermit() const
 void WizDocumentWebView::clear()
 {
     const QPointer<WizDocumentWebView> self(this);
+    m_loadPending = false;
+    m_loadRequestCurrent = {};
+    m_loadReadPermit = {};
     m_loadSequence.next();
     const auto opening = invalidateDocumentCallbacks();
     if (!self || !WizDocumentCallbackEpoch::current(opening)) return;
@@ -864,23 +867,71 @@ void WizDocumentWebView::onTitleEdited(QString strTitle)
 
 bool WizDocumentWebView::acceptsLoadResult(const QString& kbGUID, const QString& guid, QPointer<QObject> requester, quint64 sequence) const
 {
-    const auto &note = view()->note();
-    return m_loadSequence.accepts(this, requester, sequence) && note.strKbGUID == kbGUID && note.strGUID == guid;
+    return m_loadPending && m_loadSequence.accepts(this, requester, sequence)
+        && m_loadDocument.strKbGUID == kbGUID && m_loadDocument.strGUID == guid
+        && m_loadRequestCurrent && m_loadRequestCurrent() && m_loadReadPermit.current();
+}
+
+bool WizDocumentWebView::takeLoadResult(const QString& kbGUID, const QString& guid, QPointer<QObject> requester, quint64 sequence)
+{
+    if (!acceptsLoadResult(kbGUID, guid, requester, sequence)) return false;
+    m_loadPending = false;
+    return true;
 }
 
 void WizDocumentWebView::onDocumentReady(const QString kbGUID, const QString strGUID, const QString strFileName, WizEditorMode editorMode,
                                        QPointer<QObject> requester, quint64 sequence)
 {
-    if (!acceptsLoadResult(kbGUID, strGUID, requester, sequence))
-        return;
-
-    m_mapFile.insert(strGUID, strFileName);
-
+    if (!takeLoadResult(kbGUID, strGUID, requester, sequence)) return;
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = m_loadReadPermit;
+    const auto current = m_loadRequestCurrent;
     WIZDOCUMENTDATA doc;
-    if (!m_dbMgr.db(kbGUID).documentFromGuid(strGUID, doc))
-        return;
-
+    if (!m_dbMgr.db(kbGUID).documentFromGuid(strGUID, doc)) return;
+    if (!self || !current || !current() || !read.current()
+        || !m_loadSequence.accepts(this, requester, sequence)) return;
+    m_mapFile.insert(strGUID, strFileName);
     loadDocumentInWeb(editorMode);
+}
+
+void WizDocumentWebView::dispatchDocumentLoad(const WIZDOCUMENTDATA& document, WizEditorMode mode)
+{
+    const QPointer<WizDocumentWebView> self(this);
+    const QPointer<WizDocumentView> host(view());
+    const QPointer<QObject> source(page());
+    if (!host || !source) return;
+    const auto access = host->noteReadTicket();
+    const auto opening = host->noteOpenSequence();
+    const auto navigation = m_documentCallbacks.ticket();
+    // loadNote marks the host loaded after dispatch. Capture the original
+    // authorization now; only evaluate readability when its result arrives.
+    m_loadRequestCurrent = [self,host,source,document,opening,navigation] {
+        return self && host && source && self->view() == host && self->page() == source
+            && WizDocumentCallbackEpoch::current(navigation)
+            && host->noteOpenSequence() == opening
+            && host->note().strGUID == document.strGUID && host->note().strKbGUID == document.strKbGUID;
+    };
+    const auto current = m_loadRequestCurrent;
+    m_loadReadPermit = {self,source,access,[current,host,access] {
+        return current() && host->acceptsNoteRead(access);
+    }};
+    m_loadDocument = document;
+    m_loadEditorMode = mode;
+    m_loadPending = true;
+    const auto sequence = m_loadSequence.next();
+    Q_EMIT loadDocumentRequested(document, mode, sequence);
+}
+
+bool WizDocumentWebView::resumePendingDocumentLoad()
+{
+    if (!m_loadPending || !m_loadRequestCurrent || !m_loadRequestCurrent()
+        || m_loadReadPermit.current() || !view()->canReadCurrentNote()) return false;
+    const auto document = m_loadDocument;
+    const auto mode = m_loadEditorMode;
+    // Do not clear/reinitialize dirty state, invalidate saves, or reuse the
+    // obsolete worker result. Give the fresh extraction a different sequence.
+    dispatchDocumentLoad(document, mode);
+    return true;
 }
 
 void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester)
@@ -923,7 +974,7 @@ void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode 
     }
 
     // ask extract and load
-    Q_EMIT loadDocumentRequested(document, editorMode, m_loadSequence.next());
+    dispatchDocumentLoad(document, editorMode);
 }
 
 void WizDocumentWebView::reloadNoteData(const WIZDOCUMENTDATA& data)
@@ -940,7 +991,7 @@ void WizDocumentWebView::reloadNoteData(const WIZDOCUMENTDATA& data)
     // reload may triggered when update from server or locally reflected by modify
     const auto opening = invalidateDocumentCallbacks();
     if (!self || !WizDocumentCallbackEpoch::current(opening)) return;
-    Q_EMIT loadDocumentRequested(document, m_currentEditorMode, m_loadSequence.next());
+    dispatchDocumentLoad(document, m_currentEditorMode);
 }
 
 
