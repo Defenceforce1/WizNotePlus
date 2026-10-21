@@ -427,6 +427,12 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
 int main(int argc, char *argv[])
 {
+    // This separately named user trial never falls back to the installed App's
+    // store, including Finder launches or inherited data-store overrides.
+    if (WizBuildIdentity::appleSiliconTrial && QByteArray(argv[0]).endsWith("/WizNoteUserTrial")) {
+        qputenv("WIZNOTE_DATA_STORE", (WizStandaloneStorage::defaultRoot(QDir::homePath())
+                                     + QStringLiteral("-UserTrial-186")).toUtf8());
+    }
 #if defined(WIZNOTE_NATIVE_TRANSFER_TESTS) && defined(Q_OS_MAC)
     if (QByteArray(argv[0]).endsWith("/WizNoteBiometricMainTest")) {
         if (argc != 2 || (QByteArray(argv[1]) != "--biometric-main-window-probe"

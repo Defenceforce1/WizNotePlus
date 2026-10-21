@@ -1,6 +1,46 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current handoff: source work closed, delivery and user acceptance outstanding
+## Current delivery: independently signed user trial 186 is ready
+
+The newly prepared local **14.4.25, build14425.186** trial contains the current
+phase183/184 fixes, not the older frozen installer. The user authorized this
+next delivery step after phase185. Existing installed App, old signed test copies
+and frozen candidates are preserved; no installation or normal account launch.
+
+Only the separately named `WizNoteUserTrial` entry gets a fixed fresh standalone
+root using the existing storage validation/consent flow. Finder and inherited
+data-store overrides cannot fall back to the installed App store. The ordinary
+executable path is unchanged. Source BOM/CRLF and current executable code/constant
+sections are verified. Manual first launch prepares the new directory before the
+existing default-cancel consent; cancellation does not reach account bootstrap.
+Local storage isolation does not isolate cloud data after the user logs in.
+
+The new copy reuses the previously accepted development-signing identity,
+matching unexpired profile and minimum main entitlements. Its original46 signed
+components/rights are byte-preserved. Initial packaged offscreen testing aborted
+at Qt platform initialization because the compact bundle only contained cocoa;
+the supplied crash report matches that test executable/stack, before database
+opening. The failed log is retained, not a passing encryption test. A matching
+Qt6.11.3 arm64 offscreen test plugin was added and signed in this new copy only;
+strict recursive signing and existing main permissions remain unchanged, with
+48 Mach-O components total. No library-validation/system-protection weakening.
+
+Final package checks: **permanent decryption43/0 and routing1181/0, total1224/0**,
+plus two read-only startup-root checks, malformed probe code2 and a read-only
+native signing-prerequisite check. Actual Qt maps from the signed bundle, without
+developer framework overrides. No SecItem/authentication calls, fingerprint,
+normal account, trial account-store creation, real note, native physical-session
+or unrelated full-suite repetition. The trial's launcher validates the exact
+bundle/signature and refuses when an existing client/clipper port is in use;
+its check-only mode does not launch the App. No automated user session was run.
+
+The local App/launcher and concise trial instructions are delivered separately;
+only source and sanitized summaries go to GitHub, not binaries/profiles/raw crash
+reports. The phase185 delivery gap is now closed. The [acceptance steps](user-acceptance-existing-certificate.zh-CN.md)
+remain user-operated and unaccepted. Recovery OFF, automation PAUSED; no new
+routine approval loop or automatic restart while waiting for actual feedback.
+
+## Historical phase185 handoff (delivery gap superseded by phase186 above)
 
 Phase185 reconciles the reduced checklist with the latest evidence. No additional
 concrete source defect remains identified in that checklist; this is not complete
@@ -857,7 +897,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest handoff manifest is [checkpoints/2026-10-22-phase185.json](checkpoints/2026-10-22-phase185.json).
+The latest local-delivery manifest is [checkpoints/2026-10-22-phase186.json](checkpoints/2026-10-22-phase186.json).
+The preceding delivery-gap handoff is [phase185](checkpoints/2026-10-22-phase185.json).
 The latest focused functional integration is [phase184](checkpoints/2026-10-22-phase184.json).
 Permanent-decryption feedback is recorded in [phase183](checkpoints/2026-10-22-phase183.json).
 The existing-certificate scope decision is [phase182](checkpoints/2026-10-22-phase182.json).
