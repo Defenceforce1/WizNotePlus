@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase171",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "1828b803059b40238a9b22a61ad477e04adcf068",
+  "productSourceCommit": "1828b803059b40238a9b22a61ad477e04adcf068",
+  "sourceCheckpoint": "local-only-candidate-package-verification",
+  "phase": 171,
+  "accepted": true,
+  "explicitCandidateConsent": true,
+  "productCodeChanged": false,
+  "packaged": true,
+  "installed": false,
+  "binariesUploaded": false,
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "realAccount": false,
+  "realNotesChanged": false,
+  "realKeychainAccessed": false,
+  "securityTestsRun": false,
+  "fullNativeClientAccepted": false,
+  "fullProjectComplete": false,
+  "tests": {
+    "candidateForegroundChecks": 16,
+    "editorRuntimeChecks": 37,
+    "nativeTransferChecks": 89,
+    "mountedForegroundChecks": 16,
+    "failures": 0,
+    "repeatedMountedChecksRecordedSeparately": true,
+    "fullSuiteRerun": false,
+    "pdfVisualRerun": false,
+    "actualBundledQtVerified": true
+  },
+  "candidate": {
+    "file": "WizNotePlus-14.4.25-candidate-macOS-arm64.dmg",
+    "bytes": 158022788,
+    "sha256": "f97b56af6b9a0d34abe8b4edd021808e5b149fbc9ce6716d3a077ff4d1813bef",
+    "signing": "ad-hoc",
+    "notarized": false,
+    "exactRemoteSourceArchive": false,
+    "sourceSha256": "d2aed4e8aa826bbd02b657ff223ccc356a9eaaf35ca291b510af0a5910f9e4c2"
+  },
+  "appAudit": {
+    "arm64Components": 47,
+    "files": 1626,
+    "internalLinks": 73,
+    "matchingProjectResources": 1360,
+    "mainAndEngineCodeUnchanged": true,
+    "iconAndHelperPermissionsUnchanged": true
+  },
+  "notes": "Explicit user confirmation for one new local candidate. Final bundled Cocoa new-note/save/quit16,editor-runtime37,native-transfer89 pass; read-only mounted copy16 passes separately,not accumulated. Actual process mappings/dyld records use bundled Qt only,overrides cleared. All App bytes/links and five auxiliary payloads match,image checksum and normal detach pass. Local source2741 entries,140 explicit overlays,2740 records verified; not exact remote tree. Only public notes/checkpoint synchronized,no binary,source archive,raw evidence,user data or private reports uploaded. No install or normal account/auth/services/security tests. Prior source archive tool stopped on maintenance-file drift,checker text buffer and fast-process sampling gaps preserved privately; final checks corrected without product changes. Signing/first certificate service contract and broader real-client gates remain; Touch ID disabled,recovery OFF,automation PAUSED.",
+  "files": [
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 28177,
+      "bytes": 28177,
+      "sha256": "b70e657fc7ceb7d8e6253977d49864aa6fa9d84ed4e58b0edf2dae0f1126454c",
+      "gitBlobSha": "dfad4d53c5464b720ca9e90abc736a1a635226de"
+    },
+    {
+      "path": "docs/release-14.4.25-candidate.md",
+      "mode": "100644",
+      "chars": 1221,
+      "bytes": 2893,
+      "sha256": "36e3ea370c82e6cbf6f32e21f54533204ae4d8046af38fbdcb393df98607fbfd",
+      "gitBlobSha": "0e5ecd32462fa943d0755aebfaa6d18031e13539"
+    }
+  ]
+}

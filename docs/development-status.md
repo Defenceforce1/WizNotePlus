@@ -1,7 +1,27 @@
 # Personal-use development checkpoint: consistent new-note mode
 
-Development version: **14.4.25**. This is a source checkpoint, not an installer,
-release, installation, or completed system-authentication acceptance.
+Development version: **14.4.25**. A new personal-use candidate has been built
+locally with explicit consent. It is ad-hoc signed, unnotarized, not installed and
+not publicly distributed; system-authentication acceptance remains incomplete.
+
+## Local candidate delivery
+
+The final bundled application passes three affected synthetic workflows:
+actual Cocoa MainWindow/new-note/save/quit **16 checks**, editor runtime **37**,
+and actual temporary native-note transfer **89**, all with zero failures. Actual
+process mappings/load records confirm bundled Qt frameworks without SDK overrides.
+All 47 Mach-O components pass arm64/dependency and strict recursive-signature
+checks. Main and pinned-engine code sections match the accepted development
+inputs; the original icon and helper signing permissions are unchanged.
+
+The DMG is 158,022,788 bytes and passes image verification. A read-only mount
+matches all 1,626 App files/73 internal links and all five auxiliary payloads;
+the mounted copy passes the same limited 16-check workflow, recorded separately,
+and is normally unmounted. The local source snapshot has 2,741 entries, with 140
+explicit overlays and 2,740 source-record entries verified. It is not an exact
+remote-tree archive. No normal account, real notes, services, authentication,
+desktop capture, unrelated full suite, install or binary upload was used.
+See [candidate notes](release-14.4.25-candidate.md) for scope and installation advice.
 
 ## Latest focused fix
 
@@ -380,8 +400,8 @@ specific reason. Historical results are not silently counted as current acceptan
    contract. Normal biometric operations remain disabled; no service probing.
 3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
-   normal-account and separate-window/shared-modal combinations, the just-created
-   note branch, OS session/lock, native print/clipboard/
+   normal-account and separate-window/shared-modal combinations,
+   OS session/lock, native print/clipboard/
    chooser/capture/search/inspector, external process/manual conflict handling,
    representative attachment/encryption and new-candidate avatar update/reopen.
    Foreground permission covers only synthetic isolated data; normal-account
@@ -401,7 +421,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase169.json](checkpoints/2026-10-21-phase169.json).
+The latest packaging-only manifest is [checkpoints/2026-10-21-phase171.json](checkpoints/2026-10-21-phase171.json).
+Its product-source input is [phase170](checkpoints/2026-10-21-phase170.json); packaging did not change program source.
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).
