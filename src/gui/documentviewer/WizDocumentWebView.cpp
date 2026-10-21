@@ -1853,17 +1853,21 @@ void WizDocumentWebView::editorCommandExecuteInsertHtml(const QString& strHtml, 
 
 void WizDocumentWebView::editorCommandExecutePastePlainText()
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     QClipboard* clip = QApplication::clipboard();
-    if (!clip)
+    if (!self || !read.current() || !clip)
         return;
     const QMimeData* data = clip->mimeData();
-    if (!data)
+    if (!self || !read.current() || !data)
         return;
     QString text = data->text();
+    if (!self || !read.current()) return;
 
     QString base64Text = WizStringToBase64(text);
     QString js = QString("WizEditor.pasteB64('', '%1')").arg(base64Text);
-    page()->runJavaScript(js);
+    self->editorExecJs(js);
 }
 
 void WizDocumentWebView::editorCommandExecuteIndent()
@@ -2242,16 +2246,22 @@ void WizDocumentWebView::editorCommandExecuteInsertCheckList()
 
 void WizDocumentWebView::editorCommandExecuteInsertImage()
 {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
     static QString initPath = QDir::homePath();
     QStringList strImgFileList = QFileDialog::getOpenFileNames(0, tr("Image File"), initPath, tr("Images (*.png *.bmp *.gif *.jpg)"));
-    if (strImgFileList.isEmpty())
+    // The chooser's modal loop may lock, switch or close the source note.
+    if (!self || !read.current() || strImgFileList.isEmpty())
         return;
     //
     QString strImagePath = noteResourcesPath();
+    if (!self || !read.current()) return;
 
     CWizStdStringArray files;
     foreach (QString strImgFile, strImgFileList)
     {
+        if (!self || !read.current()) return;
         QString destImageFileName = strImagePath + ::WizGenGUIDLowerCaseLetterOnly()
                 + Utils::WizMisc::extractFileExt(strImgFile);
         //
@@ -2259,6 +2269,7 @@ void WizDocumentWebView::editorCommandExecuteInsertImage()
         {
             files.push_back(QUrl::fromLocalFile(destImageFileName).toString());
         }
+        if (!self || !read.current()) return;
         //
         initPath = Utils::WizMisc::extractFilePath(strImgFile);
     }
@@ -2267,7 +2278,9 @@ void WizDocumentWebView::editorCommandExecuteInsertImage()
     WizStringArrayToText(files, param, "*");
     //WizEditor.img.insertByPath('./img01.jpg');
     QString script = QString("WizEditor.img.insertByPath('%1');").arg(param);
-    page()->runJavaScript(script);
+    if (!self || !read.current()) return;
+    self->editorExecJs(script);
+    if (!self || !read.current()) return;
 
     WizAnalyzer& analyzer = WizAnalyzer::getAnalyzer();
     analyzer.logAction("insertImage");

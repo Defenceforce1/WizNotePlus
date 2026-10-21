@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase146",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "368da9cc91333843dd3bb4cae16e3c1fbb838249",
+  "sourceCheckpoint": "phase146",
+  "localRegression": {
+    "groups": 26,
+    "pass": 1687,
+    "fail": 0,
+    "seconds": 211.51,
+    "focusedRepeatedPass": 4765,
+    "routingChecks": 613,
+    "actualRetainedRuntimeMappingVerified": true,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "checks": 602,
+    "failures": 8,
+    "normalExit": true,
+    "sameInitialCorpusAfterFixPass": 602
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Only image chooser and plaintext-paste product method bodies changed; original command bytes and existing copy/dirty behavior preserved. Picker, clipboard and page collaborators are synthetic; actual local file copies, typed MIME and QObject ownership run. Already started copies are not rolled back. Native chooser, system clipboard and full normal-client authentication remain unaccepted.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 106765,
+      "gitBlobSha": "4fb6f4bcdadcd871d3705700d93ba5f8d31edd14",
+      "sha256": "a8d220d290484e54407773a58b5a99665e5aa7cd0ed474f7d55530705a61ef72"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 207340,
+      "gitBlobSha": "24f3784cadebcc4374a63da172c43b37959adbbd",
+      "sha256": "b2ab9a8f71a94f6a99d6e90757a54ad4de453f3fee785aa512b18b446672995c"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 22995,
+      "gitBlobSha": "cd1d2fa517dcb717e7835d387b1f9bb847cb69e5",
+      "sha256": "53a54644429f63283d87179c7b7494270f2fae1ee64f2c591b4dccdf9eb7bd9c"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 4078,
+      "gitBlobSha": "5207268b0c93843cd7e38d57e1d00e3168980b8a",
+      "sha256": "137b8ad9e8eb6a0982740256da355cb5e9a82eb965e6a495c0f4ee45633aa1d5"
+    }
+  ]
+}

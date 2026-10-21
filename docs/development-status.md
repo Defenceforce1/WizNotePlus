@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 145
+# Personal-use development checkpoint: phase 146
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -21,14 +21,20 @@ release, installation, or completed system-authentication acceptance.
 - Guarded queued paste/return, automatic-title replies and password/editor focus.
 - Synchronous toolbar formatting/insertion checks, preserving original command
   arguments, encoding and modification markers while refusing stale continuations.
+- Image-file chooser returns and plain-text paste now retain their original
+  document-read permit across modal/clipboard callbacks. A newer authorization
+  cannot revive an obsolete request. Already started file copies are not undone.
 
 ## Latest local verification
 
-Phase 145: **26/26 permitted regression groups; 1,663 PASS, 0 FAIL**.
-Six focused groups repeated five times: **4,645 PASS, 0 FAIL**.
-The routing corpus has 589 checks, including 44 authorized/locked caller pairs.
-The original-source control failed 9 assertions normally before the fix; the same
-489-check initial corpus passed after the fix. Failure evidence is retained locally.
+Phase 146: **26/26 permitted regression groups; 1,687 PASS, 0 FAIL** in 211.51s.
+Six focused groups repeated five times: **4,765 PASS, 0 FAIL**. Both runs verify
+the retained renderer runtime's actual loaded mapping. The routing corpus has
+613 checks; the original-source control failed 8 assertions normally in the
+initial 602-check corpus, which passed unchanged after the fix. A separate
+default-SDK compatibility run is retained, not substituted for retained-runtime
+acceptance. An initial missing helper declaration in the new test fixture was
+corrected before execution; the failed build is retained locally.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -38,8 +44,9 @@ results for those groups are not silently counted as current acceptance.
 
 ## Remaining bounded work
 
-1. Image/link and other selection-window continuations; clipboard/attachment and
-   find/selection lifecycles; synthetic-only screenshot orchestration.
+1. Link-window continuations; attachment clipboard and find/selection lifecycles;
+   synthetic-only screenshot orchestration. Native file-chooser and operating-
+   system clipboard acceptance remain distinct from the new synthetic checks.
 2. Actual navigation, initial read/snapshot/output and isolated main-window
    integration, including external-editor return/save behavior.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
@@ -54,7 +61,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase145.json](checkpoints/2026-10-21-phase145.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase146.json](checkpoints/2026-10-21-phase146.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

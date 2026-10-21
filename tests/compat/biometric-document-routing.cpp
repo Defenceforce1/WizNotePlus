@@ -74,7 +74,22 @@ struct MemoryClipboard {
     void seed(const QString& html){data=std::make_unique<QMimeData>();data->setHtml(html);data->setText("合成 clipboard");data->setData("application/x-synthetic","KEEP");writes=0;}
 };
 struct ClipboardApp {
-    static MemoryClipboard* clipboard(){static MemoryClipboard value;return &value;}
+    static inline int reads=0;static inline std::function<void()> duringAccess;
+    static MemoryClipboard* clipboard(){static MemoryClipboard value;++reads;const auto hook=duringAccess;if(hook)hook();return &value;}
+};
+struct PasteMimeData : QMimeData {
+    mutable std::function<void()> onText;
+    QVariant retrieveData(const QString& mime,QMetaType type) const override {
+        const auto result=QMimeData::retrieveData(mime,type);
+        if(mime=="text/plain"){auto hook=std::move(onText);onText={};if(hook)hook();}
+        return result;
+    }
+};
+struct PickerFiles {
+    static inline int copies=0;static inline std::function<void()> afterCopy;
+    static bool copy(const QString& from,const QString& to){
+        ++copies;const bool result=QFile::copy(from,to);const auto hook=afterCopy;if(hook)hook();return result;
+    }
 };
 struct ClipboardTimer {
     static inline std::vector<std::function<void()>> pending;
@@ -211,6 +226,9 @@ struct Web : InspectorShell {
     void editorCommandExecuteInsertPainter();void editorCommandExecuteInsertDate();void editorCommandExecuteInsertTime();void editorCommandExecuteRemoveFormat();
     void editorCommandExecuteFormatPainterOn(bool);void editorCommandExecuteFormatPainterOff();void editorCommandExecuteInsertCode();
     void replaceCurrent(QString,QString);void replaceAndFindNext(QString,QString,bool);void replaceAll(QString,QString,bool);
+    void editorCommandExecuteInsertImage();void editorCommandExecutePastePlainText();
+    QString imageResources;int resourcePathReads=0;std::function<void()> duringResourcePath;
+    QString noteResourcesPath(){++resourcePathReads;const auto hook=duringResourcePath;if(hook)hook();return imageResources;}
     void saveAsHtml();
     void saveAsPlainMarkdown(QString&,std::function<void(QString)>);
     void saveAsPlainText(QString&,std::function<void(QString)>);
@@ -311,6 +329,10 @@ struct ActionPage : ActionPageBase {
 };
 namespace QFileDialog {
 QString destination;std::function<void()> beforeReturn;int requests=0;
+QStringList images;int imageRequests=0;std::function<void()> beforeImagesReturn;
+QStringList getOpenFileNames(QWidget*,const QString&,const QString&,const QString&){
+    ++imageRequests;const auto result=images;auto hook=std::move(beforeImagesReturn);beforeImagesReturn={};if(hook)hook();return result;
+}
 QString getSaveFileName(QWidget*,const QString&,const QString&,const QString&){
     ++requests;auto action=std::move(beforeReturn);beforeReturn={};const auto result=destination;
     if(action)action();return result;
@@ -498,6 +520,7 @@ struct ToolbarAnalyzer {
 struct ToolbarDiagnostics {static inline QStringList messages;static void log(const QString& value){messages.push_back(value);}};
 struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime time(){return QTime(4,5,6);}};
 #include WIZNOTE_TOOLBAR_METHODS
+#include WIZNOTE_PICKER_METHODS
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -2308,6 +2331,71 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         auto* gone=new RoutingView(explorer);gone->show();gone->viewNote(a,false);submit(*gone);auto* goneWeb=gone->m_web;
         goneWeb->editorCommandExecuteFormatPainterOff();auto destroyedReply=std::move(goneWeb->sourcePage.scripts.back());goneWeb->sourcePage.scripts.clear();delete gone;
         destroyedReply(QVariant(false));check(ToolbarDiagnostics::messages.empty(),"format-painter reply after owner destruction never touches the closed note");
+        ToolbarAnalyzer::events.clear();
+    }
+    // Phase146: exact image-chooser and plaintext-paste methods. The chooser
+    // and clipboard are injected, while file copies and MIME text are real.
+    {
+        const auto bytes=[](const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();};
+        const QString image=root.filePath("chooser-source.png");QFile inputFile(image);if(!inputFile.open(QIODevice::WriteOnly))return 2;inputFile.write("synthetic opaque image bytes");inputFile.close();
+        const auto filesIn=[](const QString& dir){return QDir(dir).entryList(QDir::Files|QDir::NoDotAndDotDot);};
+        const auto prepare=[&](RoutingView& owner,const QString& dir){owner.show();owner.viewNote(a,false);submit(owner);QDir().mkpath(dir);owner.m_web->imageResources=dir+"/";owner.m_web->sourcePage.commands.clear();QFileDialog::images={image};QFileDialog::beforeImagesReturn={};};
+        RoutingView locked(explorer);const QString lockedDir=root.filePath("picker-locked");prepare(locked,lockedDir);locked.hide();
+        const int requests=QFileDialog::imageRequests;locked.m_web->editorCommandExecuteInsertImage();
+        check(QFileDialog::imageRequests==requests&&locked.m_web->resourcePathReads==0&&filesIn(lockedDir).empty()&&locked.m_web->sourcePage.commands.empty(),"locked image command never opens a picker reads resources copies or dispatches");
+        int scenario=0;
+        for(const QString transition:{"lock","reauthorize","note","page","document-epoch"}){
+            RoutingView owner(explorer);const QString dest=root.filePath("picker-transition-"+QString::number(scenario++));prepare(owner,dest);auto* web=owner.m_web;ReadPage replacement;
+            QFileDialog::beforeImagesReturn=[&]{if(transition=="note")owner.viewNote(b,false);else if(transition=="page")web->activePage=&replacement;else if(transition=="document-epoch")web->m_documentCallbacks.invalidate();else{owner.hide();if(transition=="reauthorize"){owner.show();submit(owner);}}};
+            web->editorCommandExecuteInsertImage();
+            const auto label=("picker return drops obsolete context: "+transition).toUtf8();
+            check(web->resourcePathReads==0&&filesIn(dest).empty()&&web->sourcePage.commands.empty(),label.constData());
+        }
+        RoutingView normal(explorer);const QString normalDir=root.filePath("picker-normal");prepare(normal,normalDir);auto* web=normal.m_web;
+        web->body="unsaved picker body";const auto savedTicket=web->documentCallbackTicket();const auto beforeSeq=web->m_contentChangeSequence;
+        web->editorCommandExecuteInsertImage();const auto names=filesIn(normalDir);
+        check(names.size()==1&&bytes(normalDir+"/"+names.value(0))=="synthetic opaque image bytes","authorized image chooser keeps original source bytes in a new note resource");
+        const QString expected="WizEditor.img.insertByPath('"+QUrl::fromLocalFile(normalDir+"/"+names.value(0)).toString()+"');";
+        check(web->sourcePage.commands==QStringList({expected})&&web->m_contentChangeSequence==beforeSeq,"authorized image insertion preserves URL script and existing dirty policy");
+        const int paths=web->resourcePathReads;web->sourcePage.commands.clear();QFileDialog::images.clear();web->editorCommandExecuteInsertImage();
+        check(web->resourcePathReads==paths&&web->sourcePage.commands.empty()&&filesIn(normalDir)==names,"cancelled image picker does not read resources or dispatch");
+        ClipboardApp::clipboard()->data->setText("合成 plain text\n<&>'");ClipboardApp::reads=0;normal.hide();web->editorCommandExecutePastePlainText();
+        check(ClipboardApp::reads==0&&web->sourcePage.commands.empty(),"locked plaintext paste refuses before any clipboard access");
+        normal.show();submit(normal);web->sourcePage.commands.clear();web->editorCommandExecutePastePlainText();
+        check(web->sourcePage.commands==QStringList({"WizEditor.pasteB64('', '"+WizStringToBase64("合成 plain text\n<&>'")+"')"}),"authorized plaintext paste preserves Unicode Base64 and exact legacy script");
+        web->sourcePage.commands.clear();ClipboardApp::duringAccess=[&]{normal.hide();normal.show();submit(normal);};web->editorCommandExecutePastePlainText();ClipboardApp::duringAccess={};
+        check(web->sourcePage.commands.empty(),"clipboard access cannot transfer an old paste to renewed authorization");
+        check(web->body=="unsaved picker body"&&WizDocumentCallbackEpoch::current(savedTicket)&&db.getCertPassword()==password,"picker and paste revocations preserve unsaved body save ticket and password cache");
+        // Extended matrix keeps real local copies and typed MIME conversion;
+        // hooks only deliver controlled lifecycle transitions, never OS input.
+        normal.show();submit(normal);web->sourcePage.commands.clear();
+        auto mime=std::make_unique<PasteMimeData>();mime->setText("typed synthetic payload");mime->onText=[&]{normal.hide();};
+        ClipboardApp::clipboard()->data=std::move(mime);web->editorCommandExecutePastePlainText();
+        check(web->sourcePage.commands.empty(),"MIME text conversion revocation prevents later paste dispatch");
+        normal.show();submit(normal);web->sourcePage.commands.clear();ClipboardApp::clipboard()->data.reset();web->editorCommandExecutePastePlainText();
+        check(web->sourcePage.commands.empty(),"empty MIME clipboard keeps the original no-op behavior");
+        ClipboardApp::clipboard()->seed("<b>not read</b>");ClipboardApp::clipboard()->data->setText("");web->editorCommandExecutePastePlainText();
+        check(web->sourcePage.commands==QStringList({"WizEditor.pasteB64('', '')"}),"valid empty plaintext retains its original empty paste script");
+        for(const QString operation:{"picker","clipboard-access","mime-text"}){
+            auto* gone=new RoutingView(explorer);prepare(*gone,root.filePath("picker-destroy-"+operation));QPointer<Web> weak(gone->m_web);
+            if(operation=="picker"){QFileDialog::beforeImagesReturn=[&]{delete gone;};weak->editorCommandExecuteInsertImage();}
+            else if(operation=="clipboard-access"){ClipboardApp::duringAccess=[&]{delete gone;};weak->editorCommandExecutePastePlainText();ClipboardApp::duringAccess={};}
+            else{auto value=std::make_unique<PasteMimeData>();value->setText("synthetic destroyed owner");value->onText=[&]{delete gone;};ClipboardApp::clipboard()->data=std::move(value);weak->editorCommandExecutePastePlainText();}
+            check(!weak,"picker or clipboard continuation tolerates actual QObject owner destruction");
+        }
+        RoutingView late(explorer);const QString lateDir=root.filePath("picker-resource-revoked");prepare(late,lateDir);
+        late.m_web->duringResourcePath=[&]{late.hide();};late.m_web->editorCommandExecuteInsertImage();late.m_web->duringResourcePath={};
+        check(filesIn(lateDir).empty()&&late.m_web->sourcePage.commands.empty(),"resource-path lookup rechecks before copying or inserting");
+        prepare(late,lateDir);PickerFiles::copies=0;QFileDialog::images={image,image};late.m_web->editorCommandExecuteInsertImage();
+        check(PickerFiles::copies==2&&filesIn(lateDir).size()==2&&late.m_web->sourcePage.commands.size()==1,"multi-image chooser retains one command and independent resource copies");
+        const int retained=filesIn(lateDir).size();late.m_web->sourcePage.commands.clear();QFileDialog::images={root.filePath("missing.png")};late.m_web->editorCommandExecuteInsertImage();
+        check(filesIn(lateDir).size()==retained&&late.m_web->sourcePage.commands==QStringList({"WizEditor.img.insertByPath('');"}),"failed local copy preserves the legacy empty insertion command without replacing resources");
+        RoutingView mid(explorer);const QString midDir=root.filePath("picker-mid-copy");prepare(mid,midDir);QFileDialog::images={image,image};PickerFiles::copies=0;
+        PickerFiles::afterCopy=[&]{mid.hide();mid.show();submit(mid);};mid.m_web->editorCommandExecuteInsertImage();PickerFiles::afterCopy={};
+        check(PickerFiles::copies==1&&filesIn(midDir).size()==1&&mid.m_web->sourcePage.commands.empty(),"revocation after a started copy stops the remaining files and script without deleting copied bytes");
+        RoutingView ordinary(explorer);prepare(ordinary,root.filePath("picker-ordinary"));ordinary.viewNote(c,false);ordinary.m_web->editorCommandExecuteInsertImage();
+        check(ordinary.m_web->sourcePage.commands.size()==1,"ordinary unencrypted note retains authorized image insertion");
+        ClipboardApp::duringAccess={};QFileDialog::beforeImagesReturn={};PickerFiles::afterCopy={};ClipboardApp::clipboard()->seed("<p>reset synthetic</p>");
         ToolbarAnalyzer::events.clear();
     }
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");

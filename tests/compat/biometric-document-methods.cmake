@@ -311,3 +311,28 @@ endforeach()
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-toolbar-methods.inc" "${toolbar_bodies}")
 set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS
     "WIZNOTE_TOOLBAR_METHODS=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-toolbar-methods.inc\"")
+
+# Synthetic picker and memory clipboard only; keep production command bodies.
+set(picker_bodies "")
+foreach(pair "void WizDocumentWebView::editorCommandExecuteInsertImage()|void WizDocumentWebView::editorCommandExecuteStartMarkup()"
+             "void WizDocumentWebView::editorCommandExecutePastePlainText()|void WizDocumentWebView::editorCommandExecuteIndent()")
+    string(REPLACE "|" ";" bounds "${pair}")
+    list(GET bounds 0 first)
+    list(GET bounds 1 last)
+    string(FIND "${read_text}" "${first}" begin)
+    string(FIND "${read_text}" "${last}" end)
+    if(begin LESS 0 OR end LESS begin)
+        message(FATAL_ERROR "Picker method boundary changed")
+    endif()
+    math(EXPR length "${end} - ${begin}")
+    string(SUBSTRING "${read_text}" ${begin} ${length} body)
+    string(REPLACE "WizDocumentWebView" "Web" body "${body}")
+    string(REPLACE "WizAnalyzer" "ToolbarAnalyzer" body "${body}")
+    string(REPLACE "QApplication::clipboard()" "ClipboardApp::clipboard()" body "${body}")
+    string(REPLACE "QClipboard*" "MemoryClipboard*" body "${body}")
+    string(REPLACE "QFile::copy(" "PickerFiles::copy(" body "${body}")
+    string(APPEND picker_bodies "${body}")
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-picker-methods.inc" "${picker_bodies}")
+set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS
+    "WIZNOTE_PICKER_METHODS=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-picker-methods.inc\"")
