@@ -21,12 +21,15 @@
 #include "utils/ExternalEditorLauncher.h"
 #include "utils/WizPathResolve.h"
 #include "gui/documentviewer/DocumentLoaderSaver.h"
+#include "gui/documentviewer/WizEditorInsertLinkForm.h"
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QHideEvent>
 #include <QLineEdit>
 #include <QLabel>
@@ -138,7 +141,21 @@ struct ReadPage : QObject {
 // the recording QObject above. document-async separately uses real WebEngine.
 #define QWebEnginePage ReadPage
 #include "share/WizDocumentUiQuery.h"
+#include "share/WizDocumentLinkRequest.h"
 #undef QWebEnginePage
+// The actual link form/URL fields and QDialog signals run offscreen. Hooks
+// deliver lifecycle transitions, not normal account or foreground input.
+struct RoutingLinkForm : WizEditorInsertLinkForm {
+    using WizEditorInsertLinkForm::WizEditorInsertLinkForm;
+    static inline std::function<void()> onSetUrl,onShow,onRaise,onActivate,onGetUrl;
+    static inline int shows=0,raises=0,activations=0;
+    void setUrl(const QString& text){WizEditorInsertLinkForm::setUrl(text);const auto hook=onSetUrl;if(hook)hook();}
+    QString getUrl(){const QString value=WizEditorInsertLinkForm::getUrl();const auto hook=onGetUrl;if(hook)hook();return value;}
+    void show(){++shows;QDialog::show();const auto hook=onShow;if(hook)hook();}
+    void raise(){++raises;const auto hook=onRaise;if(hook)hook();}
+    void activateWindow(){++activations;const auto hook=onActivate;if(hook)hook();}
+    static void reset(){onSetUrl={};onShow={};onRaise={};onActivate={};onGetUrl={};}
+};
 // Only the inspector collaborator records operations. The exact current base
 // lifecycle methods below run with real QWidget ownership/deferred destruction.
 struct InspectorPage {
@@ -227,6 +244,16 @@ struct Web : InspectorShell {
     void editorCommandExecuteFormatPainterOn(bool);void editorCommandExecuteFormatPainterOff();void editorCommandExecuteInsertCode();
     void replaceCurrent(QString,QString);void replaceAndFindNext(QString,QString,bool);void replaceAll(QString,QString,bool);
     void editorCommandExecuteInsertImage();void editorCommandExecutePastePlainText();
+    QPointer<RoutingLinkForm> m_editorInsertLinkForm;WizDocumentLinkRequest m_linkRequest;
+    WizDocumentReadPermit m_linkReadPermit;WizDocumentCallbackEpoch m_linkUiCallbacks;
+    void editorCommandExecuteLinkInsert();void on_editorCommandExecuteLinkInsert_accepted();
+    bool acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& t,const WIZDOCUMENTDATA& doc)const;
+    // Old string-based production relay has no meta-object in this shell.
+    // Forward its accepted signal to the same actual extracted method.
+    void connect(RoutingLinkForm* form,const char*,const char*){
+        QObject::connect(form,&QDialog::accepted,this,[this]{on_editorCommandExecuteLinkInsert_accepted();});
+    }
+    using QObject::connect;
     QString imageResources;int resourcePathReads=0;std::function<void()> duringResourcePath;
     QString noteResourcesPath(){++resourcePathReads;const auto hook=duringResourcePath;if(hook)hook();return imageResources;}
     void saveAsHtml();
@@ -243,7 +270,7 @@ struct Web : InspectorShell {
     // Older routing cases isolate consumers by substituting their save result.
     // DiskWeb below instead compiles the actual adapter and actual FIFO helper.
     virtual void trySaveDocumentForRead(const WIZDOCUMENTDATA& doc,bool force,Completion done){trySaveDocument(doc,force,std::move(done));}
-    void cancelLinkInsert(){} void cancelPdfExport(){} void clear(){body.clear();}
+    void cancelLinkInsert(); void cancelPdfExport(){} void clear(){body.clear();}
     void viewDocument(const WIZDOCUMENTDATA& doc,int){++loads;body="loaded:"+doc.strGUID;}
     void reloadNoteData(const WIZDOCUMENTDATA&){++reloads;body="reloaded";}
     void isPersonalDocumentChanged(){} void hasEditPermissionOnCurrentNoteChanged(){}
@@ -312,6 +339,9 @@ protected:
     void showEvent(QShowEvent*) override;void hideEvent(QHideEvent*) override;
 };
 #include WIZNOTE_ROUTING_METHODS
+bool Web::acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& t,const WIZDOCUMENTDATA& doc)const{
+    return WizDocumentCallbackEpoch::current(t)&&owner&&owner->note().strGUID==doc.strGUID&&owner->note().strKbGUID==doc.strKbGUID;
+}
 struct RawActionPageBase : QObject {
     int actions=0;
     void triggerAction(QWebEnginePage::WebAction,bool){++actions;}
@@ -521,6 +551,7 @@ struct ToolbarDiagnostics {static inline QStringList messages;static void log(co
 struct ToolbarClock {static QDate date(){return QDate(2020,2,3);}static QTime time(){return QTime(4,5,6);}};
 #include WIZNOTE_TOOLBAR_METHODS
 #include WIZNOTE_PICKER_METHODS
+#include WIZNOTE_LINK_METHODS
 }
 
 int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
@@ -2397,6 +2428,68 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(ordinary.m_web->sourcePage.commands.size()==1,"ordinary unencrypted note retains authorized image insertion");
         ClipboardApp::duringAccess={};QFileDialog::beforeImagesReturn={};PickerFiles::afterCopy={};ClipboardApp::clipboard()->seed("<p>reset synthetic</p>");
         ToolbarAnalyzer::events.clear();
+    }
+    // Phase147: actual link methods, actual helper, and actual QDialog fields
+    // with recording page replies. No foreground window or remote URL opens.
+    {
+        const auto reset=[&]{RoutingLinkForm::reset();ToolbarAnalyzer::events.clear();};
+        const auto prepare=[&](RoutingView& owner){owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->editing=true;owner.m_web->sourcePage.queryCommands.clear();owner.m_web->sourcePage.scripts.clear();owner.m_web->sourcePage.commands.clear();};
+        const auto reply=[](Web* web,const QVariant& value){auto pending=std::move(web->sourcePage.scripts);web->sourcePage.scripts.clear();for(auto& done:pending)done(value);};
+        RoutingView locked(explorer);prepare(locked);locked.hide();locked.m_web->editorCommandExecuteLinkInsert();
+        check(locked.m_web->sourcePage.queryCommands.empty()&&!locked.m_web->m_editorInsertLinkForm,"locked link insertion never creates a form or queries the hidden editor");reset();
+        RoutingView late(explorer);prepare(late);auto* web=late.m_web;
+        web->editorCommandExecuteLinkInsert();late.hide();late.show();submit(late);web->editing=true;const int shows=RoutingLinkForm::shows;reply(web,QString("https://example.invalid/old"));
+        check(RoutingLinkForm::shows==shows&&(!web->m_editorInsertLinkForm||!web->m_editorInsertLinkForm->isVisible()),"link query reply cannot borrow authorization renewed while it was pending");reset();
+        RoutingView normal(explorer);prepare(normal);web=normal.m_web;web->editorCommandExecuteLinkInsert();reply(web,QString(""));
+        check(web->m_editorInsertLinkForm&&web->m_editorInsertLinkForm->isVisible()&&web->m_editorInsertLinkForm->getUrl()=="http://","authorized empty link query opens the actual original form with HTTP placeholder");
+        web->m_editorInsertLinkForm->setUrl("example.invalid/path");web->m_editorInsertLinkForm->accept();
+        check(web->sourcePage.commands==QStringList({"WizEditor.link.setCurrentLink(\"http://example.invalid/path\");"}),"actual form accepted signal preserves default scheme and exact one-shot link command");
+        web->on_editorCommandExecuteLinkInsert_accepted();check(web->sourcePage.commands.size()==1,"repeated acceptance cannot submit the same link twice");reset();
+        RoutingView getter(explorer);prepare(getter);web=getter.m_web;web->editorCommandExecuteLinkInsert();reply(web,QString("https://example.invalid/"));
+        RoutingLinkForm::onGetUrl=[&]{getter.hide();getter.show();submit(getter);web->editing=true;};web->m_editorInsertLinkForm->accept();reset();
+        check(web->sourcePage.commands.empty(),"link URL extraction revocation suppresses subsequent insertion even after reauthorization");
+        // Extended link lifecycle matrix; keep saved DOM/cache independent.
+        for(const QString step:{"set-url","show","raise","activate"}){
+            RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="unsaved link fixture";const auto saveTicket=target->documentCallbackTicket();
+            target->editorCommandExecuteLinkInsert();const int logs=ToolbarAnalyzer::events.size();
+            const auto revoke=[&]{owner.revokeBiometricAccess();};
+            if(step=="set-url")RoutingLinkForm::onSetUrl=revoke;else if(step=="show")RoutingLinkForm::onShow=revoke;else if(step=="raise")RoutingLinkForm::onRaise=revoke;else RoutingLinkForm::onActivate=revoke;
+            reply(target,QString("https://example.invalid/source"));const int afterLogs=ToolbarAnalyzer::events.size();reset();
+            const auto label=("link presentation stops when authorization is revoked during "+step).toUtf8();
+            check(target->sourcePage.commands.empty()&&target->m_editorInsertLinkForm&&!target->m_editorInsertLinkForm->isVisible()&&afterLogs==logs,label.constData());
+            check(target->body=="unsaved link fixture"&&WizDocumentCallbackEpoch::current(saveTicket)&&db.getCertPassword()==password,"link window cancellation leaves unsaved DOM save ticket and cache intact");
+        }
+        for(const QString step:{"set-url","show","raise","activate","get-url","editing"}){
+            auto* owner=new RoutingView(explorer);prepare(*owner);auto* target=owner->m_web;QPointer<Web> weak(target);target->editorCommandExecuteLinkInsert();
+            const auto destroy=[&]{delete owner;};
+            if(step=="get-url"){reply(target,QString("https://example.invalid/"));RoutingLinkForm::onGetUrl=destroy;target->m_editorInsertLinkForm->accept();}
+            else if(step=="editing"){target->duringEditing=destroy;reply(target,QString("https://example.invalid/"));}
+            else{if(step=="set-url")RoutingLinkForm::onSetUrl=destroy;else if(step=="show")RoutingLinkForm::onShow=destroy;else if(step=="raise")RoutingLinkForm::onRaise=destroy;else RoutingLinkForm::onActivate=destroy;reply(target,QString("https://example.invalid/"));}
+            reset();check(!weak,"link callback tolerates actual owner destruction during UI or URL continuation");
+        }
+        RoutingView duplicate(explorer);prepare(duplicate);web=duplicate.m_web;web->editorCommandExecuteLinkInsert();web->editorCommandExecuteLinkInsert();
+        check(web->sourcePage.queryCommands.size()==2&&web->sourcePage.scripts.size()==2,"new pending link action supersedes rather than sharing an old lookup");
+        const int beforeShows=RoutingLinkForm::shows;reply(web,QString("https://example.invalid/latest"));
+        check(RoutingLinkForm::shows==beforeShows+1&&web->m_editorInsertLinkForm->getUrl()=="https://example.invalid/latest","only the latest pending link lookup presents a form");
+        const int queries=web->sourcePage.queryCommands.size(),raises=RoutingLinkForm::raises;web->editorCommandExecuteLinkInsert();
+        check(web->sourcePage.queryCommands.size()==queries&&RoutingLinkForm::raises==raises+1,"reopening the currently authorized visible link window only raises it");
+        web->m_editorInsertLinkForm->reject();web->on_editorCommandExecuteLinkInsert_accepted();
+        check(web->sourcePage.commands.empty()&&!web->m_linkReadPermit.current(),"real dialog rejection clears original permit and cannot later submit");
+        web->editorCommandExecuteLinkInsert();reply(web,QVariant(false));
+        check(!web->m_editorInsertLinkForm->isVisible()&&!web->m_linkRequest.current(web->page()),"invalid typed link query never opens the dialog");
+        for(const QString value:{QString(""),QString("http://"),QString("https://example.invalid/a?x='quote'&q=中文")}){
+            web->sourcePage.commands.clear();web->editorCommandExecuteLinkInsert();reply(web,QString(""));web->m_editorInsertLinkForm->setUrl(value);
+            const QString encoded=web->m_editorInsertLinkForm->getUrl();const auto body=QJsonDocument(QJsonArray{QUrl(encoded).toString()}).toJson(QJsonDocument::Compact);const QString expected=(value.isEmpty()||value=="http://")?QString("WizEditor.link.removeSelectedLink();"):"WizEditor.link.setCurrentLink("+QString::fromUtf8(body.mid(1,body.size()-2))+");";
+            web->m_editorInsertLinkForm->accept();check(web->sourcePage.commands==QStringList({expected}),"actual link form preserves removal and encoded URL JSON command semantics");
+        }
+        web->editorCommandExecuteLinkInsert();reply(web,QString("https://example.invalid/"));duplicate.hide();
+        check(!web->m_editorInsertLinkForm->isVisible()&&!web->m_linkReadPermit.current(),"actual document hide revocation closes an already open link form immediately");
+        duplicate.show();submit(duplicate);web->editing=true;web->editorCommandExecuteLinkInsert();reply(web,QString("https://example.invalid/"));web->sourcePage.commands.clear();
+        RoutingLinkForm::onGetUrl=[&]{web->editorCommandExecuteLinkInsert();};web->m_editorInsertLinkForm->accept();reset();
+        check(web->sourcePage.commands.empty()&&web->sourcePage.scripts.size()==1,"nested new link request during URL lookup supersedes the old accepted stack");
+        reply(web,QString("https://example.invalid/new"));web->m_editorInsertLinkForm->accept();
+        check(web->sourcePage.commands==QStringList({"WizEditor.link.setCurrentLink(\"https://example.invalid/new\");"}),"superseded acceptance does not cancel or consume the newer link request");
+        reset();
     }
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");

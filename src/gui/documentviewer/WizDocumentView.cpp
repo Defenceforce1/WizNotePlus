@@ -399,6 +399,8 @@ void WizDocumentView::hideEvent(QHideEvent* event)
     // Hiding cancels authentication, not a pending save/navigation completion.
     m_biometricGate.revoke();
     m_biometricPrepared = false;
+    m_web->cancelLinkInsert();
+    if (!self) return;
     if (m_biometricEnabled) m_web->closeDevTools();
     if (!self) return;
     m_passwordView->cancelBiometric();
@@ -1003,6 +1005,8 @@ void WizDocumentView::revokeBiometricAccess(bool closing)
     m_biometricGate.revoke();
     m_biometricPrepared = false;
     if (closing) m_accessClosing = true;
+    m_web->cancelLinkInsert();
+    if (!self) return;
     m_web->closeDevTools();
     if (!self) return;
     m_passwordView->cancelBiometric();

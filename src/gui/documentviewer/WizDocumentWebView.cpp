@@ -1886,41 +1886,72 @@ void WizDocumentWebView::editorCommandExecuteOutdent()
 
 void WizDocumentWebView::editorCommandExecuteLinkInsert()
 {
-    if (!isEnabled() || !isEditing() || !view() || !view()->noteLoaded()) return;
-    if (m_editorInsertLinkForm && m_editorInsertLinkForm->isVisible()) {
-        m_editorInsertLinkForm->raise();
-        m_editorInsertLinkForm->activateWindow();
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = noteReadPermit();
+    if (!read.current()) return;
+    if (!isEnabled()) return;
+    const bool editing = isEditing();
+    if (!self || !read.current() || !editing || !view() || !view()->noteLoaded()) return;
+    if (!self || !read.current()) return;
+    if (m_editorInsertLinkForm && m_editorInsertLinkForm->isVisible() && m_linkReadPermit.current()) {
+        const QPointer<WizEditorInsertLinkForm> form(m_editorInsertLinkForm);
+        const auto request = m_linkUiCallbacks.ticket();
+        form->raise();
+        if (self && form && read.current() && WizDocumentCallbackEpoch::current(request)) form->activateWindow();
         return;
     }
+    cancelLinkInsert();
+    if (!self || !read.current()) return;
+    const auto request = m_linkUiCallbacks.ticket();
+    m_linkReadPermit = read;
     if (!m_editorInsertLinkForm) {
         m_editorInsertLinkForm = new WizEditorInsertLinkForm(this);
-        connect(m_editorInsertLinkForm, SIGNAL(accepted()), SLOT(on_editorCommandExecuteLinkInsert_accepted()));
-        connect(m_editorInsertLinkForm, &QDialog::rejected, this, [this] { m_linkRequest.cancel(); });
+        connect(m_editorInsertLinkForm, &QDialog::accepted, this, &WizDocumentWebView::on_editorCommandExecuteLinkInsert_accepted);
+        connect(m_editorInsertLinkForm, &QDialog::rejected, this, [this] {
+            m_linkUiCallbacks.invalidate();
+            m_linkReadPermit = {};
+            m_linkRequest.cancel();
+        });
     }
-    const QPointer<WizDocumentWebView> self(this);
+    if (!self || !read.current() || !WizDocumentCallbackEpoch::current(request)) return;
     const auto ticket = m_documentCallbacks.ticket();
     const auto doc = view()->note();
-    m_linkRequest.query(this, page(), ticket, [self, ticket, doc](const QString& url) {
-        if (!self) return;
-        if (!self->acceptsDocumentCallback(ticket, doc) || !self->isEnabled()
-            || !self->isEditing() || !self->m_editorInsertLinkForm) {
+    m_linkRequest.query(this, page(), ticket, [self, ticket, doc, read, request](const QString& url) {
+        if (!self || !read.current() || !WizDocumentCallbackEpoch::current(request)) return;
+        if (!self->acceptsDocumentCallback(ticket, doc) || !self->isEnabled()) {
             self->m_linkRequest.cancel();
             return;
         }
-        self->m_editorInsertLinkForm->setUrl(url.isEmpty() ? "http://" : url);
+        const bool editing = self->isEditing();
+        if (!self || !read.current() || !WizDocumentCallbackEpoch::current(request)) return;
+        if (!editing || !self->m_editorInsertLinkForm) { self->m_linkRequest.cancel(); return; }
+        const QPointer<WizEditorInsertLinkForm> form(self->m_editorInsertLinkForm);
+        const auto current = [self, form, read, request] {
+            return self && form && read.current() && WizDocumentCallbackEpoch::current(request)
+                && self->m_editorInsertLinkForm == form;
+        };
+        if (!current()) return;
+        form->setUrl(url.isEmpty() ? "http://" : url);
+        if (!current()) return;
         // Preserve the existing application-modal UI, without a nested event
         // loop inside a WebEngine callback that can outlive its document.
-        self->m_editorInsertLinkForm->show();
-        self->m_editorInsertLinkForm->raise();
-        self->m_editorInsertLinkForm->activateWindow();
+        form->show();
+        if (!current()) return;
+        form->raise();
+        if (!current()) return;
+        form->activateWindow();
+        if (!current()) return;
         WizAnalyzer::getAnalyzer().logAction("linkInsert");
     });
 }
 
 void WizDocumentWebView::cancelLinkInsert()
 {
+    m_linkUiCallbacks.invalidate();
+    m_linkReadPermit = {};
     m_linkRequest.cancel();
-    if (m_editorInsertLinkForm) m_editorInsertLinkForm->reject();
+    const QPointer<WizEditorInsertLinkForm> form(m_editorInsertLinkForm);
+    if (form) form->reject();
 }
 
 void WizDocumentWebView::invalidateDocumentCallbacks()
@@ -1948,12 +1979,23 @@ void WizDocumentWebView::cancelPdfExport()
 
 void WizDocumentWebView::on_editorCommandExecuteLinkInsert_accepted()
 {
-    if (!m_editorInsertLinkForm || !isEnabled() || !isEditing()) {
+    const QPointer<WizDocumentWebView> self(this);
+    const auto read = m_linkReadPermit;
+    const auto request = m_linkUiCallbacks.ticket();
+    const QPointer<WizEditorInsertLinkForm> form(m_editorInsertLinkForm);
+    if (!read.current() || !form || !isEnabled()) {
         m_linkRequest.cancel();
         return;
     }
-    const QString code = m_linkRequest.takeCommand(page(), m_editorInsertLinkForm->getUrl());
-    if (!code.isEmpty()) page()->runJavaScript(code);
+    const bool editing = isEditing();
+    if (!self || !form || !read.current() || !WizDocumentCallbackEpoch::current(request)) return;
+    if (!editing) { self->m_linkRequest.cancel(); return; }
+    const QString url = form->getUrl();
+    if (!self || !form || !read.current() || !WizDocumentCallbackEpoch::current(request)) return;
+    const QString code = m_linkRequest.takeCommand(page(), url);
+    m_linkUiCallbacks.invalidate();
+    m_linkReadPermit = {};
+    if (!code.isEmpty() && self && read.current()) self->editorExecJs(code);
 }
 
 void WizDocumentWebView::editorCommandExecuteLinkRemove()

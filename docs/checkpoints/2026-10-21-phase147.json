@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase147",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "27fef33d4a4c62b1a72c93cc9cbafcfcfc317aaa",
+  "sourceCheckpoint": "phase147",
+  "localRegression": {
+    "groups": 26,
+    "pass": 1718,
+    "fail": 0,
+    "seconds": 212.11,
+    "focusedRepeatedPass": 4920,
+    "routingChecks": 644,
+    "actualRetainedRuntimeMappingVerified": true,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "checks": 619,
+    "failures": 3,
+    "normalExit": true,
+    "sameInitialCorpusAfterFixPass": 619
+  },
+  "expandedControl": {
+    "firstChecks": 644,
+    "firstFailures": 2,
+    "finalChecks": 644,
+    "finalFailures": 0
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Three WebView link method bodies, two state fields and DocumentView hide/revoke cancellation only. Original shared helper, URL normalization, modality, save state and unrelated product bytes preserved. Original dialog fields/QDialog signals and QObject destruction execute offscreen; page replies and presentation hooks are recording collaborators. Full native client/editor and system authentication remain unaccepted.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 108840,
+      "gitBlobSha": "330d24593760c0dda9ec8a45940ff872661a9706",
+      "sha256": "489dc34c1adab89105f35c656de170e588a5040e5e0b20ff536b2a1d0e1a5da4"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 14629,
+      "gitBlobSha": "29a4e6b0e9a596ca4e94122151eb684cab6bffaf",
+      "sha256": "4dd5e300aa68b63a9f59d2ce53908b01276db5d44a2295d5fc2554cd7d673a5f"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 50610,
+      "gitBlobSha": "8127c97b864948b196ec7118e74d64dc95e63a92",
+      "sha256": "968dff335fe6f2dc52de2fd0e261dcb045494c000a07c537d76fe05872231e0b"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 217772,
+      "gitBlobSha": "faa276bd8b58f8e533f81322f1c66d434d6d13bb",
+      "sha256": "fb4d29d1eb32dc7f0acc1eb2be2bded8de8687cb2f87617a228188e217b63905"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 24258,
+      "gitBlobSha": "92751dc482e4a47b0964e3fb7fb40c9b86614dba",
+      "sha256": "10afe6c71f7911da0bcd12bea0dfb6a5922b7db2f33827aa13b32a54fcb69efa"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 4416,
+      "gitBlobSha": "a96364e5f6303e5842f82ae2c1f8002403ba370c",
+      "sha256": "485b76c1b54468bd23a7b4849cfbe0a18b933fe34ee1b6478fa70f0731596f92"
+    }
+  ]
+}

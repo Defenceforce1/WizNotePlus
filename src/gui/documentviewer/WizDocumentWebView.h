@@ -239,6 +239,8 @@ private:
 
     QPointer<WizEditorInsertLinkForm> m_editorInsertLinkForm;
     WizDocumentLinkRequest m_linkRequest;
+    WizDocumentReadPermit m_linkReadPermit;
+    WizDocumentCallbackEpoch m_linkUiCallbacks;
     WizPdfExportRequest m_pdfExportRequest;
     WizPdfPageOperations m_pdfPageOperations;
     void invalidateDocumentCallbacks();
