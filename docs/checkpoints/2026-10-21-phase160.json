@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase160",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "1db83916f9d1a5e28b68338ac30ac82dddf8c07e",
+  "sourceCheckpoint": "phase160",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "pass": 1040,
+    "fail": 0,
+    "seconds": 12.37,
+    "routingChecks": 1040,
+    "newRoutingChecks": 15,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAsyncRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 1026,
+    "routingFailures": 1,
+    "normalExit": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "External watcher/save callbacks require a registered matching cache/note task; unknown paths cannot insert default tasks, save, acquire watches or report unrelated missing files. Copy registered origin rather than infer from current view/directory. Close watcher admission and disconnect/remove file watches before event-pumping save drain; late/already-posted notifications and repeated/reentrant drain are inert. Already queued saves, cache/task, conversion formats/flags/notify remain. Actual temporary atomic replacement triggers QFileSystemWatcher, rearming and real text importer/FIFO saver/encrypted archive; HTML and origin across view switch/relock checked. No external process launch; notification UI is recorded. All prior 1025 assertions/extraction rules and unrelated product bytes/encoding remain. Three method bodies extracted with class naming only. Queued-save drain does not guarantee unadmitted file changes or external edits not yet written. Final-file change/conflict handling and process launch/task-registration/shutdown admission remain bounded work; do not overwrite newer notes with unchanged stale cache. Not full MainWindow/system-session/quit acceptance.",
+  "files": [
+    {
+      "path": "src/utils/ExternalEditorLauncher.cpp",
+      "mode": "100644",
+      "bytes": 10915,
+      "chars": 10915,
+      "gitBlobSha": "c71184f398c697711ad31e9c71eeef03c1557189",
+      "sha256": "c31ed6942ed5a95508d5ae3cf915312b1e4c863c5c34103f8e5138bda86f18e0"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 361404,
+      "chars": 361287,
+      "gitBlobSha": "182d5b0bc90ef4ee99708a2da65167ff1c1b59d7",
+      "sha256": "b9682884f7387d37c0f81f50348e29640d062398bc2b07d9eb83de6486f5a3bd"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 40345,
+      "chars": 40345,
+      "gitBlobSha": "ea5eaa567301ffdce3f3c0a2b77218c69db69467",
+      "sha256": "1642d0f67c02590c8d695c94cda7b95608626e571fef75aeb33e58bd78253d1c"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 9987,
+      "chars": 9987,
+      "gitBlobSha": "4db1ce6372ef011afa107c09798ebe7be080e64a",
+      "sha256": "93e274e7b1fba512f2c6ce712865c08854dbcc890b2a5dd13ec16359691ea7b9"
+    }
+  ]
+}

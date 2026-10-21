@@ -590,3 +590,32 @@ endforeach()
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-producer-disk-methods.inc" "${producer_disk_bodies}")
 set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS
     "WIZNOTE_PRODUCER_DISK_METHODS=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-producer-disk-methods.inc\"")
+
+# Phase160: actual external watcher ownership, file conversion, saver and drain.
+set(watch_bodies "")
+foreach(pair "void ExternalEditorLauncher::waitForDone(|/*!"
+             "void ExternalEditorLauncher::onWatchedDocumentChanged(|/*!"
+             "void ExternalEditorLauncher::saveWatchedFile(|/*!")
+    string(REPLACE "|" ";" bounds "${pair}")
+    list(GET bounds 0 first)
+    list(GET bounds 1 last)
+    string(FIND "${external_text}" "${first}" begin)
+    if(begin LESS 0)
+        message(FATAL_ERROR "External watcher method missing: ${first}")
+    endif()
+    string(SUBSTRING "${external_text}" ${begin} -1 suffix)
+    string(FIND "${suffix}" "${last}" length)
+    if(length LESS 0)
+        message(FATAL_ERROR "External watcher method end missing: ${first}")
+    endif()
+    string(SUBSTRING "${suffix}" 0 ${length} body)
+    string(REPLACE "ExternalEditorLauncher" "WatchLauncher" body "${body}")
+    string(APPEND watch_bodies "${body}")
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-watch-methods.inc" "${watch_bodies}")
+set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS
+    "WIZNOTE_WATCH_METHODS=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-watch-methods.inc\"")
+string(FIND "${external_text}" "// Stop watcher admission before pumping" watcher_fixed)
+if(watcher_fixed GREATER -1)
+    set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_WATCHER_FIXED)
+endif()

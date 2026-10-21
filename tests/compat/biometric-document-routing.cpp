@@ -32,6 +32,9 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QFileSystemWatcher>
+#include <QSaveFile>
+#include "WizFileImporter.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QHideEvent>
@@ -667,6 +670,21 @@ public:
     void viewNoteInExternalEditor(RoutingView*,const WizExternalEditorData&,const WIZDOCUMENTDATAEX&);
 };
 #include WIZNOTE_EXTERNAL_METHOD
+// Phase160: actual local watcher/save/drain methods, no external process.
+struct WatchWindow {
+    int notifications=0;
+    void showBubbleNotification(const QString&,const QString&){++notifications;}
+};
+struct WatchLauncher : QObject {
+    QFileSystemWatcher storage{this};QFileSystemWatcher* m_externalEditorFileWatcher=&storage;
+    QMap<QString,WizExternalEditTask> m_externalEditorTasks;
+    WizDocumentSaverThread* m_watchedDocSaver=nullptr;
+    WatchWindow window;WatchWindow* m_window=&window;
+    void saveWatchedFile(const QString&);
+    void onWatchedDocumentChanged(const QString&);
+    void waitForDone();
+};
+#include WIZNOTE_WATCH_METHODS
 // Only delay the worker's start; queue, disk saves, failure tracking, fences and
 // waitForDone are the actual product implementation, not copied test methods.
 class HeldSaver final : public WizDocumentSaverThread {
@@ -3583,6 +3601,81 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         }
     }
     // End Phase159 producer-to-disk tests.
+    // Phase160 unknown watcher notification must be inert, not a new task/UI.
+    {
+        WizDocumentSaverThread saver(manager,nullptr);WatchLauncher launcher;launcher.m_watchedDocSaver=&saver;
+        launcher.onWatchedDocumentChanged(root.filePath("unregistered-and-absent.txt"));
+        check(launcher.m_externalEditorTasks.isEmpty()&&launcher.window.notifications==0&&!saver.isRunning(),"unregistered absent watcher notification never invents a task or reports an unrelated missing file");
+        launcher.waitForDone();
+    }
+#ifdef WIZNOTE_WATCHER_FIXED
+    {
+        const auto bytes=[](const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();};
+        const auto put=[](const QString& path,const QByteArray& text){QSaveFile f(path);return f.open(QIODevice::WriteOnly)&&f.write(text)==text.size()&&f.commit();};
+        const auto archiveHtml=[&](const WIZDOCUMENTDATAEX& note){QTemporaryDir temp;return temp.isValid()&&db.documentToHtmlFile(note,temp.path()+"/")?bytes(temp.filePath("index.html")):QByteArray();};
+        WIZDOCUMENTDATAEX watched,other;
+        if(!check(create("external-watched-origin",1,watched)&&create("external-other-origin",1,other),"watcher integration creates only two private encrypted notes"))return 1;
+        const QString directory=root.filePath("external-folder-not-a-note-guid");QDir().mkpath(directory);
+        const QString textFile=directory+"/watched.txt",htmlFile=directory+"/watched.html",unknown=directory+"/unknown.txt";
+        const WizExternalEditorData textEditor={"synthetic","never-run",{},2,1},htmlEditor={"synthetic","never-run",{},0,1};
+        const auto otherBefore=bytes(db.getDocumentFileName(other.strGUID));
+        {
+            WizDocumentSaverThread saver(manager,nullptr);WatchLauncher launcher;launcher.m_watchedDocSaver=&saver;put(unknown,"unregistered body");
+            launcher.saveWatchedFile(unknown);launcher.onWatchedDocumentChanged(unknown);
+            check(launcher.m_externalEditorTasks.isEmpty()&&launcher.storage.files().isEmpty()&&!saver.isRunning()&&launcher.window.notifications==0,"existing unknown file cannot insert a default task, start saving or acquire a watch");
+            launcher.m_externalEditorTasks.insert(unknown,{textEditor,watched,textFile});launcher.saveWatchedFile(unknown);launcher.onWatchedDocumentChanged(unknown);
+            check(launcher.m_externalEditorTasks.size()==1&&!saver.isRunning()&&launcher.storage.files().isEmpty(),"mismatched registered cache identity cannot retarget a file notification");
+            launcher.m_externalEditorTasks[unknown]={textEditor,WIZDOCUMENTDATAEX(),unknown};launcher.saveWatchedFile(unknown);launcher.onWatchedDocumentChanged(unknown);
+            check(!saver.isRunning()&&launcher.window.notifications==0,"registered task without a note identity is refused before format conversion");
+            launcher.waitForDone();launcher.waitForDone();launcher.saveWatchedFile(unknown);launcher.onWatchedDocumentChanged(unknown);
+            check(!launcher.m_watchedDocSaver&&!saver.isRunning()&&launcher.window.notifications==0,"repeated drain and late manual notifications are inert without a saver");
+        }
+        {
+            HeldSaver saver(manager,nullptr);WatchLauncher launcher;launcher.m_watchedDocSaver=&saver;
+            const QByteArray replacement=QString("外部 <new> & value\nsecond line").toUtf8();put(textFile,"old external text");
+            launcher.m_externalEditorTasks.insert(textFile,{textEditor,watched,textFile});
+            QObject::connect(&launcher.storage,&QFileSystemWatcher::fileChanged,&launcher,&WatchLauncher::onWatchedDocumentChanged);
+            const bool armed=launcher.storage.addPath(textFile);const auto before=archiveHtml(watched);
+            const bool replaced=put(textFile,replacement);bool entered=false;
+            const bool delivered=until([&]{if(!entered)entered=saver.entered.tryAcquire();return entered;});
+            check(armed&&replaced&&delivered&&launcher.storage.files().contains(textFile)&&archiveHtml(watched)==before,"real local atomic replacement delivers watcher notification, rearms file watch and only queues an actual save");
+            // Relock/switch the independent current view; a registered external
+            // edit is an existing save task, not a new body-read continuation.
+            RoutingView active(explorer);active.show();active.viewNote(other,false);submit(active);active.hide();
+            saver.release.release();launcher.waitForDone();
+            const auto saved=archiveHtml(watched);
+            check(!saver.rescued&&saved.contains(QString("外部&nbsp;&lt;new&gt;&nbsp;&amp;&nbsp;value<br>second&nbsp;line").toUtf8())&&bytes(db.getDocumentFileName(other.strGUID))==otherBefore,"actual text importer and saver retain registered note origin across active-note switch and relock");
+            check(bytes(textFile)==replacement&&launcher.m_externalEditorTasks.size()==1&&launcher.storage.files().isEmpty()&&WizZiwReader::isEncryptedFile(db.getDocumentFileName(watched.strGUID)),"watcher drain preserves cache/task and encrypted archive while removing active file admission");
+            launcher.onWatchedDocumentChanged(textFile);launcher.saveWatchedFile(textFile);launcher.waitForDone();
+            check(!saver.isRunning()&&launcher.window.notifications==0&&archiveHtml(watched)==saved,"late notifications after drain never restart saver, rearm watcher or rewrite archive");
+        }
+        {
+            HeldSaver saver(manager,nullptr);WatchLauncher launcher;launcher.m_watchedDocSaver=&saver;
+            const QByteArray html="<html><body>external HTML &amp; original</body></html>";put(htmlFile,html);
+            launcher.m_externalEditorTasks.insert(htmlFile,{htmlEditor,watched,htmlFile});launcher.saveWatchedFile(htmlFile);
+            const bool entered=saver.entered.tryAcquire(1,3000);const auto before=archiveHtml(watched);bool reentered=false;
+            QTimer::singleShot(0,&launcher,[&]{reentered=true;launcher.onWatchedDocumentChanged(htmlFile);launcher.saveWatchedFile(htmlFile);launcher.waitForDone();saver.release.release();});
+            launcher.waitForDone();
+            check(entered&&reentered&&!saver.rescued&&!saver.isRunning()&&archiveHtml(watched).contains(html),"save-first drain tolerates reentrant wait and queued watcher callback while actual HTML save completes");
+            check(bytes(htmlFile)==html&&launcher.m_externalEditorTasks.size()==1&&bytes(db.getDocumentFileName(other.strGUID))==otherBefore&&db.getCertPassword()==password,"HTML return-save retains original external bytes, other note and cached save credential");
+        }
+        {
+            HeldSaver saver(manager,nullptr);WatchLauncher launcher;launcher.m_watchedDocSaver=&saver;put(textFile,"will not be lost during drain");
+            launcher.m_externalEditorTasks.insert(textFile,{textEditor,watched,textFile});QObject::connect(&launcher.storage,&QFileSystemWatcher::fileChanged,&launcher,&WatchLauncher::onWatchedDocumentChanged);
+            launcher.storage.addPath(textFile);launcher.saveWatchedFile(textFile);const bool entered=saver.entered.tryAcquire(1,3000);
+            const int pending=launcher.m_externalEditorTasks.size();const bool queued=QMetaObject::invokeMethod(&launcher,[&]{launcher.onWatchedDocumentChanged(textFile);},Qt::QueuedConnection);
+            QTimer::singleShot(0,&launcher,[&]{saver.release.release();});launcher.waitForDone();app.processEvents();
+            check(entered&&queued&&!saver.rescued&&launcher.m_externalEditorTasks.size()==pending&&launcher.window.notifications==0&&launcher.storage.files().isEmpty(),"already-posted watcher delivery sees closed admission during actual event-pumping drain");
+            check(archiveHtml(watched).contains("will&nbsp;not&nbsp;be&nbsp;lost&nbsp;during&nbsp;drain")&&bytes(db.getDocumentFileName(other.strGUID))==otherBefore,"queued external save reaches its original encrypted archive without borrowing current view authorization");
+        }
+        {
+            WizDocumentSaverThread saver(manager,nullptr);WatchLauncher launcher;launcher.m_watchedDocSaver=&saver;
+            const QString absent=directory+"/registered-absent.txt";launcher.m_externalEditorTasks.insert(absent,{textEditor,watched,absent});launcher.onWatchedDocumentChanged(absent);
+            check(!saver.isRunning()&&launcher.window.notifications==1&&launcher.m_externalEditorTasks.size()==1,"genuinely registered missing file retains original notification behavior without saving blank content");launcher.waitForDone();
+        }
+    }
+#endif
+    // End Phase160 watcher tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

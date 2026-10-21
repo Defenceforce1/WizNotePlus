@@ -34,9 +34,16 @@ ExternalEditorLauncher::ExternalEditorLauncher(WizExplorerApp &app, QObject *par
 
 void ExternalEditorLauncher::waitForDone()
 {
-    // Stop m_docSaver thread
+    // Stop watcher admission before pumping the GUI during the save drain.
+    // Queued notifications may still arrive; they must not restart saving.
     auto saver = m_watchedDocSaver;
+    if (!saver) return;
     m_watchedDocSaver = nullptr;
+    if (m_externalEditorFileWatcher) {
+        disconnect(m_externalEditorFileWatcher, nullptr, this, nullptr);
+        const auto files = m_externalEditorFileWatcher->files();
+        if (!files.isEmpty()) m_externalEditorFileWatcher->removePaths(files);
+    }
     saver->waitForDone();
 }
 
@@ -163,6 +170,10 @@ void ExternalEditorLauncher::startExternalEditor(
 
 void ExternalEditorLauncher::onWatchedDocumentChanged(const QString& fileName)
 {
+    if (!m_watchedDocSaver) return;
+    const auto task = m_externalEditorTasks.constFind(fileName);
+    if (task == m_externalEditorTasks.cend() || task->cacheFileName != fileName
+        || task->docData.strGUID.isEmpty()) return;
     saveWatchedFile(fileName);
 
     QFileInfo watchedFile(fileName);
@@ -192,15 +203,19 @@ void ExternalEditorLauncher::onWatchedDocumentChanged(const QString& fileName)
  */
 void ExternalEditorLauncher::saveWatchedFile(const QString &fileName)
 {
+    auto* saver = m_watchedDocSaver;
+    if (!saver) return;
+    const auto found = m_externalEditorTasks.constFind(fileName);
+    if (found == m_externalEditorTasks.cend() || found->cacheFileName != fileName
+        || found->docData.strGUID.isEmpty()) return;
+    // Copy the registered origin; never infer a target from the active note or
+    // a directory name, and never default-insert a task for an unknown path.
+    const WizExternalEditTask task = found.value();
     QFileInfo changedFileInfo(fileName);
 
-    if ( !changedFileInfo.exists())
+    if (!changedFileInfo.isFile())
         return;
 
-    // Get note's data
-    QString noteGUID = changedFileInfo.absoluteDir().dirName();
-    const WizExternalEditTask& task = m_externalEditorTasks[fileName];
-    bool isUTF8 = task.editorData.UTF8Encoding == 0 ? false : true;
     bool isPlainText = task.editorData.TextEditor == 0 ? false : true;
     // Get modified document's text
     QString strHtml;
@@ -216,7 +231,7 @@ void ExternalEditorLauncher::saveWatchedFile(const QString &fileName)
     //FIXME: Windows client has encoding problem.
     QString indexFileName = Utils::WizMisc::extractFilePath(fileName) + "index.html";
     // Start saver thread
-    m_watchedDocSaver->save(task.docData, strHtml, indexFileName, 0, true);
+    saver->save(task.docData, strHtml, indexFileName, 0, true);
 }
 
 /*!
