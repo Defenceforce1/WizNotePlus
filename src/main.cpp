@@ -427,6 +427,16 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
 int main(int argc, char *argv[])
 {
+#if defined(WIZNOTE_NATIVE_TRANSFER_TESTS) && defined(Q_OS_MAC)
+    // The separately named signed fixture must never reach account bootstrap,
+    // including a Finder launch, malformed flag, or unrelated diagnostic flag.
+    if (QByteArray(argv[0]).endsWith("/WizNoteTouchIdTest")
+        || (argc == 2 && (QByteArray(argv[1]) == "--touch-id-system-probe"
+                         || QByteArray(argv[1]) == "--touch-id-prerequisite-probe"))) {
+        extern int wizTouchIdSystemProbe(int, char**);
+        return wizTouchIdSystemProbe(argc, argv);
+    }
+#endif
     if (argc == 2 && QByteArray(argv[1]) == "--check-public-https") {
         QCoreApplication diagnostic(argc, argv);
         return WizNetworkSecurity::checkPublicHttps();

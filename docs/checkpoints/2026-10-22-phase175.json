@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase175",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "930192c472c8e236ceb7ef2d1c68a9bb2245840a",
+  "sourceCheckpoint": "isolated-signed-main-native-touch-id",
+  "phase": 175,
+  "accepted": true,
+  "tests": {
+    "incrementalBuildSucceeded": true,
+    "nativeTouchIdKeychainAndProductionWidgetChecks": 10,
+    "nativeFailures": 0,
+    "ownedSyntheticItemDeletedAndAbsenceConfirmed": true,
+    "associatedUnsignedRefusalChecks": 36,
+    "associatedFailures": 0,
+    "runtimePrerequisitePassed": true,
+    "noArgumentAndMalformedStartupRefused": true,
+    "arm64Components": 47,
+    "architectureDependencyFailures": 0,
+    "strictRecursiveSignatureValid": true,
+    "actualBundledQtVerified": true,
+    "initialLaunchPrechecksAborted": 3,
+    "initialFailureResolvedInIndependentCopy": true,
+    "unrelatedFullSuiteRun": false
+  },
+  "independentDevelopmentSignedMainPrepared": true,
+  "normalAppModified": false,
+  "realNotesAccessed": false,
+  "realAccountStarted": false,
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "installed": false,
+  "binariesUploaded": false,
+  "fullNativeClientAccepted": false,
+  "fullProjectComplete": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "notes": "Explicit separate-main/synthetic native-authentication grant. Actual development-signed main executable, matching profile and minimal main entitlements; existing engine-helper rights and OS protections retained. Random in-memory synthetic certificate/password, unique exact scope, real native backend and default async widget, not a mock provider. Native chain10/0,owned item deleted and absence confirmed; associated unsigned refusal36/0. User notified before fingerprint request. Actual runtime uses signed bundled Qt only. Initial three prechecks failed before main with build SDK rpath/Team mismatch; only independent copy corrected to bundled rpath and re-signed,final runs pass,no signature enforcement bypass. No-argument/malformed fixture launch refuses normal bootstrap. No installed/normal App,frozen candidate or real notes/accounts touched,no install,DMG or binary/profile/Team/raw-log upload. Full main-window/cancel/lock/multiwindow acceptance remains distinct; normal biometric management disabled,recovery OFF,automation PAUSED; authoritative first-certificate service contract remains.",
+  "files": [
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "chars": 23973,
+      "bytes": 24241,
+      "sha256": "d94b2cde8d1a38ba6ba69bc6927f4883036874aeb69c74ca40b18b46bdb4cd4b",
+      "gitBlobSha": "27f02e22ef73af49edb6ed4f5545380a2d785d24"
+    },
+    {
+      "path": "src/CMakeLists.txt",
+      "mode": "100644",
+      "chars": 30042,
+      "bytes": 30042,
+      "sha256": "6aabd0cab2e02321a33d815b3d4c67323f06c5e5c0613c0715465b8b81d9d300",
+      "gitBlobSha": "ccb4e96ec59a42ed231054bfcebc2eaee0d53005"
+    },
+    {
+      "path": "tests/compat/touch-id-system.mm",
+      "mode": "100644",
+      "chars": 6538,
+      "bytes": 6654,
+      "sha256": "dc8ac36d085b08a41fe2c85f465c6bd2c921111add3fea19b6059ac0b6407fd5",
+      "gitBlobSha": "683b9f75371c5804646ef9376b36e02fef83d5fd"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 33748,
+      "bytes": 33768,
+      "sha256": "aabcdb74da42cf624d0b42214011ae458979ac38ddec2f4b065563e1e14e70a4",
+      "gitBlobSha": "a53fbc6f78ec4786de69e3d32c5992d1f54ffe07"
+    }
+  ]
+}

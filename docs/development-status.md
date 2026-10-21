@@ -1,8 +1,44 @@
-# Personal-use development checkpoint: PDF layout labels
+# Personal-use development checkpoint: signed Touch ID test
 
 Development version: **14.4.25**. A new personal-use candidate has been built
 locally with explicit consent. It is ad-hoc signed, unnotarized, not automatically installed and
 not publicly distributed; system-authentication acceptance remains incomplete.
+
+## Signed main-client Touch ID test completed
+
+With explicit user permission, a separate self-contained Apple Development-signed
+main-client test App was prepared locally with the matching development profile.
+It uses the current incremental executable/resources and the frozen candidate's
+pinned frameworks. Only the new copy is signed/renamed. Minimum main entitlements,
+the existing engine-helper rights and system protections are retained. All 47
+arm64 components pass dependency and strict recursive-signature checks; main and
+pinned-engine code sections match their intended inputs.
+
+The opt-in interactive route runs before account bootstrap. Its uniquely named
+executable refuses normal startup even with no arguments or malformed options.
+It creates only a random in-memory certificate/password and unique synthetic
+scope. The actual production native backend and default asynchronous unlock
+widget use the system data-protection keychain: create-only enrollment, duplicate
+refusal, native authentication, one-shot credential consumption/context checks,
+exact owned-item deletion and absence confirmation pass **10 checks, 0 failures**.
+The user was notified before the fingerprint request. The process exits normally;
+actual mappings confirm Qt comes from this signed App without SDK overrides.
+The related unsigned/refusal self-test passes **36/0**; no unrelated suite ran.
+
+Three initial launch prechecks aborted because the replacement executable still
+contained the build SDK rpath, causing a Team-ID mismatch for QtXml. The user's
+crash report identifies that same isolated process. Only the new copy's rpath was
+corrected to bundled frameworks and it was re-signed; the final prerequisite and
+interactive runs pass, and no-argument/malformed-option refusal is verified.
+Initial failures remain in local evidence; no signature enforcement was disabled.
+
+The test App/profile/Team details, raw logs and synthetic material remain local.
+No existing App, frozen candidate, real notes or normal account was modified or
+started. No binary upload, install or new DMG. This accepts the actual signed
+main-binary native-backend/widget chain, **not** complete main-window note unlock,
+cancel/lock-screen/multiwindow or real-account acceptance. Normal enrollment stays
+disabled; the first compatible certificate-registration service contract is still
+external. Recovery stays OFF and automation PAUSED.
 
 ## Latest source-only UI adjustment
 
@@ -41,9 +77,9 @@ are not independently inferred from build success.
 
 The installed/main candidate remains untouched and ad-hoc signed. No normal app,
 real note, biometric prompt or data-protection keychain credential was opened.
-This is signing/provisioning setup, not native Touch ID or complete-client
-acceptance. Next, a separately scoped signed main-client test artifact and actual
-Touch ID/data-protection-keychain verification are still needed. Normal biometric
+This was signing/provisioning setup, not native Touch ID or complete-client
+acceptance. The separately scoped main-binary native-backend/widget test is now
+recorded above; broader main-window acceptance remains distinct. Normal biometric
 management remains disabled; the authoritative first-certificate registration
 service contract is a separate unresolved gate. No main app was repackaged or installed.
 
@@ -438,9 +474,11 @@ specific reason. Historical results are not silently counted as current acceptan
    initialization/resumption, save receipt/frontier/quit coordination, external
    watcher/retry, export controllers and disabled biometric management. Their
    method-level stages are closed; this does not equal whole-client acceptance.
-2. **External prerequisites:** user-configured lawful signing for native Touch ID
-   and an authoritative compatible first-certificate-registration service
-   contract. Normal biometric operations remain disabled; no service probing.
+2. **External prerequisite:** an authoritative compatible first-certificate
+   registration service contract. Development signing/profile configuration and
+   the focused native-backend/widget Touch ID chain are now accepted above;
+   normal biometric operations remain disabled pending normal-client integration
+   acceptance. No service probing.
 3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
    normal-account and separate-window/shared-modal combinations,
@@ -448,7 +486,8 @@ specific reason. Historical results are not silently counted as current acceptan
    chooser/capture/search/inspector, external process/manual conflict handling,
    representative attachment/encryption and new-candidate avatar update/reopen.
    Foreground permission covers only synthetic isolated data; normal-account
-   operations, actual screen capture and native authentication remain outside it.
+   operations and actual screen capture remain outside it. The additional explicit
+   native-authentication grant was used only for the isolated synthetic test above.
 4. **Retained limitations:** historical intermittent offline account-chooser
    fixture failure is not explained (the normal account override stays disabled);
    special-filename legacy HTML resource URL behavior and crash/concurrent-writer
@@ -464,7 +503,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest setup manifest is [checkpoints/2026-10-21-phase174.json](checkpoints/2026-10-21-phase174.json).
+The latest test manifest is [checkpoints/2026-10-22-phase175.json](checkpoints/2026-10-22-phase175.json).
+The signing setup is [phase174](checkpoints/2026-10-21-phase174.json).
 The UI change remains [phase172](checkpoints/2026-10-21-phase172.json).
 The frozen local candidate is [phase171](checkpoints/2026-10-21-phase171.json),
 whose product-source input remains [phase170](checkpoints/2026-10-21-phase170.json).
