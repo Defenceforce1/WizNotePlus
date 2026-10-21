@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 157
+# Personal-use development checkpoint: phase 158
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -74,37 +74,31 @@ release, installation, or completed system-authentication acceptance.
 
 ## Latest local verification
 
-Successful-load Bool notifications now act only as wakeup hints. Document
-navigation uses a fresh non-secret query marker, preserving its local file path
-and stored HTML. Before setup, verify the native page URL and the renderer's
-actual location/complete state under the current read permit, weak host/page,
-opening, loader sequence, mode and independent proof attempt. Duplicate hints
-cannot consume proof twice. A page completed while locked can start its not-yet-
-submitted setup after unlock, without another extraction/navigation. Old proof
-callbacks cannot borrow new authorization. The existing submitted-setup observer
-continues to handle later readiness without replaying initialization.
+The verified-page initializer now explicitly reports whether JavaScript was
+submitted and which preparation attempt is still current. If type, keywords,
+spelling or style preparation revokes access before submission, preserve only
+that unchanged renderer's proof continuation. A new authorization must reprove
+the page before preparing/submitting again. Synchronous reauthorization queues
+recovery after the obsolete preparation stack ends. Already submitted JS never
+replays; a newer setup, navigation, page, opening, loader request or mode cannot
+be taken over by an older interrupted preparation. Save work and dirty DOM remain.
 
-Native load-start retires renderer proof and may rearm only the same originating
-requested URL. This preserves same-URL refresh/recovery while rejecting foreign
-navigation and prior renderer callbacks. The handwriting-return loader now arms
-the same verifier and stops on preparation failure. Explicit clear retires pending
-proof/reload continuation; save tasks and dirty DOM are not cleared.
+Phase 158 uses **2 incremental/associated groups: 1104 PASS, 0 FAIL in 14.03s**,
+one final run. Routing has 991 checks (25 new); native async retains 113. The
+original-source 969-check control fails 3 assertions normally; its assertion
+corpus remains in the final run. Old 966 routing assertions and native sources
+are unchanged. Extraction only adapts the explicit setup return/signature
+boundary; compiled source bodies and setup JS literals/serializers are verified.
+The retained renderer's actual loaded mapping is verified. No full-suite rerun.
 
-Phase 157 uses **2 incremental/associated groups: 1079 PASS, 0 FAIL in 13.70s**,
-one final run. Routing has 966 checks (14 new); native async has 113 (7 new).
-The original-source 955-check control fails one assertion normally. Old routing
-assertions are retained except one URL assertion now compares the unchanged file
-path while allowing the intentional query marker; old 106 native assertions and
-prior extraction rules are unchanged. A test-only Qt include-scope build failure
-was corrected. An earlier passing run before reload review is retained separately.
-Setup JS literals/serializers are unchanged; the retained renderer mapping is verified.
-
-Native local HTML tests cover Unicode/spaces in filenames, exact marker loading,
-different nonce rejection, relative CSS, equation fragments, same-URL reload and
-source bytes unchanged. Routing uses current methods/Qt timers and temporary DB,
-but navigation/dispatch/metadata/plugins are recording collaborators. This is not
-full WizEditor/handwriting UI/main-window or complete PDF-layout acceptance; no
-installer, real account, keychain or system authentication was exercised.
+The isolated chain now covers verified page, interrupted preparation, fresh page
+proof, one JS submission and readiness/find/plugin delivery. A related test runs
+the actual snapshot-save producer during relock: one save handoff completes,
+newer dirty DOM/cache remain, and an old text export is refused without replacing
+its prior destination. That handoff is not a FIFO disk-save acknowledgement.
+Qt lifetime/timers, real temporary file writes and DB participate; renderer
+navigation/metadata/setup dispatch/plugins/snapshot transport are collaborators.
+This is not full WizEditor/main-window, saver-to-disk or complete PDF acceptance.
 
 These are isolated local tests, not GitHub CI results or complete native UI /
 system-authentication acceptance. Some page, diagnostic, clipboard-operation and
@@ -123,8 +117,10 @@ specific reason. Historical results are not silently counted as current acceptan
    worker-to-native-editor integration remain distinct checks. Submitted-setup
    readiness and locked-completion recovery are implemented with current-renderer
    proof. A Bool still has no intrinsic event provenance; it cannot authorize setup
-   on its own. Revocation during setup metadata preparation before script submission,
-   native handwriting return and full initialization integration remain distinct checks.
+   on its own. The bounded initialization method-level recovery stages are now
+   implemented, including pre-submission metadata interruption. Native handwriting
+   return, actual saver-to-host/output and full initialization integration remain
+   separate from this isolated chain.
 3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
 4. Actual system-session/lock notifications and save-first whole-application quit.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
@@ -137,7 +133,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase157.json](checkpoints/2026-10-21-phase157.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase158.json](checkpoints/2026-10-21-phase158.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

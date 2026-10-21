@@ -380,7 +380,12 @@ struct Web : InspectorShell {
     void setupStage(const QString& stage){setupStages.push_back(stage);const auto hook=duringSetup;if(hook)hook(stage);}
     QString getNoteType(){const auto value=setupType;setupStage("type");return value;}
     QString getHighlightKeywords(){const auto value=setupKeywords;setupStage("keywords");return value;}
-    void onEditorLoadFinished(bool);void setEditorMode(int);
+#ifdef WIZNOTE_SETUP_SUBMISSION_RESULT
+    bool onEditorLoadFinished(bool,WizDocumentCallbackEpoch::Ticket* =nullptr);
+#else
+    void onEditorLoadFinished(bool);
+#endif
+    void setEditorMode(int);
     void enableEditor(bool editing){setupStage(editing?"enable":"disable");}
     // End Phase152 setup declarations.
     // Phase156 readiness recovery never replays dispatched setup JavaScript.
@@ -3409,6 +3414,56 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         SetupPlugins::reset();InitialOps::reset();
     }
     // End Phase157 page tests.
+    // Phase158 verified page -> interrupted metadata -> submission -> readiness.
+    {
+        QTemporaryDir files;const QString html=files.filePath("metadata.html");
+        const auto prepare=[&](RoutingView& owner){InitialOps::reset();SetupPlugins::reset();WizSaveUnicodeTextToUtf8File(html,"<html><body>synthetic metadata preparation</body></html>",true);owner.m_web->useActualLoader=true;owner.show();owner.viewNote(a,true);submit(owner);auto* target=owner.m_web;target->onDocumentReady(a.strKbGUID,a.strGUID,html,0,target,target->requestedInitialSequence);target->sourcePage.address=target->initialUrls.last();target->onEditorPageLoadHint(true);};
+        const auto take=[](Web* target){auto done=std::move(target->sourcePage.scripts.front());target->sourcePage.scripts.erase(target->sourcePage.scripts.begin());return done;};
+        RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->body="unsaved preparation DOM";target->m_bContentsChanged=true;
+        target->duringSetup=[&](const QString& stage){if(stage=="type")owner.hide();};
+        bool waiting=until([&]{return !target->sourcePage.scripts.empty();});auto proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.empty()&&bool(target->m_editorPageResume),"verified page keeps a retryable proof context when authorization is revoked before initializer submission");
+        target->duringSetup={};owner.show();submit(owner);waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.size()==1&&target->initialLoadCalls==1&&target->initialLoaderRequests==1,"fresh proof after metadata interruption submits one initializer without re-extraction or navigation");
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});auto ready=waiting?take(target):std::function<void(const QVariant&)>();if(ready)ready("ready");
+        check(waiting&&SetupPlugins::notifications==1&&target->finds.size()==1&&target->body=="unsaved preparation DOM"&&target->m_bContentsChanged,"verified-page recovery completes initial find/plugin delivery while preserving dirty editor DOM");
+        for(const QString stage:{"keywords","spell","css"})for(const bool synchronous:{false,true}){
+            RoutingView interrupted(explorer);prepare(interrupted);target=interrupted.m_web;bool revoked=false;
+            const auto revoke=[&]{if(revoked)return;revoked=true;interrupted.hide();if(synchronous){interrupted.show();submit(interrupted);}};
+            if(stage=="spell")target->m_app.settings.during=revoke;else if(stage=="css")SetupStyles::after=revoke;else target->duringSetup=[&](const QString& at){if(at==stage)revoke();};
+            waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+            check(waiting&&revoked&&target->sourcePage.commands.empty()&&bool(target->m_editorPageResume),"pre-submission keyword/spelling/style revocation preserves retry without executing stale initializer JS");
+            target->duringSetup={};target->m_app.settings.during={};SetupStyles::after={};if(!synchronous){interrupted.show();submit(interrupted);}
+            waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+            check(waiting&&target->sourcePage.commands.size()==1&&target->initialLoadCalls==1&&target->initialLoaderRequests==1,"hidden or synchronous metadata reauthorization rechecks the current page then submits only once");
+        }
+        for(const QString change:{"page","navigation","sequence","mode","opening"}){
+            RoutingView changed(explorer);prepare(changed);target=changed.m_web;ReadPage replacement;
+            target->duringSetup=[&](const QString& at){if(at!="type")return;changed.hide();if(change=="page")target->activePage=&replacement;else if(change=="navigation")target->invalidateDocumentCallbacks();else if(change=="sequence")target->m_loadSequence.next();else if(change=="mode")target->m_currentEditorMode=1;else ++changed.m_openSequence;};
+            waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");target->duringSetup={};changed.show();submit(changed);
+            check(waiting&&!target->m_editorPageResume&&target->sourcePage.commands.empty(),"metadata interruption cannot revive proof after page/navigation/request/mode/opening replacement");
+        }
+        RoutingView superseded(explorer);prepare(superseded);target=superseded.m_web;
+        target->duringSetup=[&](const QString& at){if(at!="type")return;target->duringSetup={};superseded.hide();superseded.show();submit(superseded);target->onEditorLoadFinished(true);};
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&target->sourcePage.commands.size()==1&&!target->m_editorPageResume,"reentrant newer submitted setup owns the page and prevents the old preparation from restoring its proof");
+        auto* destroyed=new RoutingView(explorer);prepare(*destroyed);target=destroyed->m_web;QPointer<Web> weak(target);target->duringSetup=[&](const QString& at){if(at=="type")delete destroyed;};
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        check(waiting&&!weak,"owner destruction during metadata preparation safely ends page-proof completion without restoring stale state");
+
+        RoutingView saving(explorer);prepare(saving);target=saving.m_web;target->body="newer unsaved DOM";target->m_bContentsChanged=true;int saveDone=0;bool saveOk=false;
+        target->saveEditingViewDocument(saving.note(),true,[&](const QVariant& value){++saveDone;saveOk=value.userType()==QMetaType::Bool&&value.toBool();});++target->m_contentChangeSequence;
+        QString output=files.filePath("retained.txt");WizSaveUnicodeTextToUtf8File(output,"previous output",false);target->defer=true;int outputDone=0;target->saveAsPlainText(output,[&](QString){++outputDone;});
+        auto outputSaved=std::move(target->pending.back());target->pending.clear();target->duringSetup=[&](const QString& at){if(at=="type")saving.hide();};
+        waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");
+        const QString savedHtml="<html><body>synthetic in-flight save</body></html>";target->m_pdfPageOperations.deliver(QVariantMap{{"ok",true},{"changed",true},{"html",savedHtml}});outputSaved(true);QString oldOutput;WizLoadUnicodeTextFromFile(output,oldOutput);
+        check(waiting&&saveDone==1&&saveOk&&target->initialSaveHandoffs==1&&target->m_currentNoteHtml==savedHtml&&target->m_bContentsChanged&&target->body=="newer unsaved DOM","actual snapshot-save producer finishes one handoff during metadata relock while preserving newer dirty DOM and owned cache");
+        check(outputDone==0&&oldOutput=="previous output","old plain-text export remains refused after metadata relock and preserves previous destination despite completed save result");
+        target->duringSetup={};saving.show();submit(saving);waiting=until([&]{return !target->sourcePage.scripts.empty();});proof=waiting?take(target):std::function<void(const QVariant&)>();if(proof)proof("ready");waiting=until([&]{return !target->sourcePage.scripts.empty();});ready=waiting?take(target):std::function<void(const QVariant&)>();if(ready)ready("ready");
+        check(waiting&&SetupPlugins::notifications==1&&saveDone==1&&target->initialSaveHandoffs==1&&target->initialLoadCalls==1&&target->m_currentNoteHtml==savedHtml&&target->m_bContentsChanged,"metadata recovery reaches readiness without repeating snapshot saves or navigation or overwriting the retained newest cache");
+        SetupStyles::after={};SetupPlugins::reset();InitialOps::reset();
+    }
+    // End Phase158 metadata tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

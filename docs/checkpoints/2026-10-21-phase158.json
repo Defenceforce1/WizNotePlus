@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase158",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "1da66378adacdfe1dc13b164d0336206fa390dda",
+  "sourceCheckpoint": "phase158",
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1104,
+    "fail": 0,
+    "seconds": 14.03,
+    "routingChecks": 991,
+    "nativeAsyncChecks": 113,
+    "newRoutingChecks": 25,
+    "newNativeChecks": 0,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 969,
+    "routingFailures": 3,
+    "normalExit": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Verified-page setup now reports actual submission and its preparation ticket. Only unsubmitted, authorization-interrupted preparation with unchanged renderer/navigation/opening/loader/mode and current attempt can retain proof continuation. New authorization must reprove renderer before retry; synchronous reauthorization queues recovery. Submitted setup never replays. Includes metadata-stage revocation, supersession/destruction and isolated readiness/save-producer/stale-output chain. Actual temporary write and single save handoff preserve newer dirty DOM/cache; handoff is not FIFO disk acknowledgement. Original 966 routing assertions, native sources, JS literal templates/serializers and unrelated product bytes remain. Recorded transport/metadata/script/plugin collaborators are not full editor/main-window/system-authentication acceptance. Next bounded work is real saver-to-read/output checkpoint integration.",
+  "files": [
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 133599,
+      "chars": 133487,
+      "gitBlobSha": "399a369408a5cab328a4aa81f953161a46a45317",
+      "sha256": "a9444a29fc9c83262a7e76f9856aa4301a0d386ec23260b7134aac8b6dfbb372"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 16802,
+      "chars": 16800,
+      "gitBlobSha": "d387c32e1b3dd9fc219e285e52b7d95a76fb0977",
+      "sha256": "23d0d92d181910c850d9424211051339af2fe672a4828a07b561548633e8bb41"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 339482,
+      "chars": 339389,
+      "gitBlobSha": "fb1057b4eacaa3b90cc212844fd82b564d20d841",
+      "sha256": "a61b41af90c41a339b084ec0101c7f0a832b0d003a259220add75057d7d25776"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 37382,
+      "chars": 37382,
+      "gitBlobSha": "d501b7660e86c78d4c48946113956f9266957e3d",
+      "sha256": "64f34833a50e718d240d35e1b600666fbee3c2c683eb7bb76907727bcdfe0dda"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 9159,
+      "chars": 9159,
+      "gitBlobSha": "44381cb41ca7dea8b994d57bcf91d44ff1983150",
+      "sha256": "986db14d43624538e298e39cb67101f1c769eed1899a80c54e2435072c2689ff"
+    }
+  ]
+}

@@ -1348,17 +1348,19 @@ QString WizDocumentWebView::getHighlightKeywords()
 }
 
 
-void WizDocumentWebView::onEditorLoadFinished(bool ok)
+bool WizDocumentWebView::onEditorLoadFinished(bool ok, WizDocumentCallbackEpoch::Ticket* pendingAttempt)
 {
+    if (pendingAttempt) *pendingAttempt = {};
     if (!ok)
-        return;
+        return false;
     const QPointer<WizDocumentWebView> self(this);
     const QPointer<QWebEnginePage> source(page());
     const auto read = noteReadPermit();
-    if (!read.current() || !source) return;
+    if (!read.current() || !source) return false;
     m_editorSetupCallbacks.invalidate();
     m_editorSetupResume = {};
     const auto request = m_editorSetupCallbacks.ticket();
+    if (pendingAttempt) *pendingAttempt = request;
     const auto mode = m_currentEditorMode;
     const auto current = [self,source,read,request,mode] {
         if (!self || !source || !WizDocumentCallbackEpoch::current(request)) return false;
@@ -1377,15 +1379,15 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
     bool ignoreTable = doc.strURL.startsWith("http");
     //
     QString noteType = getNoteType();
-    if (!current()) return;
+    if (!current()) return false;
     QString keywords = getHighlightKeywords();
-    if (!current()) return;
+    if (!current()) return false;
     // Initialize rich text editor
     const QString setupToken = WizNotePresentation::jsonString(WizGenGUIDLowerCaseLetterOnly());
     const bool spellCheck = m_app.userSettings().isEnableSpellCheck();
-    if (!current()) return;
+    if (!current()) return false;
     const QString css = WizNotePresentation::styleSheet(WizNotePresentation::loadStyle(WizGlobal::settings()));
-    if (!current()) return;
+    if (!current()) return false;
     QString strCode;
     strCode += QStringLiteral("window.WizSpellCheckEnabled=%1;\n")
         .arg(spellCheck ? "true" : "false");
@@ -1420,11 +1422,12 @@ void WizDocumentWebView::onEditorLoadFinished(bool ok)
         }
     }
     strCode += "\nif(window.WizNativeEditorSetup.token!==" + setupToken + ")return;\nWizApplyNoteStyle();WizApplySpellCheck();";
-    if (!current()) return;
+    if (!current()) return false;
     const auto submitted = armEditorSetupReadiness(setupToken, keywords, noteType);
-    if (!current() || !submitted) return;
+    if (!current() || !submitted) return false;
     source->runJavaScript(WizDocumentPageReady::setupScript(setupToken,strCode));
     submitted();
+    return true;
 }
 
 std::function<void()> WizDocumentWebView::armEditorSetupReadiness(const QString& token, const QString& keywords, const QString& noteType)
@@ -1546,15 +1549,32 @@ QUrl WizDocumentWebView::armEditorPageLoad(const QUrl& url, bool retainIdentity)
         const auto access = state->access;
         const auto current = [origin,read] { return origin() && read.current() && origin(); };
         WizDocumentPageReady::watch(self, source, WizDocumentPageReady::documentExpression(expected), current,
-            [self,source,origin,current,expected,state,access](bool ready) {
+            [self,source,host,origin,current,expected,state,access](bool ready) {
             if (!current() || state->done || state->access.owner_before(access) || access.owner_before(state->access)) return;
             state->watching = false;
             if (!ready) return;
             const auto url = source->url().adjusted(QUrl::RemoveFragment);
             if (!current() || url != expected) return;
+            const auto navigation = self->m_documentCallbacks.ticket();
+            const auto retry = self->m_editorPageResume;
             state->done = true;
             self->m_editorPageResume = {};
-            self->onEditorLoadFinished(true);
+            WizDocumentCallbackEpoch::Ticket preparing;
+            const bool submitted = self->onEditorLoadFinished(true, &preparing);
+            // Never replay submitted JS. Only a current preparation interrupted
+            // by revoked access, in this unchanged renderer, can request proof again.
+            if (submitted || !origin() || !WizDocumentCallbackEpoch::current(preparing)
+                || !WizDocumentCallbackEpoch::current(navigation)
+                || WizDocumentCallbackEpoch::current(access)) return;
+            state->done = false;
+            state->watching = false;
+            state->access = {};
+            self->m_editorPageResume = retry;
+            // show/unlock may already have run in a metadata callback. Finish
+            // that obsolete preparation stack before taking a fresh read permit.
+            if (host->isVisible()) QTimer::singleShot(0, self, [self,origin] {
+                if (origin()) self->resumeEditorSetup();
+            });
         });
         return true;
     };

@@ -300,7 +300,9 @@ public Q_SLOTS:
 #endif
     void onActionTriggered(QWebEnginePage::WebAction act);
 
-    void onEditorLoadFinished(bool ok);
+    // Reports actual submission, not readiness; pendingAttempt identifies a
+    // still-current preparation when a metadata callback interrupts it.
+    bool onEditorLoadFinished(bool ok, WizDocumentCallbackEpoch::Ticket* pendingAttempt = nullptr);
     void onEditorLinkClicked(QUrl url, QWebEnginePage::NavigationType navigationType, bool isMainFrame, WizWebEnginePage* page);
 
     void onTimerAutoSaveTimout();
