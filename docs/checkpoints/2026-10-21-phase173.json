@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase173",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "34204ff8834d188901cbce4f911390047503020d",
+  "sourceCheckpoint": "bounded-read-only-profile-readiness",
+  "phase": 173,
+  "accepted": true,
+  "productCodeChanged": false,
+  "tests": {
+    "groups": 0,
+    "checks": 0,
+    "run": false,
+    "reason": "No product changes; read-only profile/signing metadata only"
+  },
+  "profileReadiness": {
+    "standardProfileLocationsChecked": 3,
+    "standardLocationsExist": 0,
+    "embeddedProfileFound": false,
+    "matchingProfileFoundInCheckedLocations": false,
+    "fullMachineProfileSearch": false,
+    "candidateAdHoc": true,
+    "candidateMainEntitlementsPresent": false,
+    "profileContentsRead": false,
+    "profileInstalled": false,
+    "privateKeysRead": false,
+    "credentialItemsRead": false,
+    "signingChanged": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "packaged": false,
+  "installed": false,
+  "fullProjectComplete": false,
+  "userProfileConfigurationRequired": true,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Explained menu ellipsis as follow-up save dialog; no request to remove it and no UI change. Read-only follow-up of three standard provisioning-profile directories and owned candidate embedded-profile locations: directories absent,no profile found in checked locations,not a full-machine absence claim. Candidate still expected ad-hoc with no main-app entitlements. Previously verified Apple Development identity is not enough to satisfy signing/entitlement gates. No profile contents/device lists/private keys/credentials,profile creation/install,signing,authentication,normal account,network service,build/tests,package/install. Need user-configured matching macOS development profile or existing local path before bounded App/Team/keychain-group verification. No automatic developer-account login,AppID registration,profile generation/download or signed test build. Frozen candidates,HEAD/index and disabled/off/paused defaults preserved.",
+  "files": [
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 31230,
+      "bytes": 31250,
+      "sha256": "e0a062940e2ea357f74f84303a35e87f8a01c1c2ff9b09a0a849c0578f8d7ec2",
+      "gitBlobSha": "45cbd569b41201d1e4a987104f47eb969d3aa999"
+    }
+  ]
+}

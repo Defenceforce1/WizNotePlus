@@ -34,6 +34,23 @@ entitlements still need configuration/verification before native Touch ID tests.
 Normal biometric management stays disabled; the first-certificate service-contract
 gate remains unchanged. A development identity alone is not full authorization.
 
+## Profile readiness follow-up
+
+The next read-only step checked the three standard user/system provisioning
+profile directories and the owned candidate's embedded-profile locations. All
+three directories are absent and no profile is embedded. This is a bounded local
+check, not a claim that no profile exists elsewhere on the machine. No profile
+contents, device lists, credentials or private keys were read.
+
+The current candidate remains ad-hoc signed with no main-app entitlements, as
+expected from the existing personal-use package. A development identity alone
+does not satisfy the current Touch ID implementation's non-ad-hoc and entitlement
+guards. Before a separately authorized signed test build, configure or provide a
+matching macOS development profile for the intended application identifier and
+verify its application/team identifiers and keychain access group. No profile was
+created/installed, signature changed, Touch ID enabled, package rebuilt or service
+contacted. No functional tests were repeated for this metadata-only check.
+
 ## Local candidate delivery
 
 The final bundled application passes three affected synthetic workflows:
@@ -451,7 +468,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest UI manifest is [checkpoints/2026-10-21-phase172.json](checkpoints/2026-10-21-phase172.json).
+The latest readiness manifest is [checkpoints/2026-10-21-phase173.json](checkpoints/2026-10-21-phase173.json).
+The UI change remains [phase172](checkpoints/2026-10-21-phase172.json).
 The frozen local candidate is [phase171](checkpoints/2026-10-21-phase171.json),
 whose product-source input remains [phase170](checkpoints/2026-10-21-phase170.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
