@@ -661,9 +661,12 @@ class Launcher : public QObject {
 public:
     explicit Launcher(WizDatabaseManager& manager):m_dbMgr(manager){}
     WizDatabaseManager& m_dbMgr;
+    WizDocumentSaverThread lifecycleSaver{m_dbMgr,this};
+    WizDocumentSaverThread* m_watchedDocSaver=&lifecycleSaver;
     QString destination,launchedFile,requestedTitle;WIZDOCUMENTDATAEX launchedNote;
     int launches=0;
-    QString makeValidCacheFileName(const QString& title,const QDir&){requestedTitle=title;return destination;}
+    std::function<void()> duringName;
+    QString makeValidCacheFileName(const QString& title,const QDir&){requestedTitle=title;const auto result=destination;const auto hook=duringName;if(hook)hook();return result;}
     void startExternalEditor(QString file,const WizExternalEditorData&,const WIZDOCUMENTDATAEX& note){
         ++launches;launchedFile=file;launchedNote=note;
     }
@@ -685,6 +688,36 @@ struct WatchLauncher : QObject {
     void waitForDone();
 };
 #include WIZNOTE_WATCH_METHODS
+// Phase161: exact launch/registration body, with no process or modal UI.
+struct LaunchProcess {
+    QString file,work;QStringList args;
+    static inline int starts=0;static inline bool result=true;static inline std::function<void()> during;
+    static inline QString lastProgram,lastWork;static inline QStringList lastArguments;
+    void setProgram(QString v){file=v;}void setArguments(QStringList v){args=v;}void setWorkingDirectory(QString v){work=v;}
+    QString program()const{return file;}QStringList arguments()const{return args;}
+    bool startDetached(){++starts;lastProgram=file;lastWork=work;lastArguments=args;const auto hook=during;if(hook)hook();return result;}
+    static void reset(){starts=0;result=true;during={};lastProgram.clear();lastWork.clear();lastArguments.clear();}
+};
+struct LaunchWatcher : QObject {
+    QFileSystemWatcher storage{this};int adds=0,removes=0;bool fail=false;std::function<void()> afterAdd;
+    QStringList files()const{return storage.files();}
+    bool addPath(const QString& path){++adds;const bool ok=!fail&&storage.addPath(path);const auto hook=afterAdd;if(hook)hook();return ok;}
+    bool removePath(const QString& path){++removes;return storage.removePath(path);}
+};
+struct LaunchMessage {
+    static inline int errors=0;
+    static int critical(QWidget*,const QString&,const QString&){++errors;return 0;}
+};
+struct LaunchShell : QObject {
+    explicit LaunchShell(App& app):m_app(app){}
+    App& m_app;WatchWindow window;WatchWindow* m_window=&window;
+    LaunchWatcher storage;LaunchWatcher* m_externalEditorFileWatcher=&storage;
+    WizDocumentSaverThread* m_watchedDocSaver=nullptr;
+    QMap<QString,WizExternalEditTask> m_externalEditorTasks;
+    static QStringList splitCommand(const QString& args){return ExternalEditorLauncher::splitCommand(args);}
+    void startExternalEditor(QString,const WizExternalEditorData&,const WIZDOCUMENTDATAEX&);
+};
+#include WIZNOTE_LAUNCH_METHODS
 // Only delay the worker's start; queue, disk saves, failure tracking, fences and
 // waitForDone are the actual product implementation, not copied test methods.
 class HeldSaver final : public WizDocumentSaverThread {
@@ -3676,6 +3709,77 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     }
 #endif
     // End Phase160 watcher tests.
+    // Phase161 launch failure must not create a watched session.
+    {
+        WizDocumentSaverThread saver(manager,nullptr);LaunchShell launcher(explorer);launcher.m_watchedDocSaver=&saver;
+        const QString file=root.filePath("launch-failure-synthetic.txt");WizSaveUnicodeTextToUtf8File(file,"retained external body",false);
+        const WizExternalEditorData editor={"synthetic","never-run",QString("--open %1"),2,1};
+        LaunchProcess::reset();LaunchProcess::result=false;launcher.startExternalEditor(file,editor,a);
+        check(LaunchProcess::starts==1&&launcher.window.notifications==1&&launcher.storage.files().isEmpty()&&launcher.m_externalEditorTasks.isEmpty(),"failed detached-launch result leaves neither a file watch nor an external edit task");
+        LaunchProcess::reset();saver.waitForDone();
+    }
+#ifdef WIZNOTE_LAUNCH_FIXED
+    {
+        const auto bytes=[](const QString& path){QFile f(path);return f.open(QIODevice::ReadOnly)?f.readAll():QByteArray();};
+        const QString file=root.filePath("launch-参数 with spaces.txt"),failed=root.filePath("launch-failed-second.txt");WizSaveUnicodeTextToUtf8File(file,"keep launch cache",false);WizSaveUnicodeTextToUtf8File(failed,"keep failed cache",false);
+        auto other=a;other.strGUID="other-launch-synthetic-origin";
+        const WizExternalEditorData editor={"synthetic","never-run",QString("--open %1"),2,1};
+        const auto close=[](LaunchShell& shell){shell.m_watchedDocSaver=nullptr;for(const auto& path:shell.storage.files())shell.storage.removePath(path);};
+        WizDocumentSaverThread saver(manager,nullptr);LaunchShell launcher(explorer);launcher.m_watchedDocSaver=&saver;
+        LaunchProcess::reset();LaunchMessage::errors=0;bool registered=false;
+        LaunchProcess::during=[&]{registered=launcher.storage.files().contains(file)&&launcher.m_externalEditorTasks.value(file).docData.strGUID==a.strGUID;};
+        launcher.startExternalEditor(file,editor,a);
+        check(registered&&LaunchProcess::starts==1&&launcher.m_externalEditorTasks.size()==1&&launcher.window.notifications==0,"external origin and file watch are registered before detached-process dispatch can write immediately");
+        check(LaunchProcess::lastProgram==editor.ProgramFile&&LaunchProcess::lastArguments==QStringList({"--open",file})&&LaunchProcess::lastWork==Utils::WizPathResolve::tempPath()+a.strGUID+"/"&&bytes(file)=="keep launch cache","launch preserves original program, quoted Unicode path arguments, working directory and cache bytes");
+        launcher.startExternalEditor(file,editor,other);
+        check(LaunchProcess::starts==1&&launcher.m_externalEditorTasks.value(file).docData.strGUID==a.strGUID,"duplicate cache path cannot be rebound to another note or launch a second session");
+        LaunchProcess::during={};LaunchProcess::result=false;launcher.startExternalEditor(failed,editor,other);
+        check(LaunchProcess::starts==2&&launcher.window.notifications==1&&!launcher.storage.files().contains(failed)&&!launcher.m_externalEditorTasks.contains(failed)&&launcher.storage.files().contains(file)&&launcher.m_externalEditorTasks.contains(file)&&bytes(failed)=="keep failed cache","failed second launch rolls back only its own watch/task and retains prior session plus both cache files");
+        LaunchProcess::reset();LaunchShell noWatch(explorer);noWatch.m_watchedDocSaver=&saver;noWatch.storage.fail=true;noWatch.startExternalEditor(failed,editor,a);
+        check(LaunchMessage::errors==1&&LaunchProcess::starts==0&&noWatch.m_externalEditorTasks.isEmpty()&&noWatch.storage.files().isEmpty(),"watch registration failure refuses process dispatch rather than starting an unmonitored editor");
+        LaunchShell absent(explorer);absent.m_watchedDocSaver=&saver;absent.startExternalEditor(root.filePath("no-launch-file.txt"),editor,a);
+        auto invalid=editor;invalid.TextEditor=7;absent.startExternalEditor(failed,invalid,a);auto missing=a;missing.strGUID.clear();absent.startExternalEditor(failed,editor,missing);
+        check(LaunchProcess::starts==0&&absent.storage.adds==0&&absent.m_externalEditorTasks.isEmpty(),"missing cache, unsupported format or missing note refuses before registration and process dispatch");
+        LaunchShell closed(explorer);closed.startExternalEditor(failed,editor,a);
+        check(LaunchProcess::starts==0&&closed.storage.adds==0&&closed.m_externalEditorTasks.isEmpty(),"closed launch admission cannot start or register a new session");
+        LaunchShell stoppedDuringWatch(explorer);stoppedDuringWatch.m_watchedDocSaver=&saver;stoppedDuringWatch.storage.afterAdd=[&]{close(stoppedDuringWatch);};stoppedDuringWatch.startExternalEditor(failed,editor,a);
+        check(LaunchProcess::starts==0&&stoppedDuringWatch.storage.files().isEmpty()&&stoppedDuringWatch.m_externalEditorTasks.isEmpty(),"shutdown during watch setup prevents task registration and process dispatch");
+        LaunchShell stoppedDuringStart(explorer);stoppedDuringStart.m_watchedDocSaver=&saver;LaunchProcess::during=[&]{close(stoppedDuringStart);};stoppedDuringStart.startExternalEditor(failed,editor,a);
+        check(LaunchProcess::starts==1&&stoppedDuringStart.storage.files().isEmpty()&&stoppedDuringStart.m_externalEditorTasks.contains(failed),"shutdown during already-dispatched launch does not rearm watches or erase retained task state");
+        for(const bool result:{false,true}){
+            LaunchProcess::reset();LaunchProcess::result=result;auto* destroyed=new LaunchShell(explorer);destroyed->m_watchedDocSaver=&saver;QPointer<LaunchShell> weak(destroyed);LaunchProcess::during=[&]{delete destroyed;};destroyed->startExternalEditor(failed,editor,a);
+            check(!weak&&LaunchProcess::starts==1,"owner destruction during detached-launch completion safely retires both success and failure paths");
+        }
+        LaunchProcess::reset();auto* destroyed=new LaunchShell(explorer);destroyed->m_watchedDocSaver=&saver;QPointer<LaunchShell> weak(destroyed);destroyed->storage.afterAdd=[&]{delete destroyed;};destroyed->startExternalEditor(failed,editor,a);
+        check(!weak&&LaunchProcess::starts==0,"owner destruction during watch setup cannot proceed to process dispatch");
+        close(launcher);saver.waitForDone();LaunchProcess::reset();LaunchMessage::errors=0;
+    }
+    {
+        const WizExternalEditorData text={"synthetic","never-run",{},2,1},html={"synthetic","never-run",{},0,1};
+        RoutingView owner(explorer);owner.show();owner.viewNote(a,false);submit(owner);auto* web=owner.m_web;
+        for(const int format:{2,0}){
+            Launcher launcher(manager);launcher.destination=root.filePath("closed-request-"+QString::number(format));launcher.m_watchedDocSaver=nullptr;const int before=web->saves;
+            launcher.viewNoteInExternalEditor(&owner,format==2?text:html,a);
+            check(web->saves==before&&launcher.launches==0&&!QFile::exists(launcher.destination),"closed external request refuses before initiating a new document snapshot or output");
+            for(const bool replacement:{false,true}){
+                Launcher pending(manager);pending.destination=root.filePath("pending-"+QString::number(format)+"-"+QString::number(replacement));web->defer=true;
+                pending.viewNoteInExternalEditor(&owner,format==2?text:html,a);auto done=std::move(web->pending.back());web->pending.clear();WizDocumentSaverThread newSaver(manager,nullptr);pending.m_watchedDocSaver=replacement?&newSaver:nullptr;const auto queries=web->sourcePage.html.size();done(true);
+                check(pending.launches==0&&!QFile::exists(pending.destination)&&web->sourcePage.html.size()==queries,"old external save reply cannot borrow a closed or replacement launcher lifetime to publish or query HTML");
+            }
+        }
+        web->defer=false;Launcher rendered(manager);rendered.destination=root.filePath("closed-rendered.html");rendered.viewNoteInExternalEditor(&owner,html,a);
+        auto reply=std::move(web->sourcePage.html.back());web->sourcePage.html.clear();rendered.m_watchedDocSaver=nullptr;reply("late HTML must not publish");
+        check(rendered.launches==0&&!QFile::exists(rendered.destination),"late rendered HTML after launch closure does not create a file or start an editor");
+        for(const int format:{2,0}){
+            Launcher named(manager);named.destination=root.filePath("closed-name-"+QString::number(format));named.duringName=[&]{named.m_watchedDocSaver=nullptr;};const auto queries=web->sourcePage.html.size();named.viewNoteInExternalEditor(&owner,format==2?text:html,a);
+            check(named.launches==0&&!QFile::exists(named.destination)&&web->sourcePage.html.size()==queries,"closure while preparing destination is rechecked before either atomic text output or HTML query");
+            auto* destroyed=new Launcher(manager);const QString path=root.filePath("destroyed-name-"+QString::number(format));destroyed->destination=path;QPointer<Launcher> weak(destroyed);destroyed->duringName=[&]{delete destroyed;};destroyed->viewNoteInExternalEditor(&owner,format==2?text:html,a);
+            check(!weak&&!QFile::exists(path)&&web->sourcePage.html.size()==queries,"launcher destruction while preparing destination safely refuses subsequent output or renderer query");
+        }
+        check(web->body.startsWith("loaded:")&&db.getCertPassword()==password,"launch admission retirement never clears retained document body or cached save credential");
+    }
+#endif
+    // End Phase161 launch tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

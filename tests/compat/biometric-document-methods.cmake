@@ -619,3 +619,22 @@ string(FIND "${external_text}" "// Stop watcher admission before pumping" watche
 if(watcher_fixed GREATER -1)
     set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_WATCHER_FIXED)
 endif()
+
+# Phase161: launch is a recorder, while exact registration and rollback run.
+string(FIND "${external_text}" "void ExternalEditorLauncher::startExternalEditor(" begin)
+string(FIND "${external_text}" "void ExternalEditorLauncher::onWatchedDocumentChanged(" end)
+if(begin LESS 0 OR end LESS begin)
+    message(FATAL_ERROR "External launch method boundaries changed")
+endif()
+math(EXPR length "${end} - ${begin}")
+string(SUBSTRING "${external_text}" ${begin} ${length} launch_body)
+string(REPLACE "ExternalEditorLauncher" "LaunchShell" launch_body "${launch_body}")
+string(REPLACE "QProcess" "LaunchProcess" launch_body "${launch_body}")
+string(REPLACE "QMessageBox::critical" "LaunchMessage::critical" launch_body "${launch_body}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/biometric-launch-methods.inc" "${launch_body}")
+set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS
+    "WIZNOTE_LAUNCH_METHODS=\"${CMAKE_CURRENT_BINARY_DIR}/biometric-launch-methods.inc\"")
+string(FIND "${external_text}" "// Bind launch admission" launch_fixed)
+if(launch_fixed GREATER -1)
+    set_property(SOURCE "${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp" APPEND PROPERTY COMPILE_DEFINITIONS WIZNOTE_LAUNCH_FIXED)
+endif()

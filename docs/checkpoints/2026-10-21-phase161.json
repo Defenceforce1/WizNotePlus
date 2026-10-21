@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase161",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "15a7177280b1fea666f8c0e41ca9a4888fefd93e",
+  "sourceCheckpoint": "phase161",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 1,
+    "pass": 1065,
+    "fail": 0,
+    "seconds": 12.85,
+    "routingChecks": 1065,
+    "newRoutingChecks": 25,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAsyncRerun": false,
+    "githubCiClaimed": false
+  },
+  "negativeControl": {
+    "routingChecks": 1041,
+    "routingFailures": 1,
+    "normalExit": true
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "External launch request binds original saver weak lifetime and document read permit. Closed/replaced lifetime refuses new snapshots, stale saved/rendered replies, destination-preparation reentry and new output/query/launch; existing saves/tasks remain. Launch rejects closed admission, invalid cache/note/format and occupied paths; register watch/task before process dispatch, refuse watch failure and roll back only own failed launch session without deleting cache or other sessions. Original program/command splitting/quoted Unicode path/workdir remain. Weak-lifetime guards cover closure/destruction during watch/start; already dispatched process not terminated. Actual Qt lifetime/files/watch registration with recording process/modal/bubble collaborators; no real process/UI or whole-quit acceptance. Old 1040 assertions/extraction rules and unrelated product bytes/encoding unchanged; two actual method bodies compiled with explicit collaborators. One fixture-only undeclared alternate origin build error fixed before final tests. Final unadmitted file-change/conflict handling remains next save-first quit work, not unconditional stale cache writeback.",
+  "files": [
+    {
+      "path": "src/utils/ExternalEditorLauncher.cpp",
+      "mode": "100644",
+      "bytes": 12402,
+      "chars": 12402,
+      "gitBlobSha": "f84eb1effa8a7ac6c3720a19210b083a58a45ea2",
+      "sha256": "90a1c569cf37bbb21f1df77ac014f65b91dc52c786e55c4a332a5b0cbaf8b372"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 373074,
+      "chars": 372953,
+      "gitBlobSha": "78f2e41dffc2fe6add48ee3781742c9908897193",
+      "sha256": "e670d7fbd48261e7a5fc9ddca3cbc3518f23c5f6cf486ccb12518babcaf44e20"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 41636,
+      "chars": 41636,
+      "gitBlobSha": "1d7485432fc3ae995db63ce4edfc6c4f94632302",
+      "sha256": "f53437d7a122596a8a7f82c5acaa9aaa919e77bdc862092675478d6f4fa2bec3"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 10234,
+      "chars": 10234,
+      "gitBlobSha": "aeabd0f4d9da5f80956a581c3733b48820defdfc",
+      "sha256": "938e87a9631704ed4ca74914f63256701520ed3138536eddee2475e2a30303dc"
+    }
+  ]
+}
