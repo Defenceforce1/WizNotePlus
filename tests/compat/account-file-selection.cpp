@@ -9,6 +9,10 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QImage>
+#include <QLineEdit>
+#include <QDialogButtonBox>
+#include <QPushButton>
+#include <QPointer>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMouseEvent>
@@ -55,18 +59,51 @@ class ChooserDriver {
 public:
     QTimer timer;
     bool observed = false, widgetDialog = false;
-    explicit ChooserDriver(const QString& path, bool cancel = false) {
+    bool completed=false,selectionConfirmed=false;
+    int selectionRetries=0;
+    QPointer<QFileDialog> active;
+    bool acceptQueued=false,resetInjected=false;
+    static bool selectionReady(QFileDialog* dialog,const QString& path){
+        if(!dialog||!dialog->isVisible())return false;
+        const auto files=dialog->selectedFiles();
+        auto* edit=dialog->findChild<QLineEdit*>("fileNameEdit");
+        auto* buttons=dialog->findChild<QDialogButtonBox*>();
+        auto* open=buttons?buttons->button(QDialogButtonBox::Open):nullptr;
+        return files==QStringList{path}&&QFileInfo(path).isFile()&&edit
+            &&edit->text()==QFileInfo(path).fileName()&&open&&open->isEnabled();
+    }
+    explicit ChooserDriver(const QString& path, bool cancel = false,bool resetBeforeAccept=false) {
         timer.setInterval(5);
-        QObject::connect(&timer, &QTimer::timeout, &timer, [this,path,cancel] {
+        QObject::connect(&timer, &QTimer::timeout, &timer, [this,path,cancel,resetBeforeAccept] {
             auto* dialog = picker();
-            if (!dialog) return;
+            if (!dialog||!dialog->isVisible()) return;
             observed = true;
             widgetDialog = dialog->testOption(QFileDialog::DontUseNativeDialog);
-            timer.stop();
+            if(active!=dialog){
+                active=dialog;
+                QObject::connect(dialog,&QDialog::finished,&timer,[this,path](int result){
+                    completed=true;selectionConfirmed=result==QDialog::Accepted&&active&&active->selectedFiles()==QStringList{path};timer.stop();
+                });
+            }
             if (cancel) { dialog->reject(); return; }
-            dialog->setDirectory(QFileInfo(path).absolutePath());
-            dialog->selectFile(QFileInfo(path).fileName());
-            QTimer::singleShot(30, dialog, [dialog] { QMetaObject::invokeMethod(dialog, "accept"); });
+            if(acceptQueued)return;
+            if(!selectionReady(dialog,path)){
+                ++selectionRetries;
+                dialog->setDirectory(QFileInfo(path).absolutePath());
+                dialog->selectFile(QFileInfo(path).fileName());
+                // The model may still hold the same row after its filename
+                // editor was reset; reselecting that row emits no text change.
+                if(auto* edit=dialog->findChild<QLineEdit*>("fileNameEdit"))edit->setText(QFileInfo(path).fileName());
+                return;
+            }
+            if(resetBeforeAccept&&!resetInjected){
+                resetInjected=true;dialog->findChild<QLineEdit*>("fileNameEdit")->clear();return;
+            }
+            acceptQueued=true;
+            QTimer::singleShot(0,&timer,[this,path]{
+                acceptQueued=false;
+                if(selectionReady(active,path))QMetaObject::invokeMethod(active,"accept");
+            });
         });
         timer.start();
         QTimer::singleShot(4000, &timer, [] { if (auto* dialog = picker()) dialog->reject(); });
@@ -98,10 +135,12 @@ int wizAccountFileSelectionSelfTest(int argc, char** argv)
     if (!check(input.open(QIODevice::ReadOnly), "synthetic image opens for an exact-byte baseline")) return 1;
     const auto original = input.readAll(); input.close();
     {
-        QObject owner; ChooserDriver driver(imagePath);
+        QObject owner; ChooserDriver driver(imagePath,false,true);
         const auto files = wizAccountUploadFiles(&owner, nullptr, false, {"image/*"});
         check(driver.observed && driver.widgetDialog, "account compatibility chooser uses the explicit desktop widget dialog");
         check(files == QStringList{imagePath}, "confirmed Unicode path is returned as a local path, not an encoded URL");
+        check(driver.resetInjected&&driver.selectionRetries>=2&&driver.selectionConfirmed,
+              "chooser driver defers acceptance after a synthetic filename reset until the exact readable selection is restored");
     }
     {
         QObject owner; ChooserDriver driver(imagePath, true);
@@ -173,7 +212,9 @@ int wizAccountFileSelectionSelfTest(int argc, char** argv)
             QMouseEvent release(QEvent::MouseButtonRelease, local, global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
             QApplication::sendEvent(target, &press); QApplication::sendEvent(target, &release);
         }
-        const bool chosen = until([&] { return driver.observed; });
+        // Observation of a newly opened modal is not successful selection.
+        // Let it finish before polling the page/FileReader; no fixed30ms guess.
+        const bool chosen = until([&] { return driver.completed; });
         check(chosen, "real Chromium file-input request reaches the account chooser override");
         if (!chosen) continue;
         if (cancel) {
@@ -181,6 +222,7 @@ int wizAccountFileSelectionSelfTest(int argc, char** argv)
                   && js(page, "document.getElementById('f').files.length").toInt() == 0,
                   "cancel through real Chromium leaves the file input unselected");
         } else {
+            check(driver.selectionConfirmed,"Chromium fixture confirms its exact local selection before checking DOM delivery");
             QJsonObject result;
             const bool received = until([&] {
                 result = QJsonDocument::fromJson(js(page,"JSON.stringify(window.selected)").toString().toUtf8()).object();
@@ -190,6 +232,7 @@ int wizAccountFileSelectionSelfTest(int argc, char** argv)
                   && result.value("size").toInt() == original.size() && result.value("type") == "image/png",
                   "confirmed selection reaches the actual DOM file input with exact name size and MIME type");
             const auto bytes = QByteArray::fromBase64(result.value("data").toString().section(',',1).toLatin1());
+            if(!received)qInfo()<<"Synthetic input diagnostic"<<js(page,"JSON.stringify({selected:!!window.selected,files:document.getElementById('f').files.length})");
             check(bytes == original && QImage::fromData(bytes).size() == image.size(),
                   "actual page FileReader receives the exact synthetic PNG bytes without uploading them");
         }

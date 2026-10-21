@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase179",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "bdb22ff93f94c708bcbc858a33e9490141533244",
+  "phase": 179,
+  "acceptedFixtureImprovement": true,
+  "productCodeChanged": false,
+  "tests": {
+    "originalChecks": 23,
+    "originalFailures": 2,
+    "controlledResetInitialChecks": 25,
+    "controlledResetInitialFailures": 2,
+    "finalChecksPerRun": 25,
+    "finalRuns": 3,
+    "finalPass": 75,
+    "finalFailures": 0,
+    "finalSeconds": 2.18,
+    "actualChromiumChooserAndFileReader": true,
+    "normalAccountOrUploadAccepted": false,
+    "historicalIntermittentRootCauseEstablished": false,
+    "unrelatedGroupsRun": false
+  },
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "normalAccountChooserOverrideEnabled": false,
+  "realAccountStarted": false,
+  "realNotesAccessed": false,
+  "normalAppModified": false,
+  "signedPhase177TestAppUnchanged": true,
+  "installed": false,
+  "repackaged": false,
+  "binariesUploaded": false,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Only offline chooser fixture changed;all existing product source bytes retained,normal account chooser override stays disabled. Original23 checks2 failures reproduced;temporary observation then passed once and3 bounded repeats,not complete root cause evidence. Replace fixed30ms accept and mere modal-observed completion with visible/exact readable path/filename/enabledOpen checks,queued revalidation,and finished before DOM/FileReader polling. Controlled filename reset proves deferred acceptance and restoration;initial new driver2 failures retained,same model row reselection did not refill cleared edit,driver now fills its own filename editor. Real Chromium chooser contract retained,no file injection. Final25/0 per run x3=75passes,2.18s;exact PNG/name/MIME/FileReader,cancel,owner/parent destruction,private profile assertions retained. Historical full cause and real avatar update remain unaccepted;do not endlessly rerun to hide limitation. Incremental test build passed,no unrelated groups/PDF/native-auth/multiwindow repeat. Normal App,real notes,frozen candidates,phase177 signed App,HEAD/index unchanged. No upload,new signing/install/package,recoveryOFF,automationPAUSED. Remaining physical-session/native-control/real-data acceptance and first-certificate authoritative service contract are separate gates.",
+  "files": [
+    {
+      "path": "tests/compat/account-file-selection.cpp",
+      "mode": "100644",
+      "chars": 12810,
+      "bytes": 12818,
+      "sha256": "799f1b0b19f8827f3889d7689fee0bec1324e056cb660090567dba1a394d9d28",
+      "gitBlobSha": "d68c062f76b904d5c806960b085692d935b692d4"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 44639,
+      "bytes": 44659,
+      "sha256": "82072629b3e276c8d6ae177a376c1f2b527591831f6aec644abe597cb969a934",
+      "gitBlobSha": "ff05a7a9bf41fcc4be6ebc4f4ff2c689476aa14b"
+    }
+  ]
+}

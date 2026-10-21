@@ -1,4 +1,31 @@
-# Personal-use development checkpoint: HTML export resource URLs
+# Personal-use development checkpoint: bounded offline chooser verification
+
+## Phase 179: account-file chooser fixture readiness
+
+Only the offline test driver changed; every existing product source byte is
+unchanged. The ordinary account chooser override remains disabled. This is not
+a real-account upload, avatar replacement or server-success verification.
+
+The retained intermittent fixture failure reproduced immediately: **23 checks,
+2 failures**, despite Chromium reaching its chooser. Temporary observation of
+the dialog selection then passed once and three bounded repeats; this timing
+sensitivity does NOT establish a complete root cause. Failed logs remain.
+
+The old driver accepted after a fixed 30ms and treated merely observing the modal
+as completion. It now waits for visibility, the exact readable path and filename,
+and an enabled Open button; it revalidates in the queued accept and waits for
+dialog completion before polling DOM/FileReader. A controlled filename-reset
+case proves acceptance is deferred and the selection restored. Reselecting the
+same model row alone did not restore cleared text in the initial new fixture;
+the driver now fills its own filename editor explicitly, with that failure kept.
+No file is injected into the page; real Chromium chooser delivery remains used.
+
+Final affected group: **25/0** in each of three bounded runs (**75 passes**, 2.18s
+total), including exact PNG/name/MIME/FileReader bytes, cancel, owner/parent
+destruction, and private-profile cache policy checks. No full suite, repeated
+PDF/native-auth workflow, new signing, installation or packaging. The historical
+failure's complete cause and real-avatar update remain unaccepted; no further
+repetition is scheduled just to turn that limitation into a passing claim.
 
 ## Phase 178: special destination names in HTML exports
 
@@ -616,8 +643,10 @@ specific reason. Historical results are not silently counted as current acceptan
    Foreground permission covers only synthetic isolated data; normal-account
    operations and actual screen capture remain outside it. The additional explicit
    native-authentication grant was used only for the isolated synthetic test above.
-4. **Retained limitations:** historical intermittent offline account-chooser
-   fixture failure is not explained (the normal account override stays disabled);
+4. **Retained limitations:** the offline account-chooser driver now checks actual
+   readiness/completion and passes bounded verification in phase179, but the
+   historical intermittent failure's complete cause is not established
+   (the normal account override stays disabled);
    HTML destination-basename resource URLs are accepted in phase178 above;
    crash/concurrent-writer atomicity is not accepted. No repeated rerun is
    scheduled to hide these gaps.
@@ -632,7 +661,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest integration manifest is [checkpoints/2026-10-22-phase178.json](checkpoints/2026-10-22-phase178.json).
+The latest integration manifest is [checkpoints/2026-10-22-phase179.json](checkpoints/2026-10-22-phase179.json).
+The HTML resource URL correction is [phase178](checkpoints/2026-10-22-phase178.json).
 The synthetic three-window acceptance is [phase177](checkpoints/2026-10-22-phase177.json).
 The focused system/widget test is [phase175](checkpoints/2026-10-22-phase175.json).
 The signing setup is [phase174](checkpoints/2026-10-21-phase174.json).
