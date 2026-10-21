@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase177",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "d52fe048adf4eaec85c4ca5693c11f3c2a491ec2",
+  "phase": 177,
+  "acceptedFixSubset": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "tests": {
+    "associatedPass": 1311,
+    "associatedFailures": 0,
+    "associatedSeconds": 16.41,
+    "nativePositiveChecks": 10,
+    "nativePositiveFailures": 0,
+    "nativeCancellationSubsetPassed": true,
+    "multiWindowSyntheticScenarioAccepted": true,
+    "multiWindowAllCombinationsAccepted": false,
+    "finalCoordinationChecks": 33,
+    "finalCoordinationFailures": 0,
+    "firstProtectedLoadFixed": true,
+    "hideRevocationRetained": true,
+    "initialExternalAppInactivityNotAttributedToUser": true,
+    "ownedSyntheticItemsAbsent": true,
+    "realNotesAccessed": false,
+    "unrelatedFullSuiteRun": false
+  },
+  "normalAppModified": false,
+  "installed": false,
+  "binariesUploaded": false,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Fix already-open encrypted password-page controls and native prompt-cancel worker drainage. Same stored ACL/signature/explicit opt-in,noninteractive exact-item read after async native evaluation,late reply owns completion state only. Native positive10/0; associated1176+36+99=1311/0. User-kept-foreground recheck exposed first Qt Quick binding recreating native ancestors,hiding a newly authorized view. Removing premature fixture JS still reproduced. Constructor now initializes only its own new blank page before visibility/authorization; no existing DOM replacement or hide/session-revocation exception. Temporary traces removed. Fixture nested timer waits deferred WA_DeleteOnClose; flush only accepted close own posted deletion,never force refused close. Final actual three-window33/0: independent grants,scoped retirement,plain unaffected,distinct dirty DOM preserved,independent encrypted native archive saved on close,main dirty not reloaded/reauthorized,normal11-stage quit saves latest. Synthetic password coordination is distinct from actual fingerprint backend/cancel subset. Initial external app inactivity not attributed to user. One older failed fixture owned item exactly deleted and Missing confirmed by signed scoped helper before terminating that PID,no secret read or broad deletion. Every owned synthetic item absent. Existing App/real notes/frozen candidates untouched,no install/binary upload,recoveryOFF,automationPAUSED. Broader physical-session/real-data combinations and authoritative first-certificate service contract remain.",
+  "files": [
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "chars": 25085,
+      "bytes": 25353,
+      "sha256": "99f12e47f8de31e67aa256c315a0d0a773c5c94adba170cd50a0e24c8c994f68",
+      "gitBlobSha": "cbfbb27af9a09a57c1ca315ad6af43af242d5006"
+    },
+    {
+      "path": "tests/compat/native-feature-acceptance.mm",
+      "mode": "100644",
+      "chars": 51153,
+      "bytes": 51293,
+      "sha256": "80745c955d145ae99687b1363c0859b493d53d247587d298b899baf254299001",
+      "gitBlobSha": "5a7dd374a64c9443b79dc0b93c8d7841b48a147c"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 40629,
+      "bytes": 40649,
+      "sha256": "a01b0c5201551278fcab00e207a1c35a686df93c17c4f22e10f19e23205db2f4",
+      "gitBlobSha": "47b6a1112adc3de7c6cbb812ac2ba23962fd44b0"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "chars": 56634,
+      "bytes": 57116,
+      "sha256": "15cdf7fd4a5bdb62935e8f3c995359580d20752796155d95d3146fc3bdaf3789",
+      "gitBlobSha": "fb5480398fe3dcb4ea07a8d88c5d0d46f6f4c5b8"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "chars": 421583,
+      "bytes": 421708,
+      "sha256": "57a49b5fefd7fb650725acc8572d386e081787fea97d76df45e4ffaa568b1776",
+      "gitBlobSha": "3495e913dbabd2f19f53a47170fb1b2add801679"
+    },
+    {
+      "path": "src/mac/WizBiometricKeychain.mm",
+      "mode": "100644",
+      "chars": 12199,
+      "bytes": 12229,
+      "sha256": "ab47de6989ecec7e48e553f2fea15130e3d98cdc335dfc83e32e4000e68cc8af",
+      "gitBlobSha": "440676ac4bf9813945af1e30c0c77d85717b39cf"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "chars": 136551,
+      "bytes": 136663,
+      "sha256": "b3dcc5a251fc9f4b442ab2130e120bef435aa88aa95793d2edd502eca557e3c4",
+      "gitBlobSha": "6e9dc69d64d7bf600f26dc15e560355d0aaea2a6"
+    }
+  ]
+}

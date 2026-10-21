@@ -241,6 +241,12 @@ WizDocumentWebView::WizDocumentWebView(WizExplorerApp& app, QWidget* parent)
     connect(this, &WizDocumentWebView::loadFinishedEx, this, &WizDocumentWebView::onEditorPageLoadHint);
     connect(view()->titleBar(), SIGNAL(onViewMindMap(bool)), SLOT(onViewMindMap(bool)));
 
+    // Qt may recreate the native ancestor when it first binds the Quick widget.
+    // Do that with an empty page, before this new view is shown or can hold a
+    // protected-note grant. Otherwise the first real load can hide its host and
+    // correctly revoke the very authorization that dispatched that load. This
+    // constructor-only initialization never navigates/replaces an existing DOM.
+    this->page()->runJavaScript(QStringLiteral("void 0"));
 }
 
 WizDocumentWebView::~WizDocumentWebView()

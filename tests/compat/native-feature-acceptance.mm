@@ -21,6 +21,7 @@
 #include "gui/documentviewer/WizDocumentView.h"
 #include "gui/documentviewer/WizDocumentWebView.h"
 #include "gui/documentviewer/WizNoteInfoForm.h"
+#include "gui/documentviewer/WizSingleDocumentView.h"
 #include "widgets/WizScreenShotWidget.h"
 #include "widgets/WizBiometricManageHost.h"
 #include "widgets/WizBiometricUnlockWidget.h"
@@ -99,7 +100,9 @@ public:
 }
 int wizNativeFeatureAcceptance(int argc,char** argv){
     const bool biometricMain=qEnvironmentVariable("WIZNOTE_TEST_FOCUS")=="biometric-main-window";
-    const bool manualOnly=argc==2&&QByteArray(argv[1])=="--biometric-save-quit-probe";
+    const bool coordinationOnly=argc==2&&QByteArray(argv[1])=="--biometric-window-coordination-probe";
+    const bool multiWindow=coordinationOnly||(argc==2&&QByteArray(argv[1])=="--biometric-multi-window-probe");
+    const bool manualOnly=multiWindow||(argc==2&&QByteArray(argv[1])=="--biometric-save-quit-probe");
     if(biometricMain&&(argc!=2||(!manualOnly&&QByteArray(argv[1])!="--biometric-main-window-probe")
         ||qgetenv("WIZNOTE_SYNTHETIC_TOUCH_ID_CONSENT")!="create-read-delete"))return 2;
     const QString artifacts=qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
@@ -144,7 +147,8 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     window.show();[NSApp activateIgnoringOtherApps:YES];window.raise();window.activateWindow();window.init();
     QJsonArray results;int failures=0;bool cleanup=false,exitRequested=false;QString password;QByteArray encryptedBefore;
     WizBiometricKeychain::Scope ownedScope;auto ownedItem=std::make_shared<std::atomic<bool>>(false);
-    bool nativeAuthenticated=false,syntheticItemAbsent=!biometricMain;int workspaceNotificationsPosted=0;
+    bool nativeAuthenticated=false,syntheticItemAbsent=!biometricMain,nativeReadCanceled=false;
+    int workspaceNotificationsPosted=0;
     const auto capture=[&](QWidget* widget,const QString& name){return widget&&widget->grab().save(artifacts+"/"+name+".png");};
     const auto check=[&](bool ok,const QString& label){results.append(QJsonObject{{"name",label},{"passed",ok}});qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;if(!ok){++failures;capture(&window,"failure");throw std::runtime_error(label.toStdString());}};
     const auto ready=[&]{return window.docView()&&window.docView()->noteLoaded()&&window.docView()->canReadCurrentNote()&&js(window.docView()->web()->page(),"!!(window.WizNativeEditorSetup&&WizNativeEditorSetup.state==='ready')").toBool();};
@@ -171,7 +175,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     QTimer::singleShot(0,&app,[&]{try{
         if(biometricMain){
             using namespace WizBiometricKeychain;
-            QObject::connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,&app,[](bool hard){qInfo()<<"Synthetic main session retired hard"<<hard<<"application state"<<int(QGuiApplication::applicationState());});
+            QObject::connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,&app,[](bool hard){qInfo()<<"Synthetic main session retired hard"<<hard<<"application state"<<int(QGuiApplication::applicationState())<<"native app active"<<bool(NSApp.isActive)<<"frontmost is test process"<<bool(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier==NSProcessInfo.processInfo.processIdentifier);});
             check(hasSigningPrerequisites(),"actual main-window executable has development signing and keychain authorization");
             {WizBiometricManageHost noCertificate(window,&window);
                 check(noCertificate.management()->stage()==WizBiometricManageWidget::Stage::Disabled,"signed normal host remains unavailable without an existing certificate");}
@@ -203,6 +207,82 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
             check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Succeeded;},15000)&&ownedItem->load()
                   &&WizBiometricNoteAccess::optedIn(window.userSettings(),ownedScope),"management UI completes native enrollment then persists synthetic opt-in");
             check(!window.docView()->canReadCurrentNote()&&!db.getCertPassword().isEmpty(),"new policy retires already-open main-window access without clearing save cache");
+            if(multiWindow){
+                host.hide();window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
+                auto* mainView=window.docView();
+                const auto lockedView=[](WizDocumentView* v){auto* f=v?v->findChild<WizUserCipherForm*>():nullptr;return f&&f->isVisible()&&!v->canReadCurrentNote();};
+                const auto readyView=[&](WizDocumentView* v,const QString& marker){return v&&v->noteLoaded()&&v->canReadCurrentNote()&&v->web()->page()->url().scheme()=="file"
+                    &&js(v->web()->page(),"!!(window.WizNativeEditorSetup&&WizNativeEditorSetup.state==='ready')&&document.body.textContent.includes('"+marker+"')").toBool();};
+                const auto manualView=[&](WizDocumentView* v){auto* f=v?v->findChild<WizUserCipherForm*>():nullptr;auto* e=f?f->findChild<QLineEdit*>("editUserCipher"):nullptr;if(!e)return false;e->setText(password);return QMetaObject::invokeMethod(f,"onButtonOK_clicked",Qt::DirectConnection);};
+                WIZDOCUMENTDATA other;
+                check(db.createDocumentAndInit("<html><body><p>OTHER-MULTI-BODY</p></body></html>",{},0,"Synthetic independent encrypted note","native.html","/Synthetic/",{},other)
+                      &&db.encryptDocument(other),"second synthetic encrypted note created in the same temporary certificate scope");
+                other.tCreated=other.tCreated.addSecs(-60);check(db.modifyDocumentInfo(other),"independent synthetic note uses existing-note timestamp");
+                auto* singleManager=window.findChild<WizSingleDocumentViewManager*>();check(singleManager,"actual main window owns production independent-window manager");
+                window.viewNoteInSeparateWindow(other);
+                auto* separate=singleManager->getDocumentViewer(other.strGUID);auto* secondView=separate?separate->docView():nullptr;
+                check(separate&&waitFor([&]{return lockedView(secondView);}),"production independent encrypted window starts locked despite shared warm save cache");
+                window.viewNoteInSeparateWindow(math);
+                auto* plain=singleManager->getDocumentViewer(math.strGUID);auto* plainView=plain?plain->docView():nullptr;
+                check(plain&&waitFor([&]{return readyView(plainView,"ENDWIDTH");},20000),"production unencrypted independent window reads normally without biometric authorization");
+                check(lockedView(mainView)&&lockedView(secondView),"opening a plain window grants neither protected window access");
+                window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
+                auto* f=mainView->findChild<WizUserCipherForm*>();auto* bio=f?f->findChild<WizBiometricUnlockWidget*>("cipherBiometricUnlock"):nullptr;
+                auto* button=bio?bio->findChild<QPushButton*>("biometricUnlockStart"):nullptr;
+                check(button&&button->isEnabled(),"main password page can explicitly start native read for cancellation test");
+                if(!coordinationOnly){
+                qInfo()<<"NATIVE_CANCEL_ONLY: no fingerprint needed; test cancels its own request.";
+                button->click();check(bio->stage()==WizBiometricUnlockWidget::Stage::Working,"default native read is dispatched from actual main password page");
+                QTimer::singleShot(500,bio,&WizBiometricUnlockWidget::cancel);
+                check(waitFor([&]{return bio->stage()==WizBiometricUnlockWidget::Stage::Ready;},5000)
+                      &&waitFor([]{return QThreadPool::globalInstance()->activeThreadCount()==0;},5000),"explicit cancellation drains the actual native read worker without a credential delivery");
+                nativeReadCanceled=true;
+                check(lockedView(mainView)&&lockedView(secondView),"canceled native request and late worker completion authorize neither protected window");
+                }
+                const auto activate=[&](QWidget* target){target->raise();target->activateWindow();[NSApp activateIgnoringOtherApps:YES];QElapsedTimer settled;settled.start();return waitFor([&]{return settled.elapsed()>=750&&app.applicationState()==Qt::ApplicationActive&&target->isActiveWindow();},5000);};
+                check(activate(&window),"main test window settles active after system cancel before fresh password gesture");
+                check(manualView(mainView)&&waitFor([&]{return readyView(mainView,"KEEP-ORIGINAL-BODY");},20000),"fresh synthetic password opens main view after canceled system read");
+                check(lockedView(secondView),"main-view authorization is not inherited by another encrypted window");
+                check(activate(separate),"independent test window is foreground before its own password gesture");
+                const bool secondReady=manualView(secondView)&&waitFor([&]{return readyView(secondView,"OTHER-MULTI-BODY");},20000);
+                if(!secondReady){
+                    const auto diagnose=[&](WizDocumentView* v){return QJsonObject{{"loaded",v->noteLoaded()},{"readable",v->canReadCurrentNote()},
+                        {"renderer",QJsonValue::fromVariant(js(v->web()->page(),"({url:location.href,setup:window.WizNativeEditorSetup&&WizNativeEditorSetup.state,body:document.body&&document.body.textContent,editor:!!document.querySelector('.wiz-editor-body')})"))}};};
+                    writeNew(artifacts+"/second-view-diagnostic.json",QJsonDocument(QJsonObject{{"applicationActive",app.applicationState()==Qt::ApplicationActive},{"main",diagnose(mainView)},{"second",diagnose(secondView)},{"plain",diagnose(plainView)}}).toJson());
+                    capture(separate,"failure-independent");
+                }
+                check(secondReady,"independent encrypted view obtains its own fresh manual authorization");
+                check(mainView->canReadCurrentNote()&&secondView->canReadCurrentNote()&&plainView->canReadCurrentNote(),"independent authorizations coexist inside the actual three-window client");
+                const auto mainTicket=mainView->web()->noteReadPermit(),secondTicket=secondView->web()->noteReadPermit();
+                const auto dirty=[&](WizDocumentView* v,const QString& marker){v->setEditorMode(modeEditor);if(!waitFor([&]{return js(v->web()->page(),"!!document.querySelector('.wiz-editor-body[contenteditable=true]')").toBool();}))return false;
+                    const bool inserted=js(v->web()->page(),"(function(){const b=document.querySelector('.wiz-editor-body');b.insertAdjacentHTML('beforeend','<p>"+marker+"</p>');return b.textContent.includes('"+marker+"');})()").toBool();v->web()->setModified(true);return inserted;};
+                check(dirty(mainView,"QUIT-SAVED-SYNTHETIC")&&dirty(secondView,"SINGLE-MULTI-UNSAVED"),"both encrypted renderers hold distinct latest unsaved synthetic DOM");
+                host.show();consent->setChecked(true);forgetButton->click();
+                check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Succeeded;})&&!ownedItem->load(),"actual management deletion completes for the unique synthetic scope");
+                check(lockedView(mainView)&&lockedView(secondView)&&!mainTicket.current()&&!secondTicket.current(),"one scoped deletion retires both production windows and their original read permits");
+                check(plainView->canReadCurrentNote(),"same-account plaintext independent window stays readable after scoped retirement");
+                check(js(mainView->web()->page(),"document.body.textContent.includes('QUIT-SAVED-SYNTHETIC')").toBool()
+                      &&js(secondView->web()->page(),"document.body.textContent.includes('SINGLE-MULTI-UNSAVED')").toBool()
+                      &&!db.getCertPassword().isEmpty()&&db.hasCert(),"cross-window retirement preserves both dirty bodies and independent save credential/certificate");
+                syntheticItemAbsent=forget(ownedScope,true)==Error::Missing;check(syntheticItemAbsent,"deleted synthetic keychain item is exactly absent");
+                host.hide();
+                QPointer<WizSingleDocumentViewer> separateGuard(separate);
+                const bool independentClosed=separate->close();
+                // This entire fixture is inside a timer callback. Its nested
+                // waits do not unwind to the outer event loop to deliver the
+                // WA_DeleteOnClose event; flush only the accepted close's own
+                // posted deletion, never delete a window whose close refused.
+                if(independentClosed)QCoreApplication::sendPostedEvents(separate,QEvent::DeferredDelete);
+                check(waitFor([&]{return separateGuard.isNull();},20000)&&!singleManager->getDocumentViewer(other.strGUID),"locked dirty independent window closes only after production save and manager removal");
+                const auto extracted=root.filePath("verify-single/");QDir().mkpath(extracted);
+                check(db.documentToHtmlFile(other,extracted)&&bytes(extracted+"index.html").contains("SINGLE-MULTI-UNSAVED")
+                      &&bytes(extracted+"index.html").contains("OTHER-MULTI-BODY")&&WizZiwReader::isEncryptedFile(db.getDocumentFileName(other.strGUID)),"independent close actually preserves latest body inside encrypted native archive");
+                check(js(mainView->web()->page(),"document.body.textContent.includes('QUIT-SAVED-SYNTHETIC')").toBool()&&!mainView->canReadCurrentNote(),"other-note save completion does not reload or reauthorize locked main dirty view");
+                QPointer<WizSingleDocumentViewer> plainGuard(plain);
+                if(plain->close())QCoreApplication::sendPostedEvents(plain,QEvent::DeferredDelete);
+                check(waitFor([&]{return plainGuard.isNull();},20000),"unmodified independent plain window closes through original path");
+                exitRequested=true;window.on_actionExit_triggered();return;
+            }
             edit->setText(password);consent->setChecked(true);enrollButton->click();
             check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Conflict;})&&ownedItem->load(),"actual management duplicate reports conflict without overwriting or deleting");
             host.hide();window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
@@ -360,7 +440,13 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         check(waitFor([&]{return js(web->page(),"!!document.querySelector('.wiz-editor-body')&&document.querySelector('.wiz-editor-body').isContentEditable").toBool();}),"decrypted note enters actual editor for save-priority exit");
         js(web->page(),"document.querySelector('.wiz-editor-body').insertAdjacentHTML('beforeend','<p>QUIT-SAVED-SYNTHETIC</p>');");web->setModified(true);
         exitRequested=true;window.on_actionExit_triggered();
-    }catch(const std::exception& e){qWarning()<<"Stopped focused native workflow:"<<e.what();app.quit();}});
+    }catch(const std::exception& e){
+        qWarning()<<"Stopped focused native workflow:"<<e.what();
+        // Failure is not a normal save-first quit acceptance. Exit this isolated
+        // event loop directly so refused window closes cannot strand its owned
+        // synthetic credential. The cleanup below still deletes only our item.
+        QCoreApplication::exit(1);
+    }});
     app.exec();dialogs.stop();window.hide();
     if(biometricMain){
         QThreadPool::globalInstance()->waitForDone();
@@ -376,7 +462,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         const bool preserved=exported&&bytes(extracted+"index.html").contains("QUIT-SAVED-SYNTHETIC")&&bytes(extracted+"index.html").contains("KEEP-ORIGINAL-BODY");
         results.append(QJsonObject{{"name","normal quit saved latest dirty content before eleven-stage cleanup"},{"passed",preserved&&cleanup}});if(!preserved||!cleanup)++failures;
     }
-    const QJsonObject result{{"focus",biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features")},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
+    const QJsonObject result{{"focus",coordinationOnly?"biometric-window-coordination":(multiWindow?"biometric-multi-window":(biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features")))},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"nativeReadCanceled",nativeReadCanceled},{"actualIndependentWindows",multiWindow},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
     const bool output=writeNew(artifacts+"/frontend-result.json",QJsonDocument(result).toJson());
     qInfo()<<"native-feature-acceptance checks"<<results.size()<<"failures"<<failures;
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(nullptr);

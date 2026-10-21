@@ -1,4 +1,53 @@
-# Personal-use development checkpoint: main-window Touch ID coordination
+# Personal-use development checkpoint: native cancellation and multi-window acceptance
+
+## Phase 177: native cancellation, first protected load and multi-window acceptance
+
+Two concrete bugs were fixed. Enabling the biometric policy while an encrypted
+note was already open now prepares its locked password-page controls immediately;
+no reopen, credential read or body grant is implied. The native read now evaluates
+the existing biometric constraint asynchronously and uses the authenticated context
+for a noninteractive exact-item read. Cancellation releases the worker promptly;
+late system replies own completion state only. No password fallback, stored ACL,
+enrollment, signing requirement or app-inactive body revocation was weakened.
+
+Affected regressions: document routing **1176**, native keychain **36**, unlock
+widget **99**: **1311/0**, 16.41 seconds. Actual signed native authentication passed
+**10/0** with a real fingerprint and exact synthetic-item removal. Native cancel
+and worker drainage passed in main-window multi-view runs, but those complete runs
+did not pass: the app later became inactive during independent-window authorization.
+Cocoa confirmed inactive and another frontmost process; the cause is unresolved,
+not attributed to user interaction or treated as a product-wide success.
+
+A separate coordination fixture also initially stopped at that boundary
+(**22 checks, 1 failure** including cleanup). After the user explicitly kept the
+test app foreground, the failure reproduced without app inactivity. A local stack
+trace identified first-time Qt Quick-widget binding recreating native ancestors,
+hiding the protected view and correctly revoking its fresh grant. Premature test
+JavaScript made this happen early, but removing that polling still reproduced
+the actual first-load problem. The constructor now initializes only its new blank
+page, before it is shown or can hold a note grant. No existing DOM is replaced and
+hide/session revocation remains intact. Temporary stack instrumentation is removed.
+
+The corrected workflow then saved the independent note, but the fixture's nested
+timer wait deferred WA_DeleteOnClose delivery. It now flushes only that accepted
+close's own posted deletion; a refused close is never forcibly deleted. Final
+production three-window acceptance passed **33/0**, including separate encrypted
+grants, same-scope retirement, plaintext unaffected, both latest dirty DOMs retained,
+independent close saved an encrypted archive, no main-view reload/reauthorization,
+and normal main quit saved the latest body before eleven-stage cleanup.
+
+Failed tests exit their isolated loop directly so a refused save-first close cannot
+strand owned credentials. One older failed fixture had stalled on close; its exact
+synthetic item was deleted by a separately signed scoped helper, Missing confirmed,
+then only that test PID was terminated. No secret read or broad keychain deletion.
+All other owned items were removed by their fixtures. Failed runs remain evidence.
+
+Only new local signed copies and temporary synthetic databases were used. No
+installed App, real notes, frozen candidates, physical lock/sleep state or recovery
+default was changed. This synthetic three-window scenario is accepted, not every
+possible real-data/multi-window combination. Physical-session acceptance and the
+authoritative first-certificate service contract remain open. Automation stays
+paused; this phase does not claim completion of the full app.
 
 Development version: **14.4.25**. A new personal-use candidate has been built
 locally with explicit consent. It is ad-hoc signed, unnotarized, not automatically installed and

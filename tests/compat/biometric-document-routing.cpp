@@ -4041,8 +4041,16 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         auto other=scope;other.accountGuid+="-other";events->retire(policyIdentity(other));
         check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"unrelated account retirement cannot lock or rebind current open-note access");
         settings.set("BiometricUnlock",policy,"1");
+        const int readsBeforePolicyRefresh=reads;
         events->retire(policy);
         check(first.m_biometricEnabled&&second.m_biometricEnabled&&first.m_biometricGate.requiresAuthorization(true)&&second.m_biometricGate.requiresAuthorization(true)&&!first.canReadCurrentNote()&&!second.canReadCurrentNote(),"persisted new opt-in upgrades all matching open legacy gates even with an existing warm password cache");
+        auto* firstPrompt=first.m_passwordView->findChild<WizBiometricUnlockWidget*>();
+        auto* secondPrompt=second.m_passwordView->findChild<WizBiometricUnlockWidget*>();
+        check(firstPrompt&&secondPrompt&&firstPrompt->isVisible()&&secondPrompt->isVisible()
+              &&firstPrompt->stage()==WizBiometricUnlockWidget::Stage::Ready&&secondPrompt->stage()==WizBiometricUnlockWidget::Stage::Ready,
+              "policy upgrade refreshes both existing password-page biometric controls without requiring reopen");
+        check(reads==readsBeforePolicyRefresh&&!first.canReadCurrentNote()&&!second.canReadCurrentNote(),
+              "policy-page refresh starts no authentication and grants no body access");
         check(!first.acceptsNoteRead(oldFirst)&&!second.acceptsNoteRead(oldSecond)&&first.m_web->body==body&&db.getCertPassword()==password,"policy broadcast invalidates old tickets while retaining unsaved DOM and original save credential");
         check(plainView.canReadCurrentNote()&&!plainView.m_biometricEnabled,"scope retirement does not require authentication for an unencrypted plain note");
         submit(first);submit(second);const auto fresh=first.noteReadTicket();

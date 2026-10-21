@@ -430,10 +430,17 @@ int main(int argc, char *argv[])
 #if defined(WIZNOTE_NATIVE_TRANSFER_TESTS) && defined(Q_OS_MAC)
     if (QByteArray(argv[0]).endsWith("/WizNoteBiometricMainTest")) {
         if (argc != 2 || (QByteArray(argv[1]) != "--biometric-main-window-probe"
-                         && QByteArray(argv[1]) != "--biometric-save-quit-probe")
+                         && QByteArray(argv[1]) != "--biometric-save-quit-probe"
+                         && QByteArray(argv[1]) != "--biometric-multi-window-probe"
+                         && QByteArray(argv[1]) != "--biometric-window-coordination-probe"
+                         && QByteArray(argv[1]) != "--touch-id-system-probe")
             || qgetenv("WIZNOTE_SYNTHETIC_TOUCH_ID_CONSENT") != "create-read-delete") {
             qCritical() << "Isolated main-window fixture: explicit option/consent required; normal startup refused.";
             return 2;
+        }
+        if (QByteArray(argv[1]) == "--touch-id-system-probe") {
+            extern int wizTouchIdSystemProbe(int, char**);
+            return wizTouchIdSystemProbe(argc, argv);
         }
         qputenv("WIZNOTE_TEST_FOCUS", "biometric-main-window");
         extern int wizNativeFeatureAcceptance(int, char**);

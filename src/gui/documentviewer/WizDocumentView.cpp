@@ -1090,7 +1090,18 @@ void WizDocumentView::onBiometricPolicyRetired(const QString& policy)
     // New opt-in must upgrade a previously legacy gate before showing password;
     // certificate revisions retain the policy but never retain the old grant.
     m_biometricGate.begin(context,true);m_biometricEnabled=true;
+    const QPointer<WizDocumentView> self(this);
     onSessionAccessRetired();
+    if(!self||m_accessClosing||!m_biometricGate.current(context))return;
+    // Policy changes may lock an already-open legacy note without another
+    // review/navigation. Refresh that password page now, without focus, read,
+    // authentication or body reload (including inactive/background windows).
+    m_biometricPrepared=true;
+    m_passwordView->prepareBiometric(context,true);
+    if(!self||m_accessClosing||!m_biometricGate.current(context))return;
+    m_passwordView->setPasswordText(db.isGroup()?tr("Encrypted group password"):tr("Personal notes certificate password"));
+    if(!self||m_accessClosing||!m_biometricGate.current(context))return;
+    m_passwordView->setHint(db.getCertPasswordHint());
 }
 
 void WizDocumentView::awaitScreenShotAuthorization()

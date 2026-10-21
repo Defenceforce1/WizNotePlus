@@ -4,6 +4,9 @@
 #import <Security/Security.h>
 #import <Security/SecTask.h>
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 
 namespace WizBiometricKeychain {
 namespace {
@@ -130,6 +133,75 @@ Result ReadOperation::read(const Scope& scope)
         d->context.localizedFallbackTitle = @"";
         d->context.localizedCancelTitle = @"取消";
         d->context.localizedReason = @"使用 Touch ID 解锁当前账号的加密笔记";
+        // Query only this item's attributes first, never its secret/UI.
+        // Let LA evaluate that actual ACL asynchronously: canceling an implicit
+        // SecItemCopyMatching prompt need not promptly release its worker.
+        LAContext* metadataContext = [[LAContext alloc] init];
+        metadataContext.interactionNotAllowed = YES;
+        auto metadataQuery = query(identity);
+        metadataQuery[(__bridge id)kSecReturnAttributes] = @YES;
+        metadataQuery[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+        metadataQuery[(__bridge id)kSecUseAuthenticationContext] = metadataContext;
+        CFTypeRef metadataFound = nullptr;
+        const OSStatus metadataStatus = SecItemCopyMatching((__bridge CFDictionaryRef)metadataQuery, &metadataFound);
+        id metadataValue = CFBridgingRelease(metadataFound);
+        [metadataContext invalidate];
+        if (d->canceled.load()) return {Error::Canceled, {}};
+        id controlValue = nil;
+        if (metadataStatus == errSecSuccess) {
+            if (![metadataValue isKindOfClass:[NSDictionary class]]) return {Error::Failed, {}};
+            controlValue = metadataValue[(__bridge id)kSecAttrAccessControl];
+            if (!controlValue || CFGetTypeID((__bridge CFTypeRef)controlValue) != SecAccessControlGetTypeID())
+                return {Error::Failed, {}};
+        } else if (metadataStatus == errSecInteractionNotAllowed) {
+            // macOS can protect attributes too. Evaluate the SAME constraint
+            // used by this service's create-only enrollment, without changing
+            // the stored item. SecItem below still enforces its actual ACL and
+            // may fail; no second prompt or weaker protection is permitted.
+            CFErrorRef accessError = nullptr;
+            controlValue = CFBridgingRelease(SecAccessControlCreateWithFlags(kCFAllocatorDefault,
+                kSecAttrAccessibleWhenUnlockedThisDeviceOnly, kSecAccessControlBiometryCurrentSet, &accessError));
+            if (accessError) CFRelease(accessError);
+            if (!controlValue) return {Error::Failed, {}};
+        } else {
+            qWarning("Touch ID noninteractive attribute lookup failed (%d)", int(metadataStatus));
+            return {statusError(metadataStatus), {}};
+        }
+        struct Evaluation {
+            std::mutex mutex;
+            std::condition_variable changed;
+            bool complete = false;
+            Error error = Error::Failed;
+        };
+        const auto evaluation = std::make_shared<Evaluation>();
+        [d->context evaluateAccessControl:(__bridge SecAccessControlRef)controlValue
+            operation:LAAccessControlOperationUseItem localizedReason:d->context.localizedReason
+            reply:^(BOOL success, NSError* error) {
+                if (!success) qWarning("Touch ID asynchronous access evaluation failed (%ld)", long(error.code));
+                std::lock_guard<std::mutex> lock(evaluation->mutex);
+                evaluation->error = success ? Error::None
+                    : ([error.domain isEqualToString:LAErrorDomain]
+                        && (error.code == LAErrorUserCancel || error.code == LAErrorAppCancel || error.code == LAErrorSystemCancel)
+                        ? Error::Canceled : Error::AccessDenied);
+                evaluation->complete = true;
+                evaluation->changed.notify_all();
+                // No QWidget, database, operation or password is captured; a
+                // late OS reply owns only this isolated completion state.
+            }];
+        {
+            std::unique_lock<std::mutex> lock(evaluation->mutex);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
+            while (!evaluation->complete && !d->canceled.load()
+                   && std::chrono::steady_clock::now() < deadline)
+                evaluation->changed.wait_for(lock, std::chrono::milliseconds(25));
+            if (d->canceled.load() || !evaluation->complete) {
+                lock.unlock(); [d->context invalidate]; return {Error::Canceled, {}};
+            }
+            if (evaluation->error != Error::None) return {evaluation->error, {}};
+        }
+        if (d->canceled.load()) return {Error::Canceled, {}};
+        // Use this authenticated context without allowing a second prompt.
+        d->context.interactionNotAllowed = YES;
         auto attributes = query(identity);
         attributes[(__bridge id)kSecReturnData] = @YES;
         attributes[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
@@ -139,7 +211,10 @@ Result ReadOperation::read(const Scope& scope)
         const OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)attributes, &found);
         id value = CFBridgingRelease(found);
         if (d->canceled.load()) return {Error::Canceled, {}};
-        if (status != errSecSuccess) return {statusError(status), {}};
+        if (status != errSecSuccess) {
+            qWarning("Touch ID noninteractive credential read failed (%d)", int(status));
+            return {statusError(status), {}};
+        }
         if (![value isKindOfClass:[NSData class]] || [value length] == 0 || [value length] > 1024)
             return {Error::CredentialMismatch, {}};
         const QByteArray bytes(static_cast<const char*>([value bytes]), [value length]);
