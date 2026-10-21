@@ -1,4 +1,6 @@
 #include "share/WizBiometricNoteAccess.h"
+#include "widgets/WizBiometricManageWidget.h"
+#include "share/WizSessionAccess.h"
 #include "share/WizSettings.h"
 #include "share/WizGlobal.h"
 #include "database/WizDatabase.h"
@@ -10,6 +12,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QLineEdit>
+#include <QCheckBox>
 #include <QPushButton>
 #include <QSemaphore>
 #include <QTemporaryDir>
@@ -38,6 +41,15 @@ public:
     WizUserSettings& userSettings() override { return settings; }
 };
 struct ReadState { std::atomic<int> read{0},cancel{0}; QSemaphore resume; bool hold=false; QString password; };
+struct ManageState {std::atomic<int> enroll{0},forget{0};QSemaphore release;bool hold=false;Error result=Error::None;std::atomic<bool> offGui{false};QThread* gui=nullptr;};
+class ManageOperation final : public WizBiometricManageWidget::Operation {
+    std::shared_ptr<ManageState> state;
+public:
+    explicit ManageOperation(std::shared_ptr<ManageState> value):state(std::move(value)){}
+    Error enroll(const Scope&,const QString&)override{++state->enroll;return run();}
+    Error forget(const Scope&)override{++state->forget;return run();}
+    Error run(){state->offGui=QThread::currentThread()!=state->gui;if(state->hold&&!state->release.tryAcquire(1,3000))return Error::Failed;return state->result;}
+};
 class Read final : public WizBiometricUnlockWidget::Operation {
     std::shared_ptr<ReadState> state;
 public:
@@ -173,6 +185,61 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         form->prepareBiometric(context,false);
         check(!guard,"actual form survives owner deletion during context-change notification without a later widget access");
     }
+    // Phase164 opt-in management, exact conflict and forget semantics.
+    {
+        using Manage=WizBiometricManageWidget;
+        const auto click=[&](Manage& widget,bool forget,bool consent,const QString& value){widget.findChild<QLineEdit*>("biometricManagePassword")->setText(value);widget.findChild<QCheckBox*>("biometricManageConsent")->setChecked(consent);widget.findChild<QPushButton*>(forget?"biometricManageForget":"biometricManageEnroll")->click();};
+        const auto fresh=[] {auto p=std::make_shared<ManageState>();p->gui=QThread::currentThread();return p;};
+        const auto originalCert=scope.certificate.encryptedD;settings.set("BiometricUnlock",policy,"0");
+        QThreadPool pool;const auto probe=fresh();bool current=true;int policyWrites=0,retired=0;
+        Manage::Services services{[probe]{return std::make_shared<ManageOperation>(probe);},[&](const Scope& s){return current&&itemIdentity(s)==itemIdentity(scope);},[&](const Scope& s){++policyWrites;settings.set("BiometricUnlock",policyIdentity(s),"1");return optedIn(settings,s);},&pool};
+        Manage widget(services);widget.show();widget.setContext(scope,false);click(widget,false,true,password);
+        check(probe->enroll==0&&!optedIn(settings,scope)&&widget.stage()==Manage::Stage::Disabled,"management defaults unavailable and never enrolls or enables policy automatically");
+        widget.setContext(scope,true);click(widget,false,false,password);check(probe->enroll==0&&policyWrites==0,"explicit button without explicit consent cannot start enrollment");
+        click(widget,false,true,"wrong synthetic password");check(until([&]{return widget.stage()==Manage::Stage::Failed;})&&probe->enroll==0&&policyWrites==0&&widget.error()==Error::PasswordInvalid,"local wrong-password verification refuses before management provider and policy write");
+        QObject::connect(&widget,&Manage::accessRetired,&widget,[&]{++retired;});click(widget,false,true,password);
+        check(until([&]{return widget.stage()==Manage::Stage::Succeeded;})&&probe->enroll==1&&policyWrites==1&&optedIn(settings,scope)&&probe->offGui&&retired==1,"explicit enrollment verifies off GUI and enables actual isolated policy only after native-provider success");
+        check(widget.findChild<QLineEdit*>("biometricManagePassword")->text().isEmpty()&&!widget.findChild<QCheckBox*>("biometricManageConsent")->isChecked(),"management clears masked password and one-shot consent after starting without publishing the secret");
+        probe->result=Error::AlreadyExists;click(widget,false,true,password);
+        check(until([&]{return widget.stage()==Manage::Stage::Conflict;})&&probe->enroll==2&&probe->forget==0&&policyWrites==1,"existing record becomes an explicit conflict, never automatic overwrite or delete");
+        probe->result=Error::None;click(widget,true,true,{});
+        check(until([&]{return widget.stage()==Manage::Stage::Succeeded;})&&probe->forget==1&&policyWrites==1&&optedIn(settings,scope)&&retired==2,"forget removes only local memory and retains fresh-authorization policy instead of reopening warm-cache legacy access");
+        probe->result=Error::Missing;click(widget,true,true,{});
+        check(until([&]{return widget.stage()==Manage::Stage::Succeeded;})&&policyWrites==1&&retired==3,"forget missing record is idempotent and never disables required access policy");
+        for(const auto error:{Error::SigningRequired,Error::Canceled,Error::AccessDenied,Error::Failed}){
+            probe->result=error;click(widget,true,true,{});check(until([&]{return widget.stage()==Manage::Stage::Failed;})&&retired==3&&policyWrites==1,"failed or canceled forget never grants access or mutates policy");
+        }
+        check(db.getCertPassword()==password&&scope.certificate.encryptedD==originalCert,"management never clears in-flight save cache or alters certificate material");
+        widget.beginShutdown();click(widget,false,true,password);check(widget.stage()==Manage::Stage::Closed&&policyWrites==1,"management shutdown cannot start another enrollment");
+        for(const bool forget:{false,true}){
+            const auto pending=fresh();pending->hold=true;QThreadPool held;int writes=0,notifications=0;bool same=true;
+            Manage late({[pending]{return std::make_shared<ManageOperation>(pending);},[&](const Scope&){return same;},[&](const Scope&){++writes;return true;},&held});late.show();late.setContext(scope,true);QObject::connect(&late,&Manage::accessRetired,&late,[&]{++notifications;});click(late,forget,true,password);
+            const bool started=until([&]{return pending->enroll+pending->forget==1;});late.hide();late.show();late.setContext(scope,true);click(late,false,true,password);
+            check(started&&pending->enroll+pending->forget==1,"hidden or replaced management context cannot overlap its still-running system mutation");
+            pending->release.release();const bool joined=held.waitForDone(3000);until([&]{return late.findChild<QPushButton*>("biometricManageEnroll")->isEnabled();});
+            check(joined&&writes==0&&notifications==0,"late completed enrollment or forget cannot write policy or revive retired context");
+        }
+        const auto mismatch=fresh();Manage failedPolicy({[mismatch]{return std::make_shared<ManageOperation>(mismatch);},[](const Scope&){return true;},[](const Scope&){return false;},&pool});failedPolicy.show();failedPolicy.setContext(scope,true);click(failedPolicy,false,true,password);
+        check(until([&]{return failedPolicy.stage()==Manage::Stage::Failed;}),"native-provider success with failed policy persistence is not reported as completed enrollment");
+        Manage* destroyed=new Manage(services);destroyed->show();destroyed->setContext(scope,true);auto* edit=destroyed->findChild<QLineEdit*>("biometricManagePassword");edit->setText(password);destroyed->findChild<QCheckBox*>("biometricManageConsent")->setChecked(true);QPointer<Manage> weak(destroyed);int clearNotifications=0;QObject::connect(edit,&QLineEdit::textChanged,&app,[&](const QString& v){if(v.isEmpty()){++clearNotifications;delete destroyed;}});destroyed->findChild<QPushButton*>("biometricManageEnroll")->click();
+        check(weak&&edit->text().isEmpty()&&clearNotifications==0,"internal password clear is signal-blocked and cannot enter destructive textChanged slots inside Qt line-control update");
+        delete destroyed;check(pool.waitForDone(3000)&&!weak,"management destruction after dispatch releases GUI safely while worker owns only its task");
+        Manage* factoryGone=nullptr;Manage::Services factoryServices{[&]()->std::shared_ptr<Manage::Operation>{delete factoryGone;return std::make_shared<ManageOperation>(probe);},[](const Scope&){return true;},[](const Scope&){return true;},&pool};
+        factoryGone=new Manage(factoryServices);factoryGone->show();factoryGone->setContext(scope,true);QPointer<Manage> factoryWeak(factoryGone);click(*factoryGone,false,true,password);
+        check(!factoryWeak,"owner destruction from operation factory safely stops before worker dispatch");
+        Manage* reentrant=nullptr;Manage::Services resetServices{[&](){reentrant->setContext(scope,true);return std::make_shared<ManageOperation>(probe);},[](const Scope&){return true;},[](const Scope&){return true;},&pool};reentrant=new Manage(resetServices);reentrant->show();reentrant->setContext(scope,true);const auto prior=probe->enroll.load();click(*reentrant,false,true,password);
+        check(reentrant->stage()==Manage::Stage::Ready&&reentrant->findChild<QPushButton*>("biometricManageEnroll")->isEnabled()&&probe->enroll==prior,"pre-dispatch context retirement releases its task instead of leaving a permanently busy management widget");delete reentrant;
+    }
+    // Phase164 deterministic session router, never real OS notifications.
+    {
+        WizSessionAccess::Monitor monitor(false);int notifications=0;QObject::connect(&monitor,&WizSessionAccess::Monitor::accessRetired,&app,[&]{++notifications;});
+        monitor.observeApplicationState(Qt::ApplicationInactive);monitor.systemBoundary();monitor.observeApplicationState(Qt::ApplicationHidden);
+        check(notifications==1,"session monitor coalesces repeated inactive/sleep boundaries without issuing credentials");
+        monitor.observeApplicationState(Qt::ApplicationActive);check(notifications==1,"activation rearms notifications only and never restores access automatically");monitor.systemBoundary();check(notifications==2,"a later session boundary retires a freshly active session again");
+        monitor.beginShutdown();monitor.observeApplicationState(Qt::ApplicationActive);monitor.systemBoundary();monitor.beginShutdown();check(notifications==3,"shutdown retires once and prevents further session reactivation");
+        auto* gone=new WizSessionAccess::Monitor(false);QPointer<WizSessionAccess::Monitor> weak(gone);QObject::connect(gone,&WizSessionAccess::Monitor::accessRetired,&app,[&]{delete gone;});gone->systemBoundary();check(!weak,"session receiver may destroy the monitor during retirement without later member access");
+    }
+    // End Phase164 management/session tests.
     check(db.getCertPassword()==password,"UI cancellation and note permission revocation never clear the existing save cache");
     WizDatabase::clearCertPassword();
     qInfo().noquote()<<"biometric-note-access checks"<<checks<<"failures"<<failures;

@@ -16,6 +16,7 @@
 
 #include "share/WizGlobal.h"
 #include "share/WizDocumentUiQuery.h"
+#include "share/WizSessionAccess.h"
 #include "share/WizObjectDataDownloader.h"
 #include "database/WizDatabaseManager.h"
 #include "share/WizSettings.h"
@@ -96,6 +97,8 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     connect(m_passwordView, SIGNAL(cipherCheckRequest()), SLOT(onCipherCheckRequest()));
     connect(m_passwordView, &WizUserCipherForm::biometricCredentialReady,
             this, &WizDocumentView::onBiometricCredentialReady);
+    connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,
+            this,&WizDocumentView::onSessionAccessRetired);
 
     m_blankView = new QWidget(this);
 
@@ -1041,6 +1044,20 @@ void WizDocumentView::revokeBiometricAccess(bool closing)
     m_web->closeDevTools();
     if (!self) return;
     m_passwordView->cancelBiometric();
+}
+
+void WizDocumentView::onSessionAccessRetired()
+{
+    // Legacy/non-opted-in behavior is unchanged. Retire access, not the saved
+    // password, DOM, snapshot producer or queued local saves.
+    if(!m_biometricEnabled||m_accessClosing)return;
+    const QPointer<WizDocumentView> self(this);
+    revokeBiometricAccess();
+    if(!self)return;
+    m_web->cancelPdfExport();
+    if(!self)return;
+    m_stack->setCurrentWidget(m_passwordView);
+    // No focus/reauthentication or navigation while the session is inactive.
 }
 
 bool WizDocumentView::prepareEncryptedAccess(WizDatabase& db)

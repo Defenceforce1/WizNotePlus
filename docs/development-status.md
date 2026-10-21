@@ -1,4 +1,4 @@
-# Personal-use development checkpoint: phase 163
+# Personal-use development checkpoint: phase 164
 
 Development version: **14.4.25**. This is a source checkpoint, not an installer,
 release, installation, or completed system-authentication acceptance.
@@ -73,6 +73,47 @@ release, installation, or completed system-authentication acceptance.
   Already dispatched JavaScript is not retroactively canceled.
 
 ## Latest local verification
+
+Phase 164 completes three associated isolated stages: an explicit biometric
+management component, session-access retirement, and the complete extracted
+normal-quit coordinator. Only two affected groups were run after the final build:
+**1178 PASS, 0 FAIL in 13.18s** (68 note/management/session, 1110 routing/quit).
+There are 43 new checks; all previous 1135 assertions remain unchanged. This is
+not a full-suite rerun, native authentication acceptance or a normal-window test.
+
+The new management component starts disabled and has no enabled normal-client
+entry. Enrollment requires one-shot consent, locally verified password and a
+current account/certificate scope. Policy persistence follows provider success.
+Conflicts never overwrite automatically. Forgetting local memory retains the
+fresh-authentication policy, certificates, notes, backups and save credentials.
+Workers do not access widgets/database objects; retired or destroyed views ignore
+late results. A dispatched task remains observed to prevent same-widget overlap.
+Already committed native changes cannot be undone by hiding the component.
+All test providers are synthetic; real Keychain operations were not exercised.
+
+An initial isolated test crashed when a password text-change receiver destroyed
+its widget inside Qt's unfinished clear operation. Internal password clearing
+now blocks that notification, while still clearing the password and consent.
+The regression checks suppressed internal notification, factory reentrancy and
+destruction, post-dispatch destruction and late completion. The failed run is
+retained separately, not counted as acceptance. Two intermediate build errors
+were corrected and retained in local evidence as well.
+
+The normal document source subscribes to a session monitor: Qt inactivity and
+public macOS workspace sleep/session-resign notifications retire opted-in access,
+cancel pending output and display the password view without clearing DOM or
+canceling saves. Activation alone never grants access. Public SDK subscriptions
+compile; deterministic tests disable native subscription. Real sleep, session,
+lock-screen and Touch ID interactions remain unaccepted.
+
+The entire actual prepareForQuit body is extracted with only class/collaborator
+substitutions. Actual UI rollback/freeze and FIFO encrypted archive writes are
+tested for refusal, two save passes, simulated final sync, idempotence and late
+external changes. Network, modal UI and note enumeration are collaborators; the
+normal MainWindow is not instantiated. This advances the earlier callsite-only
+evidence but does not claim whole-client quit acceptance.
+
+### Retained phase 163 evidence
 
 External tasks now retain a SHA-256 comparison of their initial or most recently
 admitted converted body. A single successful file read supplies both the body
@@ -149,8 +190,12 @@ specific reason. Historical results are not silently counted as current acceptan
    This bounded external-editor method-level phase is closed; whole-application
    quit and manual conflict reconciliation remain separate.
    Real external processes remain outside isolated verification.
-3. Explicit biometric opt-in/enrollment/conflict/forget-local-memory management.
-4. Actual system-session/lock notifications and save-first whole-application quit.
+3. Explicit biometric management is implemented and isolated-tested; normal-host
+   entry, policy-change broadcast/open-note integration and signed native
+   enrollment/conflict/forget acceptance remain gated and disabled.
+4. Public session subscriptions compile; deterministic retirement and the full
+   extracted save-first quit method pass. Actual OS events, lock/authentication
+   interaction and normal MainWindow end-to-end quit remain unaccepted.
 5. User-configured lawful signing for native Touch ID/Keychain acceptance, and an
    authoritative first-certificate-registration service contract.
 
@@ -161,7 +206,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The reviewed file manifest is [checkpoints/2026-10-21-phase163.json](checkpoints/2026-10-21-phase163.json).
+The reviewed file manifest is [checkpoints/2026-10-21-phase164.json](checkpoints/2026-10-21-phase164.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

@@ -200,6 +200,7 @@ public Q_SLOTS:
 private:
     WizBiometricNoteAccess::Context biometricContext() const;
     void revokeBiometricAccess(bool closing = false);
+    void onSessionAccessRetired();
     bool prepareEncryptedAccess(WizDatabase& db);
     bool biometricRequestCurrent(const WizBiometricNoteAccess::Context& context,
                                  const WizBiometricNoteAccess::Gate::Ticket& ticket) const;

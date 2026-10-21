@@ -2,6 +2,9 @@
 #include "share/WizDocumentReadPermit.h"
 #include "share/WizDocumentReadOutput.h"
 #include "share/WizDocumentReadSave.h"
+#include "share/WizSessionAccess.h"
+#include "share/WizQuitUiGuard.h"
+#include "share/WizQuitSyncPolicy.h"
 #include "share/WizExternalEditorSnapshot.h"
 #include "share/WizThreads.h"
 #include "share/WizQtCompat.h"
@@ -28,6 +31,8 @@
 #include "mac/WizMacHelper.h"
 #include <QImageReader>
 #include <QApplication>
+#include <QMainWindow>
+#include <QScopedValueRollback>
 #include <QDebug>
 #include <QDir>
 #include <QElapsedTimer>
@@ -577,6 +582,7 @@ public:
     bool canReadLegacyHiddenNote() const;
     bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket&) const;
     void revokeBiometricAccess(bool closing=false);
+    void onSessionAccessRetired();
     bool prepareEncryptedAccess(WizDatabase&);
     bool biometricRequestCurrent(const Context&,const Gate::Ticket&) const;
     bool completeBiometricUnlock(const QString&,const Context&,const Gate::Ticket&);
@@ -722,6 +728,32 @@ struct LaunchShell : QObject {
     bool verifyExternalChangesForQuit() const;
 };
 #include WIZNOTE_LAUNCH_METHODS
+// Phase164 complete prepareForQuit body with real UI guard and saver; the
+// network attempt, modal message and view enumeration are isolated shells.
+class QuitSync : public QObject {
+    Q_OBJECT
+public:
+    bool running=false,idle=true;int attempts=0,stops=0;
+    bool isRunning()const{return running;}bool isIdle()const{return idle;}
+    bool hasNetworkStarted()const{return true;}quint64 networkActivity()const{return 0;}
+    void startSyncAll(bool){++attempts;emit fullSyncAttemptFinished();}
+    void stopSync(){++stops;running=false;}
+Q_SIGNALS:
+    void fullSyncAttemptFinished();
+};
+struct QuitMessage {static inline int failures=0;static int critical(QWidget*,const QString&,const QString&){++failures;return 0;}};
+struct QuitNetwork {static inline int shutdowns=0;static void beginShutdown(){++shutdowns;}};
+struct QuitViewer {RoutingView* view=nullptr;RoutingView* docView()const{return view;}};
+struct QuitViewerManager {QMap<int,QuitViewer*> viewers;QMap<int,QuitViewer*> getDocumentViewerMap()const{return viewers;}};
+struct QuitShell : QMainWindow {
+    bool m_quitPrepared=false,m_preparingQuit=false,m_noteTransferBusy=false,m_quiting=false;
+    QList<QPointer<RoutingView>> views;QuitViewerManager manager;QuitViewerManager* m_singleViewMgr=&manager;
+    WizDocumentSaverThread* m_docSaver=nullptr;LaunchShell* m_externalEditorLauncher=nullptr;
+    QuitSync *m_syncFull=nullptr,*m_syncQuick=nullptr;
+    void processAllDocumentViews(const std::function<void(RoutingView*)>& f){for(const auto& view:views)if(view)f(view);}
+    bool prepareForQuit();
+};
+#include WIZNOTE_QUIT_COORDINATOR_METHOD
 // Only delay the worker's start; queue, disk saves, failure tracking, fences and
 // waitForDone are the actual product implementation, not copied test methods.
 class HeldSaver final : public WizDocumentSaverThread {
@@ -3863,6 +3895,48 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         watcher.waitForDone();check(!saver.rescued&&!saver.isRunning()&&saver.hasTransferError()&&!saver.hasUnresolvedSaveFailure()&&db.getCertPassword()==password,"retry reconciliation preserves historical diagnostics, save credential and original save-first drain");LaunchMessage::errors=0;
     }
     // End Phase163 retry tests.
+    // Phase164 current note retirement and complete isolated quit coordinator.
+    {
+        RoutingView owner(explorer);owner.show();owner.viewNote(a,false);submit(owner);owner.m_web->body="retained session dirty DOM";
+        WizSessionAccess::Monitor monitor(false);QObject::connect(&monitor,&WizSessionAccess::Monitor::accessRetired,&owner,&RoutingView::onSessionAccessRetired);
+        const auto before=owner.m_web->noteReadPermit();owner.m_web->defer=true;QString output=root.filePath("session-stale-output.txt");int outputs=0;owner.m_web->saveAsPlainText(output,[&](QString){++outputs;});auto saved=std::move(owner.m_web->pending.back());owner.m_web->pending.clear();
+        monitor.systemBoundary();saved(true);
+        check(!before.current()&&!owner.canReadCurrentNote()&&owner.m_stack->currentWidget()==owner.m_passwordView&&outputs==0&&!QFile::exists(output),"session retirement hides protected current body and rejects a previously captured output result");
+        check(owner.m_web->body=="retained session dirty DOM"&&db.getCertPassword()==password,"session retirement preserves dirty DOM and existing save password rather than canceling saves");
+        monitor.observeApplicationState(Qt::ApplicationActive);check(!owner.canReadCurrentNote(),"reactivation alone does not grant current note access");owner.m_web->defer=false;submit(owner);check(owner.canReadCurrentNote(),"fresh explicit manual verification still opens retained note after a session boundary");
+        RoutingView legacy(explorer);legacy.show();legacy.viewNote(c,false);const auto body=legacy.m_web->body;legacy.onSessionAccessRetired();check(legacy.canReadCurrentNote()&&legacy.m_web->body==body,"session handler does not alter legacy non-opted-in note policy");
+    }
+    {
+        QuitMessage::failures=0;QuitNetwork::shutdowns=0;
+        RoutingView owner(explorer);owner.show();owner.viewNote(a,false);submit(owner);owner.m_web->body="quit dirty body";
+        QuitShell quit;quit.setCentralWidget(new QWidget);auto* action=new QAction(&quit);action->setEnabled(true);quit.views.append(&owner);
+        owner.m_web->reply=false;const int saves=owner.m_web->saves;
+        check(!quit.prepareForQuit()&&!quit.m_quiting&&!quit.m_quitPrepared&&action->isEnabled()&&owner.isEnabled()&&quit.centralWidget()->isEnabled()&&QuitMessage::failures==1&&owner.m_web->saves==saves+1,"actual prepareForQuit snapshot failure restores input/actions and refuses exit before network shutdown");
+        owner.m_web->reply=true;QuitSync full,quick;full.running=true;quick.running=true;quit.m_syncFull=&full;quit.m_syncQuick=&quick;
+        const int before=owner.m_web->saves;check(quit.prepareForQuit()&&quit.m_quiting&&quit.m_quitPrepared&&owner.m_web->saves==before+2&&full.attempts==1&&full.stops==1&&quick.stops==1&&QuitNetwork::shutdowns==1,"actual coordinator performs both local-save passes and one simulated final sync before committing exit");
+        check(!action->isEnabled()&&!owner.isEnabled()&&owner.m_web->body=="quit dirty body"&&db.getCertPassword()==password,"committed quit guard keeps input frozen without clearing retained DOM or save credential");
+        const int committed=owner.m_web->saves;check(quit.prepareForQuit()&&owner.m_web->saves==committed&&full.attempts==1,"already committed quit is idempotent without new saves or another sync attempt");
+        owner.setEnabled(true);
+        for(const bool busy:{false,true}){QuitShell blocked;blocked.m_preparingQuit=!busy;blocked.m_noteTransferBusy=busy;const int prior=owner.m_web->saves;blocked.views.append(&owner);check(!blocked.prepareForQuit()&&owner.m_web->saves==prior,"reentrant or note-transfer-busy quit refuses before snapshot work");}
+    }
+    {
+        WIZDOCUMENTDATAEX note;if(!check(create("quit-coordinator-real-save",1,note),"isolated coordinator creates its own encrypted save note"))return 1;
+        RoutingView owner(explorer);owner.show();owner.viewNote(note,false);submit(owner);owner.m_web->body="real quit DOM";
+        HeldSaver saver(manager,nullptr);QuitShell quit;quit.setCentralWidget(new QWidget);quit.views.append(&owner);quit.m_docSaver=&saver;int handoffs=0;
+        owner.m_web->handoff=[&](const WIZDOCUMENTDATA& doc){++handoffs;saver.save(doc,"<html><body>quit actual disk "+QString::number(handoffs)+"</body></html>","",0);};
+        QTimer::singleShot(0,&quit,[&]{saver.release.release();});const bool accepted=quit.prepareForQuit();saver.waitForDone();
+        QTemporaryDir extracted;const bool read=db.documentToHtmlFile(note,extracted.path()+"/");QFile file(extracted.filePath("index.html"));const QByteArray html=read&&file.open(QIODevice::ReadOnly)?file.readAll():QByteArray();
+        check(accepted&&handoffs==2&&!saver.rescued&&html.contains("quit actual disk 2")&&WizZiwReader::isEncryptedFile(db.getDocumentFileName(note.strGUID)),"complete coordinator waits for both actual FIFO encrypted archive writes rather than only snapshot handoff");owner.setEnabled(true);
+    }
+    {
+        RoutingView owner(explorer);owner.show();owner.viewNote(a,false);submit(owner);QuitShell quit;quit.setCentralWidget(new QWidget);quit.views.append(&owner);LaunchShell external(explorer);quit.m_externalEditorLauncher=&external;
+        const QString path=root.filePath("quit-final-unadmitted.txt");WizSaveUnicodeTextToUtf8File(path,"old external",false);const WizExternalEditorData editor={"synthetic","never-run",{},2,1};external.m_externalEditorTasks.insert(path,{editor,a,path,WizExternalEditorSnapshot::read(path,true).digest});
+        int passes=0;owner.m_web->handoff=[&](const WIZDOCUMENTDATA&){if(++passes==2)WizSaveUnicodeTextToUtf8File(path,"late external change",false);};
+        const int shutdowns=QuitNetwork::shutdowns;LaunchMessage::errors=0;const bool accepted=quit.prepareForQuit();
+        check(!accepted&&passes==2&&!quit.m_quiting&&!quit.m_quitPrepared&&owner.isEnabled()&&quit.centralWidget()->isEnabled()&&LaunchMessage::errors==1&&QuitNetwork::shutdowns==shutdowns,"actual second external check catches late change after final save and restores normal input without committing exit");
+        check(owner.canReadCurrentNote()&&db.getCertPassword()==password,"canceled normal quit keeps the current note usable and original save credential intact");LaunchMessage::errors=0;
+    }
+    // End Phase164 session/quit tests.
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
     WizDatabase::clearCertPassword();

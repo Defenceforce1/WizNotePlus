@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase164",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "25819d345ff12ffba9d50b4d858f16c353a8c4a2",
+  "sourceCheckpoint": "phase164",
+  "productCodeChanged": true,
+  "localRegression": {
+    "kind": "incremental-and-associated",
+    "groups": 2,
+    "pass": 1178,
+    "fail": 0,
+    "seconds": 13.18,
+    "noteChecks": 68,
+    "routingChecks": 1110,
+    "newChecks": 43,
+    "runs": 1,
+    "actualRetainedRuntimeMappingVerified": true,
+    "fullSuiteRerun": false,
+    "nativeAuthenticationRun": false,
+    "githubCiClaimed": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "automaticInstallation": false,
+  "notes": "Three isolated stages: disabled explicit consent/enroll/conflict/forget component; Qt inactivity/public workspace session retirement; complete actual prepareForQuit method with real UI guard and FIFO encrypted archives. Clear-time destructive textChanged test exposed Qt internal lifetime crash; internal clear now signal-blocked, destruction/factory reset/late result regressions pass. Initial failed run retained, not counted as acceptance. 43 new checks; all old 1135 assertions/extraction rules and unrelated bytes preserved. Providers, network, modal UI and note enumeration synthetic. Native subscriptions compile but real OS/lock/authentication and normal MainWindow are unaccepted. Normal host entry/policy broadcast, lawful signing and first-certificate service contract remain gated; default Touch ID disabled. No normal accounts, real notes, native Keychain, installer or service calls.",
+  "files": [
+    {
+      "path": "src/CMakeLists.txt",
+      "mode": "100644",
+      "bytes": 29577,
+      "chars": 29577,
+      "gitBlobSha": "a72d1e8a1340bd0e373636b37b62d3417086a437",
+      "sha256": "d592cca2d509c9e83808d793eb7979a4dcaa40b368fa7142cf57ac6c0033381a"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 52883,
+      "chars": 52453,
+      "gitBlobSha": "9f2d7dad5d86033a3935cffbddd025c89fb0de78",
+      "sha256": "b9fb55c99d53933af4ea20ba7437294d6565f304df550b16cddcd446c13c60e1"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8328,
+      "chars": 8326,
+      "gitBlobSha": "bad2e9e0a5b9917bd331672a7f6dedb474439565",
+      "sha256": "f17dbd9ffec91ac026a6366a66535cf496bc1270e00f8d7e00a039bcf299f93f"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 22240,
+      "chars": 22240,
+      "gitBlobSha": "05f0140bcd26c61d2a5a36805702619105da5e85",
+      "sha256": "34ba3be952b4c35b4e8aa1987ad7946a894a8ae8e2a1b7d32778863d049de661"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 393665,
+      "chars": 393540,
+      "gitBlobSha": "31e7fe286c9769544be1cd772111947869cbab7f",
+      "sha256": "e9b7a9dc7836a91429b01085a1afb1bab6c4a665f6ee0561caee88f9749418fe"
+    },
+    {
+      "path": "tests/compat/biometric-document-methods.cmake",
+      "mode": "100644",
+      "bytes": 43463,
+      "chars": 43463,
+      "gitBlobSha": "1cafc3824b894a06d0a701cebe2aa1ab445f42e3",
+      "sha256": "44cc78274fac5d87a0d963508d12f0c7ef18b8416ccb6500260c4b7e4a5cb0da"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageWidget.h",
+      "mode": "100644",
+      "bytes": 2294,
+      "chars": 2294,
+      "gitBlobSha": "1d491bdceff93c5a7cfe191e4e6df66f6be5dec8",
+      "sha256": "2e505c18748dead5950515c04f8539795646066a4c9403ef6068c141d5f37201"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageWidget.cpp",
+      "mode": "100644",
+      "bytes": 9151,
+      "chars": 8695,
+      "gitBlobSha": "143225200711d3a7dfc5a46179b3c044411165ad",
+      "sha256": "9f40ce34c51699758296f14a6b8d94685bca15589309cf4a877ff2291126a948"
+    },
+    {
+      "path": "src/share/WizSessionAccess.h",
+      "mode": "100644",
+      "bytes": 902,
+      "chars": 902,
+      "gitBlobSha": "6542ee873bfabd692cb1db9c2af4d7f62d4c76fd",
+      "sha256": "3b7c0f0ac4f21f2f57afedf608932cabcf650d04739231c15428c5a34d07fc6d"
+    },
+    {
+      "path": "src/share/WizSessionAccess.cpp",
+      "mode": "100644",
+      "bytes": 1457,
+      "chars": 1457,
+      "gitBlobSha": "300f546c01774649ed44295b8c174e15ea69b8dc",
+      "sha256": "aa501a01af88f957b18b5438fe22e200b69105d4e2b12d74e9c3ad401fb911f3"
+    },
+    {
+      "path": "src/mac/WizSessionAccess.mm",
+      "mode": "100644",
+      "bytes": 956,
+      "chars": 956,
+      "gitBlobSha": "edb9cda82494749647709bd0391dbe589c29850e",
+      "sha256": "e9334aaf073a2eb60dfdd35802b616ce6db9d663ddd079a186f780ce6583d23b"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 14012,
+      "chars": 14012,
+      "gitBlobSha": "54498a6aa92a9c990f2daef0cc2010d9022ab809",
+      "sha256": "ba6f27544ac24569c8537156f6cbca06e71108d05de12343a8a5d8ae7db9d681"
+    }
+  ]
+}

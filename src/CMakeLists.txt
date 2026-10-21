@@ -37,6 +37,7 @@ endif()
 set(wiznote_SOURCES_MAC
     mac/WizMacHelper.mm
     mac/WizBiometricKeychain.mm
+    mac/WizSessionAccess.mm
     mac/WizUserInfoWidgetBaseMac.mm
     mac/WizUserInfoWidgetBaseMac_mm.cpp
     widgets/WizUserInfoWidgetBase.cpp
@@ -115,8 +116,10 @@ set(wiznote_SOURCES
     share/WizCertificateCreation.cpp
     share/WizBiometricKeychainScope.cpp
     share/WizBiometricNoteAccess.cpp
+    share/WizSessionAccess.cpp
     widgets/WizCertificateCreationDialog.cpp
     widgets/WizBiometricUnlockWidget.cpp
+    widgets/WizBiometricManageWidget.cpp
     share/WizZiwReader.cpp
     html/WizHtmlReader.cpp
     html/WizHtmlCollector.cpp
@@ -344,6 +347,8 @@ set(wiznote_HEADERS
     widgets/WizAboutDialog.h
     widgets/WizCertificateCreationDialog.h
     widgets/WizBiometricUnlockWidget.h
+    widgets/WizBiometricManageWidget.h
+    share/WizSessionAccess.h
     widgets/WizSegmentedButton.h
     widgets/WizUserInfoWidget.h
     widgets/WizUserInfoWidgetBase.h
@@ -659,6 +664,7 @@ if(UNIX)
         find_library(_SECURITY_LIBRARY Security REQUIRED)
         find_library(_LOCAL_AUTH_LIBRARY LocalAuthentication REQUIRED)
         set_source_files_properties(mac/WizBiometricKeychain.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+        set_source_files_properties(mac/WizSessionAccess.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         if (PLCrashReporter)
             find_library(_CRASHREPORTER CrashReporter)
         endif(PLCrashReporter)
