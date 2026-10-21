@@ -1,4 +1,39 @@
-# Personal-use development checkpoint: bounded offline chooser verification
+# Personal-use development checkpoint: user-operated lock/unlock acceptance
+
+## Phase 180: actual user-operated lock/unlock with synthetic notes
+
+A new independent signed main-client copy offers an explicit live-session fixture
+before account bootstrap. It generates only temporary synthetic credentials/notes,
+opens through the production manual-password control and leaves a dirty renderer.
+The agent never locks or sleeps the Mac. The user operates Control+Command+Q,
+unlocks normally and confirms in the isolated instruction window. The fixture
+times out after three minutes if unconfirmed; failure still cleans its owned item.
+No test fingerprint, normal account, real note or screen capture is requested.
+
+The user confirmed the round trip and the actual Cocoa process observed **one
+inactive event and return to active**. All **22 checks passed**: no body access
+or old read permit restored on unlock; latest DOM, certificate/save cache and
+encrypted archive format retained; exact synthetic memory deleted and Missing
+confirmed; normal eleven-stage quit saved latest plus original body. The event
+loop exited normally and runtime Qt came from this signed App. No-argument and
+malformed launches refused normal startup (code2). No unrelated suite rerun.
+
+Important distinction: **zero native NSWorkspace retirement notifications** were
+observed in this exercise. The physical lock/unlock is user-confirmed and its
+actual application-inactive route is accepted, not independent proof that public
+workspace sleep/session-resign events fire for lock screen. Actual sleep and
+switch-user hard-event delivery remain separate unaccepted combinations. No
+local notification was injected or automatically posted; this is distinct from
+the earlier simulated workspace tests. Production session/lock logic was not
+changed to make acceptance pass.
+
+Only the guarded fixture dispatch and acceptance test changed. Existing installed
+App, real notes, phase177 signed App and frozen candidates remain unchanged; no
+installer or installation. The new signed test uses the same matching profile,
+minimum main entitlements and 46 inherited signed components/permissions. No keys
+exported, no identity/profile/binary or raw log uploaded. Recovery stays OFF and
+automation PAUSED. First compatible certificate service registration still needs
+an authoritative contract; no server probing is authorized or performed.
 
 ## Phase 179: account-file chooser fixture readiness
 
@@ -637,7 +672,8 @@ specific reason. Historical results are not silently counted as current acceptan
 3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
    normal-account and separate-window/shared-modal combinations,
-   OS session/lock, native print/clipboard/
+   actual sleep/switch-user hard notifications (user-operated lock with the
+   application-inactive route accepted in phase180), native print/clipboard/
    chooser/capture/search/inspector, external process/manual conflict handling,
    representative attachment/encryption and new-candidate avatar update/reopen.
    Foreground permission covers only synthetic isolated data; normal-account
@@ -661,7 +697,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest integration manifest is [checkpoints/2026-10-22-phase179.json](checkpoints/2026-10-22-phase179.json).
+The latest integration manifest is [checkpoints/2026-10-22-phase180.json](checkpoints/2026-10-22-phase180.json).
+The bounded chooser-fixture improvement is [phase179](checkpoints/2026-10-22-phase179.json).
 The HTML resource URL correction is [phase178](checkpoints/2026-10-22-phase178.json).
 The synthetic three-window acceptance is [phase177](checkpoints/2026-10-22-phase177.json).
 The focused system/widget test is [phase175](checkpoints/2026-10-22-phase175.json).

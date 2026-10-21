@@ -101,8 +101,9 @@ public:
 int wizNativeFeatureAcceptance(int argc,char** argv){
     const bool biometricMain=qEnvironmentVariable("WIZNOTE_TEST_FOCUS")=="biometric-main-window";
     const bool coordinationOnly=argc==2&&QByteArray(argv[1])=="--biometric-window-coordination-probe";
+    const bool liveSession=argc==2&&QByteArray(argv[1])=="--biometric-live-session-probe";
     const bool multiWindow=coordinationOnly||(argc==2&&QByteArray(argv[1])=="--biometric-multi-window-probe");
-    const bool manualOnly=multiWindow||(argc==2&&QByteArray(argv[1])=="--biometric-save-quit-probe");
+    const bool manualOnly=liveSession||multiWindow||(argc==2&&QByteArray(argv[1])=="--biometric-save-quit-probe");
     if(biometricMain&&(argc!=2||(!manualOnly&&QByteArray(argv[1])!="--biometric-main-window-probe")
         ||qgetenv("WIZNOTE_SYNTHETIC_TOUCH_ID_CONSENT")!="create-read-delete"))return 2;
     const QString artifacts=qEnvironmentVariable("WIZNOTE_TEST_ARTIFACT_DIR");
@@ -149,6 +150,8 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     WizBiometricKeychain::Scope ownedScope;auto ownedItem=std::make_shared<std::atomic<bool>>(false);
     bool nativeAuthenticated=false,syntheticItemAbsent=!biometricMain,nativeReadCanceled=false;
     int workspaceNotificationsPosted=0;
+    int liveWorkspaceRetireNotifications=0,liveAppInactiveEvents=0;
+    bool userConfirmedPhysicalLockAndUnlock=false;
     const auto capture=[&](QWidget* widget,const QString& name){return widget&&widget->grab().save(artifacts+"/"+name+".png");};
     const auto check=[&](bool ok,const QString& label){results.append(QJsonObject{{"name",label},{"passed",ok}});qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;if(!ok){++failures;capture(&window,"failure");throw std::runtime_error(label.toStdString());}};
     const auto ready=[&]{return window.docView()&&window.docView()->noteLoaded()&&window.docView()->canReadCurrentNote()&&js(window.docView()->web()->page(),"!!(window.WizNativeEditorSetup&&WizNativeEditorSetup.state==='ready')").toBool();};
@@ -207,6 +210,48 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
             check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Succeeded;},15000)&&ownedItem->load()
                   &&WizBiometricNoteAccess::optedIn(window.userSettings(),ownedScope),"management UI completes native enrollment then persists synthetic opt-in");
             check(!window.docView()->canReadCurrentNote()&&!db.getCertPassword().isEmpty(),"new policy retires already-open main-window access without clearing save cache");
+            if(liveSession){
+                host.hide();window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
+                check(waitFor([&]{return app.applicationState()==Qt::ApplicationActive&&window.isActiveWindow();},5000),"isolated live-session window is active before synthetic password authorization");
+                auto* view=window.docView();auto* web=view->web();
+                auto* form=view->findChild<WizUserCipherForm*>();auto* passwordEdit=form?form->findChild<QLineEdit*>("editUserCipher"):nullptr;
+                check(passwordEdit,"live-session fixture has the production manual password control");
+                passwordEdit->setText(password);QMetaObject::invokeMethod(form,"onButtonOK_clicked",Qt::DirectConnection);
+                check(waitFor(ready,20000),"fresh synthetic password opens the isolated renderer before user-operated lock");
+                view->setEditorMode(modeEditor);
+                check(waitFor([&]{return js(web->page(),"!!document.querySelector('.wiz-editor-body[contenteditable=true]')").toBool();}),"live-session note enters the actual editor");
+                check(js(web->page(),"(function(){const b=document.querySelector('.wiz-editor-body');b.insertAdjacentHTML('beforeend','<p>QUIT-SAVED-SYNTHETIC</p>');return b.textContent.includes('QUIT-SAVED-SYNTHETIC');})()").toBool(),"live-session note contains distinct latest synthetic unsaved content");
+                web->setModified(true);const auto permit=web->noteReadPermit();
+                QObject observation;
+                QObject::connect(&app,&QGuiApplication::applicationStateChanged,&observation,[&](Qt::ApplicationState state){if(state!=Qt::ApplicationActive)++liveAppInactiveEvents;});
+                const auto stopNative=WizSessionAccess::subscribeWorkspace(&observation,[&]{++liveWorkspaceRetireNotifications;});
+                QDialog instruction(&window);instruction.setWindowTitle(QStringLiteral("仅合成资料：手动锁屏验收"));
+                auto* layout=new QVBoxLayout(&instruction);
+                auto* label=new QLabel(QStringLiteral("请手动按 Control + Command + Q 锁屏，再按正常方式解锁。\n回来后点击下方按钮。无需输入笔记密码或按测试指纹。\n本测试不会自动锁屏／休眠，3分钟未确认将退出并清理。"),&instruction);
+                layout->addWidget(label);auto* confirm=new QPushButton(QStringLiteral("我已手动锁屏并解锁，检查结果"),&instruction);layout->addWidget(confirm);
+                QObject::connect(confirm,&QPushButton::clicked,&observation,[&]{
+                    userConfirmedPhysicalLockAndUnlock=true;instruction.hide();
+                });
+                instruction.show();instruction.raise();instruction.activateWindow();
+                writeNew(artifacts+"/ready-for-user-lock.json",QJsonDocument(QJsonObject{{"syntheticOnly",true},{"automaticLock",false},{"automaticSleep",false},{"requiresUserConfirmation",true},{"timeoutSeconds",180}}).toJson());
+                qInfo()<<"READY_FOR_USER_LOCK: manually Control+Command+Q,unlock normally,then click the confirmation button; no automatic lock or fingerprint.";
+                const bool confirmed=waitFor([&]{return userConfirmedPhysicalLockAndUnlock;},180000);
+                if(stopNative)stopNative();
+                writeNew(artifacts+"/live-session-observation.json",QJsonDocument(QJsonObject{{"userConfirmedPhysicalLockAndUnlock",confirmed},{"appInactiveEvents",liveAppInactiveEvents},{"nativeWorkspaceRetireNotifications",liveWorkspaceRetireNotifications},{"notificationsPostedByFixture",0},{"automaticDeviceOperation",false}}).toJson());
+                check(confirmed,"user explicitly confirms their own physical lock/unlock round trip before acceptance");
+                check(liveAppInactiveEvents>0&&app.applicationState()==Qt::ApplicationActive,"actual application leaves active state and returns active during the user-confirmed round trip");
+                check(!view->canReadCurrentNote()&&form->isVisible()&&!permit.current(),"lock/unlock does not restore protected body access or the original read permit");
+                check(js(web->page(),"document.body.textContent.includes('QUIT-SAVED-SYNTHETIC')&&document.body.textContent.includes('KEEP-ORIGINAL-BODY')").toBool()
+                    &&!db.getCertPassword().isEmpty()&&db.hasCert(),"user-confirmed round trip retains latest dirty DOM plus certificate and save cache");
+                // A manual round trip can exceed the normal auto-save interval.
+                // Do not misclassify a legitimate encrypted save as mutation.
+                check(WizZiwReader::isEncryptedFile(db.getDocumentFileName(protectedNote.strGUID)),"user-lock round trip preserves encrypted archive format even if normal autosave runs");
+                host.show();consent->setChecked(true);forgetButton->click();
+                check(waitFor([&]{return management->stage()==WizBiometricManageWidget::Stage::Succeeded;})&&!ownedItem->load(),"live-session cleanup deletes only the native-add-owned synthetic item");
+                syntheticItemAbsent=forget(ownedScope,true)==Error::Missing;
+                check(syntheticItemAbsent,"live-session synthetic item is exactly absent before normal save-first quit");
+                host.hide();exitRequested=true;window.on_actionExit_triggered();return;
+            }
             if(multiWindow){
                 host.hide();window.raise();window.activateWindow();[NSApp activateIgnoringOtherApps:YES];
                 auto* mainView=window.docView();
@@ -462,7 +507,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         const bool preserved=exported&&bytes(extracted+"index.html").contains("QUIT-SAVED-SYNTHETIC")&&bytes(extracted+"index.html").contains("KEEP-ORIGINAL-BODY");
         results.append(QJsonObject{{"name","normal quit saved latest dirty content before eleven-stage cleanup"},{"passed",preserved&&cleanup}});if(!preserved||!cleanup)++failures;
     }
-    const QJsonObject result{{"focus",coordinationOnly?"biometric-window-coordination":(multiWindow?"biometric-multi-window":(biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features")))},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"nativeReadCanceled",nativeReadCanceled},{"actualIndependentWindows",multiWindow},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
+    const QJsonObject result{{"focus",liveSession?"biometric-live-session":(coordinationOnly?"biometric-window-coordination":(multiWindow?"biometric-multi-window":(biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features"))))},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"nativeReadCanceled",nativeReadCanceled},{"actualIndependentWindows",multiWindow},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",liveSession&&userConfirmedPhysicalLockAndUnlock},{"userConfirmedPhysicalLockAndUnlock",userConfirmedPhysicalLockAndUnlock},{"liveWorkspaceRetireNotifications",liveWorkspaceRetireNotifications},{"liveAppInactiveEvents",liveAppInactiveEvents},{"automaticDeviceOperation",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
     const bool output=writeNew(artifacts+"/frontend-result.json",QJsonDocument(result).toJson());
     qInfo()<<"native-feature-acceptance checks"<<results.size()<<"failures"<<failures;
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(nullptr);

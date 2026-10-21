@@ -433,6 +433,7 @@ int main(int argc, char *argv[])
                          && QByteArray(argv[1]) != "--biometric-save-quit-probe"
                          && QByteArray(argv[1]) != "--biometric-multi-window-probe"
                          && QByteArray(argv[1]) != "--biometric-window-coordination-probe"
+                         && QByteArray(argv[1]) != "--biometric-live-session-probe"
                          && QByteArray(argv[1]) != "--touch-id-system-probe")
             || qgetenv("WIZNOTE_SYNTHETIC_TOUCH_ID_CONSENT") != "create-read-delete") {
             qCritical() << "Isolated main-window fixture: explicit option/consent required; normal startup refused.";

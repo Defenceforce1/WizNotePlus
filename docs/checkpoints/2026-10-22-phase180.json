@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase180",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "d90955a6c84e80f652355531f5ebe1ed2f3b2c78",
+  "phase": 180,
+  "acceptedFocusedUserLockRoundTrip": true,
+  "productSessionOrBiometricLogicChanged": false,
+  "tests": {
+    "focusedUserLockRoundTripChecks": 22,
+    "failures": 0,
+    "userConfirmedPhysicalLockAndUnlock": true,
+    "actualApplicationInactiveEvents": 1,
+    "actualApplicationReturnedActive": true,
+    "nativeWorkspaceRetireNotifications": 0,
+    "workspaceNotificationsInjected": 0,
+    "automaticDeviceOperation": false,
+    "nativeSleepOrSwitchUserHardEventsAccepted": false,
+    "oldBodyPermitNotRestored": true,
+    "dirtyDomAndSaveCacheRetained": true,
+    "normalElevenStageQuitSavedOriginalAndLatestBody": true,
+    "ownedSyntheticItemAbsent": true,
+    "boundaryLaunchChecks": 2,
+    "boundaryLaunchExitCode": 2,
+    "unrelatedSuitesRerun": false
+  },
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "realAccountStarted": false,
+  "realNotesAccessed": false,
+  "normalAppModified": false,
+  "previousSignedTestAppUnchanged": true,
+  "installed": false,
+  "repackagedInstaller": false,
+  "binariesUploaded": false,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "rawReportsOrLogsIncluded": false,
+  "signingIdentityOrProfilesIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Explicit guarded live-session fixture before account bootstrap;temporary synthetic DB/cert/password/native-add-owned memory only. Agent never locks/sleeps device or requests fingerprint. User operates Control+Command+Q and unlocks,then explicitly confirms in test window;180s timeout preserves exact owned cleanup. Actual app inactive1 then Active,user report true,22/0 plus normal11-stage save/quit,old read permit/body access not restored,latest dirty DOM and save cache/cert/encrypted format retained,exact memory deleted/Missing confirmed. Native workspace retire count0,fixture injected0;therefore accept user-confirmed physical lock with observed Qt application-inactive route,NOT actual sleep/switch-user hard-event delivery. Shutdown hard event excluded. No product session/auth policy change. New signed test copy only,matching profile/minimum main entitlements/46 inherited components unchanged,strict signature/current code/arm64/dependencies and bundled runtime verified. Two launch boundaries code2 refuse account startup. Prior signed App,frozen candidates,normal App/real notes,HEAD/index unchanged,no installer/install or binary/profile/identity/raw-log upload. No unrelated PDF/native fingerprint/multiwindow/recovery matrix repetition. RecoveryOFF,automationPAUSED. Broader native controls/real-data combinations and authoritative first-certificate service contract remain external gates.",
+  "files": [
+    {
+      "path": "src/main.cpp",
+      "mode": "100644",
+      "chars": 25170,
+      "bytes": 25438,
+      "sha256": "658e3a2b4b6c1c31ee734cb22c3e894c2118da5442ef90595b2feb8214e8a870",
+      "gitBlobSha": "68a4ddc1d5dffa1be1d99a2f2611757d0459e751"
+    },
+    {
+      "path": "tests/compat/native-feature-acceptance.mm",
+      "mode": "100644",
+      "chars": 56918,
+      "bytes": 57242,
+      "sha256": "d0690d56528db0ba93c8478f4da00fcd1f6010ca51973899c243b5cb87429bed",
+      "gitBlobSha": "a74c2ecd7f0047bba8cb005db72e9e6b856adcd9"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 47168,
+      "bytes": 47188,
+      "sha256": "968b187da1d014891f36d61349fe703e2bc52ab8523c1aaf7f698260432d8d54",
+      "gitBlobSha": "84cdb6bd2cca2b8aeb131c1809621a755c21cbc1"
+    }
+  ]
+}
