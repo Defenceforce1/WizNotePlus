@@ -22,34 +22,30 @@ and unobstructed controls. No PDF rendering or unrelated full suite was repeated
 This source-only change is **not** in the frozen 14.4.25 candidate delivered below;
 no installer was rebuilt or replaced. The user reports basic trial use is normal.
 
-## Signing preparation
+## Development signing setup completed
 
-With explicit read-only consent, one valid Apple Development identity was found
-and its Team ID matched from its public certificate. No valid Developer ID
-Application identity was found. Identity names and Team IDs remain local, not in
-this repository. Certificate bytes were parsed in memory only; no certificate
-file or private key was exported, no keychain record or signature was changed,
-and no provisioning profile was inspected. A matching profile and keychain
-entitlements still need configuration/verification before native Touch ID tests.
-Normal biometric management stays disabled; the first-certificate service-contract
-gate remains unchanged. A development identity alone is not full authorization.
+After explicit authorization for Apple automatic provisioning, an independent
+local Xcode helper project was created for the existing application identifier.
+Xcode's automatic-signing build succeeded with the verified Apple Development
+identity and obtained/installed one matching macOS development profile. The helper
+has a valid strict recursive signature, the expected team/application identifiers
+and a matching keychain access group. The embedded profile is unexpired, targets
+macOS, permits those identifiers/groups and contains the actual signing certificate.
 
-## Profile readiness follow-up
+The helper project, team configuration, profile and raw signing logs stay local;
+identity names, Team ID, profile contents/device lists and private keys are not
+uploaded. No private-key bytes were read/exported by the agent; Xcode used the
+existing signing identity as authorized. The helper was not run. The previous
+profile-location gate is resolved for this setup; server-side registration details
+are not independently inferred from build success.
 
-The next read-only step checked the three standard user/system provisioning
-profile directories and the owned candidate's embedded-profile locations. All
-three directories are absent and no profile is embedded. This is a bounded local
-check, not a claim that no profile exists elsewhere on the machine. No profile
-contents, device lists, credentials or private keys were read.
-
-The current candidate remains ad-hoc signed with no main-app entitlements, as
-expected from the existing personal-use package. A development identity alone
-does not satisfy the current Touch ID implementation's non-ad-hoc and entitlement
-guards. Before a separately authorized signed test build, configure or provide a
-matching macOS development profile for the intended application identifier and
-verify its application/team identifiers and keychain access group. No profile was
-created/installed, signature changed, Touch ID enabled, package rebuilt or service
-contacted. No functional tests were repeated for this metadata-only check.
+The installed/main candidate remains untouched and ad-hoc signed. No normal app,
+real note, biometric prompt or data-protection keychain credential was opened.
+This is signing/provisioning setup, not native Touch ID or complete-client
+acceptance. Next, a separately scoped signed main-client test artifact and actual
+Touch ID/data-protection-keychain verification are still needed. Normal biometric
+management remains disabled; the authoritative first-certificate registration
+service contract is a separate unresolved gate. No main app was repackaged or installed.
 
 ## Local candidate delivery
 
@@ -468,7 +464,7 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest readiness manifest is [checkpoints/2026-10-21-phase173.json](checkpoints/2026-10-21-phase173.json).
+The latest setup manifest is [checkpoints/2026-10-21-phase174.json](checkpoints/2026-10-21-phase174.json).
 The UI change remains [phase172](checkpoints/2026-10-21-phase172.json).
 The frozen local candidate is [phase171](checkpoints/2026-10-21-phase171.json),
 whose product-source input remains [phase170](checkpoints/2026-10-21-phase170.json).

@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase174",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "3dd4069406623c3f089545e1777f2551fce835d0",
+  "sourceCheckpoint": "authorized-independent-development-signing-setup",
+  "phase": 174,
+  "accepted": true,
+  "productCodeChanged": false,
+  "tests": {
+    "functionalGroups": 0,
+    "functionalTestsRun": false,
+    "independentXcodeBuilds": 1,
+    "automaticSigningBuildSucceeded": true,
+    "strictHelperSignatureValid": true,
+    "profileMetadataAndInstalledCopyVerified": true,
+    "nativeTouchIdTested": false,
+    "dataProtectionKeychainCredentialTested": false,
+    "fullSuiteRerun": false
+  },
+  "developmentSigningSetup": {
+    "automaticAppleProvisioningExplicitlyAuthorized": true,
+    "independentHelperConfigured": true,
+    "matchingDevelopmentProfileAvailable": true,
+    "profileInstalled": true,
+    "profileEmbedded": true,
+    "helperNonAdHoc": true,
+    "helperApplicationTeamAndKeychainGroupsMatch": true,
+    "developmentCertificateMatchesProfile": true,
+    "profileUnexpiredAndMac": true,
+    "helperRun": false,
+    "privateKeysExported": false,
+    "privateKeyBytesReadByAgent": false,
+    "signingKeyUsedByXcode": true,
+    "mainAppSignatureChanged": false,
+    "identityDetailsPublic": false,
+    "serverRegistrationDetailsIndependentlyProven": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "packaged": false,
+  "installed": false,
+  "fullProjectComplete": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Explicit user authorization for existing-team Xcode automatic signing/provisioning,including Apple access and possible App ID/Mac registration/profile acquisition; no purchase,distribution,normal-app replacement or private-key export. New isolated helper project only,automatic build succeeds. Strict valid development signature and actual embedded/installed Mac profile:team/application/keychain groups,expiry and actual certificate match. Signing used by Xcode,agent reads/exports no private-key bytes. Helper not run,no biometric prompt/data-protection-keychain credential tests. Profile gate resolved; next is separately scoped signed main-client/system acceptance,not a claim of full Touch ID. Main source/executable/signature and frozen candidates unchanged,no main package/install. Helper,Team config,profile and raw logs remain local,no identity/Team/device-list/profile/binary upload. Normal Touch ID disabled,recovery OFF,automation PAUSED. First compatible certificate service contract remains.",
+  "files": [
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 31068,
+      "bytes": 31088,
+      "sha256": "602f50b38136436b073960063becc71ec981031536e3311dfd6f0b09e70f1e54",
+      "gitBlobSha": "b5b5f0e6056ab8040e35c591e6482af12b81548a"
+    }
+  ]
+}
