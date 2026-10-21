@@ -1,4 +1,37 @@
-# Personal-use development checkpoint: user-operated lock/unlock acceptance
+# Personal-use development checkpoint: real sleep/wake hard-event acceptance
+
+## Phase 181: user-operated sleep/wake, actual workspace notifications
+
+Reusing the isolated main-window flow, the new explicit sleep fixture asks the
+user to choose Apple-menu Sleep, wake/unlock normally and confirm. The agent
+never sleeps or locks the Mac. No normal account, real note, test fingerprint or
+screen capture is involved. The retained production session/auth rules are not
+modified; only the guarded test dispatch/fixture changes.
+
+All **23 checks passed**, with actual native notifications separately observed:
+**WillSleep1, DidWake1, workspace retirement1, production Monitor hard event1
+before quit**, and one app-inactive event. No local notification was posted.
+The user's confirmation and actual native sleep/wake events both participate;
+mere app deactivation is insufficient for this mode. Protected body access and
+old read permits stay retired, dirty DOM/original body/certificate/save cache
+survive, archive format stays encrypted, exact owned memory is removed/Missing
+confirmed, and normal eleven-stage quit saves original plus latest content.
+
+The pre-quit observation file is authoritative for hard-event acceptance. The
+final aggregate counter includes the subsequent normal shutdown hard event
+(2 total); that second event is NOT claimed as another real OS notification.
+Runtime is bundled Qt; strict signature/current code/arm64/dependencies and the
+46 inherited signed components/permissions are incrementally verified. No-arg
+and malformed launches still refuse account bootstrap with code2. No other suite,
+PDF, lock-screen, multi-window, fingerprint or recovery-matrix repetition.
+
+Installed App, phase180 signed test App and frozen candidates are unchanged;
+only a new signed local sleep-test copy is made, no installer or installation.
+Recovery stays OFF and automation PAUSED. This closes the focused physical
+sleep/wake scenario, not switch-user or all system-event combinations. Remaining
+real-data/native-control acceptance and the authoritative compatible first-
+certificate service contract stay separate; no service probing or new routine
+approvals. No keys, profile/identity, raw logs, synthetic data or binary uploaded.
 
 ## Phase 180: actual user-operated lock/unlock with synthetic notes
 
@@ -672,8 +705,9 @@ specific reason. Historical results are not silently counted as current acceptan
 3. **Remaining actual-client acceptance, not repeated source tasks:** the focused
    existing-note main-window/Qt-modal/export/save/quit subset above is accepted;
    normal-account and separate-window/shared-modal combinations,
-   actual sleep/switch-user hard notifications (user-operated lock with the
-   application-inactive route accepted in phase180), native print/clipboard/
+   switch-user and broader system-event combinations (user-operated lock accepted
+   in phase180; actual sleep/wake hard-notification route accepted in phase181),
+   native print/clipboard/
    chooser/capture/search/inspector, external process/manual conflict handling,
    representative attachment/encryption and new-candidate avatar update/reopen.
    Foreground permission covers only synthetic isolated data; normal-account
@@ -697,7 +731,8 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest integration manifest is [checkpoints/2026-10-22-phase180.json](checkpoints/2026-10-22-phase180.json).
+The latest integration manifest is [checkpoints/2026-10-22-phase181.json](checkpoints/2026-10-22-phase181.json).
+The manual lock/application-inactive acceptance is [phase180](checkpoints/2026-10-22-phase180.json).
 The bounded chooser-fixture improvement is [phase179](checkpoints/2026-10-22-phase179.json).
 The HTML resource URL correction is [phase178](checkpoints/2026-10-22-phase178.json).
 The synthetic three-window acceptance is [phase177](checkpoints/2026-10-22-phase177.json).

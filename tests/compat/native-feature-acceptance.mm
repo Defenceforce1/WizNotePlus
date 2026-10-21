@@ -101,7 +101,8 @@ public:
 int wizNativeFeatureAcceptance(int argc,char** argv){
     const bool biometricMain=qEnvironmentVariable("WIZNOTE_TEST_FOCUS")=="biometric-main-window";
     const bool coordinationOnly=argc==2&&QByteArray(argv[1])=="--biometric-window-coordination-probe";
-    const bool liveSession=argc==2&&QByteArray(argv[1])=="--biometric-live-session-probe";
+    const bool liveSleep=argc==2&&QByteArray(argv[1])=="--biometric-live-sleep-probe";
+    const bool liveSession=liveSleep||(argc==2&&QByteArray(argv[1])=="--biometric-live-session-probe");
     const bool multiWindow=coordinationOnly||(argc==2&&QByteArray(argv[1])=="--biometric-multi-window-probe");
     const bool manualOnly=liveSession||multiWindow||(argc==2&&QByteArray(argv[1])=="--biometric-save-quit-probe");
     if(biometricMain&&(argc!=2||(!manualOnly&&QByteArray(argv[1])!="--biometric-main-window-probe")
@@ -152,6 +153,8 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
     int workspaceNotificationsPosted=0;
     int liveWorkspaceRetireNotifications=0,liveAppInactiveEvents=0;
     bool userConfirmedPhysicalLockAndUnlock=false;
+    bool userConfirmedSleepWake=false;
+    int liveSleepNotifications=0,liveWakeNotifications=0,liveMonitorHardEvents=0;
     const auto capture=[&](QWidget* widget,const QString& name){return widget&&widget->grab().save(artifacts+"/"+name+".png");};
     const auto check=[&](bool ok,const QString& label){results.append(QJsonObject{{"name",label},{"passed",ok}});qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;if(!ok){++failures;capture(&window,"failure");throw std::runtime_error(label.toStdString());}};
     const auto ready=[&]{return window.docView()&&window.docView()->noteLoaded()&&window.docView()->canReadCurrentNote()&&js(window.docView()->web()->page(),"!!(window.WizNativeEditorSetup&&WizNativeEditorSetup.state==='ready')").toBool();};
@@ -225,21 +228,33 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
                 QObject observation;
                 QObject::connect(&app,&QGuiApplication::applicationStateChanged,&observation,[&](Qt::ApplicationState state){if(state!=Qt::ApplicationActive)++liveAppInactiveEvents;});
                 const auto stopNative=WizSessionAccess::subscribeWorkspace(&observation,[&]{++liveWorkspaceRetireNotifications;});
-                QDialog instruction(&window);instruction.setWindowTitle(QStringLiteral("仅合成资料：手动锁屏验收"));
+                QObject::connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,&observation,[&](bool hard){if(hard)++liveMonitorHardEvents;});
+                NSNotificationCenter* nativeCenter=NSWorkspace.sharedWorkspace.notificationCenter;
+                id sleepObserver=nil,wakeObserver=nil;
+                if(liveSleep){
+                    int* const sleepCount=&liveSleepNotifications;int* const wakeCount=&liveWakeNotifications;
+                    sleepObserver=[nativeCenter addObserverForName:NSWorkspaceWillSleepNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*){++*sleepCount;}];
+                    wakeObserver=[nativeCenter addObserverForName:NSWorkspaceDidWakeNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*){++*wakeCount;}];
+                }
+                QDialog instruction(&window);instruction.setWindowTitle(liveSleep?QStringLiteral("仅合成资料：手动睡眠验收"):QStringLiteral("仅合成资料：手动锁屏验收"));
                 auto* layout=new QVBoxLayout(&instruction);
-                auto* label=new QLabel(QStringLiteral("请手动按 Control + Command + Q 锁屏，再按正常方式解锁。\n回来后点击下方按钮。无需输入笔记密码或按测试指纹。\n本测试不会自动锁屏／休眠，3分钟未确认将退出并清理。"),&instruction);
-                layout->addWidget(label);auto* confirm=new QPushButton(QStringLiteral("我已手动锁屏并解锁，检查结果"),&instruction);layout->addWidget(confirm);
+                auto* label=new QLabel(liveSleep?QStringLiteral("请从苹果菜单选择“睡眠”，等待约10秒后唤醒并正常解锁。\n不要只锁屏。回来后点击下方按钮。\n测试不会自动操作系统，3分钟未确认将退出并清理。"):
+                    QStringLiteral("请手动按 Control + Command + Q 锁屏，再按正常方式解锁。\n回来后点击下方按钮。无需输入笔记密码或按测试指纹。\n本测试不会自动锁屏／休眠，3分钟未确认将退出并清理。"),&instruction);
+                layout->addWidget(label);auto* confirm=new QPushButton(liveSleep?QStringLiteral("我已手动睡眠并唤醒，检查结果"):QStringLiteral("我已手动锁屏并解锁，检查结果"),&instruction);layout->addWidget(confirm);
                 QObject::connect(confirm,&QPushButton::clicked,&observation,[&]{
-                    userConfirmedPhysicalLockAndUnlock=true;instruction.hide();
+                    if(liveSleep)userConfirmedSleepWake=true;else userConfirmedPhysicalLockAndUnlock=true;instruction.hide();
                 });
                 instruction.show();instruction.raise();instruction.activateWindow();
-                writeNew(artifacts+"/ready-for-user-lock.json",QJsonDocument(QJsonObject{{"syntheticOnly",true},{"automaticLock",false},{"automaticSleep",false},{"requiresUserConfirmation",true},{"timeoutSeconds",180}}).toJson());
-                qInfo()<<"READY_FOR_USER_LOCK: manually Control+Command+Q,unlock normally,then click the confirmation button; no automatic lock or fingerprint.";
-                const bool confirmed=waitFor([&]{return userConfirmedPhysicalLockAndUnlock;},180000);
+                writeNew(artifacts+(liveSleep?"/ready-for-user-sleep.json":"/ready-for-user-lock.json"),QJsonDocument(QJsonObject{{"syntheticOnly",true},{"automaticLock",false},{"automaticSleep",false},{"requiresUserConfirmation",true},{"timeoutSeconds",180}}).toJson());
+                qInfo()<<(liveSleep?"READY_FOR_USER_SLEEP: choose Apple menu Sleep,wake/unlock,then confirm;no automatic system operation.":"READY_FOR_USER_LOCK: manually Control+Command+Q,unlock normally,then click the confirmation button; no automatic lock or fingerprint.");
+                const bool confirmed=waitFor([&]{return liveSleep?userConfirmedSleepWake:userConfirmedPhysicalLockAndUnlock;},180000);
                 if(stopNative)stopNative();
-                writeNew(artifacts+"/live-session-observation.json",QJsonDocument(QJsonObject{{"userConfirmedPhysicalLockAndUnlock",confirmed},{"appInactiveEvents",liveAppInactiveEvents},{"nativeWorkspaceRetireNotifications",liveWorkspaceRetireNotifications},{"notificationsPostedByFixture",0},{"automaticDeviceOperation",false}}).toJson());
-                check(confirmed,"user explicitly confirms their own physical lock/unlock round trip before acceptance");
-                check(liveAppInactiveEvents>0&&app.applicationState()==Qt::ApplicationActive,"actual application leaves active state and returns active during the user-confirmed round trip");
+                if(sleepObserver)[nativeCenter removeObserver:sleepObserver];if(wakeObserver)[nativeCenter removeObserver:wakeObserver];
+                writeNew(artifacts+"/live-session-observation.json",QJsonDocument(QJsonObject{{"userConfirmedPhysicalLockAndUnlock",userConfirmedPhysicalLockAndUnlock},{"userConfirmedSleepWake",userConfirmedSleepWake},{"appInactiveEvents",liveAppInactiveEvents},{"nativeWorkspaceRetireNotifications",liveWorkspaceRetireNotifications},{"willSleepNotifications",liveSleepNotifications},{"didWakeNotifications",liveWakeNotifications},{"productionMonitorHardEvents",liveMonitorHardEvents},{"notificationsPostedByFixture",0},{"automaticDeviceOperation",false}}).toJson());
+                check(confirmed,liveSleep?"user explicitly confirms their own sleep/wake round trip":"user explicitly confirms their own physical lock/unlock round trip before acceptance");
+                if(liveSleep)check(liveSleepNotifications>0&&liveWakeNotifications>0&&liveWorkspaceRetireNotifications>0&&liveMonitorHardEvents>0,
+                    "real workspace sleep and wake notifications reach the production hard-retirement monitor before quit");
+                check((liveSleep||liveAppInactiveEvents>0)&&app.applicationState()==Qt::ApplicationActive,"actual application is active again after the user-confirmed round trip");
                 check(!view->canReadCurrentNote()&&form->isVisible()&&!permit.current(),"lock/unlock does not restore protected body access or the original read permit");
                 check(js(web->page(),"document.body.textContent.includes('QUIT-SAVED-SYNTHETIC')&&document.body.textContent.includes('KEEP-ORIGINAL-BODY')").toBool()
                     &&!db.getCertPassword().isEmpty()&&db.hasCert(),"user-confirmed round trip retains latest dirty DOM plus certificate and save cache");
@@ -507,7 +522,7 @@ int wizNativeFeatureAcceptance(int argc,char** argv){
         const bool preserved=exported&&bytes(extracted+"index.html").contains("QUIT-SAVED-SYNTHETIC")&&bytes(extracted+"index.html").contains("KEEP-ORIGINAL-BODY");
         results.append(QJsonObject{{"name","normal quit saved latest dirty content before eleven-stage cleanup"},{"passed",preserved&&cleanup}});if(!preserved||!cleanup)++failures;
     }
-    const QJsonObject result{{"focus",liveSession?"biometric-live-session":(coordinationOnly?"biometric-window-coordination":(multiWindow?"biometric-multi-window":(biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features"))))},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"nativeReadCanceled",nativeReadCanceled},{"actualIndependentWindows",multiWindow},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",liveSession&&userConfirmedPhysicalLockAndUnlock},{"userConfirmedPhysicalLockAndUnlock",userConfirmedPhysicalLockAndUnlock},{"liveWorkspaceRetireNotifications",liveWorkspaceRetireNotifications},{"liveAppInactiveEvents",liveAppInactiveEvents},{"automaticDeviceOperation",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
+    const QJsonObject result{{"focus",liveSleep?"biometric-live-sleep":liveSession?"biometric-live-session":(coordinationOnly?"biometric-window-coordination":(multiWindow?"biometric-multi-window":(biometricMain?(manualOnly?"biometric-save-quit":"biometric-main-window"):(newNoteModes?"new-note-modes":"foreground-features"))))},{"syntheticOnly",true},{"platform",QGuiApplication::platformName()},{"actualMainWindow",true},{"actualRenderer",true},{"nativeSavePanel",false},{"physicalPointer",false},{"actualScreenCapture",false},{"nativeAuthentication",nativeAuthenticated},{"nativeReadCanceled",nativeReadCanceled},{"actualIndependentWindows",multiWindow},{"syntheticItemAbsent",syntheticItemAbsent},{"workspaceNotificationsPostedLocally",workspaceNotificationsPosted},{"actualDeviceSessionChanged",liveSession&&(userConfirmedPhysicalLockAndUnlock||userConfirmedSleepWake)},{"userConfirmedPhysicalLockAndUnlock",userConfirmedPhysicalLockAndUnlock},{"userConfirmedSleepWake",userConfirmedSleepWake},{"liveWillSleepNotifications",liveSleepNotifications},{"liveDidWakeNotifications",liveWakeNotifications},{"liveMonitorHardEvents",liveMonitorHardEvents},{"liveWorkspaceRetireNotifications",liveWorkspaceRetireNotifications},{"liveAppInactiveEvents",liveAppInactiveEvents},{"automaticDeviceOperation",false},{"realAccount",false},{"blockedWebRequests",interceptor.blocked.load()},{"exitRequested",exitRequested},{"originalCleanup",cleanup},{"checks",results},{"failures",failures}};
     const bool output=writeNew(artifacts+"/frontend-result.json",QJsonDocument(result).toJson());
     qInfo()<<"native-feature-acceptance checks"<<results.size()<<"failures"<<failures;
     for(auto* p:app.findChildren<QWebEngineProfile*>())p->setUrlRequestInterceptor(nullptr);
