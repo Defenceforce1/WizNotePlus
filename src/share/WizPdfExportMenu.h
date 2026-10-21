@@ -3,6 +3,7 @@
 
 #include "WizPdfExport.h"
 #include <QAction>
+#include <QCoreApplication>
 #include <QMenu>
 #include <QPointer>
 #include <functional>
@@ -15,17 +16,23 @@ inline void attachMenu(QAction* action, QWidget* owner, const std::function<void
     if (!action || !owner || !exportPdf || action->menu()) return;
     auto* menu = new QMenu(owner);
     menu->setObjectName(QStringLiteral("wizPdfPageWidthMenu"));
+    menu->setToolTipsVisible(true);
     const QPointer<QAction> original(action);
-    const auto add = [&](const QString& title, const char* name, Mode selected) {
+    const auto add = [&](const QString& title, const QString& description, const char* name, Mode selected) {
         auto* child = menu->addAction(title);
+        child->setToolTip(description);
         child->setObjectName(QString::fromLatin1(name));
         QObject::connect(child, &QAction::triggered, menu, [exportPdf, original, selected] {
             if (!original || !original->isEnabled()) return;
             exportPdf(selected);
         });
     };
-    add(QStringLiteral("保持正文宽度（电子阅读）…"), "wizPdfReadingWidth", Mode::ReadingWidth);
-    add(QStringLiteral("A4 纸张宽度…"), "wizPdfA4Width", Mode::A4);
+    add(QCoreApplication::translate("WizPdfExport", "Reading Layout…"),
+        QCoreApplication::translate("WizPdfExport", "Preserve the current reading width; add page margins outside the content."),
+        "wizPdfReadingWidth", Mode::ReadingWidth);
+    add(QCoreApplication::translate("WizPdfExport", "A4 Layout…"),
+        QCoreApplication::translate("WizPdfExport", "Use A4 paper; page margins determine the available content area."),
+        "wizPdfA4Width", Mode::A4);
     action->setMenu(menu);
 }
 }

@@ -1,8 +1,38 @@
-# Personal-use development checkpoint: consistent new-note mode
+# Personal-use development checkpoint: PDF layout labels
 
 Development version: **14.4.25**. A new personal-use candidate has been built
-locally with explicit consent. It is ad-hoc signed, unnotarized, not installed and
+locally with explicit consent. It is ad-hoc signed, unnotarized, not automatically installed and
 not publicly distributed; system-authentication acceptance remains incomplete.
+
+## Latest source-only UI adjustment
+
+The PDF submenu now uses the parallel titles **Reading Layout…** and **A4 Layout…**
+(Simplified Chinese: 阅读版式… and A4 版式…). Visible hover descriptions distinguish
+preserving the reading viewport width from fixed A4 paper. The settings tab is
+now **PDF Export**, with a wrapping explanation that both modes use the existing
+margin settings. Export mode values, action names, dispatch, page layout logic,
+default margins and the no-remembered-choice rule are unchanged. English strings
+and the actual Simplified Chinese catalog are covered.
+
+Only two directly affected offscreen Qt-widget groups ran: submenu **21/0** and
+settings/translations **29/0**, 1.18s total. The real temporary settings window,
+compiled translation catalog, original margin-page navigation and stored values
+participate. The PDF settings screenshot was visually checked for complete text
+and unobstructed controls. No PDF rendering or unrelated full suite was repeated.
+This source-only change is **not** in the frozen 14.4.25 candidate delivered below;
+no installer was rebuilt or replaced. The user reports basic trial use is normal.
+
+## Signing preparation
+
+With explicit read-only consent, one valid Apple Development identity was found
+and its Team ID matched from its public certificate. No valid Developer ID
+Application identity was found. Identity names and Team IDs remain local, not in
+this repository. Certificate bytes were parsed in memory only; no certificate
+file or private key was exported, no keychain record or signature was changed,
+and no provisioning profile was inspected. A matching profile and keychain
+entitlements still need configuration/verification before native Touch ID tests.
+Normal biometric management stays disabled; the first-certificate service-contract
+gate remains unchanged. A development identity alone is not full authorization.
 
 ## Local candidate delivery
 
@@ -421,8 +451,9 @@ not converted automatically.
 
 ## Synchronization record
 
-The latest packaging-only manifest is [checkpoints/2026-10-21-phase171.json](checkpoints/2026-10-21-phase171.json).
-Its product-source input is [phase170](checkpoints/2026-10-21-phase170.json); packaging did not change program source.
+The latest UI manifest is [checkpoints/2026-10-21-phase172.json](checkpoints/2026-10-21-phase172.json).
+The frozen local candidate is [phase171](checkpoints/2026-10-21-phase171.json),
+whose product-source input remains [phase170](checkpoints/2026-10-21-phase170.json).
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).

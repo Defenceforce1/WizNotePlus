@@ -2,12 +2,15 @@
 #include "share/WizUiLanguages.h"
 #include "share/WizMisc.h"
 #include "share/WizSettings.h"
+#include "share/WizPdfExportMenu.h"
 #include "database/WizDatabase.h"
 #include "database/WizDatabaseManager.h"
 #include <QApplication>
 #include <QComboBox>
 #include <QDebug>
 #include <QDir>
+#include <QDoubleSpinBox>
+#include <QLabel>
 #include <QTemporaryDir>
 #include <QTabWidget>
 #include <stdexcept>
@@ -79,6 +82,25 @@ int wizSettingsUiSelfTest(int argc, char** argv)
         auto* language = dialog.findChild<QComboBox*>("comboLang");
         auto* groups = dialog.findChild<QComboBox*>("comboSyncGroupMethod");
         check(dialog.windowTitle() == QStringLiteral("设置"), "actual settings window title is Settings");
+        auto* tabs=dialog.findChild<QTabWidget*>("tabWidget");
+        auto* pdfPage=dialog.findChild<QWidget*>("tabPrint");
+        check(tabs && pdfPage && tabs->tabText(tabs->indexOf(pdfPage))==QStringLiteral("PDF 导出"),
+              "actual translated margins page is named PDF Export");
+        auto* description=dialog.findChild<QLabel*>("labelPdfMargins");
+        check(description && description->wordWrap() && description->text()==QStringLiteral("页边距同时用于两种 PDF 版式。阅读版式保持正文宽度；A4 版式固定纸张大小。"),
+              "actual translated margins description explains both unchanged layout rules");
+        dialog.showPrintMarginPage();
+        check(tabs && tabs->currentWidget()==pdfPage
+              && dialog.findChild<QDoubleSpinBox*>("spinBox_top")->value()==settings.printMarginValue(wizPositionTop)
+              && dialog.findChild<QComboBox*>("comboBox_unit")->currentIndex()==settings.printMarginUnit(),
+              "existing page navigation and stored margin values stay connected");
+        QAction pdfAction(&dialog);
+        WizPdfExport::attachMenu(&pdfAction,&dialog,[](WizPdfExport::Mode){});
+        const auto modes=pdfAction.menu()->actions();
+        check(modes.size()==2 && modes[0]->text()==QStringLiteral("阅读版式…") && modes[1]->text()==QStringLiteral("A4 版式…")
+              && modes[0]->toolTip()==QStringLiteral("保持当前阅读区域的正文宽度，页边距加在正文外侧。")
+              && modes[1]->toolTip()==QStringLiteral("使用 A4 纸张，页边距决定正文可用区域。"),
+              "actual Simplified catalog supplies both PDF menu titles and descriptions");
         check(language && language->count() == 2 && language->currentIndex() == 0,
               "actual settings language menu selects retained Chinese fallback");
         check(groups && groups->currentIndex() == 0 && groups->isEnabled() && groups->count() == 5,
@@ -93,6 +115,9 @@ int wizSettingsUiSelfTest(int argc, char** argv)
             tabs->setCurrentWidget(dialog.findChild<QWidget*>("tabSyncing"));
             QApplication::processEvents();
             dialog.grab().save(QDir(evidence).filePath("settings-group-default.png"));
+            dialog.showPrintMarginPage();
+            QApplication::processEvents();
+            dialog.grab().save(QDir(evidence).filePath("settings-pdf.png"));
             dialog.close();
         }
     }

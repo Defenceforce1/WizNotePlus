@@ -35,7 +35,9 @@ int main(int argc, char** argv)
     check(items.size()==2,"exactly two independent width commands");
     if (items.size()!=2) return 3;
     check(items[0]->objectName()=="wizPdfReadingWidth" && items[1]->objectName()=="wizPdfA4Width","stable distinct mode actions");
-    check(items[0]->text().contains(QStringLiteral("保持正文宽度")) && items[1]->text().contains("A4"),"self-describing width labels");
+    check(items[0]->text()==QStringLiteral("Reading Layout…") && items[1]->text()==QStringLiteral("A4 Layout…"),"parallel English layout labels retain the dialog ellipsis");
+    check(menu->toolTipsVisible() && items[0]->toolTip().contains("reading width")
+        && items[1]->toolTip().contains("A4 paper"),"visible descriptions distinguish reading width from fixed paper");
     const auto plain=[&]{return !items[0]->isCheckable() && !items[1]->isCheckable()
         && !items[0]->isChecked() && !items[1]->isChecked();};
     check(plain(),"no checkmarks or remembered-choice UI on first open");

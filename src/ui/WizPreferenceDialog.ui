@@ -644,7 +644,7 @@
      </widget>
      <widget class="QWidget" name="tabPrint">
       <attribute name="title">
-       <string>Print</string>
+       <string>PDF Export</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_9">
        <item>
@@ -781,6 +781,16 @@
            </widget>
           </item>
          </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelPdfMargins">
+         <property name="text">
+          <string>These margins apply to both PDF layouts. Reading Layout preserves content width; A4 Layout keeps the paper size fixed.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
         </widget>
        </item>
        <item>

@@ -5614,8 +5614,12 @@ Asian characters: %5</source>
     </message>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="647"/>
-        <source>Print</source>
-        <translation>打印</translation>
+        <source>PDF Export</source>
+        <translation>PDF 导出</translation>
+    </message>
+    <message>
+        <source>These margins apply to both PDF layouts. Reading Layout preserves content width; A4 Layout keeps the paper size fixed.</source>
+        <translation>页边距同时用于两种 PDF 版式。阅读版式保持正文宽度；A4 版式固定纸张大小。</translation>
     </message>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="653"/>
@@ -6614,6 +6618,25 @@ Do you want to reload the page ?</source>
         <location filename="../src/share/WizWebEngineView.cpp" line="601"/>
         <source>Inspect element</source>
         <translation>审查元素</translation>
+    </message>
+</context>
+<context>
+    <name>WizPdfExport</name>
+    <message>
+        <source>Reading Layout…</source>
+        <translation>阅读版式…</translation>
+    </message>
+    <message>
+        <source>A4 Layout…</source>
+        <translation>A4 版式…</translation>
+    </message>
+    <message>
+        <source>Preserve the current reading width; add page margins outside the content.</source>
+        <translation>保持当前阅读区域的正文宽度，页边距加在正文外侧。</translation>
+    </message>
+    <message>
+        <source>Use A4 paper; page margins determine the available content area.</source>
+        <translation>使用 A4 纸张，页边距决定正文可用区域。</translation>
     </message>
 </context>
 </TS>

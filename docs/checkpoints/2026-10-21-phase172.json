@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-21-phase172",
+  "version": "14.4.25",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "11b20652629b18dc62ac6c1c9eb0b759135a7290",
+  "sourceCheckpoint": "pdf-layout-labels-and-read-only-signing-preparation",
+  "phase": 172,
+  "accepted": true,
+  "productCodeChanged": true,
+  "layoutAlgorithmChanged": false,
+  "menuDispatchChanged": false,
+  "defaultMarginsChanged": false,
+  "tests": {
+    "groups": 2,
+    "menuChecks": 21,
+    "settingsUiChecks": 29,
+    "checks": 50,
+    "failures": 0,
+    "seconds": 1.18,
+    "fullSuiteRerun": false,
+    "pdfRerun": false,
+    "offscreenActualWidgetsAndCompiledCatalog": true
+  },
+  "signingPreparation": {
+    "readOnlyIdentityInventoryAuthorized": true,
+    "validDevelopmentIdentities": 1,
+    "validDeveloperIdApplicationIdentities": 0,
+    "teamIdVerified": true,
+    "identityDetailsPublic": false,
+    "profilesInspected": false,
+    "certificateFilesExported": false,
+    "privateKeysReadOrExported": false,
+    "keychainWritten": false,
+    "signingChanged": false
+  },
+  "normalBiometricEntryEnabled": false,
+  "persistentMarkdownRecoveryEnabled": false,
+  "automationPaused": true,
+  "packaged": false,
+  "installed": false,
+  "fullProjectComplete": false,
+  "binariesIncluded": false,
+  "rawReportsOrLogsIncluded": false,
+  "userDataIncluded": false,
+  "notes": "Source-only UI normalization: Reading Layout/A4 Layout with ellipses and translated visible descriptions; settings PDF Export tab and wrapping margin explanation. Stable action IDs,dispatch,no remembered choice,layout algorithms/defaults unchanged. Only menu21/settings29 pass,50/0,1.18s; actual compiled Chinese catalog and temporary settings widgets/navigation/values. Offscreen settings screenshot visually reviewed,not native/PDF visual acceptance. User reports basic use normal,not exhaustive acceptance. Separately authorized public identity metadata only: one valid Apple Development identity with verified Team ID,no valid Developer ID Application; no profiles/private keys/certificate files exported,Keychain mutation or signing. Names and Team ID remain private local evidence. Profile/keychain entitlement prerequisites and authoritative first-certificate contract remain. Frozen candidate unchanged,no package/install,recovery OFF,Touch ID disabled,automation PAUSED.",
+  "files": [
+    {
+      "path": "src/share/WizPdfExportMenu.h",
+      "mode": "100644",
+      "chars": 1702,
+      "bytes": 1706,
+      "sha256": "6621f307dc53e1d0433f0a0dd95db947f083b7405dbe55da623456e7e1034301",
+      "gitBlobSha": "3a58e88a299ebf6322bd40e289c4e7a745345dc7"
+    },
+    {
+      "path": "src/ui/WizPreferenceDialog.ui",
+      "mode": "100755",
+      "chars": 27477,
+      "bytes": 27477,
+      "sha256": "40db352e34ed0384f4edcee295cd0cfcc8ad0e4d958dd4cf9387a55ea7f4a820",
+      "gitBlobSha": "a239b36dfbe9adea6f43688762e96b98e8b66483"
+    },
+    {
+      "path": "i18n/wiznote_zh_CN.ts",
+      "mode": "100644",
+      "chars": 262925,
+      "bytes": 277309,
+      "sha256": "45b8da81d58084a24ce8833211ff43c0b5ce9e11b4128cfc108944b8cd4ef739",
+      "gitBlobSha": "b43acc3f4bbef91b9ee43b852ce20ad8e9962b5d"
+    },
+    {
+      "path": "tests/compat/pdf-export-menu.cpp",
+      "mode": "100644",
+      "chars": 5329,
+      "bytes": 5341,
+      "sha256": "6d9defdabe06d94d1eac0eb8eb34e7dec12a967458d83359ccc9e9d820ffcf41",
+      "gitBlobSha": "2f6f2f54918ff973d31e4ab5bf474316a74b71b4"
+    },
+    {
+      "path": "tests/compat/settings-ui.cpp",
+      "mode": "100644",
+      "chars": 8466,
+      "bytes": 8650,
+      "sha256": "0ee6247c96f277b3ee230ad120fb79d0e8fef74f6a9ecc03aa71e5704418d629",
+      "gitBlobSha": "27804b9cab93761ae51657492ddcfed52ecb3e69"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "chars": 30102,
+      "bytes": 30122,
+      "sha256": "9c11d557f6d5e149f1c688dc2b66293617ea33361782140daac26f84aea19822",
+      "gitBlobSha": "8a01d15126771ab9fd45579b58c9acd778ee1075"
+    }
+  ]
+}
