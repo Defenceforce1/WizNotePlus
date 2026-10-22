@@ -508,6 +508,10 @@ int main(int argc, char *argv[])
         extern int wizBiometricNoteAccessSelfTest(int, char**);
         return wizBiometricNoteAccessSelfTest(argc, argv);
     }
+    if (argc == 2 && QByteArray(argv[1]) == "--thumbnail-cache-self-test") {
+        extern int wizThumbnailCacheSelfTest(int, char**);
+        return wizThumbnailCacheSelfTest(argc, argv);
+    }
     if (argc == 2 && QByteArray(argv[1]) == "--settings-ui-self-test") {
         extern int wizSettingsUiSelfTest(int, char**);
         return wizSettingsUiSelfTest(argc, argv);

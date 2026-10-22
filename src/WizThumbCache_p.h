@@ -2,7 +2,8 @@
 #define THUMBCACHE_P_H
 
 #include <QObject>
-#include <QMap>
+#include "share/WizBoundedCache.h"
+#include "share/WizObject.h"
 
 
 struct WIZABSTRACT;
@@ -17,12 +18,14 @@ class WizThumbCachePrivate : public QObject
 
 public:
     WizThumbCachePrivate(WizThumbCache* cache);
+    ~WizThumbCachePrivate() override;
     bool find(const QString& strKbGUID, const QString& strGUID, WIZABSTRACT& abs);
+    using Cache=WizBoundedCache<WIZABSTRACT>;
+    Cache::Stats statistics() const { return m_cache->stats(); }
 
 private:
     QString key(const QString& strKbGUID, const QString& strGUID);
     void load(const QString& strKbGUID, const QString& strGUID);
-    void load_impl(const QString& strKbGUID, const QString& strGUID);
 
 protected Q_SLOTS:
     void onNoteThumbChanged(const WIZDOCUMENTDATA& data);
@@ -31,8 +34,7 @@ Q_SIGNALS:
     void thumbLoaded(const QString& strKbGUID, const QString& strGUID);
 
 private:
-    QMap<QString, WIZABSTRACT> m_mapThumb;
-    WizThumbCache* q;
+    std::shared_ptr<Cache> m_cache;
 };
 
 

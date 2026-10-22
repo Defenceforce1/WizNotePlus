@@ -2,6 +2,7 @@
 #define CORE_THUMBCACHE_H
 
 #include <QObject>
+#include <QVariantMap>
 
 struct WIZABSTRACT;
 
@@ -17,6 +18,8 @@ public:
 
     static WizThumbCache* instance();
     static bool find(const QString& strKbGUID, const QString& strGUID, WIZABSTRACT& abs);
+    // Counts only; no note identity, cached text or image data is exposed.
+    static QVariantMap cacheStatistics();
 
 Q_SIGNALS:
     void loaded(const QString& strKbGUID, const QString& strGUID);

@@ -1,5 +1,37 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
+## Current phase196/197: recoverable cleanup and first cache optimization
+
+User installed password-only195 and now requests workspace cleanup,then measured
+performance/memory work,and package size last. Installed main build/hash matches
+195;metadata/executable only,not account or note contents. Retire95 explicitly
+obsolete project artifact targets to recoverable Trash (~21.75GiB removed from
+workspace,not disk space reclaimed). Keep194/195 DMGs/source/inventories/evidence
+and active reproducible toolchain/patched Qt source/build/runtime. Historical
+artifact references resolve through a local relocation manifest;do not delete
+verification records or the user's data/installed Apps.
+
+First source optimization replaces10000-entry clear-all thumbnail cache with
+16MiB estimated-cost LRU,minimum32KiB/entry,single-flight pending loads and scoped
+invalidation/reload. It synchronizes GUI/worker state and returns completion on
+GUI with independent closable state rather than a dangling cache QObject. No
+body/save/encryption/lock-policy change. Oversized single preview is admitted
+alone at full accounting budget to preserve quality;not a strict RSS cap.
+
+12 component plus10 actual temporary-thumbnail-index/GUI integration checks
+pass. One initial fixture failure compared original64px input against existing
+50px database conversion;corrected fixture compares stored thumbnail,not product
+index logic.500 repaint requests create one actual DB load.2000 standard50px
+images retain20,000,000→5,120,000 image bytes in isolated legacy/LRU workloads;
+this is not whole-app memory or a claim based on a tiny timing delta.
+
+Offscreen editor baseline is separate:empty closed pages steady,but formula+
+large-image batches still grow main footprint after views/pages/windows/children
+close. A test-only autorelease-pool control reduces but does not eliminate it.
+No real-client leak fix is claimed. Next isolate image/formula/graphics ownership
+before modifying fixed engine;package slimming follows measured memory work.
+No new installer or actual-note/foreground operation. See performance-memory-plan.zh-CN.md.
+
 ## Current phase195: password-only use without weekly provisioning maintenance
 
 The user has only a free personal team and explicitly chose to retain the current

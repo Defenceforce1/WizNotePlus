@@ -1,6 +1,13 @@
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_executable(wiznote_bounded_cache bounded-cache.cpp)
+target_include_directories(wiznote_bounded_cache PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(wiznote_bounded_cache PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
+add_test(NAME wiznote_bounded_cache COMMAND wiznote_bounded_cache)
+set_tests_properties(wiznote_bounded_cache PROPERTIES TIMEOUT 30)
+add_test(NAME wiznote_thumbnail_cache COMMAND $<TARGET_FILE:WizNotePlus> --thumbnail-cache-self-test)
+set_tests_properties(wiznote_thumbnail_cache PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 add_test(NAME wiznote_app_language_resources
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/app-language-resources.py)
 set_tests_properties(wiznote_app_language_resources PROPERTIES

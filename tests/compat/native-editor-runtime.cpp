@@ -278,7 +278,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         if(batches<1||batches>30||(visible&&QGuiApplication::platformName()!="offscreen")
             ||(nativeVisible&&QGuiApplication::platformName()!="cocoa")||(visible&&nativeVisible)
             ||(sharedHost&&!nativeVisible)||(keepNote&&(!sharedHost||nestedControl))
-            ||(releaseGraphics&&!keepNote)||(batchPool&&(!nativeVisible||nestedControl))
+            ||(releaseGraphics&&!keepNote)||(batchPool&&(!(nativeVisible||visible)||nestedControl))
             ||(!rhiControl.isEmpty()&&(!keepNote||(rhiControl!="finish"&&rhiControl!="cache")))
             ||(stockView&&(!empty||!keepNote))||(imagePayload&&(empty||stockView)))return 4;
         if(imagePayload&&!createSyntheticLargeImages(root.path()))return 10;
