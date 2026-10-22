@@ -183,7 +183,7 @@ private:
     void initEditorActions();
     WizDocumentSaverThread* readDocumentSaver() const;
 
-    bool addDefaultScriptsToDocumentHtml(QString htmlFileName);
+    bool addDefaultScriptsToDocumentHtml(QString htmlFileName, bool prepareMarkdownReader = false);
     bool loadDocumentInWeb(WizEditorMode editorMode, WizDocumentCallbackEpoch::Ticket* navigation = nullptr);
 
     void getAllEditorScriptAndStyleFileName(std::map<QString, QString>& arrayFile);

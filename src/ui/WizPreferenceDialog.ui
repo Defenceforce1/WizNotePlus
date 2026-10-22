@@ -786,7 +786,7 @@
        <item>
         <widget class="QLabel" name="labelPdfMargins">
          <property name="text">
-          <string>These margins apply to both PDF layouts. Reading Layout preserves content width; A4 Layout keeps the paper size fixed.</string>
+          <string>Margins apply to both PDF layouts.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>

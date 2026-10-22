@@ -87,8 +87,12 @@ int wizSettingsUiSelfTest(int argc, char** argv)
         check(tabs && pdfPage && tabs->tabText(tabs->indexOf(pdfPage))==QStringLiteral("PDF 导出"),
               "actual translated margins page is named PDF Export");
         auto* description=dialog.findChild<QLabel*>("labelPdfMargins");
-        check(description && description->wordWrap() && description->text()==QStringLiteral("页边距同时用于两种 PDF 版式。阅读版式保持正文宽度；A4 版式固定纸张大小。"),
-              "actual translated margins description explains both unchanged layout rules");
+        check(description && description->wordWrap() && description->text()==QStringLiteral("两种 PDF 版式共用此页边距。"),
+              "actual translated margins description is concise Chinese");
+        auto* marginUnit=dialog.findChild<QComboBox*>("comboBox_unit");
+        const QStringList marginUnits={QStringLiteral("毫米"),QStringLiteral("点"),QStringLiteral("英寸"),QStringLiteral("派卡"),QStringLiteral("迪多点"),QStringLiteral("西塞罗")};
+        QStringList actualUnits;if(marginUnit)for(int i=0;i<marginUnit->count();++i)actualUnits.append(marginUnit->itemText(i));
+        check(actualUnits==marginUnits,"all margin units are Chinese with the stored indexes unchanged");
         dialog.showPrintMarginPage();
         check(tabs && tabs->currentWidget()==pdfPage
               && dialog.findChild<QDoubleSpinBox*>("spinBox_top")->value()==settings.printMarginValue(wizPositionTop)

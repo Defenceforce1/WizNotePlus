@@ -1,4 +1,5 @@
 #include "WizDocumentWebView.h"
+#include "share/WizReaderOpeningPresentation.h"
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
 #include "widgets/WizMarkdownExportRecoveryApp.h"
 #include "widgets/WizMarkdownExportRecoverySession.h"
@@ -1964,7 +1965,7 @@ void WizDocumentWebView::insertScriptAndStyleCore(QString& strHtml, const std::m
 }
 
 
-bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
+bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName, bool prepareMarkdownReader)
 {
     const QPointer<WizDocumentWebView> self(this);
     const auto read = noteReadPermit();
@@ -1974,6 +1975,7 @@ bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
     bool ret = WizLoadUnicodeTextFromFile(htmlFileName, strHtml);
     if (!self || !read.current() || !ret) return false;
 
+    WizReaderOpeningPresentation::removeBootstrap(strHtml);
     m_currentNoteHtml = strHtml;
     m_currentNoteHtmlDocument = document;
     emit currentHtmlChanged();
@@ -1987,6 +1989,9 @@ bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName)
 
     replaceDefaultCss(strHtml);
     if (!self || !read.current()) return false;
+
+    if (prepareMarkdownReader)
+        WizHTMLAppendTextInHead(WizReaderOpeningPresentation::bootstrapHtml(), strHtml);
 
     const bool written = WizDocumentReadOutput::writeUtf8(read, htmlFileName, strHtml, true);
     return self && read.current() && written;
@@ -2024,7 +2029,8 @@ bool WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode, WizDocument
     bool ret = WizLoadUnicodeTextFromFile(strFileName, strHtml);
     if (!preparing() || !ret) return false;
 
-    if (!addDefaultScriptsToDocumentHtml(strFileName) || !preparing()) return false;
+    const bool prepareReader = editorMode != modeEditor && getNoteType() == "markdown";
+    if (!preparing() || !addDefaultScriptsToDocumentHtml(strFileName, prepareReader) || !preparing()) return false;
 
     WizEditorMode oldMode = m_currentEditorMode;
     m_currentEditorMode = editorMode;

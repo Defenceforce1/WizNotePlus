@@ -5618,8 +5618,8 @@ Asian characters: %5</source>
         <translation>PDF 导出</translation>
     </message>
     <message>
-        <source>These margins apply to both PDF layouts. Reading Layout preserves content width; A4 Layout keeps the paper size fixed.</source>
-        <translation>页边距同时用于两种 PDF 版式。阅读版式保持正文宽度；A4 版式固定纸张大小。</translation>
+        <source>Margins apply to both PDF layouts.</source>
+        <translation>两种 PDF 版式共用此页边距。</translation>
     </message>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="653"/>
@@ -5649,17 +5649,17 @@ Asian characters: %5</source>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="688"/>
         <source>Pica</source>
-        <translation></translation>
+        <translation>派卡</translation>
     </message>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="693"/>
         <source>Didot</source>
-        <translation></translation>
+        <translation>迪多点</translation>
     </message>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="698"/>
         <source>Cicero</source>
-        <translation></translation>
+        <translation>西塞罗</translation>
     </message>
     <message>
         <location filename="../src/ui/WizPreferenceDialog.ui" line="706"/>
