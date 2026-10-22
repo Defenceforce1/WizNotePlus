@@ -1,6 +1,24 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase192: connect screen-lock notifications, not just user-session resign
+## Current closeout: user reports basic trial acceptance of192
+
+The user's latest feedback is "我已基本检查通过" after receiving trial192.
+Record general basic trial acceptance and close the agreed executable source
+work. Move to normal use and concrete feedback-driven maintenance; do not add
+another audit, rebuild, package or mandatory hardware/lock-screen test round.
+
+This feedback does not separately enumerate physical screen-lock notification
+delivery or every hardware/client scenario. Keep those limits explicit instead
+of claiming itemized physical or full-client acceptance. The former pending
+screen-delivery observation is no longer a mandatory blocker or active task.
+
+This update is documentation only; reuse the existing independently signed192.
+No program changes, new builds, functional tests, signing, installation, account
+launch or real-note actions. Source/sanitized records only to GitHub; binaries
+remain local. Ordinary Markdown-save investigation stays stopped, certificate
+creation and VoiceOver stay excluded, automationPAUSED/recoveryOFF unchanged.
+
+## Implementation phase192: connect screen-lock notifications, not just user-session resign
 
 The user reports that a physical macOS screen-lock round trip left a note open.
 The native bridge subscribed only to workspace will-sleep and session-resign;
