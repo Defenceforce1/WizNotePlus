@@ -2,6 +2,16 @@
 
 ## Current phase189: three-part unlock and plain settings
 
+Closeout feedback (2026-10-22): the user reported no issue and explicitly deferred
+further testing. Record general trial feedback as accepted, not as itemized proof
+of native fingerprint/hardware combinations or official iPhone round trips.
+Those checks remain unverified and deferred, not a blocker or a new mandatory
+test request. The agreed executable source checklist is closed; move to ordinary
+feedback-driven maintenance without adding feature/test rounds. This follow-up
+changes documentation only: no build, test, signing, installer or App modification.
+Ordinary Markdown save-failure investigation remains excluded. Automation stays
+paused and recovery OFF; no user account or real-note action is authorized here.
+
 The user explicitly reduced the unlock body to exactly three primary controls:
 masked certificate-password input, Unlock, and Touch ID. The ordinary title,
 redundant password caption/mode-switch button and decorative card were removed.
@@ -27,8 +37,9 @@ New local trial189 preserves188 and installed/frozen
 Apps; no autonomous real-account/store launch, installation or native fingerprint
 test. Ordinary Markdown saving-failure investigation remains explicitly stopped
 and outside the plan, not declared fixed. RecoveryOFF, automationPAUSED. Remaining
-acceptance is user-operated native hardware/fingerprint and account/iPhone usage;
-do not expand the source checklist or restart unattended idle checks.
+native hardware/fingerprint and account/iPhone checks are deferred by the user's
+closeout decision above, not required now. Do not expand the source checklist or
+restart unattended idle checks.
 
 ## Historical phase188: shared lock policy, capability-aware unlock and minimal UI
 
