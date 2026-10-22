@@ -95,15 +95,20 @@ function WizConfigureMarkdownEnvironments(options) {
     // Recover each exact block from its public source getter instead of
     // treating that transient parser representation as authoritative text.
     var raw = WizEditor.getMarkdownSrc({unEscapeHtml:true});
-    var originals = WizMarkdownEnvironmentBlocks(raw);
+    var originals = new Map();
+    WizMarkdownEnvironmentBlocks(raw).forEach(function (candidate) {
+      // Preserve the former first-match order, including collisions between
+      // exact source and the legacy reader's doubled first row separator.
+      if (!originals.has(candidate)) originals.set(candidate, candidate);
+      var expanded = candidate.replace('\\\\','\\\\\\\\');
+      if (!originals.has(expanded)) originals.set(expanded, candidate);
+    });
     var protectedCode = WizMarkdownEnvironmentCodePositions(source);
     var pattern = WizMarkdownEnvironmentPattern();
     return WizProtectMarkdownEquationReferences(source.replace(pattern, function (all, newline, indent, tex, environment, offset) {
       if (protectedCode[offset + newline.length + indent.length]) return all;
       tex = WizMarkdownEnvironmentContainerText(tex, indent);
-      var originalTex = originals.find(function (candidate) {
-        return candidate === tex || candidate.replace('\\\\','\\\\\\\\') === tex;
-      });
+      var originalTex = originals.get(tex);
       if (!originalTex) return all;
       // Numeric entities keep Markdown punctuation, TeX backslashes and line
       // breaks opaque through the remaining inline parser and HTML filter.
@@ -143,12 +148,13 @@ function WizPrepareMarkdownMathJaxScheduling() {
 var WizMarkdownEnvironmentLoader = null;
 function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
   if (WizMarkdownEnvironmentLoader) return WizMarkdownEnvironmentLoader;
-  WizMarkdownEnvironmentLoader = new Promise(function (resolve, reject) {
-    var settled = false;
+  var request = new Promise(function (resolve, reject) {
+    var settled = false, script;
     var deadline = setTimeout(function () { finish(new Error('Bundled MathJax initialization timed out')); }, 30000);
     function finish(error) {
       if (settled) return;
       settled = true; clearTimeout(deadline);
+      if (script) script.onload = script.onerror = null;
       if (error) reject(error); else resolve();
     }
     // The original reader replaces body nodes on mode changes, including
@@ -165,7 +171,7 @@ function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
         Safe:{allow:{URLs:'safe',classes:'safe',cssIDs:'safe',styles:'safe',fontsize:'all'}}},
       messageStyle:'none'
     };
-    var script = document.createElement('script');
+    script = document.createElement('script');
     script.id = 'wiz_markdown_environment_loader';
     script.setAttribute('name','wiz_inner_script');
     script.setAttribute('wiz_style','unsave');
@@ -176,33 +182,56 @@ function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
     };
     script.onerror = function () { finish(new Error('Bundled MathJax could not load')); };
     document.head.appendChild(script);
-  }).finally(function () { WizMarkdownEnvironmentLoader = null; });
-  return WizMarkdownEnvironmentLoader;
+  });
+  var tracked = request.finally(function () {
+    if (WizMarkdownEnvironmentLoader === tracked) WizMarkdownEnvironmentLoader = null;
+  });
+  WizMarkdownEnvironmentLoader = tracked;
+  return tracked;
 }
 
 function WizInstallMarkdownEnvironmentRendering(dependencyUrl, callbacks) {
   var off = WizEditor.off, on = WizEditor.on, sequence = 0;
-  var pending = null;
+  var pending = null, retired = false;
+  function retire(event) {
+    if (event && event.persisted) return;
+    retired = true; ++sequence;
+    window.removeEventListener('pagehide', retire);
+  }
+  window.addEventListener('pagehide', retire);
+  function current(token) { return !retired && sequence === token; }
+  function afterPending(token, start) {
+    if (!current(token)) return WizEditor;
+    if (pending) {
+      var resume = function () { if (current(token)) start(); };
+      pending.then(resume, resume);
+      return WizEditor;
+    }
+    return start();
+  }
   WizEditor.on = function () {
-    ++sequence;
-    var receiver = this, args = arguments;
+    var token = ++sequence, receiver = this, args = arguments;
     // Finish local dependency initialization before restoring editable source;
     // MathJax startup must never insert its SVG cache into that source.
-    if (pending) { pending.finally(function () { on.apply(receiver, args); }); return WizEditor; }
-    return on.apply(receiver, args);
+    return afterPending(token, function () {
+      if (window.WizMarkdownEnvironmentRenderState === 'pending')
+        window.WizMarkdownEnvironmentRenderState = 'cancelled';
+      return on.apply(receiver, args);
+    });
   };
   WizEditor.off = function (options, callback) {
     if (typeof options === 'function') { callback = options; options = null; }
-    var token = ++sequence;
-    return off.call(this, options, function () {
+    var token = ++sequence, receiver = this, waitedForMath = !!pending;
+    function readReady() {
+      if (!current(token)) return;
       var blocks = document.body.classList.contains('markdown-body')
         ? Array.from(document.querySelectorAll('.wiz-bare-math-environment,.wiz-latex-math'))
         .filter(function (block) { return !block.querySelector('script[type^="math/tex"]'); })
         : [];
       if (!blocks.length) { if (callback) callback(); return; }
       window.WizMarkdownEnvironmentRenderState = 'pending';
-      pending = WizLoadMarkdownEnvironmentMathJax(dependencyUrl).then(function () {
-        if (sequence !== token || document.body.isContentEditable) return;
+      var render = WizLoadMarkdownEnvironmentMathJax(dependencyUrl).then(function () {
+        if (!current(token) || document.body.isContentEditable) return;
         if (MathJax.InputJax.TeX.resetEquationNumbers) MathJax.InputJax.TeX.resetEquationNumbers();
         return new Promise(function (resolve) {
           // Only accepted math/reference wrappers: the legacy reader leaves
@@ -210,19 +239,35 @@ function WizInstallMarkdownEnvironmentRendering(dependencyUrl, callbacks) {
           MathJax.Hub.Queue(['Typeset', MathJax.Hub, blocks, resolve]);
         });
       }).then(function () {
-        window.WizMarkdownEnvironmentRenderState = sequence === token ? 'ready' : 'cancelled';
-        if (sequence === token && callbacks && typeof callbacks.mathJax === 'function') callbacks.mathJax();
+        if (!current(token)) return;
+        window.WizMarkdownEnvironmentRenderState = 'ready';
+        if (callbacks && typeof callbacks.mathJax === 'function') callbacks.mathJax();
       }).catch(function (error) {
-        if (sequence === token) blocks.forEach(function (block) {
+        if (!current(token)) return;
+        blocks.forEach(function (block) {
           if (!block.isConnected || block.querySelector('script[type^="math/tex"]')) return;
           var prose = document.createElement(block.tagName === 'SPAN' ? 'span' : 'p');
           prose.textContent = block.textContent; block.replaceWith(prose);
         });
         window.WizMarkdownEnvironmentRenderState = 'failed'; console.error(error);
       }).finally(function () {
-        pending = null;
-        if (callback) callback();
+        if (pending === render) pending = null;
+        if (current(token) && callback) callback();
       });
+      pending = render;
+    }
+    return afterPending(token, function () {
+      // A cancelled supplemental render may already have left the engine in
+      // read mode. Its public off() is then a no-op without a callback. Resume
+      // only our remaining math work instead of losing the newest completion.
+      var sameReader = !options || (Object.keys(options).length === 1 && options.reader
+        && Object.keys(options.reader).length === 1 && options.reader.type === 'markdown');
+      if (waitedForMath && sameReader && !document.body.isContentEditable
+          && document.body.classList.contains('wiz-readonly')
+          && document.body.classList.contains('markdown-body')) {
+        readReady(); return WizEditor;
+      }
+      return off.call(receiver, options, readReady);
     });
   };
   if (window.WizReader) WizReader.on = WizEditor.off;

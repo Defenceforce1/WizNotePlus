@@ -53,7 +53,7 @@ int main(int argc,char**argv){
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
-    if(!QStringList{"plain","math","bare","many","controls","cycle"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
+    if(!QStringList{"plain","math","bare","many","bare-many","controls","cycle","rapid"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
     QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
     QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(900,600);
     auto* page=new QWebEnginePage(&profile,&view);view.setPage(page);QWebChannel channel;Bridge editor,explorer;
@@ -107,8 +107,12 @@ int main(int argc,char**argv){
     }
     QString source="# Synthetic opening\n\nA paragraph without math.\n";
     if(kind=="math")source+="\n$$a+b=c$$\n\n$x^2\\ge0$.\n";
-    if(kind=="bare"||kind=="cycle")source+="\n\\begin{equation}\\label{synthetic:one}\na+b=c\n\\end{equation}\n\nSee \\eqref{synthetic:one}.\n";
+    if(kind=="bare"||kind=="cycle"||kind=="rapid")source+="\n\\begin{equation}\\label{synthetic:one}\na+b=c\n\\end{equation}\n\nSee \\eqref{synthetic:one}.\n";
     if(kind=="many")for(int i=0;i<96;++i)source+=QString("\n$$\\sum_{k=1}^{%1}\\frac{k^2+1}{k+1}=S_{%1}$$\n").arg(i+1);
+    if(kind=="bare-many"){
+        for(int i=0;i<64;++i)source+=QString("\n\\begin{equation}\\label{large:%1}\nx_{%1}+y_{%1}=z_{%1}\n\\end{equation}\n").arg(i);
+        source+="\nSee \\eqref{large:0} and \\eqref{large:63}.\n";
+    }
     editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+source.toHtmlEscaped().replace("\n","<br>")+"</body></html>";
     QString html=editor.original;
     if(gated)html.insert(html.indexOf("</head>"),WizReaderOpeningPresentation::bootstrapHtml());
@@ -145,6 +149,23 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
     if(!wait([&]{return js(page,"WizNativeEditorSetup.state").toString()=="ready";}))return 5;
     if(!wait([&]{return js(page,"!window.MathJax||!MathJax.Hub||(!MathJax.Hub.queue.running&&!MathJax.Hub.queue.pending)").toBool();}))return 6;
     QEventLoop settle;QTimer::singleShot(500,&settle,&QEventLoop::quit);settle.exec();
+    if(kind=="rapid"){
+        int checks=0,failures=0;const auto check=[&](bool ok,const char* label){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;};
+        js(page,"window.realMathLoader=WizLoadMarkdownEnvironmentMathJax;window.mathReleases=[];WizLoadMarkdownEnvironmentMathJax=function(dep){return new Promise((resolve,reject)=>mathReleases.push(()=>realMathLoader(dep).then(resolve,reject)));};");
+        const QList<QStringList> sequences={{"on","off"},{"on","on"},{"off","on","off"}};
+        for(const auto& operations:sequences){
+            js(page,"WizPrepareNoteModeChange();WizEditor.on(null,()=>{WizApplyNoteStyle();WizApplySpellCheck();});");check(wait([&]{return js(page,"document.body.isContentEditable").toBool();},4000),"rapid case begins from intact editor");
+            js(page,"window.rapidCallbacks=[];window.rapidDone=false;WizPrepareNoteModeChange();WizEditor.off(null,()=>rapidCallbacks.push('old'));");check(wait([&]{return js(page,"mathReleases.length>0").toBool();},4000),"actual bare rendering reaches controlled dependency wait");
+            for(int i=0;i<operations.size();++i)js(page,"WizPrepareNoteModeChange();WizEditor."+operations[i]+"(null,()=>{WizApplyNoteStyle();WizApplySpellCheck();rapidCallbacks.push('"+QString::number(i)+"');"+(i==operations.size()-1?QString("window.rapidDone=true;"):QString())+"});");
+            check(wait([&]{js(page,"mathReleases.splice(0).forEach(f=>f());");return js(page,"window.rapidDone===true").toBool();},10000),"latest real mode request finishes after controlled release");
+            check(js(page,"document.body.isContentEditable").toBool()==(operations.last()=="on"),"latest real mode remains selected");
+            check(js(page,"rapidCallbacks.length===1&&rapidCallbacks[0]==='"+QString::number(operations.size()-1)+"'").toBool(),"real superseded callbacks do not run");
+            check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"rapid mode switches preserve exact synthetic source");
+            check(js(page,"getComputedStyle(document.documentElement).opacity!=='0'&&document.querySelectorAll('.MathJax_Error,.merror').length===0").toBool(),"rapid mode result is visible without math errors");
+        }
+        check(local.blocked.load()==0,"rapid native test uses local resources only");
+        profile.setUrlRequestInterceptor(nullptr);qInfo()<<"Rapid mode checks"<<checks<<"failures"<<failures;return failures?9:0;
+    }
     if(kind=="cycle"){
         QJsonArray states;int failures=0;QString expectedSource=source;bool editedSourceRoundtrip=false,serializedHideAbsent=true;
         const auto snapshot=[&](const QString& stage){
