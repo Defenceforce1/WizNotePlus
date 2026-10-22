@@ -7,7 +7,8 @@
 #include <functional>
 
 namespace WizSessionAccess {
-// Public workspace sleep/session-resign plus Qt application visibility changes.
+// Workspace sleep/session boundaries and macOS screen-lock notifications plus
+// Qt visibility changes. Screen unlock/wake are revocation fallbacks, not grants.
 // Activity resumption only rearms notification coalescing; it never grants access.
 class Monitor final : public QObject {
     Q_OBJECT

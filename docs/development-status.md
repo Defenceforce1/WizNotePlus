@@ -1,6 +1,40 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase191: retain unlock per note, never blanket-unlock a certificate
+## Current phase192: connect screen-lock notifications, not just user-session resign
+
+The user reports that a physical macOS screen-lock round trip left a note open.
+The native bridge subscribed only to workspace will-sleep and session-resign;
+locking the screen need not resign the logged-in user session. Earlier model
+tests invoked Monitor directly and did not establish delivery of this boundary.
+
+The bridge now also listens for macOS distributed screen-lock and screen-unlock
+notifications, with explicit immediate delivery while AppKit is inactive. The
+names are observed macOS notification strings, not an SDK-guaranteed lock-state
+API. Only their occurrence is used to revoke access; no payload is trusted, no
+private lock-state API is called, and unlock never grants note access. Workspace
+wake/session-resume also revoke as fallback if departure delivery was missed.
+Ordinary app activation is not a hard event and keeps its five-minute grace.
+
+Native callbacks marshal to the GUI thread before accessing Qt state; teardown
+removes both centers and invalidates already queued callbacks. Existing Session
+retirement clears individually verified note grants, including hidden notes;
+fresh A verification cannot revive B. Save cache, dirty DOM, queues, ciphertext,
+password UI and automatic/manual Touch ID policy are unchanged.
+
+An in-process distributed-center fixture exercises the production selector
+registration and immediate-delivery option through Monitor and Session, rather
+than directly calling the hard-boundary method. It never posts a global lock
+notification or changes the real screen/session. Necessary session and routing
+tests only; physical screen-lock delivery still needs normal user observation
+of the new trial, not a claim inferred from these isolated tests.
+
+Incremental acceptance: unchanged document-routing group1236/0 in the first
+combined run; native/session group142/0 after its offscreen fixture was corrected
+to pump the native main run loop as well as Qt. The first combined run had one
+fixture failure and is retained, not relabeled as passed. Only the changed group
+was rerun; total1378 distinct checks, not a full-suite or physical-system claim.
+
+## Historical phase191: retain unlock per note, never blanket-unlock a certificate
 
 The user corrected phase190: opening one encrypted note must not unlock every
 other note using the same certificate. Certificate-wide proof reuse was too broad.

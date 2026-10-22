@@ -124,6 +124,10 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
     check(!db.cacheCertPasswordLocally(password,cert.n,cert.e,cert.encryptedD+"A") && db.getCertPassword()==password,
           "changed certificate snapshot cannot publish a password or clear another operation cache");
     Context context{scope,"synthetic-note",1}; Gate gate;
+#ifdef Q_OS_MAC
+    extern void wizSessionNotificationsSelfTest(const Context&,const std::function<void(bool,const char*)>&);
+    wizSessionNotificationsSelfTest(context,check);
+#endif
     gate.begin(context,false);
     check(!gate.requiresAuthorization(true) && gate.requiresAuthorization(false),"optional unprotected gate keeps its explicit cache semantics; encrypted hosts require it");
     gate.begin(context,true);const auto ticket=gate.ticket();
