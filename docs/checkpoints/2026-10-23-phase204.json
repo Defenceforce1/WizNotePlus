@@ -1,0 +1,20 @@
+{
+  "phase": 204,
+  "date": "2026-10-23",
+  "scope": "Markdown reader/editor blank-page regression hotfix",
+  "supersedesDailyRecommendation": 203,
+  "cause": "serialized temporary hide rule revived by editor HTML snapshot restore",
+  "fix": "live CSSOM-only hiding rule, empty serialized style, exact legacy temporary-style cleanup",
+  "originalReproducedHiddenModeStates": 6,
+  "fixedVisibleModeTransitions": 6,
+  "editedSyntheticSourceRoundtrip": true,
+  "initialOpeningScenarios": 3,
+  "presentationControls": 21,
+  "productionIncrementalBuildPassed": true,
+  "realNotesAccessedOrModified": false,
+  "installedAppModified": false,
+  "proprietaryEditorInternalsModified": false,
+  "fullClientVisualAcceptanceClaimed": false,
+  "binariesUploaded": false,
+  "automation": "PAUSED"
+}

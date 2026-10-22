@@ -11,6 +11,12 @@ inline void removeBootstrap(QString& html)
         QStringLiteral("<script\\s+id=[\"']wiz_reader_opening_bootstrap[\"']\\s+name=[\"']wiz_inner_script[\"']\\s+wiz_style=[\"']unsave[\"']\\s*>[\\s\\S]*?</script\\s*>"),
         QRegularExpression::CaseInsensitiveOption);
     html.remove(ownScript);
+    // Older temporary documents may contain the serialized opening rule.
+    // Strip only our exact marker and known payload, never arbitrary CSS.
+    const QRegularExpression ownStyle(QStringLiteral(
+        "<style\\s+id=[\"']wiz_tmp_style_reader_opening[\"']\\s+name=[\"']wiz_inner_style[\"']\\s+wiz_style=[\"']unsave[\"']\\s*>\\s*(?:@media screen\\{html\\{opacity:0!important\\}\\})?\\s*</style\\s*>"),
+        QRegularExpression::CaseInsensitiveOption);
+    html.remove(ownStyle);
 }
 // Insert in the temporary reader HTML head, never in saved note source. This
 // is presentation only, not an access/lock gate; native authorization is intact.
@@ -22,7 +28,12 @@ if(document.getElementById('wiz_tmp_style_reader_opening'))return;
 // must not leave an unconditional hidden stylesheet with no fallback timer.
 var style=document.createElement('style');style.id='wiz_tmp_style_reader_opening';
 style.setAttribute('name','wiz_inner_style');style.setAttribute('wiz_style','unsave');
-style.textContent='@media screen{html{opacity:0!important}}';document.head.appendChild(style);
+// Editor mode changes clone/restore head HTML captured during initialization.
+// Keep the hiding rule in live CSSOM only: serialization must contain an empty
+// style element, so a later clone cannot resurrect opacity:0 without a timer.
+document.head.appendChild(style);
+try{style.sheet.insertRule('@media screen{html{opacity:0!important}}',0);}
+catch(error){style.remove();return;}
 var finished=false,frames=[],observed=null;
 function show(){
   if(finished)return;finished=true;clearInterval(poll);clearTimeout(deadline);

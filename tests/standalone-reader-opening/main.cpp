@@ -53,17 +53,18 @@ int main(int argc,char**argv){
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc==4&&QString::fromLocal8Bit(argv[3])=="gated";
-    if(!QStringList{"plain","math","bare","controls"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
-    QWebEngineProfile profile;LocalOnly local;profile.setUrlRequestInterceptor(&local);
+    if(!QStringList{"plain","math","bare","controls","cycle"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
+    QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
     QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(900,600);
     auto* page=new QWebEnginePage(&profile,&view);view.setPage(page);QWebChannel channel;Bridge editor,explorer;
     channel.registerObject("WizQtEditor",&editor);channel.registerObject("WizExplorerApp",&explorer);page->setWebChannel(&channel);
     if(kind=="controls") {
         int checks=0,failures=0,index=0;const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<text;};
-        QString cached="<head><script id='user-script'>window.synthetic=1;</script>"+WizReaderOpeningPresentation::bootstrapHtml()+WizReaderOpeningPresentation::bootstrapHtml()+"</head><body>Source</body>";
+        QString cached="<head><script id='user-script'>window.synthetic=1;</script>"+WizReaderOpeningPresentation::bootstrapHtml()+WizReaderOpeningPresentation::bootstrapHtml()+"<style id=\"wiz_tmp_style_reader_opening\" name=\"wiz_inner_style\" wiz_style=\"unsave\">@media screen{html{opacity:0!important}}</style></head><body>Source</body>";
         WizReaderOpeningPresentation::removeBootstrap(cached);
-        check(!cached.contains("wiz_reader_opening_bootstrap")&&cached.contains("id='user-script'")&&cached.endsWith("<body>Source</body>"),"cached reopen removes only owned bootstraps, preserving source and user scripts");
+        check(!cached.contains("wiz_reader_opening_bootstrap")&&!cached.contains("wiz_tmp_style_reader_opening")&&cached.contains("id='user-script'")&&cached.endsWith("<body>Source</body>"),"cached reopen removes only owned bootstrap and legacy hidden style, preserving source and user scripts");
         const QString clean=cached;WizReaderOpeningPresentation::removeBootstrap(cached);check(cached==clean,"bootstrap cleanup is idempotent for edit-mode reopen");
+        QString userStyle="<style id='wiz_tmp_style_reader_opening'>User CSS</style>";WizReaderOpeningPresentation::removeBootstrap(userStyle);check(userStyle.contains("User CSS"),"similar user style without owned unsaved markers is preserved");
         const auto visible=[&]{return js(page,"getComputedStyle(document.documentElement).opacity!=='0'").toBool();};
         const auto load=[&](const QString& before,bool gate=true){
             const QString file=root.filePath(QString("control-%1.html").arg(++index));QFile f(file);if(!f.open(QFile::WriteOnly))return false;
@@ -72,6 +73,7 @@ int main(int argc,char**argv){
         };
         check(load("window.WizNativeEditorSetup={state:'pending'};"),"pending control loads");check(!visible(),"pending rendering stays hidden without altering DOM");
         check(js(page,"document.getElementById('source').textContent==='Synthetic preserved text'&&document.getElementById('wiz_tmp_style_reader_opening').getAttribute('wiz_style')==='unsave'").toBool(),"source and unsaved-style marker preserved");
+        check(js(page,"document.getElementById('wiz_tmp_style_reader_opening').textContent===''&&document.getElementById('wiz_tmp_style_reader_opening').sheet.cssRules.length===1").toBool(),"live hide rule is absent from serialized style text");
         js(page,"WizNativeEditorSetup.state='failed'");check(wait(visible,1500),"failed initialization restores presentation");
         check(load("window.WizNativeEditorSetup={state:'pending'};"),"editing cancellation control loads");js(page,"document.body.contentEditable='true'");check(wait(visible,1500)&&js(page,"document.body.isContentEditable").toBool(),"switch to editing reveals intact editable DOM");
         check(load("const realTimeout=setTimeout;window.setTimeout=(f,ms)=>realTimeout(f,ms===30000?80:ms);"),"timeout-only control loads");check(wait(visible,1500),"missing initialization has a bounded visible presentation fallback");
@@ -85,7 +87,7 @@ int main(int argc,char**argv){
     }
     QString source="# Synthetic opening\n\nA paragraph without math.\n";
     if(kind=="math")source+="\n$$a+b=c$$\n\n$x^2\\ge0$.\n";
-    if(kind=="bare")source+="\n\\begin{equation}\\label{synthetic:one}\na+b=c\n\\end{equation}\n\nSee \\eqref{synthetic:one}.\n";
+    if(kind=="bare"||kind=="cycle")source+="\n\\begin{equation}\\label{synthetic:one}\na+b=c\n\\end{equation}\n\nSee \\eqref{synthetic:one}.\n";
     editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+source.toHtmlEscaped().replace("\n","<br>")+"</body></html>";
     QString html=editor.original;
     if(gated)html.insert(html.indexOf("</head>"),WizReaderOpeningPresentation::bootstrapHtml());
@@ -114,6 +116,36 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
     if(!wait([&]{return js(page,"WizNativeEditorSetup.state").toString()=="ready";}))return 5;
     if(!wait([&]{return js(page,"!window.MathJax||!MathJax.Hub||(!MathJax.Hub.queue.running&&!MathJax.Hub.queue.pending)").toBool();}))return 6;
     QEventLoop settle;QTimer::singleShot(500,&settle,&QEventLoop::quit);settle.exec();
+    if(kind=="cycle"){
+        QJsonArray states;int failures=0;QString expectedSource=source;bool editedSourceRoundtrip=false,serializedHideAbsent=true;
+        const auto snapshot=[&](const QString& stage){
+            auto object=QJsonObject::fromVariantMap(js(page,R"JS((()=>({opacity:getComputedStyle(document.documentElement).opacity,bodyOpacity:getComputedStyle(document.body).opacity,display:getComputedStyle(document.body).display,editing:document.body.isContentEditable,text:document.body.textContent.slice(0,300),styles:[...document.querySelectorAll('#wiz_tmp_style_reader_opening')].map(s=>s.textContent),bootstrapCount:document.querySelectorAll('#wiz_reader_opening_bootstrap').length,head:document.head.innerHTML.slice(-2000)}))())JS").toMap());
+            object.insert("stage",stage);const bool visible=object["opacity"].toString()!="0"&&object["bodyOpacity"].toString()!="0"&&object["display"].toString()!="none"&&!object["text"].toString().isEmpty();
+            object.insert("visible",visible);if(!visible)++failures;states.append(object);
+        };
+        snapshot("initial-reader");
+        for(int i=0;i<3;++i){
+            const QString token=QString("cycle-%1").arg(i);
+            js(page,"window.cycleDone=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{WizApplyNoteStyle();WizApplySpellCheck();window.cycleDone=true;});");
+            if(!wait([&]{return js(page,"window.cycleDone===true").toBool();},5000))++failures;
+            snapshot(token+"-editor");if(!js(page,"document.body.isContentEditable").toBool())++failures;
+            if(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()!=expectedSource)++failures;
+            if(i==1){
+                js(page,"const added=document.createElement('div');added.textContent='Synthetic edited marker';document.body.appendChild(added);");
+                expectedSource=js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString();
+                if(!expectedSource.contains("Synthetic edited marker"))++failures;
+            }
+            const QString serialized=js(page,"WizEditor.getContentHtml()").toString();
+            if(serialized.contains("opacity:0!important")){serializedHideAbsent=false;++failures;}
+            js(page,"window.cycleDone=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>{WizApplyNoteStyle();WizApplySpellCheck();window.cycleDone=true;});");
+            if(!wait([&]{return js(page,"window.cycleDone===true").toBool();},5000))++failures;
+            snapshot(token+"-reader");if(js(page,"document.body.isContentEditable").toBool())++failures;
+            if(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()!=expectedSource)++failures;
+            if(i==1)editedSourceRoundtrip=js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==expectedSource&&expectedSource.contains("Synthetic edited marker");
+        }
+        qInfo().noquote()<<"CYCLE_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"gated",gated},{"states",states},{"failures",failures},{"editedSourceRoundtrip",editedSourceRoundtrip},{"serializedHideAbsent",serializedHideAbsent},{"blockedExternalRequests",local.blocked.load()},{"completedLoads",completedLoads}}).toJson(QJsonDocument::Compact));
+        profile.setUrlRequestInterceptor(nullptr);return failures||local.blocked?8:0;
+    }
     const bool sourceIntact=js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source;
     const auto report=QJsonObject{{"kind",kind},{"gated",gated},{"completedLoads",completedLoads},{"events",QJsonValue::fromVariant(js(page,"openingEvents"))},{"frames",QJsonValue::fromVariant(js(page,"openingFrames"))},{"sourceIntact",sourceIntact},{"readOnly",js(page,"document.body.classList.contains('wiz-readonly')&&!document.body.isContentEditable").toBool()},{"blockedExternalRequests",local.blocked.load()},{"hiddenCocoa",view.testAttribute(Qt::WA_DontShowOnScreen)&&(!view.windowHandle()||!view.windowHandle()->isExposed())},{"domSnapshot",js(page,"document.body.textContent.slice(0,300)").toString()}};
     qInfo().noquote()<<"OPENING_REPORT"<<QString::fromUtf8(QJsonDocument(report).toJson(QJsonDocument::Compact));
