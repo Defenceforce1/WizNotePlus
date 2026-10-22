@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "localOnly": true,
+  "binaryPublicationAuthorized": false,
+  "automaticInstallationOrReplacement": false,
+  "realDataMigratedOrMerged": false,
+  "packages": [
+    {
+      "kind": "current-feature-pre-removal-backup",
+      "version": "14.4.25",
+      "build": "14425.194",
+      "file": "WizNotePlus-14.4.25-build194-macOS-arm64.dmg",
+      "bytes": 159399223,
+      "sha256": "7b5834fc24fbeb79db89703a88f3c518faadb51bb3c087cd6b8d8260ada812b9",
+      "sourceFile": "WizNotePlus-source-14.4.25-build194.tar.gz",
+      "sourceSha256": "babfb50829722be43ad38e32c6fd8f825ed8250e56b969857f86af80bdf4fb2b",
+      "touchIdIncluded": true,
+      "signing": "Apple Development personal team",
+      "profileExpirationUtc": "2026-10-28T15:54:49Z",
+      "notarized": false,
+      "packageAllTestsPassed": false,
+      "testLimitation": "4 legacy unsigned-management fixture assumptions fail in signed package;native synthetic keychain attempt possible,residual not determined;not a full acceptance claim."
+    },
+    {
+      "kind": "password-only-no-weekly-provisioning-dependency",
+      "version": "14.4.25",
+      "build": "14425.195",
+      "file": "WizNotePlus-14.4.25-build195-password-only-macOS-arm64.dmg",
+      "bytes": 159432298,
+      "sha256": "10484df0acd84a5e9858e33de1f45b9a91e23c3aac07dfb3ce09b6faa5958413",
+      "sourceFile": "WizNotePlus-source-14.4.25-build195.tar.gz",
+      "sourceSha256": "056e62dce8795fcf0b63d25d372ef878daeed8b21f5f46e93c4bd43d9170bb4b",
+      "touchIdIncluded": false,
+      "nativeBiometricBackendLinked": false,
+      "signing": "ad-hoc local-only",
+      "embeddedProvisioningProfiles": 0,
+      "notarized": false,
+      "acceptedDevelopmentUniqueChecks": 1395,
+      "packageAssociatedChecksSeparately": 1395,
+      "packageAssociatedFailures": 0,
+      "allMachinesGatekeeperAcceptanceClaimed": false
+    }
+  ],
+  "checks": {
+    "bothDmgChecksumsValid": true,
+    "bothReadOnlyMountedPayloadsMatch": true,
+    "bothNormallyDetached": true,
+    "sourceSnapshotsVerified": true,
+    "sourceSnapshotsAreExactRemoteTreeArchives": false,
+    "noRealAccountOrNoteContentUsed": true,
+    "noOsProtectionSettingChanged": true
+  }
+}

@@ -17,9 +17,12 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
     , m_bSaveForSession(false)
 {
     ui->setupUi(this);
-    const bool automaticStart = !services.makeOperation;
+    // Production has password input only. Explicit supplied providers remain
+    // available to isolated request-lifetime fixtures, never native credentials.
+    m_biometric = nullptr;
+    if (services.makeOperation) {
     m_biometric = new WizBiometricUnlockWidget(std::move(services), this);
-    m_biometric->setAutomaticStart(automaticStart);
+    m_biometric->setAutomaticStart(false);
     m_biometric->setObjectName("cipherBiometricUnlock");
     m_biometric->setInlinePasswordAvailable(true);
     ui->actionsLayout->addWidget(m_biometric);
@@ -31,6 +34,7 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
         m_biometric->setPresentationVisible(stage!=WizBiometricUnlockWidget::Stage::Unavailable
             &&stage!=WizBiometricUnlockWidget::Stage::Closed);
     });
+    }
     ui->editUserCipher->setEchoMode(QLineEdit::Password);
     ui->editUserCipher->setAccessibleName(tr("证书密码"));
     ui->editUserCipher->setAttribute(Qt::WA_MacShowFocusRect, false);
@@ -65,8 +69,10 @@ WizUserCipherForm::~WizUserCipherForm()
 {
     // Cancel before QWidget hides/deletes children. Do not emit a fresh stage
     // notification into callers while this form is already being destroyed.
-    m_biometric->blockSignals(true);
-    m_biometric->beginShutdown();
+    if (m_biometric) {
+        m_biometric->blockSignals(true);
+        m_biometric->beginShutdown();
+    }
     delete ui;
 }
 
@@ -140,7 +146,7 @@ void WizUserCipherForm::onButtonOK_clicked()
     if (!ui->editUserCipher->text().isEmpty()) {
         QPointer<WizUserCipherForm> guard(this);
         const auto request = m_manualRequestEpoch.ticket();
-        m_biometric->cancel();
+        if (m_biometric) m_biometric->cancel();
         if (!guard || !WizDocumentCallbackEpoch::current(request)) return;
         m_userCipher = ui->editUserCipher->text();
 
@@ -160,8 +166,8 @@ void WizUserCipherForm::onCheckSave_stateChanged(int state)
 void WizUserCipherForm::onCipher_changed(const QString &text)
 {
     QPointer<WizUserCipherForm> guard(this);
-    if (!text.isEmpty()) m_biometric->cancelAutomaticStart();
-    if (!text.isEmpty() && (m_biometric->stage() == WizBiometricUnlockWidget::Stage::Working
+    if (m_biometric && !text.isEmpty()) m_biometric->cancelAutomaticStart();
+    if (m_biometric && !text.isEmpty() && (m_biometric->stage() == WizBiometricUnlockWidget::Stage::Working
                           || m_biometric->stage() == WizBiometricUnlockWidget::Stage::Verified))
         m_biometric->cancel();
     if (!guard) return;
@@ -198,18 +204,20 @@ void WizUserCipherForm::setCipherEditorFocus()
 void WizUserCipherForm::prepareBiometric(const WizBiometricUnlockWidget::Context& context, bool enabled)
 {
     m_manualRequestEpoch.invalidate();
+    if (!m_biometric) return;
     QPointer<WizUserCipherForm> guard(this);
     m_biometric->setContext(context,enabled);
     if (!guard) return;
     m_biometric->setPresentationVisible(enabled&&m_biometric->stage()!=WizBiometricUnlockWidget::Stage::Unavailable
         &&m_biometric->stage()!=WizBiometricUnlockWidget::Stage::Closed);
 }
-void WizUserCipherForm::cancelBiometric() { m_manualRequestEpoch.invalidate(); m_biometric->cancel(); }
+void WizUserCipherForm::cancelBiometric() { m_manualRequestEpoch.invalidate(); if (m_biometric) m_biometric->cancel(); }
 bool WizUserCipherForm::preserveNativeAuthenticationOnInactive() const
 {
-    return m_biometric->preserveNativeAuthenticationOnInactive();
+    return m_biometric && m_biometric->preserveNativeAuthenticationOnInactive();
 }
 WizBiometricKeychain::Result WizUserCipherForm::takeBiometricCredential(const WizBiometricUnlockWidget::Context& context)
 {
-    return m_biometric->takeCredential(context);
+    return m_biometric ? m_biometric->takeCredential(context)
+        : WizBiometricKeychain::Result{WizBiometricKeychain::Error::UnsupportedPlatform,{}};
 }

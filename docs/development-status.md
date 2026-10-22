@@ -1,5 +1,43 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
+## Current phase195: password-only use without weekly provisioning maintenance
+
+The user has only a free personal team and explicitly chose to retain the current
+installer as backup, then remove Touch ID and accept certificate-password unlock.
+The final instruction is backup/package only: do not install or replace any App.
+
+Pre-removal build194 records the accepted192 product code/constants with the same
+optimized App name, bundle ID and default data-root rules. Its local DMG and full
+source snapshot are frozen; the personal-team profile expires2026-10-28 15:54UTC.
+Packaged routing1236/0; session142 checks had4 failures because old management
+fixtures assumed unsigned main. A signed fixture may dispatch synthetic native
+enrollment,so do not claim no native keychain calls or all package tests passed.
+No real account/note/secret or physical fingerprint operation was requested.
+
+The password-only client removes the Settings tab and does not construct a
+biometric widget in the default password form. Certificate password, Unlock and
+the existing optional password hint remain. The native biometric backend is no
+longer compiled/linked; compatibility APIs return unsupported without keychain
+reads/writes/deletes or LocalAuthentication. Supplied fake providers remain only
+for isolated request/session regression fixtures; they are not a user feature.
+Existing biometric policy flags/records are ignored for UI availability,not
+deleted,and no secret is moved into a weaker password store. The historical
+native implementation stays in source history but is not part of the new target.
+
+Per-note verified Session/Gate and native screen-boundary monitoring stay active
+for password unlock: A does not unlock B,navigation can reuse A proof,five-minute
+background grace and immediate sleep/screen retirement preserve dirty DOM/save
+cache/queues. No certificate/ciphertext/iPhone protocol or permanent-decryption
+change. Ordinary Markdown-save investigation remains stopped; automationPAUSED,
+recoveryOFF. No extra full suite or hardware acceptance round is added.
+
+New local-only password package uses ad-hoc signing as the earlier local package
+did,without the main's restricted keychain entitlements or embedded provisioning
+profile. It has no seven-day personal-team provisioning dependency; this is not
+Developer ID/notarization and does not promise Gatekeeper acceptance on other
+machines. Do not disable OS protections to launch it. Never modify installed App
+or data; no migration/merge of the independent186 store is performed.
+
 ## Current closeout: user reports basic trial acceptance of192
 
 The user's latest feedback is "我已基本检查通过" after receiving trial192.

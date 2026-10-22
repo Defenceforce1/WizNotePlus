@@ -30,7 +30,9 @@ Error validateEnrollment(const Scope& scope, const QString& password, bool expli
     return WizCertificateCreation::verify(scope.certificate, password) == WizCertificateCreation::Error::None
         ? Error::None : Error::PasswordInvalid;
 }
-#ifndef Q_OS_MAC
+// Password-only client: retain inert compatibility types for request/session
+// fixtures, but never link the native biometric/credential backend on any OS.
+// Existing opt-in flags or keychain records cannot reactivate this API.
 bool hasSigningPrerequisites() { return false; }
 bool isBiometryAvailable() { return false; }
 Error enroll(const Scope& scope, const QString& password, bool consent)
@@ -52,5 +54,4 @@ Result ReadOperation::read(const Scope& scope)
     return {itemIdentity(scope).isEmpty() ? Error::InvalidScope : Error::UnsupportedPlatform, {}};
 }
 void ReadOperation::cancel() { d->canceled.store(true); }
-#endif
 }

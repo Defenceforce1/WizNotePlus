@@ -20,7 +20,6 @@
 #include "sync/WizApiEntry.h"
 
 #include "widgets/WizExecutingActionDialog.h"
-#include "widgets/WizBiometricManageHost.h"
 
 
 WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
@@ -33,9 +32,7 @@ WizPreferenceWindow::WizPreferenceWindow(WizExplorerApp& app, QWidget* parent)
     ui->setupUi(this);
     setWindowIcon(QIcon());
     setWindowTitle(tr("Settings"));
-    // Management requires valid self-signing and an existing certificate.
-    // Opening settings does not read Keychain credentials or enable policy.
-    ui->tabWidget->addTab(new WizBiometricManageHost(m_app,ui->tabWidget),tr("Touch ID"));
+    // Password-only client: no biometric registration/management tab.
 
     connect(ui->btnClose, SIGNAL(clicked()), SLOT(accept()));
 

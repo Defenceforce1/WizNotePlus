@@ -14,6 +14,7 @@ if(WIZNOTE_BUILD_COMPAT_TESTS)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-keychain.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-unlock-ui.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-note-access.cpp)
+    list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/password-only-client.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/document-unprotect.cpp)
     list(APPEND native_transfer_test_source ${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-routing.cpp)
     include(${PROJECT_SOURCE_DIR}/tests/compat/biometric-document-methods.cmake)
@@ -41,7 +42,6 @@ endif()
 
 set(wiznote_SOURCES_MAC
     mac/WizMacHelper.mm
-    mac/WizBiometricKeychain.mm
     mac/WizSessionAccess.mm
     mac/WizUserInfoWidgetBaseMac.mm
     mac/WizUserInfoWidgetBaseMac_mm.cpp
@@ -671,8 +671,6 @@ if(UNIX)
         find_library(_STORE_LIBRARY StoreKit)
         find_library(_IO_LIBRARY IOKit)
         find_library(_SECURITY_LIBRARY Security REQUIRED)
-        find_library(_LOCAL_AUTH_LIBRARY LocalAuthentication REQUIRED)
-        set_source_files_properties(mac/WizBiometricKeychain.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         set_source_files_properties(mac/WizSessionAccess.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         if (PLCrashReporter)
             find_library(_CRASHREPORTER CrashReporter)
@@ -681,7 +679,7 @@ if(UNIX)
         # please set env: MACOSX_DEPLOYMENT_TARGET = 10.8 to ~/.bash_profile if you need NSUserNotification support.
         message("use cocoa library: ${_COCOA_LIBRARY}")
         target_link_libraries(${PROJECT_NAME} ${_CARBON_LIBRARY} ${_COCOA_LIBRARY}
-                  ${_STORE_LIBRARY} ${_IO_LIBRARY} ${_CRASHREPORTER} ${_SECURITY_LIBRARY} ${_LOCAL_AUTH_LIBRARY})
+                  ${_STORE_LIBRARY} ${_IO_LIBRARY} ${_CRASHREPORTER} ${_SECURITY_LIBRARY})
 
         # setup plist info and logo
         set_target_properties(${PROJECT_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/build/osx/Info.plist")

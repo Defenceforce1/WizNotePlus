@@ -82,6 +82,8 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
     WizGlobal::setGlobalSettings(&globalSettings);
     int checks=0,failures=0;
     const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<text;return ok;};
+    extern void wizPasswordOnlyClientSelfTest(const std::function<void(bool,const char*)>&);
+    wizPasswordOnlyClientSelfTest(check);
     WizDatabaseManager manager("synthetic-biometric-note-only");
     if(!check(manager.open(),"actual temporary database opens without a normal account"))return 1;
     auto& db=manager.db(); WizUserSettings settings(db); App explorer(manager,settings);
@@ -232,7 +234,8 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         check(state->cancel==1 && ready==0 && !form.takeBiometricCredential(context),"typing a manual password cancels and drops the late biometric result");
     }
     {
-        auto* form=new WizUserCipherForm(explorer,nullptr);auto* bio=form->findChild<WizBiometricUnlockWidget*>();
+        const auto synthetic=std::make_shared<ReadState>();
+        auto* form=new WizUserCipherForm(explorer,nullptr,{[synthetic]{return std::make_shared<Read>(synthetic);},nullptr});auto* bio=form->findChild<WizBiometricUnlockWidget*>();
         QPointer<WizUserCipherForm> guard(form);
         QObject::connect(bio,&WizBiometricUnlockWidget::stageChanged,&app,[form]{delete form;});
         form->prepareBiometric(context,false);
@@ -320,10 +323,10 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         {
             WizPreferenceWindow settingsWindow(explorer,nullptr);auto* tabs=settingsWindow.findChild<QTabWidget*>("tabWidget");
             auto* manage=tabs?tabs->widget(tabs->count()-1)->findChild<Manage*>():nullptr;
-            check(manage&&manage->stage()==Manage::Stage::Disabled&&tabs->currentIndex()==0,"actual Settings constructor adds the disabled management page without changing the initial tab");
+            check(!manage&&tabs&&tabs->currentIndex()==0,"actual password-only Settings has no Touch ID management page and retains its initial tab");
             settingsWindow.showPrintMarginPage();check(tabs&&tabs->currentWidget()->objectName()=="tabPrint","actual print-margin settings navigation retains its original page after the management tab is appended");
             if(manage){tabs->setCurrentIndex(tabs->count()-1);click(manage,false);}
-            check(manage&&!optedIn(settings,hostScope)&&notified.isEmpty(),"selecting the actual Settings management page and clicking its disabled button cannot write policy or launch an operation");
+            check(!manage&&!optedIn(settings,hostScope)&&notified.isEmpty(),"opening password-only Settings cannot write biometric policy or launch an operation");
         }
         WizBiometricManageHost host(explorer,{true,[probe]{return std::make_shared<ManageOperation>(probe);},&pool});host.show();
         click(host.management(),false);
