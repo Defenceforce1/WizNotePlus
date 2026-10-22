@@ -47,8 +47,14 @@ inline QString setupScript(const QString& tokenLiteral, const QString& body)
         "(async function(){try{\n"+body+"\n"
         "if(window.WizNativeEditorSetup.token!=="+tokenLiteral+")return;"
         "WizNativeEditorSetup.state='ready';"
+        // Presentation can observe completion immediately; the existing native
+        // readiness watcher remains authoritative. A listener failure must not
+        // turn successful editor setup into a failed initialization.
+        "try{window.dispatchEvent(new Event('wiz-native-editor-setup-state'));}catch(_){}"
         "}catch(error){if(window.WizNativeEditorSetup.token==="+tokenLiteral+")"
-        "WizNativeEditorSetup.state='failed';console.error('Editor setup failed',error);}})();";
+        "{WizNativeEditorSetup.state='failed';"
+        "try{window.dispatchEvent(new Event('wiz-native-editor-setup-state'));}catch(_){}}"
+        "console.error('Editor setup failed',error);}})();";
 }
 inline QString stateExpression(const QString& tokenLiteral)
 {

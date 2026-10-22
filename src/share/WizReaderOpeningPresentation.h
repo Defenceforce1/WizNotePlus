@@ -38,6 +38,7 @@ var finished=false,frames=[],observed=null;
 function show(){
   if(finished)return;finished=true;clearInterval(poll);clearTimeout(deadline);
   frames.forEach(cancelAnimationFrame);window.removeEventListener('pagehide',show);
+  window.removeEventListener('wiz-native-editor-setup-state',check);
   if(style.isConnected)style.remove();
 }
 function check(){
@@ -48,16 +49,19 @@ function check(){
   if(state.state==='failed'){show();return;}
   if(state.state!=='ready'||observed===state)return;
   observed=state;
-  frames.push(requestAnimationFrame(function(){frames.push(requestAnimationFrame(function(){
+  // Setup has already applied final reader styles. Reveal at the next paint
+  // rather than waiting for polling plus two extra frame boundaries.
+  frames.push(requestAnimationFrame(function(){
     if(finished)return;
     // A late completion cannot reveal a superseded setup. Retry observing the
     // new token instead; no reload, DOM clearing or focus change is performed.
     if(window.WizNativeEditorSetup!==state||state.state!=='ready'){observed=null;return;}
     show();
-  }));}));
+  }));
 }
 var poll=setInterval(check,25),deadline=setTimeout(show,30000);
-window.addEventListener('pagehide',show,{once:true});check();
+window.addEventListener('pagehide',show,{once:true});
+window.addEventListener('wiz-native-editor-setup-state',check);check();
 })();</script>)HTML");
 }
 }

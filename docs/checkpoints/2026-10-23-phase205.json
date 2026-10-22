@@ -1,0 +1,21 @@
+{
+  "phase": 205,
+  "date": "2026-10-23",
+  "scope": "Reduce unnecessary post-setup Markdown presentation wait",
+  "preservesBuild204ModeCycleFix": true,
+  "localSetupNotification": true,
+  "currentSetupVerifiedAtNextFrame": true,
+  "pollAndDeadlineFallbackRetained": true,
+  "presentationControls": 32,
+  "modeTransitionsVisible": 6,
+  "editedSyntheticSourcePreserved": true,
+  "smallSyntheticPostSetupWaitBeforeMs": [55, 59, 62],
+  "smallSyntheticPostSetupWaitAfterMs": [24, 29, 26],
+  "wholeAppSpeedupClaimed": false,
+  "formulaLayoutCostEliminated": false,
+  "productionIncrementalBuildPassed": true,
+  "installedAppOrRealNotesModified": false,
+  "proprietaryEditorInternalsModified": false,
+  "binariesUploaded": false,
+  "automation": "PAUSED"
+}
