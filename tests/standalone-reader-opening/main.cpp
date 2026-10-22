@@ -48,12 +48,12 @@ bool wait(const std::function<bool()>& pred,int ms=35000){if(pred())return true;
 QVariant js(QWebEnginePage* page,const QString& code){struct State{bool done=false;QVariant value;};auto s=std::make_shared<State>();page->runJavaScript(code,[s](const QVariant& v){s->value=v;s->done=true;});wait([s]{return s->done;},5000);return s->value;}
 QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonArray{s}).toJson(QJsonDocument::Compact))+"[0]";}
 int main(int argc,char**argv){
-    if(argc<3||argc>4)return 4;
+    if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
-    const bool gated=argc==4&&QString::fromLocal8Bit(argv[3])=="gated";
-    if(!QStringList{"plain","math","bare","controls","cycle"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
+    const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
+    if(!QStringList{"plain","math","bare","many","controls","cycle"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
     QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
     QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(900,600);
     auto* page=new QWebEnginePage(&profile,&view);view.setPage(page);QWebChannel channel;Bridge editor,explorer;
@@ -95,22 +95,38 @@ int main(int argc,char**argv){
         check(wait([&]{return js(page,"WizNativeEditorSetup.token==='notify-replacement'&&WizNativeEditorSetup.state==='pending'&&setupNotifications===2").toBool();},1500),"obsolete setup neither completes nor notifies the replacement");
         js(page,"window.dispatchEvent=()=>{throw Error('synthetic notification failure');};");js(page,WizDocumentPageReady::setupScript("'notify-unavailable'","window.setupBodyComplete=true;"));check(wait([&]{return js(page,"WizNativeEditorSetup.state==='ready'").toBool();},1500),"notification failure does not change authoritative readiness");
         check(load("window.WizNativeEditorSetup={state:'pending'};"),"navigation cancellation control loads");js(page,"window.dispatchEvent(new Event('pagehide'))");check(visible(),"navigation teardown retires presentation timers");
-        check(load("",false)&&visible(),"ordinary or editor HTML without gate stays visible");check(local.blocked.load()==0,"all presentation controls use local resources only");
+        check(load("",false)&&visible(),"ordinary or editor HTML without gate stays visible");
+        QFile extension(resources+"wizeditor/markdownEnvironments.js");check(extension.open(QFile::ReadOnly),"owned Markdown extension loads for scheduling controls");js(page,QString::fromUtf8(extension.readAll()));
+        check(js(page,"WizPrepareMarkdownMathJaxScheduling();WizPrepareMarkdownMathJaxScheduling();document.querySelectorAll('#wiz_markdown_math_scheduling').length===1").toBool(),"repeated scheduling preparation uses one config node");
+        check(js(page,"const config=document.getElementById('wiz_markdown_math_scheduling');config.type+=';executed=true';WizPrepareMarkdownMathJaxScheduling();config.type==='text/x-mathjax-config'&&config.getAttribute('wiz_style')==='unsave'").toBool(),"next fresh engine re-arms owned config with unsaved marker");
+        check(js(page,"window.MathJax={Hub:{processSectionDelay:50,processUpdateTime:250,processUpdateDelay:10}};new Function(config.textContent)();MathJax.Hub.processSectionDelay===8&&MathJax.Hub.processUpdateTime===250&&MathJax.Hub.processUpdateDelay===10").toBool(),"stock section delay shortens without changing processing budgets");
+        check(js(page,"MathJax.Hub.processSectionDelay=17;new Function(config.textContent)();MathJax.Hub.processSectionDelay===17").toBool(),"explicit non-default scheduling remains unchanged");
+        check(js(page,"config.textContent='user custom configuration';config.type='text/plain';WizPrepareMarkdownMathJaxScheduling();config.textContent==='user custom configuration'&&config.type==='text/plain'").toBool(),"unowned or changed configuration is not overwritten");
+        check(local.blocked.load()==0,"all presentation controls use local resources only");
         profile.setUrlRequestInterceptor(nullptr);qInfo()<<"Reader presentation controls checks"<<checks<<"failures"<<failures;return failures?1:0;
     }
     QString source="# Synthetic opening\n\nA paragraph without math.\n";
     if(kind=="math")source+="\n$$a+b=c$$\n\n$x^2\\ge0$.\n";
     if(kind=="bare"||kind=="cycle")source+="\n\\begin{equation}\\label{synthetic:one}\na+b=c\n\\end{equation}\n\nSee \\eqref{synthetic:one}.\n";
+    if(kind=="many")for(int i=0;i<96;++i)source+=QString("\n$$\\sum_{k=1}^{%1}\\frac{k^2+1}{k+1}=S_{%1}$$\n").arg(i+1);
     editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+source.toHtmlEscaped().replace("\n","<br>")+"</body></html>";
     QString html=editor.original;
     if(gated)html.insert(html.indexOf("</head>"),WizReaderOpeningPresentation::bootstrapHtml());
     QString tags;
-    for(const auto& f:QStringList{"webengine/wizwebchannel.js","wizeditor/wizEditorForMac.js","wizeditor/dependency/marked/marked.umd.js","wizeditor/latexTheorems.js","wizeditor/markdownEnvironments.js","wizeditor/editorHelper.js"})
-        tags+="<script src=\""+QUrl::fromLocalFile(resources+f).toString().toHtmlEscaped()+"\" name='wiz_inner_script' wiz_style='unsave'></script>";
+    for(const auto& f:QStringList{"webengine/wizwebchannel.js","wizeditor/wizEditorForMac.js","wizeditor/dependency/marked/marked.umd.js","wizeditor/latexTheorems.js","wizeditor/markdownEnvironments.js","wizeditor/editorHelper.js"}){
+        const QString resource=f=="wizeditor/markdownEnvironments.js"&&argc==5?QString::fromLocal8Bit(argv[4]):resources+f;
+        tags+="<script src=\""+QUrl::fromLocalFile(resource).toString().toHtmlEscaped()+"\" name='wiz_inner_script' wiz_style='unsave'></script>";
+    }
     html.insert(html.lastIndexOf("</head>"),tags);
     QWebEngineScript observer;observer.setInjectionPoint(QWebEngineScript::DocumentCreation);observer.setWorldId(QWebEngineScript::MainWorld);
     observer.setSourceCode(R"JS(
 window.openingEvents=[];window.openingFrames=[];
+window.mathStages=[];window.mathEngines=new WeakSet();
+window.mathTicks=[];setInterval(()=>mathTicks.push(Math.round(performance.now())),10);
+window.mathStage=function(name){const h=window.MathJax&&MathJax.Hub;mathStages.push({name:name,ms:Math.round(performance.now()),hub:!!h,sectionDelay:h?h.processSectionDelay:null,updateDelay:h?h.processUpdateDelay:null});};
+window.observeMathHub=function(){const h=window.MathJax&&MathJax.Hub;if(!h||!h.Register||mathEngines.has(h))return;mathEngines.add(h);mathStage('hub-observed');for(const name of ['Begin PreProcess','End PreProcess','Begin Process','Begin Math Input','End Math Input','Begin Math Output','End Math Output','End Process','Begin Typeset','End Typeset'])h.Register.MessageHook(name,()=>mathStage(name));};
+const mathObserver=new MutationObserver(()=>{observeMathHub();});mathObserver.observe(document,{subtree:true,childList:true});
+const mathPoll=setInterval(observeMathHub,1);window.addEventListener('pagehide',()=>{clearInterval(mathPoll);mathObserver.disconnect();},{once:true});
 window.openingMark=function(name){if(openingEvents.length<100)openingEvents.push({name:name,ms:Math.round(performance.now()),bodyClass:document.body?document.body.className:null,editing:document.body?document.body.isContentEditable:null,text:document.body?document.body.textContent.slice(0,120):null});};
 document.addEventListener('DOMContentLoaded',function(){openingMark('dom-ready');let previous='';const sample=()=>{const b=document.body;if(b){const visible=getComputedStyle(b).visibility!=='hidden'&&getComputedStyle(document.documentElement).opacity!=='0';const s=JSON.stringify([b.className,b.textContent.slice(0,120),b.scrollHeight,document.querySelectorAll('.MathJax_SVG,.MathJax_Display').length,visible]);if(s!==previous&&openingFrames.length<100){openingFrames.push({ms:Math.round(performance.now()),visible:visible,setupState:window.WizNativeEditorSetup?WizNativeEditorSetup.state:null,signature:s});previous=s;}}if(performance.now()<15000)requestAnimationFrame(sample);};requestAnimationFrame(sample);});
 )JS");page->scripts().insert(observer);
@@ -119,7 +135,7 @@ document.addEventListener('DOMContentLoaded',function(){openingMark('dom-ready')
     if(!wait([&]{return loaded;})||!ok)return 3;
     js(page,R"JS(
 openingMark('native-load-finished');
-const originalInit=WizEditor.init;WizEditor.init=function(options){openingMark('init-begin');for(const n of ['markdown','mathJax']){const original=options.reader.callback[n];options.reader.callback[n]=function(){openingMark(n+'-callback');if(original)return original.apply(this,arguments);};}const result=originalInit.apply(this,arguments);openingMark('init-return');return result;};
+const originalInit=WizEditor.init;WizEditor.init=function(options){openingMark('init-begin');for(const n of ['markdown','mathJax']){const original=options.reader.callback[n];options.reader.callback[n]=function(){openingMark(n+'-callback');mathStage(n+'-callback');observeMathHub();if(original)return original.apply(this,arguments);};}const result=originalInit.apply(this,arguments);openingMark('init-return');return result;};
 const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('apply-style');return originalStyle.apply(this,arguments);};
 )JS");
     QString body="window.WizSpellCheckEnabled=false;window.WizNoteCss='body{font-size:16px;line-height:1.7;}';";
@@ -132,7 +148,7 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
     if(kind=="cycle"){
         QJsonArray states;int failures=0;QString expectedSource=source;bool editedSourceRoundtrip=false,serializedHideAbsent=true;
         const auto snapshot=[&](const QString& stage){
-            auto object=QJsonObject::fromVariantMap(js(page,R"JS((()=>({opacity:getComputedStyle(document.documentElement).opacity,bodyOpacity:getComputedStyle(document.body).opacity,display:getComputedStyle(document.body).display,editing:document.body.isContentEditable,text:document.body.textContent.slice(0,300),styles:[...document.querySelectorAll('#wiz_tmp_style_reader_opening')].map(s=>s.textContent),bootstrapCount:document.querySelectorAll('#wiz_reader_opening_bootstrap').length,head:document.head.innerHTML.slice(-2000)}))())JS").toMap());
+            auto object=QJsonObject::fromVariantMap(js(page,R"JS((()=>({opacity:getComputedStyle(document.documentElement).opacity,bodyOpacity:getComputedStyle(document.body).opacity,display:getComputedStyle(document.body).display,editing:document.body.isContentEditable,text:document.body.textContent.slice(0,300),styles:[...document.querySelectorAll('#wiz_tmp_style_reader_opening')].map(s=>s.textContent),bootstrapCount:document.querySelectorAll('#wiz_reader_opening_bootstrap').length,sectionDelay:window.MathJax&&MathJax.Hub?MathJax.Hub.processSectionDelay:null,configCount:document.querySelectorAll('#wiz_markdown_math_scheduling').length,head:document.head.innerHTML.slice(-2000)}))())JS").toMap());
             object.insert("stage",stage);const bool visible=object["opacity"].toString()!="0"&&object["bodyOpacity"].toString()!="0"&&object["display"].toString()!="none"&&!object["text"].toString().isEmpty();
             object.insert("visible",visible);if(!visible)++failures;states.append(object);
         };
@@ -149,7 +165,7 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
                 if(!expectedSource.contains("Synthetic edited marker"))++failures;
             }
             const QString serialized=js(page,"WizEditor.getContentHtml()").toString();
-            if(serialized.contains("opacity:0!important")){serializedHideAbsent=false;++failures;}
+            if(serialized.isEmpty()||serialized.contains("opacity:0!important")||serialized.contains("wiz_markdown_math_scheduling")){serializedHideAbsent=false;++failures;}
             js(page,"window.cycleDone=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>{WizApplyNoteStyle();WizApplySpellCheck();window.cycleDone=true;});");
             if(!wait([&]{return js(page,"window.cycleDone===true").toBool();},5000))++failures;
             snapshot(token+"-reader");if(js(page,"document.body.isContentEditable").toBool())++failures;
@@ -160,6 +176,7 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
         profile.setUrlRequestInterceptor(nullptr);return failures||local.blocked?8:0;
     }
     const bool sourceIntact=js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source;
+    qInfo().noquote()<<"MATH_TIMING"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"stages",QJsonValue::fromVariant(js(page,"mathStages"))},{"ticks",QJsonValue::fromVariant(js(page,"mathTicks"))},{"svg",QJsonValue::fromVariant(js(page,"Array.from(document.querySelectorAll('.MathJax_SVG svg')).map(s=>s.outerHTML)"))},{"mathErrors",js(page,"document.querySelectorAll('.MathJax_Error,.merror').length").toInt()},{"equationLinksValid",js(page,"[...document.querySelectorAll('a[href^=\"#mjx-eqn\"]')].every(a=>!!document.getElementById(decodeURIComponent(a.hash.slice(1))))").toBool()},{"jaxCount",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().length:0").toInt()},{"sectionDelay",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.processSectionDelay:0").toInt()},{"updateTime",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.processUpdateTime:0").toInt()},{"chunkDelay",js(page,"window.MathJax&&MathJax.OutputJax.SVG?MathJax.OutputJax.SVG.config.EqnChunkDelay:0").toInt()}}).toJson(QJsonDocument::Compact));
     const auto report=QJsonObject{{"kind",kind},{"gated",gated},{"completedLoads",completedLoads},{"events",QJsonValue::fromVariant(js(page,"openingEvents"))},{"frames",QJsonValue::fromVariant(js(page,"openingFrames"))},{"sourceIntact",sourceIntact},{"readOnly",js(page,"document.body.classList.contains('wiz-readonly')&&!document.body.isContentEditable").toBool()},{"blockedExternalRequests",local.blocked.load()},{"hiddenCocoa",view.testAttribute(Qt::WA_DontShowOnScreen)&&(!view.windowHandle()||!view.windowHandle()->isExposed())},{"domSnapshot",js(page,"document.body.textContent.slice(0,300)").toString()}};
     qInfo().noquote()<<"OPENING_REPORT"<<QString::fromUtf8(QJsonDocument(report).toJson(QJsonDocument::Compact));
     profile.setUrlRequestInterceptor(nullptr);return sourceIntact&&local.blocked==0?0:7;

@@ -76,6 +76,7 @@ function WizConfigureMarkdownEnvironments(options) {
   };
   callbacks.markdown = function () {
     if (markdownRendered) markdownRendered.apply(this, arguments);
+    WizPrepareMarkdownMathJaxScheduling();
     if (document.querySelector('.wiz-latex-theorem') && typeof WizApplyMathEnvironments === 'function'
         && !WizMathDecoration.blocks.some(function (record) {
           return record.element.isConnected && record.element.classList.contains('wiz-latex-theorem');
@@ -113,6 +114,32 @@ function WizConfigureMarkdownEnvironments(options) {
   return options;
 }
 
+// MathJax 2 supports these configuration scripts before a fresh engine starts.
+// Shorten only its stock between-section pause; leave processing budgets and
+// SVG chunk yields intact, and respect a caller's non-default scheduling.
+// The reader starts a fresh engine on mode changes, so do not cache Hub objects.
+function WizPrepareMarkdownMathJaxScheduling() {
+  if (!document.head) return;
+  var id = 'wiz_markdown_math_scheduling';
+  var payload = 'if(MathJax.Hub.processSectionDelay===50){MathJax.Hub.processSectionDelay=8;}';
+  var previous = document.getElementById(id);
+  if (previous) {
+    // MathJax marks config scripts as executed. A fresh engine on the next
+    // reading pass must see the same owned config again, without duplicates.
+    if (previous.tagName === 'SCRIPT' && previous.getAttribute('name') === 'wiz_inner_script'
+        && previous.getAttribute('wiz_style') === 'unsave' && previous.textContent === payload)
+      previous.type = 'text/x-mathjax-config';
+    return;
+  }
+  var config = document.createElement('script');
+  config.id = id;
+  config.type = 'text/x-mathjax-config';
+  config.setAttribute('name','wiz_inner_script');
+  config.setAttribute('wiz_style','unsave');
+  config.textContent = payload;
+  document.head.appendChild(config);
+}
+
 var WizMarkdownEnvironmentLoader = null;
 function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
   if (WizMarkdownEnvironmentLoader) return WizMarkdownEnvironmentLoader;
@@ -128,6 +155,7 @@ function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
     // MathJax's SVG glyph cache. Match its own fresh-engine-per-render policy.
     var previous = document.getElementById('wiz_markdown_environment_loader');
     if (previous) previous.remove();
+    WizPrepareMarkdownMathJaxScheduling();
     window.MathJax = {
       skipStartupTypeset: true,
       tex2jax: {inlineMath:[['$','$'],['\\(','\\)']], displayMath:[['$$','$$'],['\\[','\\]']],
