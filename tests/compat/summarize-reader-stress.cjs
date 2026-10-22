@@ -22,6 +22,7 @@ function summarize(text){
   const after=text.split('\n').filter(s=>s.startsWith('STRESS_AFTER_SCOPE '));assert.equal(after.length,1,'post-profile/scope idle observed');const idle=JSON.parse(after[0].slice(19));assert.equal(idle.processCount,1);assert.equal(idle.widgetCount,0);assert.equal(idle.windowCount,0);
   const span=(xs,key)=>({min:Math.min(...xs.map(x=>x[key])),max:Math.max(...xs.map(x=>x[key]))});
   return {measurementValid:true,kind:r.kind,pixelGrab:r.pixelGrab!==false,rounds:r.rounds,checks:r.checks,failures:r.failures,sourceBytes:open[0].sourceBytes,formulaObjects:math?514:0,
+    nativeMemoryRepresentativeOfUiTurns:false,profileHeldGrowthAttributionAllowed:false,nativeMemoryWarning:'Single outer callback retains autoreleased native resources;use retention-yield controls,not these samples,for per-turn attribution.',
     initialReadyMs:staticControl?null:span(open,'initialReadyMs'),readyAndRoundTripMs:span(open,'readyAndRoundTripMs'),
     closedFirst:closed[0].memory,closedLast:closed.at(-1).memory,closedIdle10s:final.memory,afterProfileAndScopeIdle10s:idle,
     closedFootprintGrowthKiB:closed.at(-1).memory.mainFootprintKiB-closed[0].memory.mainFootprintKiB,

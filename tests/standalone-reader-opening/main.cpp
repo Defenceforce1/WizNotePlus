@@ -48,12 +48,18 @@ bool wait(const std::function<bool()>& pred,int ms=35000){if(pred())return true;
 QVariant js(QWebEnginePage* page,const QString& code){struct State{bool done=false;QVariant value;};auto s=std::make_shared<State>();page->runJavaScript(code,[s](const QVariant& v){s->value=v;s->done=true;});wait([s]{return s->done;},5000);return s->value;}
 QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonArray{s}).toJson(QJsonDocument::Compact))+"[0]";}
 #include "stress.h"
+#include "retention.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
+    if(kind=="retention-nested"||kind=="retention-yield"||kind=="retention-nested-pool"||kind=="retention-yield-persistent"){
+        if(QGuiApplication::platformName()!="cocoa")return 4;int status=0;
+        NativeRetention probe(root,kind,[&](int result){status=result;app.quit();});
+        QTimer::singleShot(0,&probe,[&]{probe.start();});app.exec();return status;
+    }
     if(kind=="stress-prose"||kind=="stress-math"||kind=="stress-static"||kind=="stress-static-no-grab"){
         int status=0;
         QTimer::singleShot(0,&app,[&]{status=runReaderStress(root,resources,kind);QTimer::singleShot(10000,&app,[&]{

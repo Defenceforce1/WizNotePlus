@@ -40,6 +40,9 @@ static QJsonObject stressMemory() {
     return result;
 }
 static int runReaderStress(QTemporaryDir& root,const QString& resources,const QString& kind) {
+    // Functional throughput harness only: these closed samples share one outer
+    // callback/autorelease lifetime. They cannot establish profile-held growth.
+    // Use retention-yield for per-turn native memory acceptance instead.
     if(QGuiApplication::platformName()!="cocoa")return 4;
     const bool math=kind=="stress-math";const int formulaCount=math?512:0,rounds=8;
     const bool noGrab=kind=="stress-static-no-grab";
@@ -109,6 +112,6 @@ static int runReaderStress(QTemporaryDir& root,const QString& resources,const QS
     }
     stressSettle(10000);samples.append(QJsonObject{{"phase","closed-10s"},{"memory",stressMemory()},{"profileObjects",profile.findChildren<QObject*>().size()}});
     check(local.blocked.load()==0,"stress workload makes no external requests");profile.setUrlRequestInterceptor(nullptr);
-    qInfo().noquote()<<"STRESS_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"kind",kind},{"pixelGrab",!noGrab},{"rounds",rounds},{"formulaCount",formulaCount},{"paragraphs",6000},{"checks",checks},{"failures",failures},{"blockedExternalRequests",local.blocked.load()},{"samples",samples}}).toJson(QJsonDocument::Compact));
+    qInfo().noquote()<<"STRESS_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"kind",kind},{"nativeMemorySequence","nested-single-callback-not-ui-representative"},{"pixelGrab",!noGrab},{"rounds",rounds},{"formulaCount",formulaCount},{"paragraphs",6000},{"checks",checks},{"failures",failures},{"blockedExternalRequests",local.blocked.load()},{"samples",samples}}).toJson(QJsonDocument::Compact));
     return failures?10:0;
 }
