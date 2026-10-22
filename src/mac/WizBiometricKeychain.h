@@ -29,6 +29,8 @@ Error validateEnrollment(const Scope& scope, const QString& password, bool expli
 // Reads this process's signing metadata only. Not a keychain probe or promise
 // that an item access will succeed; the OS still authorizes each SecItem call.
 bool hasSigningPrerequisites();
+// Noninteractive current-system capability check: no evaluate/credential read.
+bool isBiometryAvailable();
 Error enroll(const Scope& scope, const QString& verifiedPassword, bool explicitConsent);
 Error forget(const Scope& scope, bool explicitConsent);
 

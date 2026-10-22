@@ -125,7 +125,7 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
           "changed certificate snapshot cannot publish a password or clear another operation cache");
     Context context{scope,"synthetic-note",1}; Gate gate;
     gate.begin(context,false);
-    check(!gate.requiresAuthorization(true) && gate.requiresAuthorization(false),"non-opted-in policy preserves original warm and cold cache behavior");
+    check(!gate.requiresAuthorization(true) && gate.requiresAuthorization(false),"optional unprotected gate keeps its explicit cache semantics; encrypted hosts require it");
     gate.begin(context,true);const auto ticket=gate.ticket();
     check(gate.requiresAuthorization(true),"opted-in note requires fresh permission even with an actual warm database cache");
     Gate other;other.begin(context,true);
@@ -220,7 +220,7 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
             Manage late({[pending]{return std::make_shared<ManageOperation>(pending);},[&](const Scope&){return same;},[&](const Scope&){++writes;return true;},&held});late.show();late.setContext(scope,true);QObject::connect(&late,&Manage::accessRetired,&late,[&]{++notifications;});click(late,forget,true,password);
             const bool started=until([&]{return pending->enroll+pending->forget==1;});late.hide();late.show();late.setContext(scope,true);click(late,false,true,password);
             check(started&&pending->enroll+pending->forget==1,"hidden or replaced management context cannot overlap its still-running system mutation");
-            pending->release.release();const bool joined=held.waitForDone(3000);until([&]{return late.findChild<QPushButton*>("biometricManageEnroll")->isEnabled();});
+            pending->release.release();const bool joined=held.waitForDone(3000);until([&]{return late.findChild<QLineEdit*>("biometricManagePassword")->isEnabled();});
             check(joined&&writes==0&&notifications==0,"late completed enrollment or forget cannot write policy or revive retired context");
         }
         const auto mismatch=fresh();Manage failedPolicy({[mismatch]{return std::make_shared<ManageOperation>(mismatch);},[](const Scope&){return true;},[](const Scope&){return false;},&pool});failedPolicy.show();failedPolicy.setContext(scope,true);click(failedPolicy,false,true,password);
@@ -232,7 +232,7 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         factoryGone=new Manage(factoryServices);factoryGone->show();factoryGone->setContext(scope,true);QPointer<Manage> factoryWeak(factoryGone);click(*factoryGone,false,true,password);
         check(!factoryWeak,"owner destruction from operation factory safely stops before worker dispatch");
         Manage* reentrant=nullptr;Manage::Services resetServices{[&](){reentrant->setContext(scope,true);return std::make_shared<ManageOperation>(probe);},[](const Scope&){return true;},[](const Scope&){return true;},&pool};reentrant=new Manage(resetServices);reentrant->show();reentrant->setContext(scope,true);const auto prior=probe->enroll.load();click(*reentrant,false,true,password);
-        check(reentrant->stage()==Manage::Stage::Ready&&reentrant->findChild<QPushButton*>("biometricManageEnroll")->isEnabled()&&probe->enroll==prior,"pre-dispatch context retirement releases its task instead of leaving a permanently busy management widget");delete reentrant;
+        check(reentrant->stage()==Manage::Stage::Ready&&reentrant->findChild<QLineEdit*>("biometricManagePassword")->isEnabled()&&!reentrant->findChild<QPushButton*>("biometricManageEnroll")->isEnabled()&&probe->enroll==prior,"pre-dispatch context retirement releases input without enabling another unconsented enrollment");delete reentrant;
     }
     // Phase164 deterministic session router, never real OS notifications.
     {
@@ -311,6 +311,13 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         QObject::disconnect(connection);pool.waitForDone();
     }
     // End Phase165 host tests.
+    if(const QString output=qEnvironmentVariable("WIZNOTE_BIOMETRIC_UI_SNAPSHOT_DIR");!output.isEmpty()){
+        using Manage=WizBiometricManageWidget;Manage::Services fake;
+        fake.makeOperation=[]()->std::shared_ptr<Manage::Operation>{return {};};fake.contextCurrent=[](const Scope&){return true;};fake.enablePolicy=[](const Scope&){return true;};
+        Manage panel(fake);panel.resize(560,480);panel.setContext(scope,true);panel.show();app.processEvents();
+        check(!panel.findChild<QPushButton*>("biometricManageEnroll")->isEnabled()&&!panel.findChild<QPushButton*>("biometricManageForget")->isEnabled(),"settings actions are disabled before explicit consent and enrollment password");
+        check(QGuiApplication::platformName()=="offscreen"&&panel.grab().save(output+"/touch-id-settings.png"),"synthetic settings snapshot renders without real account or desktop");
+    }
     check(db.getCertPassword()==password,"UI cancellation and note permission revocation never clear the existing save cache");
     WizDatabase::clearCertPassword();
     qInfo().noquote()<<"biometric-note-access checks"<<checks<<"failures"<<failures;

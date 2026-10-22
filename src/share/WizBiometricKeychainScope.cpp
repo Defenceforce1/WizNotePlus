@@ -32,6 +32,7 @@ Error validateEnrollment(const Scope& scope, const QString& password, bool expli
 }
 #ifndef Q_OS_MAC
 bool hasSigningPrerequisites() { return false; }
+bool isBiometryAvailable() { return false; }
 Error enroll(const Scope& scope, const QString& password, bool consent)
 {
     const auto error = validateEnrollment(scope, password, consent);

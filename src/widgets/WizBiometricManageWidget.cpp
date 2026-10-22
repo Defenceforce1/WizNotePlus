@@ -4,6 +4,9 @@
 #include <QCoreApplication>
 #include <QHideEvent>
 #include <QLabel>
+#include <QFrame>
+#include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QRunnable>
@@ -57,17 +60,27 @@ WizBiometricManageWidget::WizBiometricManageWidget(Services services,QWidget* pa
 {
     if(!m_services.makeOperation)m_services.makeOperation=[]{return std::make_shared<NativeManage>();};
     m_pool=m_services.pool?m_services.pool:QThreadPool::globalInstance();
-    auto* layout=new QVBoxLayout(this);
-    m_status=new QLabel(this);m_status->setObjectName("biometricManageStatus");m_status->setTextFormat(Qt::PlainText);m_status->setWordWrap(true);layout->addWidget(m_status);
+    auto* outer=new QVBoxLayout(this);outer->setContentsMargins(0,0,0,0);
+    auto* card=new QFrame(this);card->setObjectName("biometricSettingsCard");card->setMaximumWidth(560);
+    card->setStyleSheet("QFrame#biometricSettingsCard {background:palette(base);border:1px solid palette(mid);border-radius:8px;}");
+    outer->addWidget(card,0,Qt::AlignHCenter);outer->addStretch();
+    auto* layout=new QVBoxLayout(card);layout->setContentsMargins(24,24,24,24);layout->setSpacing(12);
+    auto* title=new QLabel(tr("Touch ID 解锁"),card);auto font=title->font();font.setPointSize(16);font.setBold(true);title->setFont(font);layout->addWidget(title);
     m_password=new QLineEdit(this);m_password->setEchoMode(QLineEdit::Password);m_password->setObjectName("biometricManagePassword");layout->addWidget(m_password);
-    m_consent=new QCheckBox(tr("仅管理本机记住记录；不会找回密码、删除证书或笔记"),this);m_consent->setObjectName("biometricManageConsent");layout->addWidget(m_consent);
-    m_enroll=new QPushButton(tr("记住到本机 Touch ID"),this);m_enroll->setObjectName("biometricManageEnroll");layout->addWidget(m_enroll);
-    m_forget=new QPushButton(tr("删除本机记住记录"),this);m_forget->setObjectName("biometricManageForget");layout->addWidget(m_forget);
-    for(auto* button:{m_enroll,m_forget})button->setAutoDefault(false);
+    m_password->setMinimumHeight(32);m_password->setPlaceholderText(tr("请输入证书密码"));
+    layout->removeWidget(m_password);auto* fields=new QFormLayout;fields->addRow(tr("证书密码"),m_password);layout->addLayout(fields);
+    m_consent=new QCheckBox(tr("允许管理本机解锁记录"),this);m_consent->setObjectName("biometricManageConsent");layout->addWidget(m_consent);
+    auto* buttons=new QHBoxLayout;
+    m_enroll=new QPushButton(tr("启用 Touch ID"),this);m_enroll->setObjectName("biometricManageEnroll");buttons->addWidget(m_enroll);
+    m_forget=new QPushButton(tr("移除本机记录"),this);m_forget->setObjectName("biometricManageForget");buttons->addWidget(m_forget);layout->addLayout(buttons);
+    for(auto* button:{m_enroll,m_forget}){button->setAutoDefault(false);button->setMinimumHeight(32);}
+    m_status=new QLabel(this);m_status->setObjectName("biometricManageStatus");m_status->setTextFormat(Qt::PlainText);m_status->setWordWrap(true);layout->addWidget(m_status);
     m_timer=new QTimer(this);m_timer->setInterval(20);
     connect(m_timer,&QTimer::timeout,this,&WizBiometricManageWidget::poll);
     connect(m_enroll,&QPushButton::clicked,this,[this]{start(false);});
     connect(m_forget,&QPushButton::clicked,this,[this]{start(true);});
+    connect(m_password,&QLineEdit::textChanged,this,[this]{update();});
+    connect(m_consent,&QCheckBox::toggled,this,[this]{update();});
     connect(QCoreApplication::instance(),&QCoreApplication::aboutToQuit,this,&WizBiometricManageWidget::beginShutdown);
     update();
 }
@@ -144,14 +157,17 @@ void WizBiometricManageWidget::update()
 {
     const bool idle=m_available&&!m_closed&&!m_task&&m_stage!=Stage::Working;
     const QPointer<WizBiometricManageWidget> self(this);
-    m_enroll->setEnabled(idle);if(!self)return;m_forget->setEnabled(idle);if(!self)return;
+    m_enroll->setEnabled(idle&&m_consent->isChecked()&&!m_password->text().isEmpty());if(!self)return;m_forget->setEnabled(idle&&m_consent->isChecked());if(!self)return;
     m_password->setEnabled(idle);if(!self)return;m_consent->setEnabled(idle);if(!self)return;
-    QString text=tr("功能默认关闭，签名和宿主接线验收后方可启用。忘记密码没有恢复后门。");
-    if(m_stage==Stage::Ready)text=tr("勾选后再点击操作。删除记住记录仍需新验证，不删除证书、备份或笔记。");
-    if(m_stage==Stage::Working)text=tr("正在处理本机记录。已提交的系统操作不能保证撤销；关闭后不采用迟到结果。");
-    if(m_stage==Stage::Conflict)text=tr("已有记录，未覆盖。请明确删除本机旧记录后再登记。");
-    if(m_stage==Stage::Succeeded)text=tr("本次操作已完成。打开笔记仍需重新授权。");
-    if(m_stage==Stage::Failed)text=tr("未完成登记或策略确认，请保留证书密码；不会自动删除或重试已有记录。");
-    if(m_stage==Stage::Closed)text=tr("已关闭，未开始新的本机操作。");
+    QString text=tr("暂不可用");
+    if(m_stage==Stage::Ready||m_stage==Stage::Closed)text.clear();
+    if(m_stage==Stage::Working)text=tr("正在处理…");
+    if(m_stage==Stage::Conflict)text=tr("已有记录，请先移除再启用。");
+    if(m_stage==Stage::Succeeded)text=tr("已完成");
+    if(m_stage==Stage::Failed)text=tr("操作未完成，请重试");
+    if(m_stage==Stage::Failed&&m_error==Error::PasswordInvalid)text=tr("证书密码不正确");
+    if(m_stage==Stage::Failed&&m_error==Error::BiometryUnavailable)text=tr("Touch ID 暂不可用");
+    if(m_stage==Stage::Failed&&m_error==Error::SigningRequired)text=tr("Touch ID 签名未配置");
     m_status->setText(text);
+    if(self)m_status->setVisible(!text.isEmpty());
 }

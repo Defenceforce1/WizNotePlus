@@ -105,7 +105,7 @@ private:
     WizBiometricNoteAccess::Gate m_biometricGate;
     WizDocumentCallbackEpoch m_openEpoch;
     quint64 m_openSequence = 0;
-    bool m_biometricEnabled = false, m_biometricPrepared = false;
+    bool m_encryptedAccessEnabled = false, m_biometricPrepared = false;
     bool m_accessClosing = false, m_biometricReloadPending = false;
     //
     int m_editStatus;  // document edit or version status

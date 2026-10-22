@@ -34,13 +34,16 @@ NSMutableDictionary* query(const QString& identity)
         (__bridge id)kSecUseDataProtectionKeychain: @YES,
         (__bridge id)kSecAttrSynchronizable: @NO} mutableCopy];
 }
-bool biometricAvailable()
+}
+bool isBiometryAvailable()
 {
+    @autoreleasepool {
     LAContext* context = [[LAContext alloc] init];
     const BOOL allowed = [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:nil];
+    const bool touchId = allowed && context.biometryType == LABiometryTypeTouchID;
     [context invalidate];
-    return allowed;
-}
+    return touchId;
+    }
 }
 
 bool hasSigningPrerequisites()
@@ -76,7 +79,7 @@ Error enroll(const Scope& scope, const QString& password, bool explicitConsent)
     if (validation != Error::None) return validation;
     if (!hasSigningPrerequisites()) return Error::SigningRequired;
     @autoreleasepool {
-        if (!biometricAvailable()) return Error::BiometryUnavailable;
+        if (!isBiometryAvailable()) return Error::BiometryUnavailable;
         CFErrorRef error = nullptr;
         SecAccessControlRef access = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly, kSecAccessControlBiometryCurrentSet, &error);

@@ -9,6 +9,8 @@ WizBiometricKeychain::Scope snapshot(WizDatabase& personal, WizDatabase& target,
 // Opt-in survives key revision; old cached passwords must not turn into a
 // legacy bypass merely because the certificate changed.
 QString policyIdentity(const WizBiometricKeychain::Scope& scope);
+// Access timing is independent of biometric enrollment or keychain eligibility.
+QString accessIdentity(const WizBiometricKeychain::Scope& scope);
 bool optedIn(WizUserSettings& settings, const WizBiometricKeychain::Scope& scope);
 // Process-local retirement only. Carries a framed policy digest, never a
 // password/certificate. Receivers still check their own live scope and policy.

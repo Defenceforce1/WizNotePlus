@@ -25,13 +25,13 @@ public:
 QString failureText(Error error)
 {
     switch (error) {
-    case Error::SigningRequired: return QObject::tr("尚未配置 Touch ID 所需签名，请使用证书密码。");
-    case Error::BiometryUnavailable: return QObject::tr("Touch ID 当前不可用，请使用证书密码。");
-    case Error::Missing: return QObject::tr("没有此证书的 Touch ID 记住记录，请使用证书密码。");
-    case Error::Canceled: return QObject::tr("本次验证已取消，未打开笔记。可重新验证或使用证书密码。");
-    case Error::CredentialMismatch: return QObject::tr("记住的密码与当前证书不匹配，请使用证书密码。");
-    case Error::AccessDenied: return QObject::tr("未取得本次 Touch ID 授权，请重试或使用证书密码。");
-    default: return QObject::tr("本次验证未完成，未打开笔记。请重试或使用证书密码。");
+    case Error::SigningRequired: return QObject::tr("Touch ID 签名未配置");
+    case Error::BiometryUnavailable: return QObject::tr("Touch ID 暂不可用");
+    case Error::Missing: return QObject::tr("尚未启用 Touch ID");
+    case Error::Canceled: return {};
+    case Error::CredentialMismatch: return QObject::tr("请使用证书密码");
+    case Error::AccessDenied: return QObject::tr("验证未通过，请重试");
+    default: return QObject::tr("验证未完成，请重试");
     }
 }
 }
@@ -82,11 +82,14 @@ WizBiometricUnlockWidget::WizBiometricUnlockWidget(Services services, QWidget* p
     : QWidget(parent), m_services(std::move(services))
 {
     m_nativeProvider = !m_services.makeOperation;
+    if(!m_services.biometricAvailable)m_services.biometricAvailable=m_nativeProvider
+        ? std::function<bool()>([]{return hasSigningPrerequisites()&&isBiometryAvailable();})
+        : std::function<bool()>([]{return true;});
     if (!m_services.makeOperation) m_services.makeOperation = [] { return std::make_shared<NativeRead>(); };
     m_pool = m_services.pool ? m_services.pool : QThreadPool::globalInstance();
     auto* layout = new QVBoxLayout(this);
-    auto* title = new QLabel(tr("解锁当前加密笔记"), this);
-    layout->addWidget(title);
+    layout->setContentsMargins(0,0,0,0);layout->setSpacing(8);
+    layout->setSizeConstraint(QLayout::SetMinimumSize);
     m_status = new QLabel(this);
     m_status->setObjectName("biometricUnlockStatus");
     m_status->setTextFormat(Qt::PlainText);
@@ -95,12 +98,13 @@ WizBiometricUnlockWidget::WizBiometricUnlockWidget(Services services, QWidget* p
     auto* buttons = new QHBoxLayout;
     m_unlock = new QPushButton(tr("使用 Touch ID"), this);
     m_manual = new QPushButton(tr("使用证书密码"), this);
-    m_cancel = new QPushButton(tr("取消本次验证"), this);
+    m_cancel = new QPushButton(tr("取消"), this);
     m_unlock->setObjectName("biometricUnlockStart");
     m_manual->setObjectName("biometricUnlockManual");
     m_cancel->setObjectName("biometricUnlockCancel");
     for (auto* button : {m_unlock, m_manual, m_cancel}) {
         button->setAutoDefault(false);
+        button->setMinimumHeight(30);
         buttons->addWidget(button);
     }
     layout->addLayout(buttons);
@@ -158,14 +162,35 @@ void WizBiometricUnlockWidget::setContext(const Context& context, bool enabled)
     QPointer<WizBiometricUnlockWidget> guard(this);
     cancelWork(); if (!guard || m_closed) return;
     m_context = context;
-    m_enabled = enabled && valid(context);
-    m_error = Error::None;
+    const bool remembered=enabled&&valid(context);
+    m_eligible=remembered;
+    const auto ticket=m_epoch.ticket();
+    const bool available=!remembered||currentAvailability();
+    if(!guard||!WizDocumentCallbackEpoch::current(ticket))return;
+    m_enabled = remembered && available;
+    m_error = remembered&&!available?Error::BiometryUnavailable:Error::None;
     m_stage = m_enabled ? Stage::Ready : Stage::Unavailable;
-    m_automaticPending=m_automaticStart&&m_enabled;
+    m_automaticPending=m_automaticStart&&remembered;
     updateControls();
     if (!guard) return;
     emit stageChanged();
     if (guard) scheduleAutomaticStart();
+}
+
+bool WizBiometricUnlockWidget::currentAvailability() const
+{
+    const QPointer<const WizBiometricUnlockWidget> self(this);
+    const auto ticket=m_epoch.ticket();const auto query=m_services.biometricAvailable;
+    bool available=false;try{available=query&&query();}catch(...){}
+    return self&&WizDocumentCallbackEpoch::current(ticket)&&available;
+}
+void WizBiometricUnlockWidget::usePasswordFallback()
+{
+    m_enabled=false;m_error=Error::BiometryUnavailable;m_stage=Stage::Unavailable;
+    const QPointer<WizBiometricUnlockWidget> self(this);
+    updateControls();if(!self)return;emit stageChanged();
+    if(self&&(!m_nativeProvider||QGuiApplication::applicationState()==Qt::ApplicationActive))
+        emit manualPasswordRequested();
 }
 
 void WizBiometricUnlockWidget::setAutomaticStart(bool enabled)
@@ -173,18 +198,36 @@ void WizBiometricUnlockWidget::setAutomaticStart(bool enabled)
     m_automaticStart=enabled;
     if(!enabled)m_automaticPending=false;
 }
+void WizBiometricUnlockWidget::setPresentationVisible(bool visible)
+{
+    m_capabilityHidden=!visible&&m_eligible&&m_stage==Stage::Unavailable;
+    const QPointer<WizBiometricUnlockWidget> self(this);
+    m_presentationChange=true;
+    setVisible(visible);
+    if(self)m_presentationChange=false;
+}
 void WizBiometricUnlockWidget::scheduleAutomaticStart()
 {
     // WindowActivate/show can arrive before Qt updates activeWindow(). Defer
     // that check until the queued turn, otherwise re-shown windows miss it.
-    if(!m_automaticPending||m_closed||!isVisible())return;
+    const bool hostVisible=isVisible()||(m_capabilityHidden&&parentWidget()&&parentWidget()->isVisible());
+    if((!m_automaticPending&&!(m_eligible&&m_stage==Stage::Unavailable))||m_closed||!hostVisible||!isEnabled())return;
     if(m_nativeProvider&&QGuiApplication::applicationState()!=Qt::ApplicationActive)return;
     const auto ticket=m_epoch.ticket();
     QTimer::singleShot(0,this,[this,ticket]{
-        if(!WizDocumentCallbackEpoch::current(ticket)||!m_automaticPending||m_closed
-            ||!isVisible()||!window()->isActiveWindow()||m_stage!=Stage::Ready)return;
+        const bool hostVisible=isVisible()||(m_capabilityHidden&&parentWidget()&&parentWidget()->isVisible());
+        if(!WizDocumentCallbackEpoch::current(ticket)||m_closed
+            ||!hostVisible||!isEnabled()||!window()->isActiveWindow())return;
         if(m_nativeProvider&&QGuiApplication::applicationState()!=Qt::ApplicationActive)return;
-        m_automaticPending=false; // No automatic retry after cancel/failure.
+        if(m_eligible&&m_stage==Stage::Unavailable){
+            const QPointer<WizBiometricUnlockWidget> self(this);
+            const bool available=currentAvailability();
+            if(!self||!WizDocumentCallbackEpoch::current(ticket)||!available)return;
+            m_enabled=true;m_stage=Stage::Ready;m_error=Error::None;
+            updateControls();if(!self||!WizDocumentCallbackEpoch::current(ticket))return;
+            emit stageChanged();if(!self||!WizDocumentCallbackEpoch::current(ticket))return;
+        }
+        if(!m_automaticPending||!isVisible()||m_stage!=Stage::Ready)return;
         start();
     });
 }
@@ -204,6 +247,10 @@ void WizBiometricUnlockWidget::showEvent(QShowEvent* event)
 void WizBiometricUnlockWidget::start()
 {
     if (m_closed || m_stage != Stage::Ready || !m_enabled || !isVisible() || !m_pool) return;
+    const QPointer<WizBiometricUnlockWidget> availableOwner(this);const auto availableTicket=m_epoch.ticket();
+    const bool available=currentAvailability();
+    if(!availableOwner||!WizDocumentCallbackEpoch::current(availableTicket))return;
+    if(!available){usePasswordFallback();return;}
     m_automaticPending=false;
     auto task = std::make_shared<Task>();
     task->context = m_context;
@@ -255,6 +302,7 @@ void WizBiometricUnlockWidget::poll()
         || !WizDocumentCallbackEpoch::current(task->ticket) || !matches(task->context)) return;
     auto result = state == Complete ? std::move(task->result) : Result{Error::Canceled, {}};
     m_error = result.error;
+    if(result.error==Error::BiometryUnavailable){usePasswordFallback();return;}
     m_secret = result ? std::move(result.password) : QString();
     m_stage = result ? Stage::Verified : Stage::Ready;
     QPointer<WizBiometricUnlockWidget> guard(this);
@@ -308,6 +356,7 @@ void WizBiometricUnlockWidget::beginShutdown()
     m_closed = true;
     m_stage = Stage::Closed;
     m_enabled = false;
+    m_eligible=false;
     m_context = {};
     QPointer<WizBiometricUnlockWidget> guard(this);
     cancelWork(); if (!guard) return;
@@ -317,7 +366,7 @@ void WizBiometricUnlockWidget::beginShutdown()
 void WizBiometricUnlockWidget::hideEvent(QHideEvent* event)
 {
     QWidget::hideEvent(event);
-    cancel();
+    if(!m_presentationChange)cancel();
 }
 
 void WizBiometricUnlockWidget::updateControls()
@@ -327,15 +376,17 @@ void WizBiometricUnlockWidget::updateControls()
     m_manual->setEnabled(!m_closed); if (!guard) return;
     m_cancel->setEnabled(m_stage == Stage::Working || m_stage == Stage::Verified || m_stage == Stage::Consumed);
     if (!guard) return;
+    m_cancel->setVisible(m_stage==Stage::Working);if(!guard)return;
     QString status;
     switch (m_stage) {
-    case Stage::Unavailable: status = tr("此上下文尚未启用 Touch ID，请使用证书密码。"); break;
-    case Stage::Working: status = tr("正在验证本次打开请求；可以取消或使用证书密码。"); break;
-    case Stage::Verified: status = tr("本次验证已通过，等待打开当前笔记。"); break;
-    case Stage::Consumed: status = tr("本次验证结果已交付；切换笔记需重新授权。"); break;
-    case Stage::Closed: status = tr("正在退出，已取消验证；不会影响正在保存的笔记。"); break;
+    case Stage::Unavailable: break;
+    case Stage::Working: status = tr("正在验证…"); break;
+    case Stage::Verified: break;
+    case Stage::Consumed: break;
+    case Stage::Closed: break;
     case Stage::Ready: status = m_error == Error::None
-        ? tr("点击 Touch ID 验证本次打开请求，或使用证书密码。") : failureText(m_error); break;
+        ? QString() : failureText(m_error); break;
     }
     m_status->setText(status);
+    if(guard)m_status->setVisible(!status.isEmpty());
 }

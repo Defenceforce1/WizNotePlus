@@ -90,6 +90,33 @@ int wizBiometricUnlockUiSelfTest(int argc, char** argv)
     Widget::Context context{{"https://synthetic.invalid/", "synthetic-account", {}, generated.certificate}, "synthetic-note", 1};
     const auto fresh = [&] { auto p = std::make_shared<Probe>(); p->result = {Error::None, password}; return p; };
     {
+        QThreadPool pool;const auto p=fresh();bool available=false;
+        auto supplied=services(p,pool);supplied.biometricAvailable=[&]{return available;};
+        Widget widget(supplied);widget.setAutomaticStart(true);widget.setContext(context,true);widget.show();QApplication::setActiveWindow(&widget);drain();
+        check(p->made==0&&widget.stage()==Widget::Stage::Unavailable,"unavailable Touch ID stays on password without constructing a read operation");
+        click(widget);drain();check(p->made==0,"unavailable Touch ID button cannot start authentication");
+        available=true;widget.setContext(context,true);available=false;drain();
+        check(p->made==0&&widget.stage()==Widget::Stage::Unavailable,"availability lost before the queued attempt falls directly back to password");
+        available=true;QEvent activate(QEvent::WindowActivate);QApplication::sendEvent(&widget,&activate);
+        check(until([&]{return p->reads==1&&widget.stage()==Widget::Stage::Verified;}),"current available remembered context still performs only one automatic verification");
+    }
+    {
+        QThreadPool pool;const auto p=fresh();bool available=false;
+        auto supplied=services(p,pool);supplied.biometricAvailable=[&]{return available;};
+        QWidget host;Widget widget(supplied,&host);widget.setAutomaticStart(true);
+        QObject::connect(&widget,&Widget::stageChanged,&host,[&]{widget.setPresentationVisible(widget.stage()!=Widget::Stage::Unavailable);});
+        host.show();QApplication::setActiveWindow(&host);widget.setContext(context,true);drain();
+        check(!widget.isVisible()&&p->made==0,"unavailable hidden choice preserves password-only presentation without a credential read");
+        available=true;QEvent activate(QEvent::WindowActivate);QApplication::sendEvent(&widget,&activate);
+        check(until([&]{return widget.isVisible()&&p->reads==1&&widget.stage()==Widget::Stage::Verified;}),"restored capability on activation reveals the hidden choice and starts its first verification once");
+        widget.cancel();QApplication::sendEvent(&widget,&activate);drain();
+        check(p->reads==1&&button(widget,"biometricUnlockStart")->isEnabled(),"cancel leaves a manual Touch ID retry without another automatic prompt");
+        available=false;widget.setContext(context,true);widget.cancelAutomaticStart();available=true;QApplication::sendEvent(&widget,&activate);drain();
+        check(widget.isVisible()&&p->reads==1,"manual password input prevents automatic verification after capability restoration");
+        available=false;widget.setContext(context,true);widget.cancel();available=true;QApplication::sendEvent(&widget,&activate);drain();
+        check(p->reads==1,"retired hidden context cannot automatically restart after capability restoration");
+    }
+    {
         QThreadPool pool;const auto p=fresh();p->result={Error::Canceled,{}};
         Widget widget(services(p,pool));widget.setAutomaticStart(true);widget.setContext(context,true);widget.show();
         // The offscreen platform has no window manager to reactivate a reused
@@ -166,7 +193,8 @@ int wizBiometricUnlockUiSelfTest(int argc, char** argv)
         Widget widget(services(p, pool)); int ready = 0;
         QObject::connect(&widget, &Widget::credentialReady, &widget, [&] { ++ready; });
         show(widget, context); click(widget);
-        check(until([&] { return widget.stage() == Widget::Stage::Ready; }) && ready == 0,
+        const auto expected=error==Error::BiometryUnavailable?Widget::Stage::Unavailable:Widget::Stage::Ready;
+        check(until([&] { return widget.stage() == expected; }) && ready == 0,
               "failed canceled missing or unavailable read never produces a ready credential");
         check(!widget.takeCredential(context) && !widget.authorizedFor(context)
               && button(widget,"biometricUnlockManual")->isEnabled()

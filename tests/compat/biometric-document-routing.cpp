@@ -572,6 +572,15 @@ struct RoutingCertificate {
     }
     static bool load(WizDatabase& db){++loads;return loading&&db.loadUserCert();}
 };
+struct NoSystemRead final : WizBiometricUnlockWidget::Operation {
+    WizBiometricKeychain::Result read(const WizBiometricKeychain::Scope&)override{return {WizBiometricKeychain::Error::Canceled,{}};}
+    void cancel()noexcept override{}
+};
+WizBiometricUnlockWidget::Services isolatedUnlockServices(WizBiometricUnlockWidget::Services services)
+{
+    if(!services.makeOperation)services.makeOperation=[]{return std::make_shared<NoSystemRead>();};
+    return services;
+}
 class RoutingView : public QWidget {
     Q_OBJECT
 public:
@@ -584,10 +593,10 @@ public:
     int m_editorMode=modeReader,downloads=0,threadWaits=0,closedSignals=0;
     Gate m_biometricGate;WizDocumentCallbackEpoch m_openEpoch;
     quint64 m_openSequence=0;
-    bool m_biometricEnabled=false,m_biometricPrepared=false,m_accessClosing=false,m_biometricReloadPending=false;
+    bool m_encryptedAccessEnabled=false,m_biometricPrepared=false,m_accessClosing=false,m_biometricReloadPending=false;
     RoutingView(App& app,WizBiometricUnlockWidget::Services services={})
         :m_dbMgr(app.db),m_userSettings(app.settings),m_web(new Web(app.db)),
-         m_passwordView(new WizUserCipherForm(app,this,std::move(services))),m_stack(new QStackedWidget(this)),
+         m_passwordView(new WizUserCipherForm(app,this,isolatedUnlockServices(std::move(services)))),m_stack(new QStackedWidget(this)),
          m_docView(new QWidget),m_blankView(new QWidget),m_transitionView(new QWidget) {
         m_web->setParent(m_docView);
         m_web->owner=this;
@@ -1048,18 +1057,21 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     if(!check(create("a",1,a)&&create("b",1,b)&&create("c",0,c),"three downloaded synthetic notes are stored in the temporary database"))return 1;
     const auto scope=snapshot(db,db,WizCommonApiEntry::server());const auto policy=policyIdentity(scope);
     std::atomic<int> reads{0};
-    RoutingView view(explorer,{[&]{return std::make_shared<Read>(password,&reads);},nullptr});
-    view.show();app.processEvents();
-    view.m_web->reply=false;view.viewNote(a,false);
-    check(view.m_web->loads==1&&view.m_stack->currentWidget()==view.m_docView&&!view.m_biometricEnabled,
-          "default-off actual opening body keeps legacy warm-cache behavior and unloaded false save result");
-    settings.set("BiometricUnlock",policy,"1");view.m_web->reply=true;view.viewNote(a,false);
-    check(view.m_web->loads==1&&view.m_biometricEnabled&&view.m_stack->currentWidget()==view.m_passwordView&&reads==0,
-          "opted-in actual opening requires fresh proof despite warm cache and never automatically reads");
     auto submit=[&](RoutingView& target,const QString& value=QString()){
         target.m_passwordView->findChild<QLineEdit*>("editUserCipher")->setText(value.isEmpty()?password:value);
         target.m_passwordView->onButtonOK_clicked();
     };
+    RoutingView view(explorer,{[&]{return std::make_shared<Read>(password,&reads);},nullptr});
+    view.show();app.processEvents();
+    view.m_web->reply=false;view.viewNote(a,false);
+    check(view.m_web->loads==0&&view.m_stack->currentWidget()==view.m_passwordView&&view.m_encryptedAccessEnabled,
+          "password-only encrypted note requires current authorization despite a warm save cache");
+    submit(view);
+    check(view.m_web->loads==1&&view.canReadCurrentNote()&&!view.m_passwordView->findChild<WizBiometricUnlockWidget*>()->isVisible(),
+          "password-only authorization opens without offering or enabling biometric reads");
+    settings.set("BiometricUnlock",policy,"1");view.m_web->reply=true;view.viewNote(a,false);
+    check(view.m_web->loads==1&&view.m_encryptedAccessEnabled&&view.m_stack->currentWidget()==view.m_passwordView&&reads==0,
+          "opted-in actual opening requires fresh proof despite warm cache and never automatically reads");
     submit(view,"wrong");
     check(view.m_web->loads==1&&WizMessageBox::messages==1&&db.getCertPassword()==password,
           "opted-in manual failure stays local preserves saves and does not open a note");
@@ -1108,7 +1120,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     first(true);
     check(view.note().strGUID==b.strGUID&&view.m_web->loads==previousLoads,"older successful save completion cannot navigate after a newer request");
     second(true);
-    check(view.note().strGUID==c.strGUID&&view.m_web->loads==previousLoads+1&&!view.m_biometricEnabled,
+    check(view.note().strGUID==c.strGUID&&view.m_web->loads==previousLoads+1&&!view.m_encryptedAccessEnabled,
           "latest save completion opens the plain note without carrying over the old biometric policy");
     view.m_web->defer=false;const int plainReloads=view.m_web->reloads;view.reloadNote();
     check(view.m_web->reloads==plainReloads+1&&view.m_stack->currentWidget()==view.m_docView,
@@ -3090,8 +3102,10 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     // Phase150: synthetic screenshot dispatch, never a screen grab.
     {
         QTemporaryDir resources;
-        const auto prepare=[&](RoutingView& owner){owner.show();owner.viewNote(a,true);submit(owner);owner.m_web->editing=true;owner.m_web->imageResources=resources.path()+"/";};
-        RoutingView locked(explorer);prepare(locked);locked.hide();const int created=SyntheticScreenShotHelper::instances.size();locked.m_web->editorCommandExecuteScreenShot();
+        // Plain capture keeps its original direct-insertion contract. Protected
+        // capture now requires fresh post-capture proof regardless of opt-in.
+        const auto prepare=[&](RoutingView& owner,bool encrypted=false){owner.show();owner.viewNote(encrypted?a:c,true);submit(owner);owner.m_web->editing=true;owner.m_web->imageResources=resources.path()+"/";};
+        RoutingView locked(explorer);prepare(locked,true);locked.hide();const int created=SyntheticScreenShotHelper::instances.size();locked.m_web->editorCommandExecuteScreenShot();
         check(SyntheticScreenShotHelper::instances.size()==created&&locked.m_web->screenVisibility.empty(),"locked screenshot refuses helper construction and window hiding");
         settings.set("BiometricUnlock",policy,"0");
         RoutingView stale(explorer);prepare(stale);auto* web=stale.m_web;web->editorCommandExecuteScreenShot();auto helper=SyntheticScreenShotHelper::instances.last();stale.hide();stale.show();submit(stale);const int reads=web->resourcePathReads;
@@ -3156,7 +3170,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         // Phase168: opt-in capture survives only the intentional soft hide.
         // No resource path or file output precedes a new explicit unlock.
         settings.set("BiometricUnlock",policy,"1");
-        RoutingView protectedHide(explorer);prepare(protectedHide);web=protectedHide.m_web;web->body="unsaved protected capture";const auto protectedSaveTicket=web->documentCallbackTicket();web->duringScreenWindow=[&](bool visible){if(visible)protectedHide.show();else protectedHide.hide();};web->editorCommandExecuteScreenShot();
+        RoutingView protectedHide(explorer);prepare(protectedHide,true);web=protectedHide.m_web;web->body="unsaved protected capture";const auto protectedSaveTicket=web->documentCallbackTicket();web->duringScreenWindow=[&](bool visible){if(visible)protectedHide.show();else protectedHide.hide();};web->editorCommandExecuteScreenShot();
         helper=web->m_screenShotHelper;
         check(helper&&web->resourcePathReads==0&&!web->m_screenShotReadPermit.current()&&protectedHide.m_stack->currentWidget()==protectedHide.m_passwordView,"protected capture survives hide with no body read permit");
         if(helper)helper->deliver(pixels);
@@ -3167,7 +3181,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(web->m_pendingScreenShot.isNull()&&web->sourcePage.commands.size()==1&&web->resourcePathReads>0,"fresh verified password inserts pending pixels exactly once");
         web->resumePendingScreenShot();check(web->sourcePage.commands.size()==1,"repeated unlock completion cannot insert the same pixels twice");
         check(web->body=="unsaved protected capture"&&WizDocumentCallbackEpoch::current(protectedSaveTicket)&&db.getCertPassword()==password,"post-capture unlock preserves unsaved protected DOM independent save ticket and password cache");
-        RoutingView hideReauth(explorer);prepare(hideReauth);web=hideReauth.m_web;web->duringScreenWindow=[&](bool visible){if(!visible){hideReauth.hide();hideReauth.show();submit(hideReauth);}};web->editorCommandExecuteScreenShot();
+        RoutingView hideReauth(explorer);prepare(hideReauth,true);web=hideReauth.m_web;web->duringScreenWindow=[&](bool visible){if(!visible){hideReauth.hide();hideReauth.show();submit(hideReauth);}};web->editorCommandExecuteScreenShot();
         helper=web->m_screenShotHelper;if(helper)helper->deliver(pixels);
         check(!web->m_pendingScreenShot.isNull()&&web->resourcePathReads==0&&!hideReauth.canReadCurrentNote(),"authorization before capture completion cannot substitute for the required post-capture unlock");
         hideReauth.onSessionAccessRetired(false);
@@ -3175,7 +3189,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         hideReauth.onSessionAccessRetired(true);
         check(web->m_pendingScreenShot.isNull()&&web->sourcePage.commands.empty(),"hard sleep/session boundary discards pending pixels without insertion");
         for(const QString boundary:{"navigation","certificate","page","policy","shutdown"}){
-            RoutingView owner(explorer);prepare(owner);auto* target=owner.m_web;target->editorCommandExecuteScreenShot();auto pending=target->m_screenShotHelper;if(pending)pending->deliver(pixels);
+            RoutingView owner(explorer);prepare(owner,true);auto* target=owner.m_web;target->editorCommandExecuteScreenShot();auto pending=target->m_screenShotHelper;if(pending)pending->deliver(pixels);
             ReadPage alternate;
             if(boundary=="navigation")owner.viewNote(b,true);
             else if(boundary=="certificate"){db.setUserCert(generated.certificate.n,generated.certificate.e,generated.certificate.encryptedD+"A",{});}
@@ -4044,18 +4058,19 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     // Phase165 scoped policy changes upgrade open legacy gates, never saves.
     {
         settings.set("BiometricUnlock",policy,"0");
-        RoutingView first(explorer),second(explorer),plainView(explorer);first.show();second.show();plainView.show();first.viewNote(a,false);second.viewNote(b,false);plainView.viewNote(c,false);
+        RoutingView first(explorer),second(explorer),plainView(explorer);first.show();second.show();plainView.show();first.viewNote(a,false);second.viewNote(b,false);plainView.viewNote(c,false);submit(first);submit(second);
         auto* events=PolicyEvents::applicationEvents();
         for(auto* target:{&first,&second,&plainView})QObject::connect(events,&PolicyEvents::accessRetired,target,&RoutingView::onBiometricPolicyRetired);
         const auto oldFirst=first.noteReadTicket(),oldSecond=second.noteReadTicket();const auto body=first.m_web->body;
         events->retire(policy);
-        check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"management retirement alone cannot opt legacy notes into a policy not actually persisted");
+        check(!first.canReadCurrentNote()&&!second.canReadCurrentNote()&&!optedIn(settings,scope),"management retirement locks password-only notes without implicitly enrolling Touch ID");
+        submit(first);submit(second);
         auto other=scope;other.accountGuid+="-other";events->retire(policyIdentity(other));
         check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"unrelated account retirement cannot lock or rebind current open-note access");
         settings.set("BiometricUnlock",policy,"1");
         const int readsBeforePolicyRefresh=reads;
         events->retire(policy);
-        check(first.m_biometricEnabled&&second.m_biometricEnabled&&first.m_biometricGate.requiresAuthorization(true)&&second.m_biometricGate.requiresAuthorization(true)&&!first.canReadCurrentNote()&&!second.canReadCurrentNote(),"persisted new opt-in upgrades all matching open legacy gates even with an existing warm password cache");
+        check(first.m_encryptedAccessEnabled&&second.m_encryptedAccessEnabled&&first.m_biometricGate.requiresAuthorization(true)&&second.m_biometricGate.requiresAuthorization(true)&&!first.canReadCurrentNote()&&!second.canReadCurrentNote(),"persisted new opt-in upgrades all matching open legacy gates even with an existing warm password cache");
         auto* firstPrompt=first.m_passwordView->findChild<WizBiometricUnlockWidget*>();
         auto* secondPrompt=second.m_passwordView->findChild<WizBiometricUnlockWidget*>();
         check(firstPrompt&&secondPrompt&&firstPrompt->isVisible()&&secondPrompt->isVisible()
@@ -4064,7 +4079,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         check(reads==readsBeforePolicyRefresh&&!first.canReadCurrentNote()&&!second.canReadCurrentNote(),
               "policy-page refresh starts no authentication and grants no body access");
         check(!first.acceptsNoteRead(oldFirst)&&!second.acceptsNoteRead(oldSecond)&&first.m_web->body==body&&db.getCertPassword()==password,"policy broadcast invalidates old tickets while retaining unsaved DOM and original save credential");
-        check(plainView.canReadCurrentNote()&&!plainView.m_biometricEnabled,"scope retirement does not require authentication for an unencrypted plain note");
+        check(plainView.canReadCurrentNote()&&!plainView.m_encryptedAccessEnabled,"scope retirement does not require authentication for an unencrypted plain note");
         submit(first);submit(second);const auto fresh=first.noteReadTicket();
         check(first.canReadCurrentNote()&&second.canReadCurrentNote(),"both open notes can obtain fresh independent manual authorization after policy upgrade");
         events->retire(policy);
@@ -4216,7 +4231,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         const int beforeNested=owner.m_web->loads,beforeNestedCertificateLoads=RoutingCertificate::loads;
         RoutingCertificate::during=[&]{owner.viewNote(c,false);};owner.viewNote(a,false);
         check(owner.note().strGUID==c.strGUID&&owner.m_web->loads==beforeNested+1
-              &&owner.m_stack->currentWidget()==owner.m_docView&&!owner.m_biometricEnabled
+              &&owner.m_stack->currentWidget()==owner.m_docView&&!owner.m_encryptedAccessEnabled
               &&RoutingCertificate::loads==beforeNestedCertificateLoads,
               "new navigation during modal certificate initialization cannot be overwritten by the older encrypted opening");
         const int beforeClosed=owner.m_web->loads,beforeClosedCertificateLoads=RoutingCertificate::loads;
@@ -4233,7 +4248,30 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         auto updated=convertedNote;updated.nProtected=0;
         const bool stored=db.WizIndex::updateDocumentDataMD5(updated,plain,false);
         owner.reloadNote();
-        check(stored&&!owner.m_biometricEnabled&&owner.m_web->reloads==1&&owner.canReadCurrentNote()&&db.getCertPassword()==password,"post-conversion metadata reload retires old protected gate without requiring a password for the now-plain note");
+        check(stored&&!owner.m_encryptedAccessEnabled&&owner.m_web->reloads==1&&owner.canReadCurrentNote()&&db.getCertPassword()==password,"post-conversion metadata reload retires old protected gate without requiring a password for the now-plain note");
+    }
+    {
+        settings.set("BiometricUnlock",policy,"0");
+        RoutingView passwordOnly(explorer);passwordOnly.show();passwordOnly.viewNote(a,true);submit(passwordOnly);
+        passwordOnly.m_web->body="password-only retained editing DOM";
+        WizSessionAccess::Monitor timer(false,nullptr,40);QObject::connect(&timer,&WizSessionAccess::Monitor::accessRetired,&passwordOnly,&RoutingView::onSessionAccessRetired);
+        const auto before=passwordOnly.m_web->noteReadPermit();timer.observeApplicationState(Qt::ApplicationInactive);timer.observeApplicationState(Qt::ApplicationActive);
+        check(passwordOnly.canReadCurrentNote()&&before.current(),"password-only brief application switching retains the same current note permission");
+        timer.observeApplicationState(Qt::ApplicationInactive);
+        check(until([&]{return !passwordOnly.canReadCurrentNote();})&&!before.current()&&passwordOnly.m_web->body=="password-only retained editing DOM"&&db.getCertPassword()==password,"password-only grace expiry locks without discarding dirty DOM or save credentials");
+        timer.observeApplicationState(Qt::ApplicationActive);submit(passwordOnly);timer.systemBoundary();
+        check(!passwordOnly.canReadCurrentNote()&&!passwordOnly.m_passwordView->findChild<WizBiometricUnlockWidget*>()->isVisible(),"password-only hard session boundary locks immediately and shows password only");
+        submit(passwordOnly);check(passwordOnly.canReadCurrentNote()&&passwordOnly.m_web->body=="password-only retained editing DOM","password reauthorization restores original DOM without reloading it");
+        settings.set("BiometricUnlock",policy,"1");
+    }
+    if(const QString output=qEnvironmentVariable("WIZNOTE_BIOMETRIC_UI_SNAPSHOT_DIR");!output.isEmpty()){
+        bool available=false;WizBiometricUnlockWidget::Services fake{[]{return std::make_shared<NoSystemRead>();},nullptr,[&]{return available;}};
+        WizUserCipherForm panel(explorer,nullptr,fake);panel.resize(620,600);panel.show();
+        panel.setPasswordText(QStringLiteral("个人笔记证书密码"));panel.setHint({});panel.prepareBiometric({scope,"synthetic-ui-note",1},true);app.processEvents();
+        check(!panel.findChild<WizBiometricUnlockWidget*>()->isVisible()&&panel.findChild<QLineEdit*>("editUserCipher")->isVisible(),"unavailable Touch ID form displays password field directly with no biometric card");
+        check(QGuiApplication::platformName()=="offscreen"&&panel.grab().save(output+"/encrypted-password.png"),"synthetic password-only form snapshot renders without authentication");
+        available=true;panel.prepareBiometric({scope,"synthetic-ui-note",2},true);app.processEvents();
+        check(panel.findChild<WizBiometricUnlockWidget*>()->isVisible()&&panel.grab().save(output+"/encrypted-touch-id.png"),"available synthetic biometric choice shares the same standardized password form");
     }
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");

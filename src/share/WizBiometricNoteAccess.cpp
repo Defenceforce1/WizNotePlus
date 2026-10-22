@@ -32,6 +32,15 @@ bool optedIn(WizUserSettings& settings, const WizBiometricKeychain::Scope& scope
     const auto id = policyIdentity(scope);
     return !id.isEmpty() && settings.get("BiometricUnlock",id) == "1";
 }
+QString accessIdentity(const WizBiometricKeychain::Scope& scope)
+{
+    if(policyIdentity(scope).isEmpty()||!text(scope.certificate.n,32768)
+        ||!text(scope.certificate.e,32768)||!text(scope.certificate.encryptedD,32768))return {};
+    const QJsonArray fields{QStringLiteral("WizNotePlus.encrypted-note-access.v1"),scope.serverIdentity,
+        scope.accountGuid,scope.kbGuid,scope.certificate.n,scope.certificate.e,scope.certificate.encryptedD};
+    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(fields).toJson(QJsonDocument::Compact),
+        QCryptographicHash::Sha256).toHex());
+}
 PolicyEvents* PolicyEvents::applicationEvents()
 {
     auto* app=QCoreApplication::instance();
@@ -52,8 +61,8 @@ bool Gate::current(const Context& context) const
 {
     return context.openSequence && text(context.documentGuid,256)
         && context.openSequence==m_context.openSequence && context.documentGuid==m_context.documentGuid
-        && !WizBiometricKeychain::itemIdentity(context.scope).isEmpty()
-        && WizBiometricKeychain::itemIdentity(context.scope)==WizBiometricKeychain::itemIdentity(m_context.scope);
+        && !accessIdentity(context.scope).isEmpty()
+        && accessIdentity(context.scope)==accessIdentity(m_context.scope);
 }
 bool Gate::grant(const Context& context, const Ticket& ticket)
 {

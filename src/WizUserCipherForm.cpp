@@ -21,10 +21,15 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
     m_biometric = new WizBiometricUnlockWidget(std::move(services), this);
     m_biometric->setAutomaticStart(automaticStart);
     m_biometric->setObjectName("cipherBiometricUnlock");
-    ui->verticalLayout_3->insertWidget(ui->verticalLayout_3->count()-2, m_biometric);
+    ui->verticalLayout_3->insertWidget(1, m_biometric);
     m_biometric->hide();
     connect(m_biometric, &WizBiometricUnlockWidget::credentialReady, this, &WizUserCipherForm::biometricCredentialReady);
     connect(m_biometric, &WizBiometricUnlockWidget::manualPasswordRequested, this, &WizUserCipherForm::setCipherEditorFocus);
+    connect(m_biometric,&WizBiometricUnlockWidget::stageChanged,this,[this]{
+        const auto stage=m_biometric->stage();
+        m_biometric->setPresentationVisible(stage!=WizBiometricUnlockWidget::Stage::Unavailable
+            &&stage!=WizBiometricUnlockWidget::Stage::Closed);
+    });
     ui->editUserCipher->setEchoMode(QLineEdit::Password);
     ui->editUserCipher->setAttribute(Qt::WA_MacShowFocusRect, false);
 
@@ -33,26 +38,10 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
     setBackgroundRole(QPalette::Midlight);
     //
     ui->checkSave->setVisible(false);
+    setHint({});
 
 
-    QString strIconNormal = Utils::WizStyleHelper::skinResourceFileName("mac_icons_password_done", true); // ::WizGetSkinResourcePath(m_app.userSettings().skin())
-//            + "mac_icons_password_done.png";
-    QString strIconHot = Utils::WizStyleHelper::skinResourceFileName("mac_icons_password_done_hot", true); // ::WizGetSkinResourcePath(m_app.userSettings().skin())
-//            + "mac_icons_password_done_hot.png";
-    QString strIconDown = Utils::WizStyleHelper::skinResourceFileName("mac_icons_password_done_down", true); // ::WizGetSkinResourcePath(m_app.userSettings().skin())
-//            + "mac_icons_password_done_down.png";
-
-    ui->editUserCipher->setFixedHeight(19);
-    QSize szBtn(19, 19);
-    ui->buttonOk->setMinimumSize(szBtn);
-    ui->buttonOk->setMaximumSize(szBtn);
-    ui->buttonOk->setIconNormal(strIconNormal);
-    ui->buttonOk->setIconHot(strIconHot);
-    ui->buttonOk->setIconDown(strIconDown);
-    ui->buttonOk->setStatusNormal();
-    ui->buttonOk->setLockNormalStatus(true);
-
-
+    ui->buttonOk->setEnabled(false);
     m_animation = new QPropertyAnimation(ui->editUserCipher, "pos", this);
 
     connect(ui->editUserCipher, SIGNAL(returnPressed()), SLOT(onButtonOK_clicked()));
@@ -63,9 +52,9 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
 
 }
 
-QSize WizUserCipherForm::sizeHint()
+QSize WizUserCipherForm::sizeHint() const
 {
-    return QSize(350, 120);
+    return QSize(480, 440);
 }
 
 WizUserCipherForm::~WizUserCipherForm()
@@ -173,11 +162,9 @@ void WizUserCipherForm::onCipher_changed(const QString &text)
         m_biometric->cancel();
     if (!guard) return;
     if (text.isEmpty()) {
-        ui->buttonOk->setStatusNormal();
-        ui->buttonOk->setLockNormalStatus(true);
+        ui->buttonOk->setEnabled(false);
     } else {
-        ui->buttonOk->setLockNormalStatus(false);
-        ui->buttonOk->setStatusHot();
+        ui->buttonOk->setEnabled(true);
     }
 }
 
@@ -209,7 +196,8 @@ void WizUserCipherForm::prepareBiometric(const WizBiometricUnlockWidget::Context
     QPointer<WizUserCipherForm> guard(this);
     m_biometric->setContext(context,enabled);
     if (!guard) return;
-    m_biometric->setVisible(enabled);
+    m_biometric->setPresentationVisible(enabled&&m_biometric->stage()!=WizBiometricUnlockWidget::Stage::Unavailable
+        &&m_biometric->stage()!=WizBiometricUnlockWidget::Stage::Closed);
 }
 void WizUserCipherForm::cancelBiometric() { m_manualRequestEpoch.invalidate(); m_biometric->cancel(); }
 bool WizUserCipherForm::preserveNativeAuthenticationOnInactive() const

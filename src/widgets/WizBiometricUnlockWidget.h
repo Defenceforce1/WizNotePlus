@@ -34,12 +34,18 @@ public:
         // Isolated test seam. Ordinary construction always uses native reads.
         std::function<std::shared_ptr<Operation>()> makeOperation;
         QThreadPool* pool = nullptr;
+        // Noninteractive capability query; synthetic providers default to true.
+        std::function<bool()> biometricAvailable;
     };
     explicit WizBiometricUnlockWidget(QWidget* parent = nullptr);
     explicit WizBiometricUnlockWidget(Services services, QWidget* parent = nullptr);
     ~WizBiometricUnlockWidget() override;
     void setContext(const Context& context, bool rememberedAccessEnabled);
     void setAutomaticStart(bool enabled);
+    // Host-only presentation change: hiding an unavailable choice must not
+    // consume a verification which has not started. Actual context retirement
+    // still uses cancel()/setContext(), including hidden parent windows.
+    void setPresentationVisible(bool visible);
     void cancelAutomaticStart() { m_automaticPending=false; }
     Stage stage() const { return m_stage; }
     // Only an already-locked host may preserve this request across temporary
@@ -68,12 +74,15 @@ private:
     void cancelWork();
     void updateControls();
     void scheduleAutomaticStart();
+    bool currentAvailability() const;
+    void usePasswordFallback();
     bool matches(const Context& context) const;
     static bool valid(const Context& context);
     Services m_services;
     QPointer<QThreadPool> m_pool;
     Context m_context;
     bool m_enabled = false, m_closed = false, m_nativeProvider = false;
+    bool m_eligible=false,m_capabilityHidden=false,m_presentationChange=false;
     bool m_automaticStart=false,m_automaticPending=false;
     Stage m_stage = Stage::Unavailable;
     WizBiometricKeychain::Error m_error = WizBiometricKeychain::Error::None;

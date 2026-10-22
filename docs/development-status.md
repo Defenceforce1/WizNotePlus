@@ -1,6 +1,48 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase187: editing grace, automatic unlock and save diagnostics
+## Current phase188: shared lock policy, capability-aware unlock and minimal UI
+
+Password-only and explicitly enrolled Touch ID now share the same encrypted-note
+access gate: five continuous minutes away from the application, canceled on early
+return, with immediate retirement on sleep/session lock. Plain notes are unchanged.
+Navigation/hiding still retire note-specific access. No dirty DOM, save credential
+or queued write is cleared. Password verification retains the existing local
+certificate verifier; the gate itself never verifies or recovers a password.
+
+The native provider queries current biometric capability and Touch ID type
+without authenticating or reading a stored credential, then rechecks immediately
+before starting. Display presence is not a proxy for hardware availability. An
+unavailable context shows password input directly and creates no read operation.
+If capability returns on activation before the first attempt, the still-current
+visible context may start once. Actual cancellation/failure never automatically
+loops: the Touch ID button retries explicitly. Typing a password retires automatic
+intent; availability restoration may reveal a manual choice but cannot revive it.
+
+Settings and password form now use native password inputs and normal-sized
+buttons. Persistent explanatory/lock-policy paragraphs and cancellation warnings
+were removed at the user's request. Only concise errors/progress and explicit
+local-record management consent remain. Offscreen synthetic snapshots were
+visually inspected for clipped buttons, not claimed as native Cocoa acceptance.
+
+Affected acceptance only: unlock UI116/0, session/management91/0 and document
+routing1189/0, total1396/0. Earlier test-constructor and three legacy screenshot
+fixture failures are retained. Plain screenshot insertion uses a plain-note
+fixture; protected cases retain post-capture authorization and stale-result
+checks. Fake providers perform no system authentication or screen capture.
+
+Clipboard behavior is unchanged: while unlocked, copy may publish plaintext;
+relocking rejects new requests and stale-permit delayed publication. Already
+published clipboard contents are not erased/recalled. Clipboard history/OS sync
+is not controlled by note encryption. This is not a secure-memory-erasure claim.
+
+Local signed trial188 is a new copy, preserving187 and frozen/installed Apps. It
+uses the existing independent186 store only on user manual launch, never by the
+agent. Source/docs only go to GitHub. The specific ordinary probably-Markdown
+save failure remains unconfirmed/unresolved. Actual native availability changes,
+fingerprint use, real-account workflows and iPhone round-trip remain user gates.
+RecoveryOFF, automationPAUSED; no first-certificate creation or VoiceOver work.
+
+## Historical phase187: editing grace, automatic unlock and save diagnostics
 
 User feedback reopened the reduced checklist: a non-encrypted, probably Markdown
 note reported saving failure and blocked closing/quit; the user already force-quit.

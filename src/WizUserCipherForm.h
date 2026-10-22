@@ -36,7 +36,7 @@ public:
     void cipherCorrect();
 
 protected:
-    virtual QSize sizeHint();
+    QSize sizeHint() const override;
     virtual void showEvent(QShowEvent* event);
     
 private:
