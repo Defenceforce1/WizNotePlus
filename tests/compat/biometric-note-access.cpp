@@ -149,7 +149,12 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         check(first.grant(context,first.ticket()),"verified opening can establish its exact certificate session");
         const auto old=first.ticket();auto another=context;another.documentGuid+="-other";++another.openSequence;
         first.begin(another,true);second.begin(context,true);
-        check(!first.requiresAuthorization(true)&&!second.requiresAuthorization(true)&&!first.grant(context,old),"same-certificate note and window changes reuse proof without reviving the old page ticket");
+        check(first.requiresAuthorization(true)&&!second.requiresAuthorization(true)&&!first.grant(context,old),"another note sharing the certificate stays locked while the verified note can reuse its own proof");
+        check(first.grant(another,first.ticket())&&!second.requiresAuthorization(true),"independent verification adds only the second note without dropping the first note grant");
+        auto unopened=context;unopened.documentGuid+="-unopened";Gate unopenedGate;unopenedGate.setSession(&session);unopenedGate.begin(unopened,true);
+        check(unopenedGate.requiresAuthorization(true),"multiple verified notes never imply blanket authorization for an unopened note");
+        auto invalid=context;invalid.documentGuid.clear();Gate invalidGate;invalidGate.setSession(&session);invalidGate.begin(invalid,true);
+        check(invalidGate.requiresAuthorization(true)&&!invalidGate.grant(invalid,invalidGate.ticket()),"missing note identity cannot acquire a session grant");
         const auto hidden=first.ticket();first.revoke();
         check(!first.current(another)&&!WizDocumentCallbackEpoch::current(hidden),"hiding invalidates local page reads while retaining session proof");
         first.begin(another,true);check(!first.requiresAuthorization(true),"showing a note restores the existing app-session authorization");
@@ -175,7 +180,7 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         check(second.requiresAuthorization(true)&&first.requiresAuthorization(true),"certificate revision invalidates its old proof generation");
         first.begin(context,true);check(first.requiresAuthorization(true),"reverting certificate bytes cannot resurrect a retired grant");first.grant(context,first.ticket());
         monitor.systemBoundary(true);check(first.requiresAuthorization(true),"hard system boundary locks immediately without waiting for the timer");
-        monitor.observeApplicationState(Qt::ApplicationActive);int notified=0;QObject::connect(&session,&Session::authorizationAvailable,&app,[&](const QString&){++notified;});
+        monitor.observeApplicationState(Qt::ApplicationActive);int notified=0;QObject::connect(&session,&Session::authorizationAvailable,&app,[&](const QString&,const QString&){++notified;});
         first.begin(context,true);first.grant(context,first.ticket());session.retire();app.processEvents();
         check(notified==0&&first.requiresAuthorization(true),"retirement suppresses queued authorization notifications from an older session");
         first.begin(context,true);first.grant(context,first.ticket());monitor.beginShutdown();second.begin(context,true);

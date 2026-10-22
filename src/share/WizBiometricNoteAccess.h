@@ -2,6 +2,7 @@
 #define WIZ_BIOMETRIC_NOTE_ACCESS_H
 #include "widgets/WizBiometricUnlockWidget.h"
 #include <QHash>
+#include <QSet>
 class WizDatabase;
 class WizUserSettings;
 namespace WizSessionAccess { class Monitor; }
@@ -26,7 +27,8 @@ Q_SIGNALS:
     void accessRetired(const QString& policy);
 };
 // Application-lifetime proof, scoped to account/server/knowledge base/current
-// certificate. Stores only digests and opaque generations, never passwords.
+// certificate AND individually verified note. A shared certificate/cache does
+// not unlock other notes. Stores only digests/generations, never passwords.
 class Session final : public QObject {
     Q_OBJECT
 public:
@@ -36,14 +38,14 @@ public:
     void retire(const QString& policy={});
     void beginShutdown();
 Q_SIGNALS:
-    void authorizationAvailable(const QString& policy);
+    void authorizationAvailable(const QString& policy,const QString& documentGuid);
 private:
     friend class Gate;
-    struct Entry { QString identity; std::shared_ptr<const char> generation; bool authorized=false; };
-    Ticket contextTicket(const WizBiometricKeychain::Scope& scope);
-    bool current(const WizBiometricKeychain::Scope& scope,const Ticket& ticket) const;
-    bool authorized(const WizBiometricKeychain::Scope& scope,const Ticket& ticket) const;
-    bool grant(const WizBiometricKeychain::Scope& scope,const Ticket& ticket);
+    struct Entry { QString identity; std::shared_ptr<const char> generation; QSet<QString> authorizedNotes; };
+    Ticket contextTicket(const Context& context);
+    bool current(const Context& context,const Ticket& ticket) const;
+    bool authorized(const Context& context,const Ticket& ticket) const;
+    bool grant(const Context& context,const Ticket& ticket);
     bool available() const;
     QHash<QString,Entry> m_entries;
     QString m_account;

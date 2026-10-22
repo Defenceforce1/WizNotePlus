@@ -15,6 +15,13 @@ bool text(const QString& s, int max, bool empty = false)
     return (empty || !s.trimmed().isEmpty()) && s.size() <= max && !s.contains(QChar::Null)
         && QString::fromUtf8(s.toUtf8()) == s;
 }
+QString noteIdentity(const Context& context)
+{
+    if(!context.openSequence||!text(context.documentGuid,256))return {};
+    const QJsonArray fields{QStringLiteral("WizNotePlus.session-note.v1"),context.documentGuid};
+    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(fields).toJson(QJsonDocument::Compact),
+        QCryptographicHash::Sha256).toHex());
+}
 }
 WizBiometricKeychain::Scope snapshot(WizDatabase& personal, WizDatabase& target, const QString& server)
 {
@@ -78,9 +85,10 @@ bool Session::available() const
     return !m_closed&&QThread::currentThread()==thread()
         &&(!m_hasMonitor||(m_monitor&&!m_monitor->isClosing()));
 }
-Session::Ticket Session::contextTicket(const WizBiometricKeychain::Scope& scope)
+Session::Ticket Session::contextTicket(const Context& context)
 {
-    if(!available())return {};
+    if(!available()||noteIdentity(context).isEmpty())return {};
+    const auto& scope=context.scope;
     const auto identity=accessIdentity(scope),policy=policyIdentity(scope);
     if(identity.isEmpty()||policy.isEmpty())return {};
     auto account=scope;account.kbGuid.clear();const auto accountId=policyIdentity(account);
@@ -91,35 +99,38 @@ Session::Ticket Session::contextTicket(const WizBiometricKeychain::Scope& scope)
         // later must not revive a grant for an earlier revision.
         m_entries.remove(policy);
         if(m_entries.size()>=128)m_entries.erase(m_entries.begin());
-        it=m_entries.insert(policy,Entry{identity,std::make_shared<const char>(0),false});
+        it=m_entries.insert(policy,Entry{identity,std::make_shared<const char>(0),{}});
     }
     return it->generation;
 }
-bool Session::current(const WizBiometricKeychain::Scope& scope,const Ticket& ticket) const
+bool Session::current(const Context& context,const Ticket& ticket) const
 {
-    if(!available()||!WizDocumentCallbackEpoch::current(ticket))return false;
+    if(!available()||noteIdentity(context).isEmpty()||!WizDocumentCallbackEpoch::current(ticket))return false;
+    const auto& scope=context.scope;
     const auto it=m_entries.constFind(policyIdentity(scope));
     return it!=m_entries.cend()&&it->identity==accessIdentity(scope)
         &&!ticket.owner_before(it->generation)&&!it->generation.owner_before(ticket);
 }
-bool Session::authorized(const WizBiometricKeychain::Scope& scope,const Ticket& ticket) const
+bool Session::authorized(const Context& context,const Ticket& ticket) const
 {
-    return current(scope,ticket)&&m_entries.value(policyIdentity(scope)).authorized;
+    return current(context,ticket)
+        &&m_entries.value(policyIdentity(context.scope)).authorizedNotes.contains(noteIdentity(context));
 }
-bool Session::grant(const WizBiometricKeychain::Scope& scope,const Ticket& ticket)
+bool Session::grant(const Context& context,const Ticket& ticket)
 {
-    if(!current(scope,ticket))return false;
-    const auto policy=policyIdentity(scope);auto& entry=m_entries[policy];
-    if(entry.authorized)return true;
-    entry.authorized=true;
-    // Notify other locked visible views only after the current proof returns.
+    if(!current(context,ticket))return false;
+    const auto policy=policyIdentity(context.scope);auto& entry=m_entries[policy];
+    const auto note=noteIdentity(context),documentGuid=context.documentGuid;
+    if(entry.authorizedNotes.contains(note))return true;
+    entry.authorizedNotes.insert(note);
+    // Notify only other windows of THIS note, never another note sharing keys.
     // Retirement cancels this queued notification through its weak generation.
     const auto identity=entry.identity;
-    QTimer::singleShot(0,this,[this,identity,ticket,policy]{
+    QTimer::singleShot(0,this,[this,identity,ticket,policy,note,documentGuid]{
         const auto it=m_entries.constFind(policy);
-        if(available()&&it!=m_entries.cend()&&it->authorized&&it->identity==identity
+        if(available()&&it!=m_entries.cend()&&it->authorizedNotes.contains(note)&&it->identity==identity
             &&WizDocumentCallbackEpoch::current(ticket)&&!ticket.owner_before(it->generation)
-            &&!it->generation.owner_before(ticket))emit authorizationAvailable(policy);
+            &&!it->generation.owner_before(ticket))emit authorizationAvailable(policy,documentGuid);
     });
     return true;
 }
@@ -141,8 +152,8 @@ void Gate::begin(const Context& context, bool required)
 {
     revoke();m_context=context;m_required=required;
     if(required&&m_sessionBound&&m_session){
-        m_sessionTicket=m_session->contextTicket(context.scope);
-        m_authorized=m_session->authorized(context.scope,m_sessionTicket);
+        m_sessionTicket=m_session->contextTicket(context);
+        m_authorized=m_session->authorized(context,m_sessionTicket);
     }
 }
 void Gate::revoke() { m_epoch.invalidate(); m_authorized=false;m_sessionTicket.reset(); }
@@ -152,21 +163,21 @@ bool Gate::current(const Context& context) const
         && context.openSequence==m_context.openSequence && context.documentGuid==m_context.documentGuid
         && !accessIdentity(context.scope).isEmpty()
         && accessIdentity(context.scope)==accessIdentity(m_context.scope)
-        &&(!m_sessionBound||(m_session&&m_session->current(context.scope,m_sessionTicket)));
+        &&(!m_sessionBound||(m_session&&m_session->current(context,m_sessionTicket)));
 }
 bool Gate::grant(const Context& context, const Ticket& ticket)
 {
     const auto own=m_epoch.ticket();
     if (!WizDocumentCallbackEpoch::current(ticket) || own.owner_before(ticket) || ticket.owner_before(own)
         || !current(context)) return false;
-    if(m_sessionBound&&(!m_session||!m_session->grant(context.scope,m_sessionTicket)))return false;
+    if(m_sessionBound&&(!m_session||!m_session->grant(context,m_sessionTicket)))return false;
     m_authorized=true; return true;
 }
 bool Gate::requiresAuthorization(bool cachedPasswordExists) const
 {
     if(!cachedPasswordExists)return true;
     if(!m_required)return false;
-    if(m_sessionBound)return !m_session||!m_session->authorized(m_context.scope,m_sessionTicket);
+    if(m_sessionBound)return !m_session||!m_session->authorized(m_context,m_sessionTicket);
     return !m_authorized;
 }
 }

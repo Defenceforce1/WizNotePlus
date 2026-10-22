@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase191",
+  "version": "14.4.25",
+  "trialBuild": "14425.191",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "03896083cab12bca4a17341b2c2483a375ef9edc",
+  "phase": 191,
+  "date": "2026-10-22",
+  "productCodeChanged": true,
+  "testCodeChanged": true,
+  "sourceChecklistClosed": true,
+  "authorizedSourceWorkComplete": true,
+  "currentDevelopmentStageClosed": true,
+  "sharedCertificateSessionProof": false,
+  "individuallyVerifiedNoteProof": true,
+  "certificateWideAuthorizationSuperseded": true,
+  "sameNoteWindowsMayReuseProof": true,
+  "otherNotesSharingCertificateStayLocked": true,
+  "unverifiedNoteRequiresIndependentPasswordOrTouchId": true,
+  "normalNavigationRetiresSession": false,
+  "normalNavigationRetiresPageRequests": true,
+  "hideOrMinimizeClearsSavePassword": false,
+  "inactiveAppGraceMinutes": 5,
+  "hardSessionLockPreserved": true,
+  "accountServerCertificateBoundariesPreserved": true,
+  "localRecordRetirementScopeLimited": true,
+  "saveDomAndQueuePreserved": true,
+  "extraPasswordOrCertificatePersistence": false,
+  "normalScreenshotRestoreReusesSession": true,
+  "clipboardBehaviorChanged": false,
+  "permanentDecryptionChanged": false,
+  "priorVersionFingerprintHardwareAndIPhoneUserReportedNormal": true,
+  "newPolicyUserFeedbackPending": true,
+  "newPhysicalAcceptanceClaimed": false,
+  "reportedOrdinaryMarkdownSaveInvestigationStoppedByUser": true,
+  "reportedOrdinaryMarkdownSaveIncludedInForwardPlan": false,
+  "reportedOrdinaryMarkdownSaveIssueResolved": false,
+  "tests": {
+    "affectedGroups": 2,
+    "checks": 1349,
+    "failures": 0,
+    "groups": [
+      {
+        "name": "biometric_note_access",
+        "checks": 113
+      },
+      {
+        "name": "biometric_document_routing",
+        "checks": 1236
+      }
+    ],
+    "acceptedRun": "note-scoped-associated",
+    "aggregateExit": 0,
+    "fullSuiteRun": false,
+    "syntheticProvidersNotNativeAuthentication": true,
+    "physicalSystemTestsRun": false
+  },
+  "realAccountStarted": false,
+  "realNoteBodiesReadOrChanged": false,
+  "actualTouchIdAuthenticationRun": false,
+  "actualExternalDisplayTestRun": false,
+  "noteCertificatesOrSecretsRead": false,
+  "installed": false,
+  "newIndependentAppPrepared": true,
+  "deliveryPending": false,
+  "userAcceptancePending": true,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "binaryDelivery": "new local-only signed independent191;user manual launch continues trial186 store;old190 preserved",
+  "signing": "same authorized Apple Development/profile/minimum rights;47 inherited Mach-O unchanged,48 total",
+  "binariesUploaded": false,
+  "signingIdentityOrProfileIncluded": false,
+  "rawLogsOrUserDataIncluded": false,
+  "notes": "User rejects phase190 certificate-wide unlock as too broad. Correct Session to retain individually verified note-identity digests within the current account/server/KB/certificate generation,not one authorized bool for the certificate. Existing local verifier must establish each note;warm cache/shared key does not unlock another note. A stays unlocked when returning;unverified B requires independent password/Touch ID. Only windows of the same note share its grant;queued notifications carry exact note GUID and hosts check it before showing content. Multiple independently verified notes coexist,wrong B password neither borrows nor revokes A proof. Background5-minute/hard sleep/session lock/shutdown clear note grants;after expiry fresh A proof never resurrects B. Existing scope/account/server/version/record management retirement and stale per-page callback rejection retained. No additional password/certificate persistence,no ciphertext or permanent-decryption change,no real-note actions. Same-run affected1349checks accepted:session113,routing1236;no unrelated full suite/native fingerprint/account/screen tests. New signed191 local-only,190 preserved and superseded as current policy;no automatic install/launch. Ordinary Markdown save investigation excluded,recoveryOFF/automationPAUSED. Prior user hardware/iPhone feedback not relabeled as new-policy physical acceptance.",
+  "files": [
+    {
+      "path": "src/share/WizBiometricNoteAccess.h",
+      "mode": "100644",
+      "bytes": 3363,
+      "chars": 3363,
+      "sha256": "b4b161c78097ba39796964362ecd6f3f3be0cc716c995b216cf72f05e305187f",
+      "gitBlobSha": "cf641a566bdda7a1e4e1674ddd956c325ff6c462"
+    },
+    {
+      "path": "src/share/WizBiometricNoteAccess.cpp",
+      "mode": "100644",
+      "bytes": 8798,
+      "chars": 8798,
+      "sha256": "727184c95627cc462ee0c45b683f4be48eae5b58bcad1dc4d8cd1ce872f42fc1",
+      "gitBlobSha": "f935ca863da351effb573bb779dcf018ca5c314a"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 61174,
+      "chars": 60508,
+      "sha256": "bd856cb7de5ebe0c354db174226ff0dc53434e2a87fb79f374553dae840702dd",
+      "gitBlobSha": "b8e4b82e2878d99e7611b8f37322e9fd18489122"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8794,
+      "chars": 8792,
+      "sha256": "0520ba17630280038499175498719e7825559ceda050f380d85572ad0bad551b",
+      "gitBlobSha": "826cd47f6029f0d48cdec94726df638aa2cdf9bb"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 38615,
+      "chars": 38615,
+      "sha256": "bfbbf9914807c7672fc9056ae34cf28f75248f07cfacfb678836f001521e1c59",
+      "gitBlobSha": "4ce5ad270d4ec41f6f5a40742dff815912cd7f22"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 440821,
+      "chars": 440524,
+      "sha256": "4b343152eebe646d41b78e4cca8890004d93f1f71c1f598df5a311b0eff705c5",
+      "gitBlobSha": "7d1b94be46df1b9b663944ac8728192e437263fd"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 75415,
+      "chars": 75385,
+      "sha256": "1b5e8253ff660b9e8e82a6a007fb4e53bd781969e7ab8d5623b1dbb250ff2959",
+      "gitBlobSha": "b66a0bc88e47476ffb8b17fb3490c2c0e83fa634"
+    },
+    {
+      "path": "docs/user-acceptance-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 9074,
+      "chars": 3450,
+      "sha256": "de46f3e10a7ac400c18b33d3084d07ced4cef2e36580d72d9ef56a032d5dd22a",
+      "gitBlobSha": "4c6f188225e6eac82960406757ec9f148b0dbd3f"
+    }
+  ]
+}

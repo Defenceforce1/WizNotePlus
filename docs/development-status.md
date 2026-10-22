@@ -1,6 +1,41 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase190: certificate-session reuse for normal navigation
+## Current phase191: retain unlock per note, never blanket-unlock a certificate
+
+The user corrected phase190: opening one encrypted note must not unlock every
+other note using the same certificate. Certificate-wide proof reuse was too broad.
+Session authorization is now a set of individually verified note-identity digests
+inside each current server/account/KB/certificate generation. Shared password
+cache alone is not authorization for another note. This changes access policy,
+not certificate format, ciphertext or permanent-decryption behavior.
+
+Unlock A, switch away and return: A stays usable within the valid app session.
+Unverified B still requires its own password or Touch ID even when its certificate
+is identical. Other windows displaying A may reuse A's proof; notifications include
+the exact note GUID and the host checks it before presenting content. Unlocking B
+independently adds only B, not a wildcard. Wrong B credentials cannot borrow A's
+proof or revoke A. Every page still gets fresh callback tickets; retained per-note
+proof never revives an obsolete navigation or output continuation.
+
+Five-minute continuous app-background expiry, native sleep/session lock, actual
+shutdown and account/server/certificate/record-management boundaries remain as
+previously implemented. Expiry clears all note grants; freshly unlocking A does
+not resurrect B, even if B was unlocked before expiry. Only opaque note digests
+are retained in memory, no new password/certificate persistence. Scope generation
+retirement still cancels queued same-note notifications. Save/dirty DOM and
+unencrypted notes remain unchanged.
+
+Affected session/management and document-routing tests only, with temporary
+synthetic notes and fake authentication. No native auth/account or real-note
+actions. New independent local191 preserves190/installed/frozen Apps; source and
+sanitized records only to GitHub. Ordinary Markdown save investigation remains
+excluded; recoveryOFF/automationPAUSED. Prior user feedback on hardware/iPhone is
+not presented as physical acceptance of this new policy correction.
+
+Both affected groups pass in the same incremental run: session/management113/0,
+document routing1236/0,total1349/0. No unrelated full suite or physical tests run.
+
+## Historical phase190: certificate-session reuse (scope corrected above)
 
 The user reports that fingerprint use, hardware combinations and official iPhone
 use all worked in the prior trial. Record this as user feedback, not newly run

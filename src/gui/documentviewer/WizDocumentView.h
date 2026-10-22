@@ -204,7 +204,7 @@ private:
     void revokeBiometricAccess(bool closing = false,bool preserveCapture = false,bool retainSession = false);
     void onSessionAccessRetired(bool hard = true);
     void onBiometricPolicyRetired(const QString& policy);
-    void onSessionAuthorizationAvailable(const QString& policy);
+    void onSessionAuthorizationAvailable(const QString& policy,const QString& documentGuid);
     bool prepareEncryptedAccess(WizDatabase& db);
     bool biometricRequestCurrent(const WizBiometricNoteAccess::Context& context,
                                  const WizBiometricNoteAccess::Gate::Ticket& ticket) const;

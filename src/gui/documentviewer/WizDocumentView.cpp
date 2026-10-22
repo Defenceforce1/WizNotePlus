@@ -1154,10 +1154,11 @@ void WizDocumentView::awaitScreenShotAuthorization()
         m_passwordView->setPasswordText(tr("重新输入证书密码以插入刚才的截图；切换笔记将丢弃截图"));
 }
 
-void WizDocumentView::onSessionAuthorizationAvailable(const QString& policy)
+void WizDocumentView::onSessionAuthorizationAvailable(const QString& policy,const QString& documentGuid)
 {
     if(m_accessClosing||!isVisible()||!m_encryptedAccessEnabled
-        ||m_stack->currentWidget()!=m_passwordView||policy!=WizBiometricNoteAccess::policyIdentity(biometricContext().scope))return;
+        ||documentGuid!=m_note.strGUID||m_stack->currentWidget()!=m_passwordView
+        ||policy!=WizBiometricNoteAccess::policyIdentity(biometricContext().scope))return;
     const QPointer<WizDocumentView> self(this);
     if(prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))&&self)
         showAuthorizedNote(biometricContext(),m_biometricGate.ticket());
