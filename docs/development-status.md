@@ -1,3 +1,15 @@
+# 第200轮：日常版DMG与阶段收尾
+
+199生产主代码不变，封装build200自用日常版，保持密码解锁与正常功能，移除
+测试负载和本地符号，不删字体／数学／PDF／媒体／许可。无剩余可直接去掉的
+Headers、静态库、CMake或调试包。DMG不再重复捆源码与多份文档，源码／校验
+在镜像旁保留。包清单、48个arm64组件、严格ad-hoc签名、非GUI路径及只读挂载
+逐项核对；不称完整日常验收，不安装／改现用App、笔记、194／195备份。
+
+必要记录和源码／可复现输入保留；重复候选与退役临时构建可恢复清理。自动任务
+暂停，项目转日常反馈维护，不继续额外检查循环。仅源码及去敏记录同步GitHub。
+详见[build200收尾](release-14.4.25-build200-daily.md)。以下为历史阶段。
+
 # 第198／199轮：内存对照纠正与独立生产候选
 
 此前offscreen数学／大图内存曲线受图形上下文丢失污染，已保留并拒收为性能
@@ -1271,4 +1283,5 @@ whose product-source input remains [phase170](checkpoints/2026-10-21-phase170.js
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).
+
 
