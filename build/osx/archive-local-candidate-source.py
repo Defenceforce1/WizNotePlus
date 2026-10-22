@@ -55,7 +55,7 @@ def create(base_arg, repo_arg, overlay_arg, output_arg):
         raise ValueError("Duplicate overlay source")
     for name in overlay:
         safe(name)
-        if not name.startswith(("src/", "share/", "tests/", "docs/", "build/", "cmake/")) and name != "CMakeLists.txt":
+        if not name.startswith(("src/", "share/", "i18n/", "tests/", "docs/", "build/", "cmake/")) and name != "CMakeLists.txt":
             raise ValueError("Overlay outside source allowlist")
         file = root / name
         if file.is_symlink() or not file.is_file() or not file.resolve().is_relative_to(root):
@@ -68,7 +68,7 @@ def create(base_arg, repo_arg, overlay_arg, output_arg):
     for name, (_, data, link) in records.items():
         if name.startswith("src/libs/3rdparty/") or name in overlay:
             continue
-        if name.startswith(("src/", "share/", "cmake/", "build/")):
+        if name.startswith(("src/", "share/", "i18n/", "cmake/", "build/")):
             file = root / name
             if link is None and (not file.is_file() or file.read_bytes() != data):
                 raise ValueError("Unreviewed product source difference: " + name)
