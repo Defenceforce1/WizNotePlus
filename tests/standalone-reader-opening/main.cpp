@@ -47,12 +47,19 @@ public:std::atomic<int> blocked{0};void interceptRequest(QWebEngineUrlRequestInf
 bool wait(const std::function<bool()>& pred,int ms=35000){if(pred())return true;QEventLoop loop;QTimer poll,timeout;bool ok=false;QObject::connect(&poll,&QTimer::timeout,[&]{if(pred()){ok=true;loop.quit();}});QObject::connect(&timeout,&QTimer::timeout,&loop,&QEventLoop::quit);poll.start(15);timeout.setSingleShot(true);timeout.start(ms);loop.exec();return ok;}
 QVariant js(QWebEnginePage* page,const QString& code){struct State{bool done=false;QVariant value;};auto s=std::make_shared<State>();page->runJavaScript(code,[s](const QVariant& v){s->value=v;s->done=true;});wait([s]{return s->done;},5000);return s->value;}
 QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonArray{s}).toJson(QJsonDocument::Compact))+"[0]";}
+#include "stress.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
+    if(kind=="stress-prose"||kind=="stress-math"||kind=="stress-static"||kind=="stress-static-no-grab"){
+        int status=0;
+        QTimer::singleShot(0,&app,[&]{status=runReaderStress(root,resources,kind);QTimer::singleShot(10000,&app,[&]{
+            qInfo().noquote()<<"STRESS_AFTER_SCOPE"<<QString::fromUtf8(QJsonDocument(stressMemory()).toJson(QJsonDocument::Compact));app.quit();});});
+        app.exec();return status;
+    }
     if(!QStringList{"plain","math","bare","many","bare-many","controls","cycle","rapid"}.contains(kind)||QGuiApplication::platformName()!="cocoa")return 4;
     QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
     QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(900,600);
@@ -197,7 +204,7 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
         profile.setUrlRequestInterceptor(nullptr);return failures||local.blocked?8:0;
     }
     const bool sourceIntact=js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source;
-    qInfo().noquote()<<"MATH_TIMING"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"stages",QJsonValue::fromVariant(js(page,"mathStages"))},{"ticks",QJsonValue::fromVariant(js(page,"mathTicks"))},{"svg",QJsonValue::fromVariant(js(page,"Array.from(document.querySelectorAll('.MathJax_SVG svg')).map(s=>s.outerHTML)"))},{"mathErrors",js(page,"document.querySelectorAll('.MathJax_Error,.merror').length").toInt()},{"equationLinksValid",js(page,"[...document.querySelectorAll('a[href^=\"#mjx-eqn\"]')].every(a=>!!document.getElementById(decodeURIComponent(a.hash.slice(1))))").toBool()},{"jaxCount",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().length:0").toInt()},{"sectionDelay",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.processSectionDelay:0").toInt()},{"updateTime",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.processUpdateTime:0").toInt()},{"chunkDelay",js(page,"window.MathJax&&MathJax.OutputJax.SVG?MathJax.OutputJax.SVG.config.EqnChunkDelay:0").toInt()}}).toJson(QJsonDocument::Compact));
+    qInfo().noquote()<<"MATH_TIMING"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"stages",QJsonValue::fromVariant(js(page,"mathStages"))},{"ticks",QJsonValue::fromVariant(js(page,"mathTicks"))},{"svg",QJsonValue::fromVariant(js(page,"Array.from(document.querySelectorAll('.MathJax_SVG svg')).map(s=>s.outerHTML)"))},{"mathErrors",js(page,"document.querySelectorAll('.MathJax_Error,.merror').length").toInt()},{"equationLinksValid",js(page,QString::fromLatin1(R"JS((()=>{const links=[...document.querySelectorAll('a')].map(a=>a.getAttribute('href')||a.getAttributeNS('http://www.w3.org/1999/xlink','href')).filter(h=>h&&h.startsWith('#mjx-eqn'));return links.every(h=>!!document.getElementById(decodeURIComponent(h.slice(1))))&&(%1||links.length>0);})())JS").arg(source.contains("\\eqref{")?"false":"true")).toBool()},{"jaxCount",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().length:0").toInt()},{"sectionDelay",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.processSectionDelay:0").toInt()},{"updateTime",js(page,"window.MathJax&&MathJax.Hub?MathJax.Hub.processUpdateTime:0").toInt()},{"chunkDelay",js(page,"window.MathJax&&MathJax.OutputJax.SVG?MathJax.OutputJax.SVG.config.EqnChunkDelay:0").toInt()}}).toJson(QJsonDocument::Compact));
     const auto report=QJsonObject{{"kind",kind},{"gated",gated},{"completedLoads",completedLoads},{"events",QJsonValue::fromVariant(js(page,"openingEvents"))},{"frames",QJsonValue::fromVariant(js(page,"openingFrames"))},{"sourceIntact",sourceIntact},{"readOnly",js(page,"document.body.classList.contains('wiz-readonly')&&!document.body.isContentEditable").toBool()},{"blockedExternalRequests",local.blocked.load()},{"hiddenCocoa",view.testAttribute(Qt::WA_DontShowOnScreen)&&(!view.windowHandle()||!view.windowHandle()->isExposed())},{"domSnapshot",js(page,"document.body.textContent.slice(0,300)").toString()}};
     qInfo().noquote()<<"OPENING_REPORT"<<QString::fromUtf8(QJsonDocument(report).toJson(QJsonDocument::Compact));
     profile.setUrlRequestInterceptor(nullptr);return sourceIntact&&local.blocked==0?0:7;

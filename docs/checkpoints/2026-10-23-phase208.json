@@ -1,0 +1,306 @@
+{
+  "schema": 1,
+  "phase": 208,
+  "workloadChecks": 284,
+  "parserControls": 5,
+  "failures": 0,
+  "roundsPerWorkload": 8,
+  "syntheticOnly": true,
+  "productCodeChanged": false,
+  "newPackageProduced": false,
+  "sourceOnlySync": true,
+  "installedAppsOrRealNotesChanged": false,
+  "mainMemoryStabilityClaimed": false,
+  "nativeRetentionHolderIdentified": false,
+  "initialMathHarnessLinkFailuresPreserved": 8,
+  "svgHrefAndNamespacedXlinkTargetsChecked": true,
+  "results": [
+    {
+      "measurementValid": true,
+      "kind": "stress-static",
+      "pixelGrab": true,
+      "rounds": 8,
+      "checks": 33,
+      "failures": 0,
+      "sourceBytes": 1096950,
+      "formulaObjects": 0,
+      "initialReadyMs": null,
+      "readyAndRoundTripMs": {
+        "min": 315,
+        "max": 354
+      },
+      "closedFirst": {
+        "available": true,
+        "mainFootprintKiB": 116769,
+        "mainRssKiB": 194464,
+        "mallocAllocatedKiB": 77824,
+        "mallocInUseKiB": 21253,
+        "processCount": 1,
+        "rssKiBSum": 194464,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedLast": {
+        "available": true,
+        "mainFootprintKiB": 212017,
+        "mainRssKiB": 211376,
+        "mallocAllocatedKiB": 94208,
+        "mallocInUseKiB": 28400,
+        "processCount": 1,
+        "rssKiBSum": 211376,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 192225,
+        "mainRssKiB": 211328,
+        "mallocAllocatedKiB": 94208,
+        "mallocInUseKiB": 23940,
+        "processCount": 1,
+        "rssKiBSum": 211328,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "afterProfileAndScopeIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 102609,
+        "mainRssKiB": 212720,
+        "mallocAllocatedKiB": 94208,
+        "mallocInUseKiB": 15989,
+        "processCount": 1,
+        "rssKiBSum": 212720,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedFootprintGrowthKiB": 95248,
+      "stableMemoryClaimed": false,
+      "wholeClientAcceptance": false,
+      "forcedGcOrCacheClear": false,
+      "productionBackendChanged": false,
+      "browserMaxTimerGapMs": null,
+      "ownedInclusiveMaxMs": null
+    },
+    {
+      "measurementValid": true,
+      "kind": "stress-prose",
+      "pixelGrab": true,
+      "rounds": 8,
+      "checks": 105,
+      "failures": 0,
+      "sourceBytes": 1096950,
+      "formulaObjects": 0,
+      "initialReadyMs": {
+        "min": 1541,
+        "max": 1800
+      },
+      "readyAndRoundTripMs": {
+        "min": 4820,
+        "max": 6025
+      },
+      "closedFirst": {
+        "available": true,
+        "mainFootprintKiB": 118785,
+        "mainRssKiB": 206896,
+        "mallocAllocatedKiB": 86016,
+        "mallocInUseKiB": 24592,
+        "processCount": 1,
+        "rssKiBSum": 206896,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedLast": {
+        "available": true,
+        "mainFootprintKiB": 228657,
+        "mainRssKiB": 234528,
+        "mallocAllocatedKiB": 114688,
+        "mallocInUseKiB": 31483,
+        "processCount": 1,
+        "rssKiBSum": 234528,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 209921,
+        "mainRssKiB": 234528,
+        "mallocAllocatedKiB": 114688,
+        "mallocInUseKiB": 25526,
+        "processCount": 1,
+        "rssKiBSum": 234528,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "afterProfileAndScopeIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 94273,
+        "mainRssKiB": 221104,
+        "mallocAllocatedKiB": 114688,
+        "mallocInUseKiB": 17531,
+        "processCount": 1,
+        "rssKiBSum": 221104,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedFootprintGrowthKiB": 109872,
+      "stableMemoryClaimed": false,
+      "wholeClientAcceptance": false,
+      "forcedGcOrCacheClear": false,
+      "productionBackendChanged": false,
+      "browserMaxTimerGapMs": 980,
+      "ownedInclusiveMaxMs": {
+        "WizApplyMathEnvironments": 0.29999999701976776,
+        "WizApplyNoteStyle": 0.29999999701976776,
+        "WizMarkdownEnvironmentBlocks": 0,
+        "WizMarkdownEnvironmentCodePositions": 0,
+        "WizMathProtectedPositions": 0,
+        "WizProtectMarkdownEquationReferences": 0.20000000298023224,
+        "WizRenderLatexTheorems": 0
+      }
+    },
+    {
+      "measurementValid": true,
+      "kind": "stress-math",
+      "pixelGrab": true,
+      "rounds": 8,
+      "checks": 113,
+      "failures": 0,
+      "sourceBytes": 1144283,
+      "formulaObjects": 514,
+      "initialReadyMs": {
+        "min": 4878,
+        "max": 5265
+      },
+      "readyAndRoundTripMs": {
+        "min": 12259,
+        "max": 13716
+      },
+      "closedFirst": {
+        "available": true,
+        "mainFootprintKiB": 121361,
+        "mainRssKiB": 214720,
+        "mallocAllocatedKiB": 90112,
+        "mallocInUseKiB": 25318,
+        "processCount": 1,
+        "rssKiBSum": 214720,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedLast": {
+        "available": true,
+        "mainFootprintKiB": 193985,
+        "mainRssKiB": 243824,
+        "mallocAllocatedKiB": 114688,
+        "mallocInUseKiB": 33877,
+        "processCount": 1,
+        "rssKiBSum": 243824,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 184369,
+        "mainRssKiB": 243808,
+        "mallocAllocatedKiB": 114688,
+        "mallocInUseKiB": 28116,
+        "processCount": 1,
+        "rssKiBSum": 243808,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "afterProfileAndScopeIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 78241,
+        "mainRssKiB": 229104,
+        "mallocAllocatedKiB": 114688,
+        "mallocInUseKiB": 20125,
+        "processCount": 1,
+        "rssKiBSum": 229104,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedFootprintGrowthKiB": 72624,
+      "stableMemoryClaimed": false,
+      "wholeClientAcceptance": false,
+      "forcedGcOrCacheClear": false,
+      "productionBackendChanged": false,
+      "browserMaxTimerGapMs": 2422,
+      "ownedInclusiveMaxMs": {
+        "WizApplyMathEnvironments": 2.2999999970197678,
+        "WizApplyNoteStyle": 2.399999998509884,
+        "WizMarkdownEnvironmentBlocks": 0.7000000029802322,
+        "WizMarkdownEnvironmentCodePositions": 4.600000001490116,
+        "WizMathProtectedPositions": 9.399999998509884,
+        "WizProtectMarkdownEquationReferences": 13.700000002980232,
+        "WizRenderLatexTheorems": 0
+      }
+    },
+    {
+      "measurementValid": true,
+      "kind": "stress-static-no-grab",
+      "pixelGrab": false,
+      "rounds": 8,
+      "checks": 33,
+      "failures": 0,
+      "sourceBytes": 1096950,
+      "formulaObjects": 0,
+      "initialReadyMs": null,
+      "readyAndRoundTripMs": {
+        "min": 295,
+        "max": 335
+      },
+      "closedFirst": {
+        "available": true,
+        "mainFootprintKiB": 87985,
+        "mainRssKiB": 168096,
+        "mallocAllocatedKiB": 86016,
+        "mallocInUseKiB": 21892,
+        "processCount": 1,
+        "rssKiBSum": 168096,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedLast": {
+        "available": true,
+        "mainFootprintKiB": 176305,
+        "mainRssKiB": 177408,
+        "mallocAllocatedKiB": 90112,
+        "mallocInUseKiB": 28866,
+        "processCount": 1,
+        "rssKiBSum": 177408,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 161073,
+        "mainRssKiB": 177360,
+        "mallocAllocatedKiB": 90112,
+        "mallocInUseKiB": 24394,
+        "processCount": 1,
+        "rssKiBSum": 177360,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "afterProfileAndScopeIdle10s": {
+        "available": true,
+        "mainFootprintKiB": 71489,
+        "mainRssKiB": 178800,
+        "mallocAllocatedKiB": 90112,
+        "mallocInUseKiB": 16480,
+        "processCount": 1,
+        "rssKiBSum": 178800,
+        "widgetCount": 0,
+        "windowCount": 0
+      },
+      "closedFootprintGrowthKiB": 88320,
+      "stableMemoryClaimed": false,
+      "wholeClientAcceptance": false,
+      "forcedGcOrCacheClear": false,
+      "productionBackendChanged": false,
+      "browserMaxTimerGapMs": null,
+      "ownedInclusiveMaxMs": null
+    }
+  ],
+  "nextStep": "Bounded identification of native/profile-associated retention;no broad formula correctness rerun or global cache/profile reset."
+}
