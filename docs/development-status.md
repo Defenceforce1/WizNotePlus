@@ -37,8 +37,9 @@ is not controlled by note encryption. This is not a secure-memory-erasure claim.
 
 Local signed trial188 is a new copy, preserving187 and frozen/installed Apps. It
 uses the existing independent186 store only on user manual launch, never by the
-agent. Source/docs only go to GitHub. The specific ordinary probably-Markdown
-save failure remains unconfirmed/unresolved. Actual native availability changes,
+agent. Source/docs only go to GitHub. The user explicitly stopped investigation
+of the ordinary probably-Markdown save failure: removed from the forward plan,
+not declared fixed, with existing save protections retained. Actual native availability changes,
 fingerprint use, real-account workflows and iPhone round-trip remain user gates.
 RecoveryOFF, automationPAUSED; no first-certificate creation or VoiceOver work.
 
