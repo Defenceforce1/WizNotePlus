@@ -1,6 +1,36 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase188: shared lock policy, capability-aware unlock and minimal UI
+## Current phase189: three-part unlock and plain settings
+
+The user explicitly reduced the unlock body to exactly three primary controls:
+masked certificate-password input, Unlock, and Touch ID. The ordinary title,
+redundant password caption/mode-switch button and decorative card were removed.
+Certificate hints, exceptional action context, progress and errors appear only
+when needed. An existing certificate hint appears below the password field as
+one subdued theme-colored plain-text label, prefixed with "密码提示："; long hints
+wrap, and absent hints hide and clear the line. No password-derived hint, extra
+button or modal is added. If biometric capability is unavailable, only password unlock is
+shown. Embedded authentication has no extra application Cancel button: native
+panel cancellation or typing a password retires the request; manual Touch ID
+retry remains after cancellation without an automatic loop. Standalone widget
+consumers keep their original password/cancel choices.
+
+Touch ID settings now has a plain password field, explicit one-shot local-record
+consent and Enable/Remove record actions. Removal still needs consent but no
+password; enabling needs both. No new confirmation loop, automatic enrollment,
+policy/keychain mutation, session timing or save-path change was introduced.
+
+Only affected UI/session-management/form-routing checks are run. After the user's
+three-control refinement, only the two changed groups are rerun; the final hint
+refinement reruns only form routing, not management or unrelated/full/save tests.
+New local trial189 preserves188 and installed/frozen
+Apps; no autonomous real-account/store launch, installation or native fingerprint
+test. Ordinary Markdown saving-failure investigation remains explicitly stopped
+and outside the plan, not declared fixed. RecoveryOFF, automationPAUSED. Remaining
+acceptance is user-operated native hardware/fingerprint and account/iPhone usage;
+do not expand the source checklist or restart unattended idle checks.
+
+## Historical phase188: shared lock policy, capability-aware unlock and minimal UI
 
 Password-only and explicitly enrolled Touch ID now share the same encrypted-note
 access gate: five continuous minutes away from the application, canceled on early

@@ -5,7 +5,6 @@
 #include <QHideEvent>
 #include <QLabel>
 #include <QFrame>
-#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPushButton>
@@ -61,18 +60,17 @@ WizBiometricManageWidget::WizBiometricManageWidget(Services services,QWidget* pa
     if(!m_services.makeOperation)m_services.makeOperation=[]{return std::make_shared<NativeManage>();};
     m_pool=m_services.pool?m_services.pool:QThreadPool::globalInstance();
     auto* outer=new QVBoxLayout(this);outer->setContentsMargins(0,0,0,0);
-    auto* card=new QFrame(this);card->setObjectName("biometricSettingsCard");card->setMaximumWidth(560);
-    card->setStyleSheet("QFrame#biometricSettingsCard {background:palette(base);border:1px solid palette(mid);border-radius:8px;}");
+    auto* card=new QFrame(this);card->setObjectName("biometricSettingsCard");card->setMaximumWidth(420);
     outer->addWidget(card,0,Qt::AlignHCenter);outer->addStretch();
-    auto* layout=new QVBoxLayout(card);layout->setContentsMargins(24,24,24,24);layout->setSpacing(12);
-    auto* title=new QLabel(tr("Touch ID 解锁"),card);auto font=title->font();font.setPointSize(16);font.setBold(true);title->setFont(font);layout->addWidget(title);
+    auto* layout=new QVBoxLayout(card);layout->setContentsMargins(12,12,12,12);layout->setSpacing(10);
+    auto* title=new QLabel(tr("Touch ID"),card);layout->addWidget(title);
     m_password=new QLineEdit(this);m_password->setEchoMode(QLineEdit::Password);m_password->setObjectName("biometricManagePassword");layout->addWidget(m_password);
-    m_password->setMinimumHeight(32);m_password->setPlaceholderText(tr("请输入证书密码"));
-    layout->removeWidget(m_password);auto* fields=new QFormLayout;fields->addRow(tr("证书密码"),m_password);layout->addLayout(fields);
+    m_password->setMinimumHeight(32);m_password->setPlaceholderText(tr("证书密码"));
+    m_password->setAccessibleName(tr("证书密码"));
     m_consent=new QCheckBox(tr("允许管理本机解锁记录"),this);m_consent->setObjectName("biometricManageConsent");layout->addWidget(m_consent);
     auto* buttons=new QHBoxLayout;
-    m_enroll=new QPushButton(tr("启用 Touch ID"),this);m_enroll->setObjectName("biometricManageEnroll");buttons->addWidget(m_enroll);
-    m_forget=new QPushButton(tr("移除本机记录"),this);m_forget->setObjectName("biometricManageForget");buttons->addWidget(m_forget);layout->addLayout(buttons);
+    m_enroll=new QPushButton(tr("启用"),this);m_enroll->setObjectName("biometricManageEnroll");buttons->addWidget(m_enroll);
+    m_forget=new QPushButton(tr("移除记录"),this);m_forget->setObjectName("biometricManageForget");buttons->addWidget(m_forget);layout->addLayout(buttons);
     for(auto* button:{m_enroll,m_forget}){button->setAutoDefault(false);button->setMinimumHeight(32);}
     m_status=new QLabel(this);m_status->setObjectName("biometricManageStatus");m_status->setTextFormat(Qt::PlainText);m_status->setWordWrap(true);layout->addWidget(m_status);
     m_timer=new QTimer(this);m_timer->setInterval(20);

@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase189",
+  "version": "14.4.25",
+  "trialBuild": "14425.189",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "3172e69ac630834585f698e758b321ed35808ed9",
+  "phase": 189,
+  "date": "2026-10-22",
+  "productCodeChanged": true,
+  "testCodeChanged": true,
+  "sourceChecklistClosed": true,
+  "authorizedSourceWorkComplete": true,
+  "unlockPrimaryControls": 3,
+  "existingCertificateHintBelowInput": true,
+  "emptyHintHiddenAndCleared": true,
+  "longHintWraps": true,
+  "passwordDerivedHint": false,
+  "minimalUnlockAndManagementUi": true,
+  "authenticationOrLockPolicyChangedThisPhase": false,
+  "clipboardBehaviorChanged": false,
+  "inactiveAppGraceMinutes": 5,
+  "hardSessionLockPreserved": true,
+  "automaticRetryAfterCancel": false,
+  "reportedOrdinaryMarkdownSaveInvestigationStoppedByUser": true,
+  "reportedOrdinaryMarkdownSaveIncludedInForwardPlan": false,
+  "reportedOrdinaryMarkdownSaveIssueResolved": false,
+  "tests": {
+    "affectedGroups": 3,
+    "checks": 1407,
+    "failures": 0,
+    "groups": [
+      {
+        "name": "biometric_unlock_ui",
+        "checks": 119,
+        "acceptedRun": "three-part-associated"
+      },
+      {
+        "name": "biometric_note_access",
+        "checks": 93,
+        "acceptedRun": "minimal-associated"
+      },
+      {
+        "name": "biometric_document_routing",
+        "checks": 1195,
+        "acceptedRun": "hint-associated"
+      }
+    ],
+    "acceptedUniqueChecks": true,
+    "allGroupsRepeatedAfterEveryRefinement": false,
+    "finalHintRefinementOnlyFormRouting": true,
+    "fullSuiteRun": false,
+    "syntheticProvidersNotNativeAuthentication": true,
+    "offscreenSnapshotsVisuallyInspected": true
+  },
+  "realAccountStarted": false,
+  "realNoteBodiesReadOrChanged": false,
+  "actualTouchIdAuthenticationRun": false,
+  "actualExternalDisplayTestRun": false,
+  "noteCertificatesOrSecretsRead": false,
+  "installed": false,
+  "newIndependentAppPrepared": true,
+  "deliveryPending": false,
+  "userAcceptancePending": true,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "binaryDelivery": "new local-only signed independent189;user manual launch continues trial186 store;old188 preserved",
+  "signing": "same authorized Apple Development/profile/minimum rights;47 inherited Mach-O unchanged,48 total",
+  "binariesUploaded": false,
+  "signingIdentityOrProfileIncluded": false,
+  "rawLogsOrUserDataIncluded": false,
+  "notes": "User-confirmed unlock body has only masked certificate-password input,Unlock and Touch ID. No ordinary title,decorative card,redundant caption/password-mode button or embedded extra Cancel. Native authentication panel can cancel,typing password retires request,and explicit Touch ID retry remains;no automatic loop. Standalone widget consumers keep original manual/cancel actions. Existing certificate hint is one subdued theme-colored plain-text label below input,prefixed password hint;long hints wrap,absent hints hide and clear old text,no password-derived hint/modal/button. Exceptional context/progress/errors remain on demand. Settings retains plain input,explicit one-shot consent,Enable/Remove record;no password needed for removal but consent still required. Layout/display changes only,no authentication algorithm/lock timing/certificate/save-queue changes. Incremental accepted1407unique checks:119unlock UI,93session-management,1195form routing. User refined layout mid-stage,so only changed groups rerun;final hint refinement only form routing. Synthetic snapshots inspected,no real screen/clipboard/native authentication/account tests. New independently signed189 preserves old Apps/frozen candidates,manual-only,no real-note store reads or mutations. Ordinary Markdown saving-failure investigation explicitly stopped and outside plan,not declared fixed. Authorized source checklist complete;remaining user-operated actual hardware/fingerprint and Mac/iPhone workflows are not declared accepted. RecoveryOFF/automationPAUSED;no idle expansion or first-certificate/VoiceOver/public-binary work.",
+  "files": [
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.h",
+      "mode": "100644",
+      "bytes": 4068,
+      "chars": 4068,
+      "sha256": "5608934f2d1183a10383ca59cfd911b32332ad55c337b1bd07c8ae0ceee84a4f",
+      "gitBlobSha": "706df3b0b263af1ef25d03171f8a4d2475e62155"
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.cpp",
+      "mode": "100644",
+      "bytes": 17040,
+      "chars": 16934,
+      "sha256": "11cb51d7d1e46e0a1c77aa459ac2ea40ec85440044b02396088d287cbad54944",
+      "gitBlobSha": "bbeb0ccac1544f6c015d667e0ec76e6b70677f9e"
+    },
+    {
+      "path": "src/widgets/WizBiometricManageWidget.cpp",
+      "mode": "100644",
+      "bytes": 10249,
+      "chars": 10101,
+      "sha256": "4e10b53c8229e5186a367c0f2843492fa56077188cd88fbdc007346d75619c8a",
+      "gitBlobSha": "4ad74ac16c7d7f3282f556452cd78eba529a295a"
+    },
+    {
+      "path": "src/WizUserCipherForm.cpp",
+      "mode": "100755",
+      "bytes": 8038,
+      "chars": 7978,
+      "sha256": "7f194419b0c9c264c4c414cbceca6aa669714e55b9a860a184204f42344f1c9a",
+      "gitBlobSha": "c0e397d13b18e459b9bff8082151a5e17f671b36"
+    },
+    {
+      "path": "src/ui/WizUserCipherForm.ui",
+      "mode": "100755",
+      "bytes": 2947,
+      "chars": 2903,
+      "sha256": "16e2f8855dee88b78976c9e86801e815895fc69414c7243eb4f0b9617bb5949e",
+      "gitBlobSha": "6c8664ee870d8c5a5df09fba0dd60d68d6c1b766"
+    },
+    {
+      "path": "tests/compat/biometric-unlock-ui.cpp",
+      "mode": "100644",
+      "bytes": 25753,
+      "chars": 25753,
+      "sha256": "292337fa742a14d5f7675527719b146757ee5afbf8baea88991607f59b33872c",
+      "gitBlobSha": "0073700e239d3d1be914cb15346d03dc608f16e2"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 32975,
+      "chars": 32975,
+      "sha256": "341112b03ff13a911fee7cd4484b77c8f8f1f418ee8de8d0c81c6c9d3c6cd4e0",
+      "gitBlobSha": "1f87cb01d62684e4b4aef711142f40d28a5d407c"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 431444,
+      "chars": 431147,
+      "sha256": "feb1b6ae7944a6d609ad1b1e05c555effff9be2cb8eddd00739aa3da7e9301cf",
+      "gitBlobSha": "6a11391a9a9ff6a232cdffe2527ae1f6c258fadc"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 69309,
+      "chars": 69279,
+      "sha256": "d430469219916bdf24d5d21ed05475a08a30472cb226014f0767b7d744dd7218",
+      "gitBlobSha": "f95e64369c99a878827571375188943e5a4c7932"
+    },
+    {
+      "path": "docs/user-acceptance-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 6272,
+      "chars": 2394,
+      "sha256": "e244e2992a3bab28f2bb3c317f4f7e54b7da8b94b08ab3a410e48cf1d7acf22a",
+      "gitBlobSha": "2c7ed08b5912301c92ae084ca34f20062dfa0d17"
+    }
+  ]
+}

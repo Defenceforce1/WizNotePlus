@@ -206,6 +206,13 @@ void WizBiometricUnlockWidget::setPresentationVisible(bool visible)
     setVisible(visible);
     if(self)m_presentationChange=false;
 }
+void WizBiometricUnlockWidget::setInlinePasswordAvailable(bool available)
+{
+    m_inlinePasswordAvailable=available;
+    const QPointer<WizBiometricUnlockWidget> self(this);
+    m_manual->setVisible(!available);
+    if(self)m_cancel->setVisible(!available&&m_stage==Stage::Working);
+}
 void WizBiometricUnlockWidget::scheduleAutomaticStart()
 {
     // WindowActivate/show can arrive before Qt updates activeWindow(). Defer
@@ -376,7 +383,7 @@ void WizBiometricUnlockWidget::updateControls()
     m_manual->setEnabled(!m_closed); if (!guard) return;
     m_cancel->setEnabled(m_stage == Stage::Working || m_stage == Stage::Verified || m_stage == Stage::Consumed);
     if (!guard) return;
-    m_cancel->setVisible(m_stage==Stage::Working);if(!guard)return;
+    m_cancel->setVisible(!m_inlinePasswordAvailable&&m_stage==Stage::Working);if(!guard)return;
     QString status;
     switch (m_stage) {
     case Stage::Unavailable: break;

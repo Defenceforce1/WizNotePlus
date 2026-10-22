@@ -21,7 +21,8 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
     m_biometric = new WizBiometricUnlockWidget(std::move(services), this);
     m_biometric->setAutomaticStart(automaticStart);
     m_biometric->setObjectName("cipherBiometricUnlock");
-    ui->verticalLayout_3->insertWidget(1, m_biometric);
+    m_biometric->setInlinePasswordAvailable(true);
+    ui->actionsLayout->addWidget(m_biometric);
     m_biometric->hide();
     connect(m_biometric, &WizBiometricUnlockWidget::credentialReady, this, &WizUserCipherForm::biometricCredentialReady);
     connect(m_biometric, &WizBiometricUnlockWidget::manualPasswordRequested, this, &WizUserCipherForm::setCipherEditorFocus);
@@ -31,13 +32,16 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
             &&stage!=WizBiometricUnlockWidget::Stage::Closed);
     });
     ui->editUserCipher->setEchoMode(QLineEdit::Password);
+    ui->editUserCipher->setAccessibleName(tr("证书密码"));
     ui->editUserCipher->setAttribute(Qt::WA_MacShowFocusRect, false);
 
     setAutoFillBackground(true);
     setAttribute(Qt::WA_MacShowFocusRect, false);
-    setBackgroundRole(QPalette::Midlight);
+    setBackgroundRole(QPalette::Window);
     //
     ui->checkSave->setVisible(false);
+    ui->labelPassword->hide();
+    ui->labelHint->setForegroundRole(QPalette::PlaceholderText);
     setHint({});
 
 
@@ -171,18 +175,19 @@ void WizUserCipherForm::onCipher_changed(const QString &text)
 void WizUserCipherForm::setPasswordText(const QString &strPasswordText)
 {
     ui->labelPassword->setText(strPasswordText);
+    // Keep exceptional context (e.g. pending screenshot insertion), not the
+    // redundant ordinary caption beside an already-labelled password input.
+    ui->labelPassword->setVisible(!strPasswordText.isEmpty()
+        &&strPasswordText!=tr("个人笔记证书密码")&&strPasswordText!=tr("群组笔记证书密码")
+        &&strPasswordText!=tr("证书密码"));
 }
 
 void WizUserCipherForm::setHint(const QString& strHint)
 {
-    if (strHint.isEmpty()) {
-        ui->labelHint->setVisible(false);
-        ui->label_2->setVisible(false);
-    } else {
-        ui->labelHint->setText(strHint);
-        ui->labelHint->setVisible(true);
-        ui->label_2->setVisible(true);
-    }
+    // Display only the existing certificate hint, never derive one from a
+    // password. A single plain-text label wraps naturally under the input.
+    ui->labelHint->setText(strHint.isEmpty()?QString():tr("密码提示：%1").arg(strHint));
+    ui->labelHint->setVisible(!strHint.isEmpty());
 }
 
 void WizUserCipherForm::setCipherEditorFocus()

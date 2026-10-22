@@ -90,6 +90,15 @@ int wizBiometricUnlockUiSelfTest(int argc, char** argv)
     Widget::Context context{{"https://synthetic.invalid/", "synthetic-account", {}, generated.certificate}, "synthetic-note", 1};
     const auto fresh = [&] { auto p = std::make_shared<Probe>(); p->result = {Error::None, password}; return p; };
     {
+        QThreadPool pool;const auto p=fresh();p->hold=true;Widget widget(services(p,pool));
+        widget.setInlinePasswordAvailable(true);show(widget,context);
+        check(!button(widget,"biometricUnlockManual")->isVisible()&&button(widget,"biometricUnlockStart")->isVisible(),"inline password editor removes only the duplicate manual-password action");
+        click(widget);const bool entered=until([&]{return p->entered.load();});
+        check(entered&&!button(widget,"biometricUnlockCancel")->isVisible(),"three-part inline presentation leaves cancellation to the native panel or password input without an extra action");
+        widget.cancel();p->resume.release();pool.waitForDone();drain();
+        check(widget.stage()==Widget::Stage::Ready&&button(widget,"biometricUnlockStart")->isEnabled()&&!button(widget,"biometricUnlockCancel")->isVisible(),"cancelled minimal presentation keeps explicit retry and hides inactive cancel");
+    }
+    {
         QThreadPool pool;const auto p=fresh();bool available=false;
         auto supplied=services(p,pool);supplied.biometricAvailable=[&]{return available;};
         Widget widget(supplied);widget.setAutomaticStart(true);widget.setContext(context,true);widget.show();QApplication::setActiveWindow(&widget);drain();

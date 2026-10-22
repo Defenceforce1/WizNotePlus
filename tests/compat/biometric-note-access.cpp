@@ -316,6 +316,11 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
         fake.makeOperation=[]()->std::shared_ptr<Manage::Operation>{return {};};fake.contextCurrent=[](const Scope&){return true;};fake.enablePolicy=[](const Scope&){return true;};
         Manage panel(fake);panel.resize(560,480);panel.setContext(scope,true);panel.show();app.processEvents();
         check(!panel.findChild<QPushButton*>("biometricManageEnroll")->isEnabled()&&!panel.findChild<QPushButton*>("biometricManageForget")->isEnabled(),"settings actions are disabled before explicit consent and enrollment password");
+        auto* consent=panel.findChild<QCheckBox*>("biometricManageConsent");consent->setChecked(true);
+        check(!panel.findChild<QPushButton*>("biometricManageEnroll")->isEnabled()&&panel.findChild<QPushButton*>("biometricManageForget")->isEnabled(),"minimal settings still requires explicit consent but no password for removing a local record");
+        panel.findChild<QLineEdit*>("biometricManagePassword")->setText(password);
+        check(panel.findChild<QPushButton*>("biometricManageEnroll")->isEnabled(),"minimal settings enables enrollment only after consent and password");
+        panel.findChild<QLineEdit*>("biometricManagePassword")->clear();consent->setChecked(false);
         check(QGuiApplication::platformName()=="offscreen"&&panel.grab().save(output+"/touch-id-settings.png"),"synthetic settings snapshot renders without real account or desktop");
     }
     check(db.getCertPassword()==password,"UI cancellation and note permission revocation never clear the existing save cache");

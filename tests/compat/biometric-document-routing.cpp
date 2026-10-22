@@ -4268,10 +4268,19 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         bool available=false;WizBiometricUnlockWidget::Services fake{[]{return std::make_shared<NoSystemRead>();},nullptr,[&]{return available;}};
         WizUserCipherForm panel(explorer,nullptr,fake);panel.resize(620,600);panel.show();
         panel.setPasswordText(QStringLiteral("个人笔记证书密码"));panel.setHint({});panel.prepareBiometric({scope,"synthetic-ui-note",1},true);app.processEvents();
+        check(!panel.findChild<QLabel*>("labelTitle")&&!panel.findChild<QLabel*>("labelPassword")->isVisible()&&!panel.findChild<QLabel*>("labelHint")->isVisible()&&panel.findChild<QLineEdit*>("editUserCipher")->echoMode()==QLineEdit::Password,"three-part password form has no title or redundant caption, hides absent hint and masks the input");
         check(!panel.findChild<WizBiometricUnlockWidget*>()->isVisible()&&panel.findChild<QLineEdit*>("editUserCipher")->isVisible(),"unavailable Touch ID form displays password field directly with no biometric card");
         check(QGuiApplication::platformName()=="offscreen"&&panel.grab().save(output+"/encrypted-password.png"),"synthetic password-only form snapshot renders without authentication");
         available=true;panel.prepareBiometric({scope,"synthetic-ui-note",2},true);app.processEvents();
+        check(!panel.findChild<QPushButton*>("biometricUnlockManual")->isVisible()&&panel.findChild<QPushButton*>("biometricUnlockStart")->isVisible()&&panel.findChild<QPushButton*>("buttonOk")->isVisible(),"embedded form keeps only the two actual unlock actions without duplicate password-mode button");
         check(panel.findChild<WizBiometricUnlockWidget*>()->isVisible()&&panel.grab().save(output+"/encrypted-touch-id.png"),"available synthetic biometric choice shares the same standardized password form");
+        panel.setHint(QStringLiteral("合成密码提示"));app.processEvents();auto* hint=panel.findChild<QLabel*>("labelHint");
+        check(hint->isVisible()&&hint->text()==QStringLiteral("密码提示：合成密码提示")&&hint->textFormat()==Qt::PlainText&&hint->foregroundRole()==QPalette::PlaceholderText,"certificate hint uses one subdued plain-text label below the password field");
+        check(panel.grab().save(output+"/encrypted-password-hint.png"),"three-part unlock with an existing synthetic certificate hint renders without authentication");
+        panel.setHint(QStringLiteral("这是一条较长的合成密码提示，用于确认提示文字会在密码框下方自动换行，不影响解锁按钮。"));app.processEvents();
+        check(hint->wordWrap()&&hint->height()>hint->fontMetrics().height()&&panel.rect().contains(panel.findChild<QPushButton*>("buttonOk")->mapTo(&panel,QPoint()))&&panel.grab().save(output+"/encrypted-password-long-hint.png"),"long certificate hint wraps while keeping the unlock actions in the visible form");
+        panel.setPasswordText(QStringLiteral("重新输入证书密码以插入截图"));panel.setHint(QStringLiteral("合成密码提示"));app.processEvents();
+        check(panel.findChild<QLabel*>("labelPassword")->isVisible()&&panel.findChild<QLabel*>("labelHint")->isVisible(),"exceptional action context and a real certificate hint remain available in the minimal form");
     }
     check(view.downloads==0&&unrelated.downloads==0,"all extracted flows stay in downloaded synthetic notes with no downloader work");
     check(db.getCertPassword()==password,"routing revocations and failures preserve the original synthetic save cache");
