@@ -356,11 +356,12 @@ struct Web : InspectorShell {
         void deliverPrint(const QByteArray& bytes){auto done=std::move(printed);if(done)done(bytes);}
     } m_pdfPageOperations;
     int initialSaveHandoffs=0,snapshotFailures=0;QString savedInitialHtml;
+    bool m_snapshotSaveFailureReported=false;
     void saveEditingViewDocument(const WIZDOCUMENTDATA&,bool,std::function<void(const QVariant&)>);
     // Phase159 connects this producer boundary to an actual Qt save signal.
     std::function<void(const WIZDOCUMENTDATA&,const QString&,const QString&,int)> snapshotHandoff;
     void saveDocumentRequested(const WIZDOCUMENTDATA& doc,const QString& html,const QString& file,int flags){++initialSaveHandoffs;savedInitialHtml=html;initialStage("saveHandoff");const auto hook=snapshotHandoff;if(hook)hook(doc,html,file,flags);}
-    void reportSnapshotSaveFailure(){++snapshotFailures;}
+    void reportSnapshotSaveFailure(const QString&){++snapshotFailures;}
     bool simulateLoadStarted=true;
     QStringList initialStages;QList<QUrl> initialUrls;
     std::function<void(const QString&)> duringInitialStage;

@@ -1,6 +1,56 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current delivery: independently signed user trial 186 is ready
+## Current phase187: editing grace, automatic unlock and save diagnostics
+
+User feedback reopened the reduced checklist: a non-encrypted, probably Markdown
+note reported saving failure and blocked closing/quit; the user already force-quit.
+Do not attribute that issue to encryption or claim the unsaved changes recovered.
+Read-only inspection of the trial application log found14 ambiguous snapshot/
+extracted-HTML-write failures and no final archive-write failure message. No note
+body/database or credentials were opened; no normal account was launched.
+
+Brief application switching no longer retires an opted-in encrypted editing
+session immediately. A five-minute continuous-background grace period applies;
+returning early cancels it, repeated background states do not extend it, and
+overdue activation handles delayed timer delivery. Existing hard sleep/session
+boundaries still retire immediately; this changes app policy, not OS protection.
+
+The ordinary native-provider password form now opts into one automatic Touch ID
+attempt for its valid remembered context, only when visible in the active window
+and active application. Queued context changes, manual input/cancel, hiding and
+shutdown retire pending requests. Cancel/failure never loops; explicit retry and
+certificate password remain available. No automatic enrollment or policy opt-in.
+Synthetic collaborators validate the flow, not actual system authentication.
+
+An independent-window FIFO acknowledgment now resolves an older failed write
+when a newer write for the exact requester/note succeeds. Pending/latest failures
+still block close; unsolicited completions cannot poison the state. Snapshot
+failure reasons are now static content-free codes with concrete UI explanations,
+and duplicate modal warnings are suppressed until a successful write or new
+document. No preview-as-source fallback, dirty-state discard or forced exit.
+
+Incremental accepted results: document async119/0, note/session access89/0,
+document routing1181/0, automatic-unlock UI107/0, and a selected actual-engine
+ordinary common/Markdown save probe13/0:1509checks across five affected groups.
+The first UI run exposed a manual-cancellation reentrancy regression, corrected
+before acceptance; later re-show fixture failures were Qt offscreen activation
+state, resolved by driving only the synthetic active-window state. Failed logs
+are retained. Already-passing affected groups were not repeatedly rerun after
+the final fixture-only correction; no unrelated full suite or physical OS test.
+
+Local signed trial187 (14425.187) preserves186 and uses the same independent186
+test store only when manually launched; it does not switch to the installed App
+store, migrate data or auto-start an account. Signed inherited components and
+minimum rights remain unchanged. Source/docs only go to GitHub; binaries,
+signing data and raw logs stay local. RecoveryOFF, automationPAUSED.
+
+The reported particular Markdown save failure remains **not reproduced/root
+cause unconfirmed**. Basic actual-engine save success and the acknowledgment fix
+do not close it. The new precise prompt or a minimal non-sensitive reproduction
+is required; real account/iPhone and native automatic Touch ID also await user
+acceptance. Do not resume idle autonomous tests while waiting for that evidence.
+
+## Historical phase186 delivery: independently signed trial
 
 The newly prepared local **14.4.25, build14425.186** trial contains the current
 phase183/184 fixes, not the older frozen installer. The user authorized this

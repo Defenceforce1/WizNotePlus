@@ -3,6 +3,7 @@
 
 #include <QSaveFile>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <QPointer>
 #include <memory>
@@ -78,22 +79,30 @@ private:
 
 namespace WizDocumentSaveSnapshot {
 enum class State { Failed, Unchanged, Changed };
-struct Result { State state = State::Failed; QString html; };
+struct Result { State state = State::Failed; QString html; QString reason; };
+
+// The caller filters exact requester/note; saver acknowledgments are FIFO.
+// A newer successful write resolves an older failed attempt for that note.
+inline void recordDiskSaveCompletion(bool ok,int& pending,bool& failed)
+{
+    if(pending<=0)return;
+    --pending;failed=!ok;
+}
 
 // Capture and update the editor baseline in one JS task. In particular, never
 // reset the baseline in a later C++ callback: new typing may have arrived then.
 inline QString editorScript(bool force, bool nativeDirty)
 {
     return QString::fromLatin1(R"JS((function(){try{
-        if(!window.WizNativeEditorInitialized || !window.WizEditor ||
-            (window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready')) return {ok:false};
-        if(!document.body || !document.body.isContentEditable || document.body.classList.contains('wiz-readonly')) return {ok:false};
+        if(!window.WizNativeEditorInitialized || !window.WizEditor) return {ok:false,reason:'editor-unavailable'};
+        if(window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready') return {ok:false,reason:'setup-not-ready'};
+        if(!document.body || !document.body.isContentEditable || document.body.classList.contains('wiz-readonly')) return {ok:false,reason:'mode-mismatch'};
         if(!%1 && !%2 && !WizEditor.isModified()) return {ok:true,changed:false};
         var html=WizEditor.getContentHtml();
-        if(typeof html!=='string' || !html.length) return {ok:false};
+        if(typeof html!=='string' || !html.length) return {ok:false,reason:'invalid-html'};
         WizEditor.setUnModified();
         return {ok:true,changed:true,html:html};
-    }catch(error){return {ok:false};}})())JS")
+    }catch(error){return {ok:false,reason:'capture-exception'};}})())JS")
         .arg(force ? "true" : "false", nativeDirty ? "true" : "false");
 }
 
@@ -102,20 +111,20 @@ inline QString readerScript(bool nativeDirty = false)
     // The original reader returns null when unchanged. Distinguish that valid
     // result from a missing/throwing script or an invalid WebEngine callback.
     return QString::fromLatin1(R"JS((function(){try{
-        if(!window.WizNativeEditorInitialized ||
-            (window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready') || !window.WizReader ||
-            typeof WizReader.closeDocument!=='function') return {ok:false};
-        if(!document.body || document.body.isContentEditable) return {ok:false};
+        if(!window.WizNativeEditorInitialized || !window.WizReader ||
+            typeof WizReader.closeDocument!=='function') return {ok:false,reason:'editor-unavailable'};
+        if(window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready') return {ok:false,reason:'setup-not-ready'};
+        if(!document.body || document.body.isContentEditable) return {ok:false,reason:'mode-mismatch'};
         var html=WizReader.closeDocument();
         if(html==null || html==='') {
             if(!%1) return {ok:true,changed:false};
-            if(!window.WizEditor) return {ok:false};
+            if(!window.WizEditor) return {ok:false,reason:'editor-unavailable'};
             html=WizEditor.getContentHtml();
-            if(typeof html!=='string' || !html.length) return {ok:false};
+            if(typeof html!=='string' || !html.length) return {ok:false,reason:'invalid-html'};
         }
-        if(typeof html!=='string') return {ok:false};
+        if(typeof html!=='string') return {ok:false,reason:'invalid-html'};
         return {ok:true,changed:true,html:html};
-    }catch(error){return {ok:false};}})())JS").arg(nativeDirty ? "true" : "false");
+    }catch(error){return {ok:false,reason:'capture-exception'};}})())JS").arg(nativeDirty ? "true" : "false");
 }
 
 inline Result parse(const QVariant& value)
@@ -124,7 +133,11 @@ inline Result parse(const QVariant& value)
     const auto map = value.toMap();
     const auto ok = map.value("ok"), changed = map.value("changed");
     if (ok.userType() != QMetaType::Bool || !ok.toBool()
-        || changed.userType() != QMetaType::Bool) return {};
+        || changed.userType() != QMetaType::Bool) {
+        const auto reason=map.value("reason").toString();
+        const QStringList known{"editor-unavailable","setup-not-ready","mode-mismatch","invalid-html","capture-exception"};
+        return {State::Failed,{},known.contains(reason)?reason:QStringLiteral("invalid-snapshot")};
+    }
     if (!changed.toBool()) return {State::Unchanged, {}};
     const auto html = map.value("html");
     if (html.userType() != QMetaType::QString || html.toString().isEmpty()) return {};

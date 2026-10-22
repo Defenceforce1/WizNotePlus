@@ -1,0 +1,211 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase187",
+  "version": "14.4.25",
+  "trialBuild": "14425.187",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "d2a761fb27f512d6a02ec4731f9c4990c50a61b5",
+  "phase": 187,
+  "date": "2026-10-22",
+  "productCodeChanged": true,
+  "testCodeChanged": true,
+  "sourceChecklistClosed": false,
+  "reportedOrdinaryMarkdownSaveRootCauseReproduced": false,
+  "reportedOrdinaryMarkdownSaveIssueResolved": false,
+  "saveAcknowledgmentLatchFixed": true,
+  "duplicateSnapshotWarningsSuppressed": true,
+  "staticSnapshotFailureReasons": true,
+  "inactiveAppGraceMinutes": 5,
+  "hardSessionLockPreserved": true,
+  "automaticUnlockAfterExistingOptIn": true,
+  "automaticRetryAfterCancel": false,
+  "tests": {
+    "affectedGroups": 5,
+    "checks": 1509,
+    "failures": 0,
+    "incrementalAcceptedGroups": [
+      {
+        "name": "document_async",
+        "checks": 119
+      },
+      {
+        "name": "biometric_note_access",
+        "checks": 89
+      },
+      {
+        "name": "biometric_document_routing",
+        "checks": 1181
+      },
+      {
+        "name": "biometric_unlock_ui",
+        "checks": 107
+      },
+      {
+        "name": "native_save_probe_only",
+        "checks": 13
+      }
+    ],
+    "fullSuiteRun": false,
+    "syntheticProvidersNotNativeAuthentication": true,
+    "earlierFailedRunsRetained": true,
+    "lastCorrectionOnlyOffscreenFixture": true
+  },
+  "realAccountStarted": false,
+  "realNoteBodiesReadOrChanged": false,
+  "trialApplicationLogReadOnlyCategories": true,
+  "actualTouchIdAuthenticationRun": false,
+  "noteCertificatesOrSecretsRead": false,
+  "installed": false,
+  "newIndependentAppPrepared": true,
+  "deliveryPending": false,
+  "userAcceptancePending": true,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "binaryDelivery": "new local-only independent signed App/manual launcher;continues existing independent trial186 store on user launch;not installer or cloud isolation",
+  "signing": "same existing authorized Apple Development/profile/minimum main rights;47 inherited Mach-O unchanged,48 total",
+  "rawLogsOrUserDataIncluded": false,
+  "signingIdentityOrProfileIncluded": false,
+  "binariesUploaded": false,
+  "notes": "User requested less disruptive locking and automatic Touch ID after explicit enrollment;ordinary probably-Markdown save failure is separate,not blamed on encryption. Five-minute continuous app-inactive grace,canceled on early return,hard session retirement unchanged. Only active visible locked native-provider context auto-starts once;cancel/manual input/hide/context/shutdown retire pending work,failures never auto-loop. Explicit enrollment and certificate-password fallback retained. Fixed separate-window FIFO older-failure latch after newer successful same-note write;pending/latest failures still prevent data-loss close. Snapshot codes are whitelisted/content-free,concrete UI reasons and duplicate modal suppression,no preview-as-source or dirty discard. Isolated actual common/Markdown save cases pass but specific reported note failure is not reproduced/resolved;14 ambiguous old snapshot/extracted-write failure events only,no final archive-write failure message,raw log never uploaded. Incremental1509accepted checks,earlier build/reentrancy/offscreen fixture failures retained;not a fresh all-groups full-suite claim. Last correction drives only Qt offscreen active-window fixture;no real desktop/Touch ID/keychain/account/note-body action. New trial187 is manually launched only,old186/installed App/frozen candidates preserved. Existing trial186 data is neither read by agent nor migrated/reset;manual launch may continue prior trial account/cloud sync. Precise error/minimal non-sensitive reproduction and actual Mac/iPhone/native automatic authentication acceptance pending. RecoveryOFF/automationPAUSED;no idle expansion.",
+  "files": [
+    {
+      "path": "src/share/WizSessionAccess.h",
+      "mode": "100644",
+      "bytes": 1110,
+      "chars": 1110,
+      "sha256": "952722c99cbce3c1c9328e0a71f13ed6c138b768294b8f04c148e27f439090f4",
+      "gitBlobSha": "d637abf6f178e0914b66a9c9a0de26092a57cc55"
+    },
+    {
+      "path": "src/share/WizSessionAccess.cpp",
+      "mode": "100644",
+      "bytes": 2535,
+      "chars": 2535,
+      "sha256": "728e56fe500a8d0dfe7c23c88cc3bcf9c251da4af21943f0c13ba5adb3dc460f",
+      "gitBlobSha": "8e53235b5a8d7fb2a9902679f22fbeafd489937c"
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.h",
+      "mode": "100644",
+      "bytes": 3341,
+      "chars": 3341,
+      "sha256": "a134b0a2cc989ec87395f12fd0870e3d6cd58bffc9360675be511446c6570bed",
+      "gitBlobSha": "ea3c47ad7aa3c233ed43e0ed0a98302123b64e7f"
+    },
+    {
+      "path": "src/widgets/WizBiometricUnlockWidget.cpp",
+      "mode": "100644",
+      "bytes": 14572,
+      "chars": 14004,
+      "sha256": "dc6aacdd94801537e309ec942aab9bb90d75eaeb255bf0639c09f10b27d5a1a5",
+      "gitBlobSha": "8cbc2cee0fba1e9b5fda6ae2dcdfd2bda533aa27"
+    },
+    {
+      "path": "src/WizUserCipherForm.cpp",
+      "mode": "100755",
+      "bytes": 8068,
+      "chars": 8066,
+      "sha256": "01cdc54cefd58a7f0160e7e72a7b46c3757ed38b3da793274c51a9283b525bda",
+      "gitBlobSha": "31d2831997a15df15a2fd2126b7a91a1f1200c64"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 58757,
+      "chars": 58155,
+      "sha256": "4750ca813b4d048558d27065674df43aca7cdd9025a9a9aa7ca2d8827d30b86d",
+      "gitBlobSha": "d2449f0f346eaab57167ee3f987b2d874a788320"
+    },
+    {
+      "path": "src/gui/documentviewer/WizSingleDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 11566,
+      "chars": 11382,
+      "sha256": "899f129db0bd6cca30a334f7233254b0d0b3698cd5e56767c5e143ce07ae41d3",
+      "gitBlobSha": "473e6f46b6bbb67267f5addd1a5797516cd2e2a5"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.cpp",
+      "mode": "100644",
+      "bytes": 138063,
+      "chars": 137621,
+      "sha256": "d863fec7f8945bb231c450f4a0de44c48557e5c80bc25059b8fda6f5a2796f0c",
+      "gitBlobSha": "2aa54ab20d0680cd720b826c13065ff2a8179994"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentWebView.h",
+      "mode": "100644",
+      "bytes": 17165,
+      "chars": 17163,
+      "sha256": "2fea8dd7880756232b51f2b1f2ac93c9230b14f413326cb25da08e04419e16ed",
+      "gitBlobSha": "1253dd56b10a2a5fa067a02204c444897fac4948"
+    },
+    {
+      "path": "src/share/WizDocumentAsync.h",
+      "mode": "100644",
+      "bytes": 7311,
+      "chars": 7311,
+      "sha256": "f9b2924bce03cba6342cc2b167c6d9e73316b839055f8b6cf882ddfa8b3f85b5",
+      "gitBlobSha": "5e2074416903eb81726ab65a4fc5de3afc446ce5"
+    },
+    {
+      "path": "tests/compat/biometric-unlock-ui.cpp",
+      "mode": "100644",
+      "bytes": 21888,
+      "chars": 21888,
+      "sha256": "137923ffbfde04a3e70879f83b6978269b52f0d25281731ca4b3a1a899a25d3c",
+      "gitBlobSha": "0a323964e30430a2be6cbc035c96be9903f4617c"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 31309,
+      "chars": 31309,
+      "sha256": "5e3a52418ff8f6f56f7bb6f4835078e78ba1f17eb94071639f20d15605e24470",
+      "gitBlobSha": "da12df1a16b1fe8a7fddcfe0afcdbfe39f4e45e4"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 425357,
+      "chars": 425232,
+      "sha256": "0c0ab0c820ff227a83000ded729e26ade741a035e3cc7f182ea0f43e402ac4f2",
+      "gitBlobSha": "3a6f6ed69e943912123ed663818cbc75e86f8420"
+    },
+    {
+      "path": "tests/compat/document-async.cpp",
+      "mode": "100644",
+      "bytes": 43683,
+      "chars": 43651,
+      "sha256": "2152df9d6e9624c5a799c0adb2d4c4152d2b385618c1cfa0ad58dcef0587eea7",
+      "gitBlobSha": "25640807f2ba736d52bc6d56678c79870e71e4f4"
+    },
+    {
+      "path": "tests/compat/native-editor-runtime.cpp",
+      "mode": "100644",
+      "bytes": 46648,
+      "chars": 46642,
+      "sha256": "762d6bc4c7da69dcf6db09e77233318819d3774ae6f01029de976df0902cc455",
+      "gitBlobSha": "e6a8f3a8f38570bb1e3ede54b2b4f142ebcff30c"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 64414,
+      "chars": 64394,
+      "sha256": "ee44574bb4e6bdb03c5f41a83f246782c5b07e32d9c9805d4c0dbc409bea44e1",
+      "gitBlobSha": "389f3639d164078b438eb58a49a45fb115b97418"
+    },
+    {
+      "path": "docs/user-acceptance-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 5695,
+      "chars": 2179,
+      "sha256": "1eb904964857a266da222deaf456b475a6aa72909470e4cc7d5f58394060ed01",
+      "gitBlobSha": "259d426b3dfbecfbdfaf7da185838ac0aedddf69"
+    }
+  ]
+}

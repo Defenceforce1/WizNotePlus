@@ -1005,6 +1005,7 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
         return;
     }
 
+    m_snapshotSaveFailureReported=false;
     host->sendDocumentSavedSignal(strGUID, kbGUID);
     if (!self) return;
 
@@ -1014,6 +1015,7 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
 
 void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode)
 {
+    m_snapshotSaveFailureReported=false;
     const QPointer<WizDocumentWebView> self(this);
     const WIZDOCUMENTDATA document = doc;
     const auto opening = invalidateDocumentCallbacks();
@@ -1742,7 +1744,8 @@ void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bo
         if (result.state == WizDocumentSaveSnapshot::State::Unchanged) { callback(true); return; }
         if (result.state == WizDocumentSaveSnapshot::State::Failed
             || !WizDocumentSaveSnapshot::writeHtmlFile(extractedFile, result.html)) {
-            self->reportSnapshotSaveFailure(); callback(false); return;
+            self->reportSnapshotSaveFailure(result.state==WizDocumentSaveSnapshot::State::Failed
+                ? result.reason : QStringLiteral("temporary-html-write-failed")); callback(false); return;
         }
         self->m_currentNoteHtml = result.html;
         self->m_currentNoteHtmlDocument = doc;
@@ -1778,7 +1781,8 @@ void WizDocumentWebView::saveReadingViewDocument(const WIZDOCUMENTDATA &data, bo
         const auto result = WizDocumentSaveSnapshot::parse(value);
         if (result.state == WizDocumentSaveSnapshot::State::Failed
             || (result.state == WizDocumentSaveSnapshot::State::Changed && sourceFile.isEmpty())) {
-            self->reportSnapshotSaveFailure(); callback(false); return;
+            self->reportSnapshotSaveFailure(result.state==WizDocumentSaveSnapshot::State::Failed
+                ? result.reason : QStringLiteral("source-path-unavailable")); callback(false); return;
         }
         if (result.state == WizDocumentSaveSnapshot::State::Changed) {
             if (self->m_contentChangeSequence == changeSequence) self->m_bContentsChanged = false;
@@ -1795,14 +1799,26 @@ bool WizDocumentWebView::acceptsDocumentCallback(const WizDocumentCallbackEpoch:
     return owner && owner->note().strGUID == data.strGUID && owner->note().strKbGUID == data.strKbGUID;
 }
 
-void WizDocumentWebView::reportSnapshotSaveFailure()
+void WizDocumentWebView::reportSnapshotSaveFailure(const QString& reason)
 {
     setModified(true);
-    TOLOG("save note failed: invalid page snapshot or extracted HTML write failure");
+    // Static reason codes only: no HTML, note title, filesystem path or JS error text.
+    qWarning().noquote()<<"save note snapshot failed:"<<reason;
+    if(m_snapshotSaveFailureReported)return;
+    m_snapshotSaveFailureReported=true;
     const auto ticket = m_documentCallbacks.ticket();
-    QTimer::singleShot(0, this, [this, ticket] {
-        if (WizDocumentCallbackEpoch::current(ticket))
-            WizMessageBox::warning(this, tr("Error"), tr("Failed to save note."));
+    QTimer::singleShot(0, this, [this, ticket, reason] {
+        if (!WizDocumentCallbackEpoch::current(ticket))return;
+        const QMap<QString,QString> descriptions{
+            {"editor-unavailable",tr("页面编辑器尚未就绪。")},
+            {"setup-not-ready",tr("页面初始化尚未完成。")},
+            {"mode-mismatch",tr("页面实际编辑／阅读状态与保存请求不一致。")},
+            {"invalid-html",tr("页面未返回完整的笔记内容。")},
+            {"capture-exception",tr("页面在读取笔记内容时出错。")},
+            {"temporary-html-write-failed",tr("无法写入本机临时 HTML 文件，请检查空间与目录权限。")},
+            {"source-path-unavailable",tr("当前笔记的临时来源路径不可用。")}};
+        WizMessageBox::warning(this,tr("笔记保存失败"),descriptions.value(reason,tr("未取得有效的页面快照。"))
+            +tr("\n未丢弃修改，已保留窗口。请重试保存；仍失败时先将可见编辑内容复制到本机备份，不要强制退出。"));
     });
 }
 

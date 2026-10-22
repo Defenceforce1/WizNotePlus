@@ -166,8 +166,23 @@ int main(int argc, char** argv) {
         evaluate(page,"delete window.WizEditorInit;delete window.WizNativeEditorSetup;");
     }
     using namespace WizDocumentSaveSnapshot;
+    {
+        int pending=2;bool failed=false;
+        recordDiskSaveCompletion(false,pending,failed);
+        check(pending==1&&failed,"older failed disk save blocks close while a newer save is pending");
+        recordDiskSaveCompletion(true,pending,failed);
+        check(pending==0&&!failed,"newer successful FIFO save clears the stale failure that otherwise traps a separate window");
+        recordDiskSaveCompletion(false,pending,failed);
+        check(pending==0&&!failed,"unexpected completion without this requester's pending save cannot poison close state");
+        pending=2;recordDiskSaveCompletion(true,pending,failed);recordDiskSaveCompletion(false,pending,failed);
+        check(pending==0&&failed,"latest failed disk write still blocks closing and is never mistaken for saved");
+    }
     check(parse(evaluate(page,editorScript(false,false))).state==State::Failed,
         "uninitialized editor is not mistaken for an unchanged saved note");
+    check(parse(evaluate(page,editorScript(false,false))).reason=="editor-unavailable",
+        "uninitialized snapshot gives a content-free diagnostic reason");
+    check(parse(QVariantMap{{"ok",false},{"reason","private note body must not escape"}}).reason=="invalid-snapshot",
+        "untrusted renderer reason cannot become diagnostic note content");
     check(parse(evaluate(page,readerScript())).state==State::Failed,
         "missing reader is not mistaken for successful saving");
     evaluate(page, "document.body.contentEditable='true';window.WizNativeEditorInitialized=true;window.text='old';window.baseline='old';window.captures=0;"

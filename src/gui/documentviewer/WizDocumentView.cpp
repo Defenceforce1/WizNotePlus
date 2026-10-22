@@ -1097,7 +1097,11 @@ void WizDocumentView::onSessionAccessRetired(bool hard)
     m_web->cancelPdfExport();
     if(!self)return;
     m_stack->setCurrentWidget(m_passwordView);
-    // No focus/reauthentication or navigation while the session is inactive.
+    if(!self||m_accessClosing)return;
+    m_biometricPrepared=true;
+    m_passwordView->prepareBiometric(biometricContext(),true);
+    // Automatic verification waits for an active, visible locked window. No
+    // focus, body grant or navigation while the session is inactive.
 }
 
 void WizDocumentView::onBiometricPolicyRetired(const QString& policy)

@@ -113,6 +113,7 @@ struct Session {
     WizDocumentCallbackEpoch epoch;
     QString source,path;
     QString initialNoteType = QStringLiteral("markdown");
+    QString readerType = QStringLiteral("markdown");
     QString markdownOverride;
     bool imagePayload=false;
     bool withPdfHelper=false;
@@ -169,7 +170,7 @@ struct Session {
             "window.WizSpellCheckEnabled=true;window.WizNoteCss="+jsonString(css)+";"
             +WizDocumentPageReady::initializeEditorScript(resources,"zh-cn","synthetic-runtime-user","Synthetic local fixture",false,initialNoteType)+
             "if(WizNativeEditorSetup.token!=="+jsonString(token)+")return;WizPrepareNoteModeChange();"
-            "await new Promise(resolve=>WizEditor.off({reader:{type:'markdown'}},resolve));"
+            "await new Promise(resolve=>WizEditor.off({reader:{type:"+jsonString(readerType)+"}},resolve));"
             "if(window.MathJax&&MathJax.Hub)await new Promise(resolve=>MathJax.Hub.Queue(resolve));"
             "WizApplyNoteStyle();WizApplySpellCheck();"+
             (imagePayload?QString("const syntheticImages=Array.from(document.images).filter(i=>/\\/native-large-[01]\\.png$/.test(i.src));"
@@ -238,6 +239,27 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
     LocalOnly requests;WizWebEngineProfile()->setUrlRequestInterceptor(&requests);
     int failures=0,count=0;
     const auto check=[&](bool ok,const char* label){++count;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;return ok;};
+    if(qEnvironmentVariableIsSet("WIZNOTE_NATIVE_SAVE_ONLY")) {
+        for(const auto& type:{QStringLiteral("common"),QStringLiteral("markdown")}) {
+            Session session;session.initialNoteType=type;session.readerType=type;
+            session.markdownOverride=QStringLiteral("Ordinary synthetic note\n\nA second paragraph.");
+            if(!check(session.load(root.path(),31)&&session.start("ordinary-save-probe"),"local actual engine initializes an ordinary common or Markdown note"))return 1;
+            const auto reader=WizDocumentSaveSnapshot::parse(evaluate(session.view->page(),WizDocumentSaveSnapshot::readerScript()));
+            check(reader.state!=WizDocumentSaveSnapshot::State::Failed,"actual unchanged ordinary reader produces a valid save acknowledgment");
+            evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>{window.ModeReady=true;});");
+            check(waitFor([&]{return evaluate(session.view->page(),"!!ModeReady&&document.body.isContentEditable").toBool();}),"actual ordinary editor mode transition completes");
+            evaluate(session.view->page(),"var extra=document.createElement('p');extra.textContent='Synthetic additional edit';document.body.appendChild(extra);");
+            const auto editor=WizDocumentSaveSnapshot::parse(evaluate(session.view->page(),WizDocumentSaveSnapshot::editorScript(true,true)));
+            check(editor.state==WizDocumentSaveSnapshot::State::Changed&&editor.html.contains("Synthetic additional edit"),"actual ordinary editor snapshot preserves a newly typed paragraph");
+            evaluate(session.view->page(),"window.ModeReady=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:"+jsonString(type)+"}},()=>{window.ModeReady=true;});");
+            check(waitFor([&]{return evaluate(session.view->page(),"!!ModeReady&&!document.body.isContentEditable").toBool();}),"actual ordinary reader transition completes");
+            const auto after=WizDocumentSaveSnapshot::parse(evaluate(session.view->page(),WizDocumentSaveSnapshot::readerScript(true)));
+            check(after.state==WizDocumentSaveSnapshot::State::Changed&&after.html.contains("Synthetic additional edit"),"actual dirty reader snapshot retains edited source after mode change");
+        }
+        check(requests.blocked.load()==0,"save probes use only local synthetic resources without external requests");
+        WizWebEngineProfile()->setUrlRequestInterceptor(nullptr);
+        qInfo()<<"Native save runtime checks:"<<count<<"failures:"<<failures;return failures?1:0;
+    }
     if(argc==2&&QByteArray(argv[1])=="--editor-memory-probe") {
         const int batches=qEnvironmentVariableIsSet("WIZNOTE_MEMORY_BATCHES")?qEnvironmentVariableIntValue("WIZNOTE_MEMORY_BATCHES"):5;
         const bool visible=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_VISIBLE_OFFSCREEN")==1;

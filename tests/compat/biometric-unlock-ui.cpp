@@ -90,6 +90,22 @@ int wizBiometricUnlockUiSelfTest(int argc, char** argv)
     Widget::Context context{{"https://synthetic.invalid/", "synthetic-account", {}, generated.certificate}, "synthetic-note", 1};
     const auto fresh = [&] { auto p = std::make_shared<Probe>(); p->result = {Error::None, password}; return p; };
     {
+        QThreadPool pool;const auto p=fresh();p->result={Error::Canceled,{}};
+        Widget widget(services(p,pool));widget.setAutomaticStart(true);widget.setContext(context,true);widget.show();
+        // The offscreen platform has no window manager to reactivate a reused
+        // top-level window. Drive Qt's active-window state, never the desktop.
+        QApplication::setActiveWindow(&widget);
+        check(until([&]{return p->reads==1&&widget.stage()==Widget::Stage::Ready;}),"opted-in active locked window starts verification without a second button click");
+        drain();check(p->reads==1,"canceled automatic verification does not repeatedly prompt");
+        click(widget);check(until([&]{return p->reads==2&&widget.stage()==Widget::Stage::Ready;}),"explicit retry remains available after canceling the automatic prompt");
+        widget.setContext(context,true);widget.cancel();drain();check(p->reads==2,"manual password or cancel retires an already queued automatic request");
+        widget.setContext(context,false);drain();check(p->reads==2,"non-opted-in context never automatically authenticates");
+        widget.hide();widget.setContext(context,true);drain();check(p->reads==2,"hidden locked window defers automatic verification");
+        widget.show();QApplication::setActiveWindow(&widget);
+        check(until([&]{return p->reads==3&&widget.stage()==Widget::Stage::Ready;}),"a fresh visible locked presentation can request one automatic verification");
+        widget.beginShutdown();drain();check(p->reads==3,"shutdown cannot restart an automatic verification");
+    }
+    {
         QThreadPool pool; const auto p = fresh(); Widget widget(services(p, pool));
         widget.show(); drain();
         check(widget.stage() == Widget::Stage::Unavailable && !button(widget,"biometricUnlockStart")->isEnabled(),

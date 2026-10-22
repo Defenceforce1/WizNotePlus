@@ -100,8 +100,7 @@ WizSingleDocumentViewer::WizSingleDocumentViewer(WizExplorerApp& app, const QStr
         [this](const QString& kb, const QString& guid, bool ok, QPointer<QObject> requester) {
         const auto& note = m_docView->note();
         if (requester != m_docView->web() || note.strKbGUID != kb || note.strGUID != guid) return;
-        if (m_pendingSaves) --m_pendingSaves;
-        m_saveFailed = m_saveFailed || !ok;
+        WizDocumentSaveSnapshot::recordDiskSaveCompletion(ok,m_pendingSaves,m_saveFailed);
     }, Qt::QueuedConnection);
 
     containerLayout->addStretch(0);

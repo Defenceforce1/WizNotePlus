@@ -1,6 +1,7 @@
 #include "WizBiometricUnlockWidget.h"
 #include <QCoreApplication>
 #include <QHideEvent>
+#include <QShowEvent>
 #include <QGuiApplication>
 #include <QDeadlineTimer>
 #include <QHBoxLayout>
@@ -115,6 +116,10 @@ WizBiometricUnlockWidget::WizBiometricUnlockWidget(Services services, QWidget* p
     });
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
             this, &WizBiometricUnlockWidget::beginShutdown);
+    if(auto* app=qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
+        connect(app,&QGuiApplication::applicationStateChanged,this,[this](Qt::ApplicationState state){
+            if(state==Qt::ApplicationActive)scheduleAutomaticStart();
+        });
     updateControls();
 }
 
@@ -136,6 +141,7 @@ bool WizBiometricUnlockWidget::matches(const Context& context) const
 
 void WizBiometricUnlockWidget::cancelWork()
 {
+    m_automaticPending=false;
     m_epoch.invalidate();
     m_secret.clear();
     m_timer->stop();
@@ -155,13 +161,50 @@ void WizBiometricUnlockWidget::setContext(const Context& context, bool enabled)
     m_enabled = enabled && valid(context);
     m_error = Error::None;
     m_stage = m_enabled ? Stage::Ready : Stage::Unavailable;
+    m_automaticPending=m_automaticStart&&m_enabled;
     updateControls();
-    if (guard) emit stageChanged();
+    if (!guard) return;
+    emit stageChanged();
+    if (guard) scheduleAutomaticStart();
+}
+
+void WizBiometricUnlockWidget::setAutomaticStart(bool enabled)
+{
+    m_automaticStart=enabled;
+    if(!enabled)m_automaticPending=false;
+}
+void WizBiometricUnlockWidget::scheduleAutomaticStart()
+{
+    // WindowActivate/show can arrive before Qt updates activeWindow(). Defer
+    // that check until the queued turn, otherwise re-shown windows miss it.
+    if(!m_automaticPending||m_closed||!isVisible())return;
+    if(m_nativeProvider&&QGuiApplication::applicationState()!=Qt::ApplicationActive)return;
+    const auto ticket=m_epoch.ticket();
+    QTimer::singleShot(0,this,[this,ticket]{
+        if(!WizDocumentCallbackEpoch::current(ticket)||!m_automaticPending||m_closed
+            ||!isVisible()||!window()->isActiveWindow()||m_stage!=Stage::Ready)return;
+        if(m_nativeProvider&&QGuiApplication::applicationState()!=Qt::ApplicationActive)return;
+        m_automaticPending=false; // No automatic retry after cancel/failure.
+        start();
+    });
+}
+bool WizBiometricUnlockWidget::event(QEvent* event)
+{
+    const QPointer<WizBiometricUnlockWidget> self(this);
+    const bool result=QWidget::event(event);
+    if(self&&event->type()==QEvent::WindowActivate)scheduleAutomaticStart();
+    return result;
+}
+void WizBiometricUnlockWidget::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    scheduleAutomaticStart();
 }
 
 void WizBiometricUnlockWidget::start()
 {
     if (m_closed || m_stage != Stage::Ready || !m_enabled || !isVisible() || !m_pool) return;
+    m_automaticPending=false;
     auto task = std::make_shared<Task>();
     task->context = m_context;
     task->ticket = m_epoch.ticket();

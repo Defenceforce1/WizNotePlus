@@ -13,7 +13,8 @@ class QThreadPool;
 class QTimer;
 
 // Default-off GUI building block; the host owns note/cache authorization.
-// This widget performs no enrollment, database writes, saves or automatic read.
+// This widget performs no enrollment, database writes or saves. The host may
+// opt in to one automatic verification per visible locked context.
 class WizBiometricUnlockWidget final : public QWidget {
     Q_OBJECT
 public:
@@ -38,6 +39,8 @@ public:
     explicit WizBiometricUnlockWidget(Services services, QWidget* parent = nullptr);
     ~WizBiometricUnlockWidget() override;
     void setContext(const Context& context, bool rememberedAccessEnabled);
+    void setAutomaticStart(bool enabled);
+    void cancelAutomaticStart() { m_automaticPending=false; }
     Stage stage() const { return m_stage; }
     // Only an already-locked host may preserve this request across temporary
     // application inactivity. Hiding/minimizing/hard session boundaries cancel.
@@ -54,6 +57,8 @@ Q_SIGNALS:
     void manualPasswordRequested();
     void stageChanged();
 protected:
+    bool event(QEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
 private:
     struct Task;
@@ -62,12 +67,14 @@ private:
     void poll();
     void cancelWork();
     void updateControls();
+    void scheduleAutomaticStart();
     bool matches(const Context& context) const;
     static bool valid(const Context& context);
     Services m_services;
     QPointer<QThreadPool> m_pool;
     Context m_context;
     bool m_enabled = false, m_closed = false, m_nativeProvider = false;
+    bool m_automaticStart=false,m_automaticPending=false;
     Stage m_stage = Stage::Unavailable;
     WizBiometricKeychain::Error m_error = WizBiometricKeychain::Error::None;
     WizDocumentCallbackEpoch m_epoch;

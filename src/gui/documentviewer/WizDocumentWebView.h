@@ -199,7 +199,7 @@ private:
     void saveEditingViewDocument(const WIZDOCUMENTDATA& data, bool force, const std::function<void(const QVariant &)> callback);
     void saveReadingViewDocument(const WIZDOCUMENTDATA& data, bool force, std::function<void(const QVariant &)> callback);
     bool acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& ticket, const WIZDOCUMENTDATA& data) const;
-    void reportSnapshotSaveFailure();
+    void reportSnapshotSaveFailure(const QString& reason);
 
     void createReadModeContextMenu(QContextMenuEvent *event);
     bool acceptUrlAsAttachment(const QUrl &url);
@@ -232,6 +232,7 @@ private:
     WIZDOCUMENTDATA m_currentNoteHtmlDocument;
 
     bool m_bContentsChanged;
+    bool m_snapshotSaveFailureReported=false;
     quint64 m_contentChangeSequence = 0;
     quint64 m_editorModeRequestSequence = 0;
     WizDocumentCallbackEpoch m_documentCallbacks;

@@ -237,11 +237,23 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
     // Phase164 deterministic session router, never real OS notifications.
     {
         WizSessionAccess::Monitor monitor(false);int notifications=0;QObject::connect(&monitor,&WizSessionAccess::Monitor::accessRetired,&app,[&]{++notifications;});
-        monitor.observeApplicationState(Qt::ApplicationInactive);monitor.systemBoundary();monitor.observeApplicationState(Qt::ApplicationHidden);
+        monitor.observeApplicationState(Qt::ApplicationInactive);check(notifications==0,"brief switching away keeps the editing session without immediate relock");monitor.systemBoundary(false);monitor.systemBoundary();monitor.observeApplicationState(Qt::ApplicationHidden);
         check(notifications==2,"hard sleep/session boundary escalates prior soft inactivity once without issuing credentials");
         monitor.observeApplicationState(Qt::ApplicationActive);check(notifications==2,"activation rearms notifications only and never restores access automatically");monitor.systemBoundary();check(notifications==3,"a later session boundary retires a freshly active session again");
         monitor.beginShutdown();monitor.observeApplicationState(Qt::ApplicationActive);monitor.systemBoundary();monitor.beginShutdown();check(notifications==4,"shutdown retires once and prevents further session reactivation");
         auto* gone=new WizSessionAccess::Monitor(false);QPointer<WizSessionAccess::Monitor> weak(gone);QObject::connect(gone,&WizSessionAccess::Monitor::accessRetired,&app,[&]{delete gone;});gone->systemBoundary();check(!weak,"session receiver may destroy the monitor during retirement without later member access");
+        WizSessionAccess::Monitor grace(false,nullptr,60);int soft=0,hard=0;
+        QObject::connect(&grace,&WizSessionAccess::Monitor::accessRetired,&app,[&](bool boundary){boundary?++hard:++soft;});
+        grace.observeApplicationState(Qt::ApplicationInactive);grace.observeApplicationState(Qt::ApplicationActive);until([]{return false;},90);
+        check(soft==0&&hard==0,"returning within the grace period cancels pending relock");
+        grace.observeApplicationState(Qt::ApplicationInactive);until([]{return false;},35);grace.observeApplicationState(Qt::ApplicationHidden);
+        check(until([&]{return soft==1;},50)&&hard==0,"repeated background states cannot extend the original inactivity deadline");
+        grace.systemBoundary();check(hard==1&&soft==1,"actual sleep or session lock immediately escalates a grace-period lock");
+        grace.observeApplicationState(Qt::ApplicationActive);grace.observeApplicationState(Qt::ApplicationInactive);grace.beginShutdown();until([]{return false;},90);
+        check(soft==1&&hard==2,"shutdown cancels the inactivity timer without a late extra notification");
+        WizSessionAccess::Monitor delayed(false,nullptr,20);int overdue=0;QObject::connect(&delayed,&WizSessionAccess::Monitor::accessRetired,&app,[&]{++overdue;});
+        delayed.observeApplicationState(Qt::ApplicationInactive);QThread::msleep(30);delayed.observeApplicationState(Qt::ApplicationActive);
+        check(overdue==1,"activation after the grace period still locks when GUI timer delivery was delayed");
     }
     // End Phase164 management/session tests.
     // Phase165 actual disabled host, scoped policy bridge and stale contexts.

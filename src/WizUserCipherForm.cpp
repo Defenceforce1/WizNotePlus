@@ -17,7 +17,9 @@ WizUserCipherForm::WizUserCipherForm(WizExplorerApp& app, QWidget* parent, WizBi
     , m_bSaveForSession(false)
 {
     ui->setupUi(this);
+    const bool automaticStart = !services.makeOperation;
     m_biometric = new WizBiometricUnlockWidget(std::move(services), this);
+    m_biometric->setAutomaticStart(automaticStart);
     m_biometric->setObjectName("cipherBiometricUnlock");
     ui->verticalLayout_3->insertWidget(ui->verticalLayout_3->count()-2, m_biometric);
     m_biometric->hide();
@@ -165,6 +167,7 @@ void WizUserCipherForm::onCheckSave_stateChanged(int state)
 void WizUserCipherForm::onCipher_changed(const QString &text)
 {
     QPointer<WizUserCipherForm> guard(this);
+    if (!text.isEmpty()) m_biometric->cancelAutomaticStart();
     if (!text.isEmpty() && (m_biometric->stage() == WizBiometricUnlockWidget::Stage::Working
                           || m_biometric->stage() == WizBiometricUnlockWidget::Stage::Verified))
         m_biometric->cancel();
