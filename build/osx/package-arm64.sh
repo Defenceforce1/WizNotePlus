@@ -9,6 +9,20 @@ qt_prefix=$1
 build_dir=$2
 output_dir=$3
 sign_identity=${4:--}
+cache="$build_dir/CMakeCache.txt"
+if [[ ! -f "$cache" ]]; then
+    echo "A configured CMake build directory is required." >&2
+    exit 1
+fi
+if ! /usr/bin/grep -q '^WIZNOTE_BUILD_COMPAT_TESTS:BOOL=OFF$' "$cache"; then
+    if [[ ${WIZNOTE_PACKAGE_DIAGNOSTIC:-0} != 1 ]] ||
+       ! /usr/bin/grep -q '^WIZNOTE_BUILD_COMPAT_TESTS:BOOL=ON$' "$cache"; then
+        echo "Production packages require WIZNOTE_BUILD_COMPAT_TESTS=OFF; use a separate production build." >&2
+        echo "WIZNOTE_PACKAGE_DIAGNOSTIC=1 explicitly permits an ON build for developer-only diagnostics." >&2
+        exit 1
+    fi
+    echo "Developer-only diagnostic package: compatibility probes are included." >&2
+fi
 if [[ "$sign_identity" != - ]]; then
     if [[ "$sign_identity" != "Developer ID Application: "* ]] ||
        ! security find-identity -v -p codesigning | /usr/bin/grep -Fq -- "\"$sign_identity\""; then

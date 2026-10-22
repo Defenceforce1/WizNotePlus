@@ -14,6 +14,10 @@ function metric(samples, field) {
 }
 const cases = files.map(file => {
     const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+    // DOM success does not make a failed rendering backend a valid memory
+    // comparison. Keep raw logs, but reject graphics-loss/error recovery runs.
+    if (lines.some(x => /Unable to initialize SkSurface|SKIA: Failed to begin write access|Context lost during MakeCurrent|Failed to make current since context is marked as lost|GPU process exited unexpectedly/.test(x)))
+        throw Error('Graphics failure invalidates memory comparison: ' + file);
     const reports = lines.filter(x => x.startsWith('MEMORY_PROBE '));
     if (reports.length !== 1 || lines.some(x => x.startsWith('FAIL ')))
         throw Error('Missing, failed or incomplete probe: ' + file);
@@ -29,6 +33,11 @@ const cases = files.map(file => {
     const closed = probe.samples.filter(x => x.phase === 'all-closed');
     const expectedClosedProcesses = probe.expectedClosedProcessCount ?? 1;
     const images = probe.syntheticLargeImagesPerPage ?? 0;
+    if (probe.hiddenCocoa && (probe.qtPlatform !== 'cocoa'
+        || opened.some(x => !x.hiddenCocoa || x.visibleCocoa || x.visibleOffscreen
+            || x.actualQuickBackends?.length !== 4 || x.actualQuickBackends.some(b => b.graphicsApi !== 6
+                || b.windowClass !== 'QQuickWidgetOffscreenWindow'))))
+        throw Error('Incomplete hidden Cocoa Metal observations: ' + file);
     if (images !== 0 && (images !== 2 || probe.largeImageWidth !== 2048 || probe.largeImageHeight !== 1536
         || probe.imagesDecodedBeforeSample !== true || opened.some(x => x.syntheticLargeImagesPerPage !== 2)))
         throw Error('Incomplete synthetic image/decode observations: ' + file);
@@ -51,6 +60,10 @@ const cases = files.map(file => {
         emptyControl: !!(probe.emptyControl ?? opened[0].emptyControl),
         visibleCocoa: !!(probe.visibleCocoa ?? opened[0].visibleCocoa),
         visibleOffscreen: !!opened[0].visibleOffscreen, sharedHost: probe.sharedHost ?? null,
+        hiddenCocoa: !!probe.hiddenCocoa,
+        imagesOnly: !!probe.imagesOnly,
+        formulasPerPage: probe.formulasPerPage ?? null,
+        actualQuickBackends: opened[0].actualQuickBackends ?? null,
         nestedLoopControl: probe.nestedLoopControl ?? null,
         retainedNote: probe.retainedNote ?? false, releaseGraphics: probe.releaseGraphics ?? false,
         nativeBatchPool: probe.nativeBatchPool ?? false,

@@ -1,0 +1,23 @@
+{
+  "phase": 198,
+  "date": "2026-10-22",
+  "status": "synthetic-memory-attribution-closed-not-full-client-acceptance",
+  "priorOffscreenComparisonsInvalidatedByGraphicsErrors": true,
+  "historicalRawEvidenceRetained": true,
+  "normalCocoaMetalScenarios": 3,
+  "syntheticPageOpenings": 80,
+  "scenarioAssertions": 43,
+  "graphicsErrorsInAcceptedScenarios": 0,
+  "extraAutoreleasePoolInAcceptedScenarios": false,
+  "actualBackendRecorded": true,
+  "desktopWindowsShown": false,
+  "parserRegressionChecks": 9,
+  "parserRegressionFailures": 0,
+  "initialImageOnlyFixtureTimeoutRetained": true,
+  "previousHundredsMiBCumulativeGrowthReproducedOnValidBackend": false,
+  "wholeClientLeakFreedomClaimed": false,
+  "productGraphicsOrSaveCodeChanged": false,
+  "normalAccountOrNotesAccessed": false,
+  "installedAppChanged": false,
+  "rawLogsOrBinariesUploaded": false
+}

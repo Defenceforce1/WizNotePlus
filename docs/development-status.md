@@ -1,6 +1,24 @@
+# 第198／199轮：内存对照纠正与独立生产候选
+
+此前offscreen数学／大图内存曲线受图形上下文丢失污染，已保留并拒收为性能
+比较。新增隐藏Cocoa实际Metal后端观察：公式＋大图40次、公式20次、纯大图
+20次，正常事件循环、无额外池／缓存清理／后端切换，无图形错误；关闭后没有
+重现持续累积，延迟footprint约78–84MiB。不称整个客户端长期无泄漏或新产品
+内存修复。9项报告解析回归通过，原引擎／正文保存／锁定逻辑不改。
+
+199独立生产构建排除兼容测试，打包入口默认要求OFF，8项配置拒绝检查通过。
+新副本移除主exe本地／调试符号且代码／常量段不变；整个App逻辑字节减少
+6.45MiB（2.50%），不是主exe缩减比例。除主exe／Info，全部文件链接与195
+一致，保留公式／PDF／字体／媒体／许可，48组件依赖及严格签名通过。仅本机
+候选App，未生成新DMG或安装、未公证，不称完整客户端试用通过。
+
+194／195与现用App／笔记不动。当前可执行的清理、缓存热点、有效内存复核和
+安全体积精简已收尾，后续以具体使用反馈为准，不扩展盲目引擎裁剪／检查轮次。
+详见[性能记录](performance-memory-plan.zh-CN.md)和[生产打包](production-package.zh-CN.md)。
+
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase196/197: recoverable cleanup and first cache optimization
+## Historical phase196/197 (superseded by phase198/199 above)
 
 User installed password-only195 and now requests workspace cleanup,then measured
 performance/memory work,and package size last. Installed main build/hash matches
@@ -1253,3 +1271,4 @@ whose product-source input remains [phase170](checkpoints/2026-10-21-phase170.js
 GitHub commit history records the uploaded checkpoint. Raw logs, private local
 phase reports, user documents, credentials, certificates and binaries are excluded.
 See [GitHub synchronization policy](github-sync-policy.md).
+

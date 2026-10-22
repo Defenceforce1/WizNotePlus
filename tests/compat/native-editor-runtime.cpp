@@ -21,6 +21,7 @@
 #include <QProcess>
 #include <QQuickWidget>
 #include <QQuickWindow>
+#include <QSGRendererInterface>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTabWidget>
@@ -116,6 +117,8 @@ struct Session {
     QString readerType = QStringLiteral("markdown");
     QString markdownOverride;
     bool imagePayload=false;
+    bool imagesOnly=false;
+    bool hiddenCocoa=false;
     bool withPdfHelper=false;
     bool load(const QString& folder,int index,int blocks=1,bool completeBridge=true,bool showView=false,bool emptyControl=false,QWidget* host=nullptr,bool stockView=false,bool withImages=false,bool withBareMath=false) {
         imagePayload=withImages;
@@ -128,16 +131,24 @@ struct Session {
             "\\begin{gather}\na=b\\\\\nc=d\\label{native:gather}\n\\end{gather}\n\n"
             "\\begin{multline}\na+b+c\\\\\n=d+e\\label{native:multline}\n\\end{multline}\n\n"
             "```latex\n\\begin{equation}code_only\\end{equation}\n```\n";
+        if(imagesOnly)source="# Synthetic large images, without formulas\n\n";
         if(imagePayload)for(int image=0;image<2;++image)
             source+=QString("\n![Synthetic large image %1](%2)\n").arg(image)
                 .arg(QUrl::fromLocalFile(QDir(folder).filePath(QString("native-large-%1.png").arg(image))).toString(QUrl::FullyEncoded));
         if(emptyControl)source="Synthetic empty control";
         if(!markdownOverride.isNull())source=markdownOverride;
         editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+QString(source.toHtmlEscaped()).replace("\n","<br>")+"</body></html>";
+        if(imagesOnly) {
+            source="Synthetic image-only control";
+            editor.original="<!doctype html><html><body>"+source;
+            for(int image=0;image<2;++image)editor.original+="<img style='max-width:100%' src='"+
+                QUrl::fromLocalFile(QDir(folder).filePath(QString("native-large-%1.png").arg(image))).toString().toHtmlEscaped()+"'>";
+            editor.original+="</body></html>";
+        }
         QString html=editor.original;
         const QString resources=Utils::WizPathResolve::resourcesPath()+"files/";
         QString scripts;
-        if(!emptyControl)for(const QString& file:{QString("webengine/wizwebchannel.js"),QString("wizeditor/wizEditorForMac.js"),QString("wizeditor/dependency/marked/marked.umd.js"),QString("wizeditor/latexTheorems.js"),QString("wizeditor/markdownEnvironments.js"),QString("wizeditor/editorHelper.js")})
+        if(!emptyControl&&!imagesOnly)for(const QString& file:{QString("webengine/wizwebchannel.js"),QString("wizeditor/wizEditorForMac.js"),QString("wizeditor/dependency/marked/marked.umd.js"),QString("wizeditor/latexTheorems.js"),QString("wizeditor/markdownEnvironments.js"),QString("wizeditor/editorHelper.js")})
             scripts+="<script name='wiz_inner_script' wiz_style='unsave' src=\""+QUrl::fromLocalFile(resources+file).toString().toHtmlEscaped()+"\"></script>";
         html.insert(html.lastIndexOf("</body>"),scripts);
         path=folder+QString("/native-%1.html").arg(index);
@@ -153,6 +164,7 @@ struct Session {
             tabs->addTab(view.get(),QString("Synthetic %1").arg(index));tabs->setCurrentWidget(view.get());
         } else if(host)static_cast<QGridLayout*>(host->layout())->addWidget(view.get(),index%4/2,index%2);
         if(withPdfHelper)WizPdfSvgLinks::install(view->page());
+        if(hiddenCocoa)view->setAttribute(Qt::WA_DontShowOnScreen);
         if(showView){view->resize(900,600);view->show();}
         bool loaded=false,ok=false;
         QMetaObject::Connection connection;
@@ -161,7 +173,8 @@ struct Session {
         else connection=QObject::connect(static_cast<WizWebEngineView*>(view.get()),&WizWebEngineView::loadFinishedEx,finished);
         view->load(QUrl::fromLocalFile(path));
         const bool ready=waitFor([&]{return loaded;});QObject::disconnect(connection);
-        return ready&&ok&&evaluate(view->page(),emptyControl?"document.body.textContent==='Synthetic empty control'":"typeof WizEditorInit==='function'&&typeof qt==='object'").toBool();
+        return ready&&ok&&evaluate(view->page(),imagesOnly?"document.body.textContent==='Synthetic image-only control'":emptyControl?"document.body.textContent==='Synthetic empty control'":"typeof WizEditorInit==='function'&&typeof qt==='object'").toBool()
+            &&(!imagesOnly||waitFor([&]{return imagesIntact();}));
     }
     QString initialize(const QString& token) const {
         const QString resources=Utils::WizPathResolve::resourcesPath()+"files/wizeditor/";
@@ -232,6 +245,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
     QTemporaryDir root;if(!root.isValid())return 1;
     qputenv("WIZNOTE_DATA_STORE",root.filePath("store").toUtf8());
     qputenv("XDG_CACHE_HOME",root.filePath("cache").toUtf8());
+    if(qEnvironmentVariableIntValue("WIZNOTE_MEMORY_HIDDEN_COCOA")==1)QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);
     app.setApplicationName("WizNotePlus Synthetic Native Editor Runtime");
     QSettings settings(root.filePath("user.ini"),QSettings::IniFormat),global(root.filePath("global.ini"),QSettings::IniFormat);
@@ -264,6 +278,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         const int batches=qEnvironmentVariableIsSet("WIZNOTE_MEMORY_BATCHES")?qEnvironmentVariableIntValue("WIZNOTE_MEMORY_BATCHES"):5;
         const bool visible=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_VISIBLE_OFFSCREEN")==1;
         const bool nativeVisible=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_VISIBLE_COCOA")==1;
+        const bool hiddenCocoa=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_HIDDEN_COCOA")==1;
         const bool empty=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_EMPTY_CONTROL")==1;
         const bool nestedControl=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_NESTED_LOOP_CONTROL")==1;
         const bool sharedHost=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_SHARED_HOST")==1;
@@ -273,14 +288,16 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         const QString rhiControl=qEnvironmentVariable("WIZNOTE_MEMORY_RHI_CONTROL");
         const bool stockView=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_STOCK_VIEW")==1;
         const bool imagePayload=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_IMAGE_PAYLOAD")==1;
+        const bool imagesOnly=qEnvironmentVariableIntValue("WIZNOTE_MEMORY_IMAGES_ONLY")==1;
         // Offscreen visibility cannot accidentally open desktop windows.
         // Actual Cocoa windows need a separate, explicit test-only opt-in.
         if(batches<1||batches>30||(visible&&QGuiApplication::platformName()!="offscreen")
-            ||(nativeVisible&&QGuiApplication::platformName()!="cocoa")||(visible&&nativeVisible)
+            ||((nativeVisible||hiddenCocoa)&&QGuiApplication::platformName()!="cocoa")||(visible&&nativeVisible)
+            ||(hiddenCocoa&&(visible||nativeVisible||sharedHost))
             ||(sharedHost&&!nativeVisible)||(keepNote&&(!sharedHost||nestedControl))
-            ||(releaseGraphics&&!keepNote)||(batchPool&&(!(nativeVisible||visible)||nestedControl))
+            ||(releaseGraphics&&!keepNote)||(batchPool&&(!(nativeVisible||visible||hiddenCocoa)||nestedControl))
             ||(!rhiControl.isEmpty()&&(!keepNote||(rhiControl!="finish"&&rhiControl!="cache")))
-            ||(stockView&&(!empty||!keepNote))||(imagePayload&&(empty||stockView)))return 4;
+            ||(stockView&&(!empty||!keepNote))||(imagePayload&&(empty||stockView))||(imagesOnly&&!imagePayload))return 4;
         if(imagePayload&&!createSyntheticLargeImages(root.path()))return 10;
 #ifndef WIZNOTE_MEMORY_RHI_TESTS
         if(!rhiControl.isEmpty())return 4;
@@ -296,6 +313,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
         std::unique_ptr<Session> retained;
         if(keepNote) {
             retained=std::make_unique<Session>();
+            retained->imagesOnly=imagesOnly;
             if(!retained->load(root.path(),10000,16,true,true,empty,tabs,stockView,imagePayload)
                 ||(!empty&&!retained->start("memory-retained")))return 2;
         }
@@ -305,28 +323,39 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             QElapsedTimer elapsed;elapsed.start();
             for(int i=0;i<4;++i) {
                 auto session=std::make_unique<Session>();
-                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible,empty,tabs?static_cast<QWidget*>(tabs):host.get(),stockView,imagePayload)
-                    ||(!empty&&!session->start(QString("memory-%1-%2").arg(batch).arg(i))))return 2;
+                session->imagesOnly=imagesOnly;
+                session->hiddenCocoa=hiddenCocoa;
+                if(!session->load(root.path(),batch*4+i,16,true,visible||nativeVisible||hiddenCocoa,empty,tabs?static_cast<QWidget*>(tabs):host.get(),stockView,imagePayload)
+                    ||(!empty&&!imagesOnly&&!session->start(QString("memory-%1-%2").arg(batch).arg(i))))return 2;
                 pages.push_back(std::move(session));
             }
             settle(250);auto opened=processMemory();opened.insert("batch",batch);opened.insert("phase","four-open");
             opened.insert("elapsedMs",elapsed.elapsed());samples.append(opened);
             bool content=true;QJsonArray visibility;
             for(const auto& page:pages) {
-                content&=evaluate(page->view->page(),empty?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==page->source;
-                if(!empty)content&=evaluate(page->view->page(),"MathJax.Hub.getAllJax().length").toInt()==16;
+                content&=evaluate(page->view->page(),empty||imagesOnly?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==page->source;
+                if(!empty)content&=evaluate(page->view->page(),"window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().length:0").toInt()==(imagesOnly?0:16);
                 content&=page->imagesIntact();
+                if(hiddenCocoa)content&=page->view->testAttribute(Qt::WA_DontShowOnScreen)
+                    &&(!page->view->windowHandle()||!page->view->windowHandle()->isExposed())&&!page->view->grab().isNull();
                 if(stockView)content&=QByteArray(page->view->metaObject()->className())=="QWebEngineView"
                     &&QByteArray(page->view->page()->metaObject()->className())=="QWebEnginePage"
                     &&page->view->page()->webChannel()==nullptr
                     &&evaluate(page->view->page(),"document.scripts.length===0&&typeof WizEditor==='undefined'&&typeof MathJax==='undefined'").toBool();
                 visibility.append(evaluate(page->view->page(),"document.visibilityState").toString());
             }
-            if(!check(content,imagePayload?"all four native pages preserve source, sixteen formulas and two decoded large images":
+            if(!check(content,imagesOnly?"all four native pages preserve image-only source and two decoded large images, without formulas":
+                imagePayload?"all four native pages preserve source, sixteen formulas and two decoded large images":
                 stockView?"all four stock Qt controls preserve plain text without app page subclasses, channel or editor scripts":
                 empty?"all four native empty controls retain only synthetic placeholder text":"all four synthetic native pages retain source and render all sixteen formulas"))return 5;
             opened.insert("visibilityStates",visibility);opened.insert("visibleOffscreen",visible);
             opened.insert("visibleCocoa",nativeVisible);
+            opened.insert("hiddenCocoa",hiddenCocoa);
+            QJsonArray backends;
+            for(const auto& page:pages)for(auto* widget:page->view->findChildren<QQuickWidget*>())
+                backends.append(QJsonObject{{"windowClass",widget->quickWindow()->metaObject()->className()},
+                    {"graphicsApi",int(widget->quickWindow()->rendererInterface()->graphicsApi())}});
+            opened.insert("actualQuickBackends",backends);
             opened.insert("emptyControl",empty);
             opened.insert("syntheticLargeImagesPerPage",imagePayload?2:0);
             samples.replace(samples.size()-1,opened);
@@ -369,7 +398,7 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
                 }
                 const bool intact=tabs->count()==1&&tabs->currentWidget()==retained->view.get()
                     &&evaluate(retained->view->page(),empty?"document.body.textContent":"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==retained->source
-                    &&(empty||evaluate(retained->view->page(),"MathJax.Hub.getAllJax().length").toInt()==16)
+                    &&(empty||evaluate(retained->view->page(),"window.MathJax&&MathJax.Hub?MathJax.Hub.getAllJax().length:0").toInt()==(imagesOnly?0:16))
                     &&retained->imagesIntact()
                     &&evaluate(retained->view->page(),"document.visibilityState==='visible'").toBool();
                 if(!check(intact,imagePayload?"retained tab preserves source, formulas and decoded large images after other pages close":
@@ -422,6 +451,8 @@ int wizNativeEditorRuntimeSelfTest(int argc,char** argv) {
             {"engine",stockView?"stock Qt views/pages without editor or app bridge; shared isolated profile":"native Qt mac bridge; synthetic views, not full main-window workload"},
             {"rssIsNotUniquePhysicalMemory",true},{"nestedLoopControl",nestedControl},{"sharedHost",sharedHost},
             {"syntheticLargeImagesPerPage",imagePayload?2:0},{"largeImageWidth",imagePayload?2048:0},
+            {"imagesOnly",imagesOnly},{"formulasPerPage",empty||imagesOnly?0:16},
+            {"hiddenCocoa",hiddenCocoa},{"qtPlatform",QGuiApplication::platformName()},
             {"largeImageHeight",imagePayload?1536:0},{"imagesDecodedBeforeSample",imagePayload},
             {"retainedNote",keepNote},{"releaseGraphics",releaseGraphics},
             {"nativeBatchPool",batchPool},
