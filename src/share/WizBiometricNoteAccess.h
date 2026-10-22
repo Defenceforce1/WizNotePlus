@@ -1,8 +1,10 @@
 #ifndef WIZ_BIOMETRIC_NOTE_ACCESS_H
 #define WIZ_BIOMETRIC_NOTE_ACCESS_H
 #include "widgets/WizBiometricUnlockWidget.h"
+#include <QHash>
 class WizDatabase;
 class WizUserSettings;
+namespace WizSessionAccess { class Monitor; }
 namespace WizBiometricNoteAccess {
 using Context = WizBiometricUnlockWidget::Context;
 WizBiometricKeychain::Scope snapshot(WizDatabase& personal, WizDatabase& target, const QString& server);
@@ -23,9 +25,37 @@ public:
 Q_SIGNALS:
     void accessRetired(const QString& policy);
 };
+// Application-lifetime proof, scoped to account/server/knowledge base/current
+// certificate. Stores only digests and opaque generations, never passwords.
+class Session final : public QObject {
+    Q_OBJECT
+public:
+    using Ticket = WizDocumentCallbackEpoch::Ticket;
+    explicit Session(WizSessionAccess::Monitor* monitor=nullptr,PolicyEvents* policies=nullptr,QObject* parent=nullptr);
+    static Session* applicationSession();
+    void retire(const QString& policy={});
+    void beginShutdown();
+Q_SIGNALS:
+    void authorizationAvailable(const QString& policy);
+private:
+    friend class Gate;
+    struct Entry { QString identity; std::shared_ptr<const char> generation; bool authorized=false; };
+    Ticket contextTicket(const WizBiometricKeychain::Scope& scope);
+    bool current(const WizBiometricKeychain::Scope& scope,const Ticket& ticket) const;
+    bool authorized(const WizBiometricKeychain::Scope& scope,const Ticket& ticket) const;
+    bool grant(const WizBiometricKeychain::Scope& scope,const Ticket& ticket);
+    bool available() const;
+    QHash<QString,Entry> m_entries;
+    QString m_account;
+    QPointer<WizSessionAccess::Monitor> m_monitor;
+    bool m_hasMonitor=false,m_closed=false;
+};
 class Gate final {
 public:
     using Ticket = WizDocumentCallbackEpoch::Ticket;
+    void setSession(Session* session);
+    bool hasSession() const { return m_sessionBound; }
+    void retireSession(bool all=false);
     void begin(const Context& context, bool required);
     void revoke();
     Ticket ticket() const { return m_epoch.ticket(); }
@@ -37,6 +67,9 @@ private:
     Context m_context;
     bool m_required = false, m_authorized = false;
     WizDocumentCallbackEpoch m_epoch;
+    QPointer<Session> m_session;
+    bool m_sessionBound=false;
+    Ticket m_sessionTicket;
 };
 }
 #endif

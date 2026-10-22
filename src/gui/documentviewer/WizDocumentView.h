@@ -201,14 +201,17 @@ public Q_SLOTS:
 
 private:
     WizBiometricNoteAccess::Context biometricContext() const;
-    void revokeBiometricAccess(bool closing = false,bool preserveCapture = false);
+    void revokeBiometricAccess(bool closing = false,bool preserveCapture = false,bool retainSession = false);
     void onSessionAccessRetired(bool hard = true);
     void onBiometricPolicyRetired(const QString& policy);
+    void onSessionAuthorizationAvailable(const QString& policy);
     bool prepareEncryptedAccess(WizDatabase& db);
     bool biometricRequestCurrent(const WizBiometricNoteAccess::Context& context,
                                  const WizBiometricNoteAccess::Gate::Ticket& ticket) const;
     bool completeBiometricUnlock(const QString& password, const WizBiometricNoteAccess::Context& context,
                                  const WizBiometricNoteAccess::Gate::Ticket& ticket);
+    bool showAuthorizedNote(const WizBiometricNoteAccess::Context& context,
+                            const WizBiometricNoteAccess::Gate::Ticket& ticket);
     void loadNote(const WIZDOCUMENTDATAEX &doc);
     void downloadNoteFromServer(const WIZDOCUMENTDATA& note);
     void sendDocumentEditingStatus();

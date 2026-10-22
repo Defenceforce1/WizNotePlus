@@ -141,6 +141,46 @@ int wizBiometricNoteAccessSelfTest(int argc,char** argv)
     check(!gate.grant(context,before) && gate.requiresAuthorization(true),"leave and return to the same note cannot revive a stale open ticket");
     auto bad=context;bad.scope.certificate={};gate.begin(bad,true);
     check(gate.requiresAuthorization(true) && !gate.grant(bad,gate.ticket()),"required but invalid certificate context refuses instead of reverting to legacy cache access");
+    // Phase190: shared product session with synthetic monitor/policy events.
+    {
+        WizSessionAccess::Monitor monitor(false,nullptr,35);PolicyEvents policies;Session session(&monitor,&policies);
+        Gate first,second;first.setSession(&session);second.setSession(&session);first.begin(context,true);
+        check(first.requiresAuthorization(true),"new app session cannot treat a warm save cache as a verified unlock");
+        check(first.grant(context,first.ticket()),"verified opening can establish its exact certificate session");
+        const auto old=first.ticket();auto another=context;another.documentGuid+="-other";++another.openSequence;
+        first.begin(another,true);second.begin(context,true);
+        check(!first.requiresAuthorization(true)&&!second.requiresAuthorization(true)&&!first.grant(context,old),"same-certificate note and window changes reuse proof without reviving the old page ticket");
+        const auto hidden=first.ticket();first.revoke();
+        check(!first.current(another)&&!WizDocumentCallbackEpoch::current(hidden),"hiding invalidates local page reads while retaining session proof");
+        first.begin(another,true);check(!first.requiresAuthorization(true),"showing a note restores the existing app-session authorization");
+        auto group=context;group.scope.kbGuid="synthetic-group";Gate otherKb;otherKb.setSession(&session);otherKb.begin(group,true);
+        check(otherKb.requiresAuthorization(true)&&!first.requiresAuthorization(true),"another knowledge base needs its own proof without locking personal notes");
+        check(otherKb.grant(group,otherKb.ticket()),"separate knowledge-base proof coexists in the app session");
+        policies.retire(policyIdentity(context.scope));
+        check(first.requiresAuthorization(true)&&!otherKb.requiresAuthorization(true),"local-record policy retirement clears only its matching certificate scope");
+        first.begin(context,true);first.grant(context,first.ticket());const auto beforeBoundary=first.ticket();
+        monitor.observeApplicationState(Qt::ApplicationInactive);monitor.observeApplicationState(Qt::ApplicationActive);
+        check(!first.requiresAuthorization(true),"brief app switching keeps shared session proof");
+        monitor.observeApplicationState(Qt::ApplicationInactive);
+        check(until([&]{return first.requiresAuthorization(true)&&otherKb.requiresAuthorization(true);})&&db.getCertPassword()==password,"grace expiry retires all proofs without clearing queued-save credentials");
+        monitor.observeApplicationState(Qt::ApplicationActive);second.begin(context,true);second.grant(context,second.ticket());
+        check(!first.current(context)&&!first.grant(context,beforeBoundary)&&!second.requiresAuthorization(true),"a fresh unlock elsewhere cannot revive pre-expiry page authorization");
+        first.begin(context,true);check(!first.requiresAuthorization(true),"a new page generation may reuse the new current session proof");
+        for(int field=0;field<2;++field){
+            auto foreign=context;if(field==0)foreign.scope.accountGuid+="-other";else foreign.scope.serverIdentity+="other/";
+            second.begin(foreign,true);check(second.requiresAuthorization(true)&&first.requiresAuthorization(true),"account or server switch drops previous session proof");
+            first.begin(context,true);check(first.requiresAuthorization(true),"returning to the previous account or server requires a new verified unlock");first.grant(context,first.ticket());
+        }
+        auto revised=context;revised.scope.certificate.encryptedD+="A";second.begin(revised,true);
+        check(second.requiresAuthorization(true)&&first.requiresAuthorization(true),"certificate revision invalidates its old proof generation");
+        first.begin(context,true);check(first.requiresAuthorization(true),"reverting certificate bytes cannot resurrect a retired grant");first.grant(context,first.ticket());
+        monitor.systemBoundary(true);check(first.requiresAuthorization(true),"hard system boundary locks immediately without waiting for the timer");
+        monitor.observeApplicationState(Qt::ApplicationActive);int notified=0;QObject::connect(&session,&Session::authorizationAvailable,&app,[&](const QString&){++notified;});
+        first.begin(context,true);first.grant(context,first.ticket());session.retire();app.processEvents();
+        check(notified==0&&first.requiresAuthorization(true),"retirement suppresses queued authorization notifications from an older session");
+        first.begin(context,true);first.grant(context,first.ticket());monitor.beginShutdown();second.begin(context,true);
+        check(first.requiresAuthorization(true)&&!second.grant(context,second.ticket())&&db.getCertPassword()==password,"shutdown forbids reuse or new grants and leaves save cache independent");
+    }
     {
         QThreadPool pool;auto state=std::make_shared<ReadState>();state->password=password;
         WizUserCipherForm form(explorer,nullptr,{[state]{return std::make_shared<Read>(state);},&pool});

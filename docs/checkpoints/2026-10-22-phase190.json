@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "checkpoint": "2026-10-22-phase190",
+  "version": "14.4.25",
+  "trialBuild": "14425.190",
+  "repository": "Defenceforce1/WizNotePlus",
+  "branch": "improve/compatibility-20261017",
+  "parentCommit": "ce3c84014990c3ace04b80c51f0b5bdf46a8744e",
+  "phase": 190,
+  "date": "2026-10-22",
+  "productCodeChanged": true,
+  "testCodeChanged": true,
+  "sourceChecklistClosed": true,
+  "authorizedSourceWorkComplete": true,
+  "currentDevelopmentStageClosed": true,
+  "sharedCertificateSessionProof": true,
+  "normalNavigationRetiresSession": false,
+  "normalNavigationRetiresPageRequests": true,
+  "hideOrMinimizeClearsSavePassword": false,
+  "inactiveAppGraceMinutes": 5,
+  "hardSessionLockPreserved": true,
+  "accountServerCertificateBoundariesPreserved": true,
+  "localRecordRetirementScopeLimited": true,
+  "saveDomAndQueuePreserved": true,
+  "extraPasswordOrCertificatePersistence": false,
+  "normalScreenshotRestoreReusesSession": true,
+  "clipboardBehaviorChanged": false,
+  "priorVersionFingerprintHardwareAndIPhoneUserReportedNormal": true,
+  "newPolicyUserFeedbackPending": true,
+  "newPhysicalAcceptanceClaimed": false,
+  "additionalTestingDeferredByUser": false,
+  "reportedOrdinaryMarkdownSaveInvestigationStoppedByUser": true,
+  "reportedOrdinaryMarkdownSaveIncludedInForwardPlan": false,
+  "reportedOrdinaryMarkdownSaveIssueResolved": false,
+  "tests": {
+    "affectedGroups": 2,
+    "checks": 1334,
+    "failures": 0,
+    "groups": [
+      {
+        "name": "biometric_note_access",
+        "checks": 110,
+        "acceptedRun": "shared-session-associated",
+        "aggregateExit": 8,
+        "componentPassed": true,
+        "pairedRoutingInitiallyFailed": true
+      },
+      {
+        "name": "biometric_document_routing",
+        "checks": 1224,
+        "acceptedRun": "routing-final",
+        "aggregateExit": 0
+      }
+    ],
+    "acceptedUniqueChecks": true,
+    "allGroupsRepeatedAfterEveryRefinement": false,
+    "finalCorrectionOnlyRouting": true,
+    "earlierBuildAndRoutingFailuresRetained": true,
+    "fullSuiteRun": false,
+    "syntheticProvidersNotNativeAuthentication": true,
+    "physicalSystemTestsRun": false
+  },
+  "realAccountStarted": false,
+  "realNoteBodiesReadOrChanged": false,
+  "actualTouchIdAuthenticationRun": false,
+  "actualExternalDisplayTestRun": false,
+  "noteCertificatesOrSecretsRead": false,
+  "installed": false,
+  "newIndependentAppPrepared": true,
+  "deliveryPending": false,
+  "userAcceptancePending": true,
+  "recoveryEnabled": false,
+  "automationPaused": true,
+  "fullClientAccepted": false,
+  "fullProjectComplete": false,
+  "binaryDelivery": "new local-only signed independent190;manual launch continues trial186 store;old189 preserved",
+  "signing": "same authorized Apple Development/profile/minimum rights;47 inherited Mach-O unchanged,48 total",
+  "binariesUploaded": false,
+  "signingIdentityOrProfileIncluded": false,
+  "rawLogsOrUserDataIncluded": false,
+  "notes": "User confirms prior fingerprint/hardware/official iPhone scenarios normal;new issue is excessive relock on note navigation. Audited all encrypted access retirement entry points,not edit ownership/file transaction locks. Added app-lifetime server/account/KB/current-certificate proof Session containing only digests,flags,opaque generations,no extra password/certificate persistence. Existing local verifier establishes proof;normal note/plain round trips,reopening,matching windows,hide/minimize/capture restore reuse it. Per-page generations still retire on navigation/hide;old async read/output callbacks cannot borrow new proof. Removed two main-window hide/minimize password-cache clears;pending saves and dirty DOM independent. Continuous-background5minutes/native sleep/session lock/shutdown retire shared proof. Account/server changes drop prior state;certificate version/record management retire matching scope;old bytes do not resurrect proof. Session retires once before per-window callbacks,which establish fresh locked contexts;one new proof reopens matching windows without a second click. Missing certificate targets failing scope,not unrelated previous KB. Legacy request-only fixtures explicitly remain unbound;new policy fixtures inject real product Session and non-native Monitor.1334unique affected checks accepted:core110passed in earlier aggregate whose routing failed;later changes and reruns routing only,final1224/0. Initial const fixture compile error and two initial routing failures retained,not a claim of latest single-run/full-suite acceptance. No real account/note/native fingerprint/screen/clipboard action;new190 manually launched only. Prior user feedback not mislabeled as new policy physical acceptance. Ordinary Markdown save investigation remains excluded. Source/sanitized record only GitHub;old Apps/frozen candidates/system protection preserved,recoveryOFF/automationPAUSED,no idle extension.",
+  "files": [
+    {
+      "path": "src/share/WizBiometricNoteAccess.h",
+      "mode": "100644",
+      "bytes": 3304,
+      "chars": 3304,
+      "sha256": "67348fa95ed649399c655d8eba296ce745bceaeb95bb2eb51587451ebe5d47f4",
+      "gitBlobSha": "08f672ecbcd1c56e115e37147efa60bedf5ad07b"
+    },
+    {
+      "path": "src/share/WizBiometricNoteAccess.cpp",
+      "mode": "100644",
+      "bytes": 8160,
+      "chars": 8160,
+      "sha256": "ddb83ee4c3e5ea92be1e2dcf8bdd188a87310f93cc7fc94105bc82a59d685c46",
+      "gitBlobSha": "4fcab6866e57265993da15767741a6a0337d9ff5"
+    },
+    {
+      "path": "src/share/WizSessionAccess.h",
+      "mode": "100644",
+      "bytes": 1158,
+      "chars": 1158,
+      "sha256": "4dd4be09ff8305416e1b0502138c97c76a304f1e294f9d09deed3beb4c141f15",
+      "gitBlobSha": "13e1f54fb1552f9a857f1d1ca2679ce5804522c3"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.cpp",
+      "mode": "100644",
+      "bytes": 61107,
+      "chars": 60441,
+      "sha256": "11cb7864928637835b4f78bd969bc6ceff9530121337aaba3e913fc2af9fd8e8",
+      "gitBlobSha": "81b0f730e012fe691268e43d720c884216779922"
+    },
+    {
+      "path": "src/gui/documentviewer/WizDocumentView.h",
+      "mode": "100644",
+      "bytes": 8766,
+      "chars": 8764,
+      "sha256": "ae6834598cff4b3dd49ad391daef6ede739189faeaee39481e877e2aeedb04b5",
+      "gitBlobSha": "86afdeb7096c97b5d24d8055c225d99b915b8a5c"
+    },
+    {
+      "path": "src/WizMainWindow.cpp",
+      "mode": "100644",
+      "bytes": 172502,
+      "chars": 169190,
+      "sha256": "1f4e8ed4e16140acfef034074a3acba185c18e419bef769719dc4104cab6feac",
+      "gitBlobSha": "9ab6279d21cb77f0f0af1a76f19c636e0f2b20c9"
+    },
+    {
+      "path": "tests/compat/biometric-note-access.cpp",
+      "mode": "100644",
+      "bytes": 37821,
+      "chars": 37821,
+      "sha256": "cef3b2b198b20a0f2485deedf641a513c3314426cf0387da99907ab3eb75eb91",
+      "gitBlobSha": "5ea520a941b919ecf02c5bfa9eef88bd7e6a7dfb"
+    },
+    {
+      "path": "tests/compat/biometric-document-routing.cpp",
+      "mode": "100644",
+      "bytes": 439427,
+      "chars": 439130,
+      "sha256": "612ecd21c675be3fb3ec461233a89a7d669ec6645c8a68031d4a053748deeab6",
+      "gitBlobSha": "387a6f39fe49eb5ce9c6d18c61e6535ed096f4ca"
+    },
+    {
+      "path": "docs/development-status.md",
+      "mode": "100644",
+      "bytes": 73157,
+      "chars": 73127,
+      "sha256": "ef39ac306f8488e834401787b016d68830019d9cdf1f97fb2ea59dba436c1387",
+      "gitBlobSha": "adb5867145c5e372d4d921e4a703c9425420fcd3"
+    },
+    {
+      "path": "docs/user-acceptance-existing-certificate.zh-CN.md",
+      "mode": "100644",
+      "bytes": 8266,
+      "chars": 3152,
+      "sha256": "a42c16be823eafda70ab0d986a22220227f2dc26f461887b40224925ebd96f23",
+      "gitBlobSha": "54cb3475d62ab42f0a98bac893286782c0f3c46c"
+    }
+  ]
+}

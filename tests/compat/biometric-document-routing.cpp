@@ -594,7 +594,9 @@ public:
     Gate m_biometricGate;WizDocumentCallbackEpoch m_openEpoch;
     quint64 m_openSequence=0;
     bool m_encryptedAccessEnabled=false,m_biometricPrepared=false,m_accessClosing=false,m_biometricReloadPending=false;
-    RoutingView(App& app,WizBiometricUnlockWidget::Services services={})
+    // Per-request fixtures remain isolated; policy cases inject the same
+    // production Session as the main host, without native subscriptions.
+    RoutingView(App& app,WizBiometricUnlockWidget::Services services={},Session* session=nullptr)
         :m_dbMgr(app.db),m_userSettings(app.settings),m_web(new Web(app.db)),
          m_passwordView(new WizUserCipherForm(app,this,isolatedUnlockServices(std::move(services)))),m_stack(new QStackedWidget(this)),
          m_docView(new QWidget),m_blankView(new QWidget),m_transitionView(new QWidget) {
@@ -604,6 +606,7 @@ public:
         m_stack->setCurrentWidget(m_blankView);m_stack->resize(760,400);resize(760,400);
         QObject::connect(m_passwordView,&WizUserCipherForm::biometricCredentialReady,this,&RoutingView::onBiometricCredentialReady);
         QObject::connect(m_passwordView,&WizUserCipherForm::cipherCheckRequest,this,&RoutingView::onCipherCheckRequest);
+        if(session){m_biometricGate.setSession(session);QObject::connect(session,&Session::authorizationAvailable,this,&RoutingView::onSessionAuthorizationAvailable);}
     }
     ~RoutingView() override {m_passwordView->blockSignals(true);revokeBiometricAccess(true);}
     const WIZDOCUMENTDATAEX& note() const {return m_note;}
@@ -631,13 +634,15 @@ public:
     WizDocumentCallbackEpoch::Ticket noteReadTicket() const {return m_biometricGate.ticket();}
     bool canReadLegacyHiddenNote() const;
     bool acceptsNoteRead(const WizDocumentCallbackEpoch::Ticket&) const;
-    void revokeBiometricAccess(bool closing=false,bool preserveCapture=false);
+    void revokeBiometricAccess(bool closing=false,bool preserveCapture=false,bool retainSession=false);
     void onSessionAccessRetired(bool hard=true);
     void awaitScreenShotAuthorization();
     void onBiometricPolicyRetired(const QString& policy);
+    void onSessionAuthorizationAvailable(const QString& policy);
     bool prepareEncryptedAccess(WizDatabase&);
     bool biometricRequestCurrent(const Context&,const Gate::Ticket&) const;
     bool completeBiometricUnlock(const QString&,const Context&,const Gate::Ticket&);
+    bool showAuthorizedNote(const Context&,const Gate::Ticket&);
     void onBiometricCredentialReady();void onCipherCheckRequest();
     void viewNote(const WIZDOCUMENTDATAEX&,bool);void reviewCurrentNote();
     void showCertificateUnavailable();
@@ -4264,6 +4269,66 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         submit(passwordOnly);check(passwordOnly.canReadCurrentNote()&&passwordOnly.m_web->body=="password-only retained editing DOM","password reauthorization restores original DOM without reloading it");
         settings.set("BiometricUnlock",policy,"1");
     }
+    // Phase190: production shared-session policy, injected with a non-native
+    // monitor. Older fixtures above exercise request retirement without reuse.
+    for(const bool biometric:{false,true}){
+        settings.set("BiometricUnlock",policy,biometric?"1":"0");
+        WizSessionAccess::Monitor timer(false,nullptr,40);PolicyEvents events;Session session(&timer,&events);
+        std::atomic<int> sessionReads{0};
+        const auto services=WizBiometricUnlockWidget::Services{[&]{return std::make_shared<Read>(password,&sessionReads);},nullptr};
+        const auto bind=[&](RoutingView& owner){
+            QObject::connect(&timer,&WizSessionAccess::Monitor::accessRetired,&owner,&RoutingView::onSessionAccessRetired);
+            QObject::connect(&events,&PolicyEvents::accessRetired,&owner,&RoutingView::onBiometricPolicyRetired);
+        };
+        RoutingView first(explorer,services,&session),second(explorer,services,&session);bind(first);bind(second);
+        first.show();second.show();first.viewNote(a,false);second.viewNote(b,false);
+        check(!first.canReadCurrentNote()&&!second.canReadCurrentNote(),"shared-session hosts initially require proof despite warm save credentials");
+        if(biometric)first.m_passwordView->findChild<QPushButton*>("biometricUnlockStart")->click();else submit(first);
+        check(until([&]{return first.canReadCurrentNote()&&second.canReadCurrentNote();})&&sessionReads==(biometric?1:0),"one verified password or synthetic Touch ID opens matching visible windows without repeated verification");
+        const auto beforeNavigation=first.m_web->noteReadPermit();const auto oldContext=first.biometricContext();const auto oldTicket=first.m_biometricGate.ticket();
+        first.viewNote(b,false);first.viewNote(a,false);
+        check(first.canReadCurrentNote()&&!beforeNavigation.current()&&!first.completeBiometricUnlock(password,oldContext,oldTicket),"switching encrypted notes and returning reuses the session but rejects the old opening proof and reads");
+        first.viewNote(c,false);first.viewNote(a,false);first.viewNote(a,false);
+        check(first.canReadCurrentNote()&&sessionReads==(biometric?1:0),"plain-note round trip and reopening do not demand another certificate unlock");
+        first.m_web->body="retained shared-session editing DOM";const auto beforeHide=first.m_web->noteReadPermit();const int loaded=first.m_web->loads;
+        first.hide();check(!first.canReadCurrentNote()&&!beforeHide.current(),"hidden window still rejects body reads and retires its old page ticket");
+        first.show();app.processEvents();
+        check(first.canReadCurrentNote()&&!beforeHide.current()&&first.m_web->loads==loaded&&first.m_web->body=="retained shared-session editing DOM","showing the note restores access without reloading or losing unsaved DOM");
+        second.RequestClose();RoutingView reopened(explorer,services,&session);bind(reopened);reopened.show();reopened.viewNote(b,false);
+        check(first.canReadCurrentNote()&&reopened.canReadCurrentNote()&&sessionReads==(biometric?1:0),"closing one note window and opening another does not lock the remaining app session");
+        first.m_web->defer=true;int published=0;QString output=root.filePath(biometric?"shared-late-bio.txt":"shared-late-password.txt");
+        first.m_web->saveAsPlainText(output,[&](QString){++published;});auto late=std::move(first.m_web->pending.back());first.m_web->pending.clear();first.m_web->defer=false;
+        first.hide();first.show();late(true);
+        check(first.canReadCurrentNote()&&published==0&&!QFile::exists(output),"restored app session never authorizes an old hidden-page output callback");
+        timer.observeApplicationState(Qt::ApplicationInactive);timer.observeApplicationState(Qt::ApplicationActive);
+        check(first.canReadCurrentNote()&&reopened.canReadCurrentNote(),"brief application switching preserves both password and biometric shared sessions");
+        timer.observeApplicationState(Qt::ApplicationInactive);
+        check(until([&]{return !first.canReadCurrentNote()&&!reopened.canReadCurrentNote();})&&db.getCertPassword()==password&&first.m_web->body=="retained shared-session editing DOM","continuous-background expiry locks all views but retains unsaved DOM and pending-save credentials");
+        timer.observeApplicationState(Qt::ApplicationActive);submit(first);app.processEvents();
+        check(first.canReadCurrentNote()&&reopened.canReadCurrentNote(),"one fresh proof after grace expiry reopens matching current windows");
+        timer.systemBoundary(true);
+        check(!first.canReadCurrentNote()&&!reopened.canReadCurrentNote(),"sleep or system-session boundary retires shared access immediately");
+        timer.observeApplicationState(Qt::ApplicationActive);submit(first);app.processEvents();
+        check(first.canReadCurrentNote()&&reopened.canReadCurrentNote(),"one fresh unlock after a hard lock restores every matching visible window without a second click");events.retire(policy);
+        check(!first.canReadCurrentNote()&&!reopened.canReadCurrentNote(),"explicit local-record management retires its matching windows even within the reuse session");
+        submit(first);app.processEvents();check(first.canReadCurrentNote()&&reopened.canReadCurrentNote(),"one fresh unlock after local-record management restores matching windows without repeated proof");const auto beforeRevision=first.biometricContext();const auto revisionTicket=first.m_biometricGate.ticket();
+        const auto revised=WizCertificateCreation::generate(password,password,{});db.setUserCert(revised.certificate.n,revised.certificate.e,revised.certificate.encryptedD,{});first.prepareEncryptedAccess(db);
+        check(!first.canReadCurrentNote()&&!first.completeBiometricUnlock(password,beforeRevision,revisionTicket),"live certificate revision locks the old session and rejects its asynchronous proof");
+        db.setUserCert(cert.n,cert.e,cert.encryptedD,{});first.prepareEncryptedAccess(db);
+        check(!first.canReadCurrentNote(),"restoring previous certificate bytes does not restore a retired session grant");submit(first);app.processEvents();
+        if(biometric){
+            QTemporaryDir images;auto* web=first.m_web;web->editing=true;web->imageResources=images.path()+"/";
+            web->duringScreenWindow=[&](bool visible){if(visible)first.show();else first.hide();};
+            const int commands=web->sourcePage.commands.size();web->editorCommandExecuteScreenShot();auto capture=web->m_screenShotHelper;QPixmap pixels(8,8);pixels.fill(Qt::blue);if(capture)capture->deliver(pixels);
+            check(first.canReadCurrentNote()&&web->m_pendingScreenShot.isNull()&&web->sourcePage.commands.size()==commands+1,"intentional screenshot hide and restore reuses the valid session rather than requiring an extra unlock");
+            web->editorCommandExecuteScreenShot();capture=web->m_screenShotHelper;timer.systemBoundary(true);if(capture)capture->deliver(pixels);
+            check(!first.canReadCurrentNote()&&web->sourcePage.commands.size()==commands+1&&web->m_pendingScreenShot.isNull(),"a real hard lock during capture still discards late pixels without insertion");
+            web->duringScreenWindow={};
+        }
+        timer.beginShutdown();
+        check(!first.canReadCurrentNote()&&db.getCertPassword()==password,"shutdown ends the reused session without clearing credentials needed by original saves");
+    }
+    settings.set("BiometricUnlock",policy,"1");
     if(const QString output=qEnvironmentVariable("WIZNOTE_BIOMETRIC_UI_SNAPSHOT_DIR");!output.isEmpty()){
         bool available=false;WizBiometricUnlockWidget::Services fake{[]{return std::make_shared<NoSystemRead>();},nullptr,[&]{return available;}};
         WizUserCipherForm panel(explorer,nullptr,fake);panel.resize(620,600);panel.show();

@@ -1,6 +1,53 @@
 # Personal-use development checkpoint: existing-certificate usage only
 
-## Current phase189: three-part unlock and plain settings
+## Current phase190: certificate-session reuse for normal navigation
+
+The user reports that fingerprint use, hardware combinations and official iPhone
+use all worked in the prior trial. Record this as user feedback, not newly run
+agent/system acceptance. They reopened the lock-policy work because switching
+notes and returning unnecessarily prompted again. Ordinary Markdown save-failure
+investigation remains excluded.
+
+Audited the encrypted-access retirement paths: navigation, hide/show, window
+close/minimize, background grace, native sleep/session retirement, certificate/
+account/server changes, local-record policy events, screenshot restoration and
+shutdown. Normal navigation/window closure no longer clears verified session
+proof or the password cache needed for saves. A process-local Session holds only
+digests, authorization state and opaque generations scoped to server/account/KB/
+current certificate, never another password or a persistent bypass. It is shared
+by production views and renewed only after existing local password verification.
+
+Normal encrypted/plain-note round trips, reopening, matching windows and internal
+screenshot hide/restore reuse proof within the same valid app session. Every page
+still receives a fresh local generation: navigation/hide retires its old requests
+and reads. Unlocking a new generation cannot revive a delayed old clipboard,
+export or editing result. Unsaved DOM/save queues remain independent. No changes
+to certificate formats, official iPhone behavior, edit-ownership/file locks or
+system protection.
+
+Five continuous background minutes and native sleep/session lock retire shared
+proof; actual shutdown forbids new grants. Account/server changes drop previous
+session state, certificate replacement destroys its revision token, and local
+record management retires only its matching scope. Restoration of old bytes does
+not resurrect proof. One authoritative session listener retires first, then each
+window retires requests and prepares its new locked context, avoiding multi-window
+double retirement and second-click unlock. Queued grant notifications check the
+original weak generation before reaching other visible locked views.
+
+Affected session-management and routing groups only; older unbound request-only
+fixtures remain explicit strict retirement tests, while new policy cases inject
+the real product Session with a non-native monitor. No actual native fingerprint,
+screen capture, account launch or real-note access. A new independently signed190
+is local-only; source/sanitized records go to GitHub. RecoveryOFF/automationPAUSED.
+
+Incremental accepted unique checks: session/management110/0 and final routing
+1224/0, total1334. The earlier combined invocation failed because routing exposed
+double retirement; its session component passed. Later changes touched routing
+only, so the passed session group is not repeated merely to produce a green
+aggregate. Initial const-argument fixture build error and failed routing logs
+remain preserved. This is neither a fresh full-suite nor physical-system claim.
+
+## Historical phase189: three-part unlock and plain settings
 
 Closeout feedback (2026-10-22): the user reported no issue and explicitly deferred
 further testing. Record general trial feedback as accepted, not as itemized proof

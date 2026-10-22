@@ -18,6 +18,7 @@ public:
     void observeApplicationState(Qt::ApplicationState state);
     void systemBoundary(bool hard=true);
     void beginShutdown();
+    bool isClosing() const { return m_closed; }
 Q_SIGNALS:
     void accessRetired(bool hard);
 private:

@@ -652,7 +652,9 @@ void WizMainWindow::closeEvent(QCloseEvent* event)
         setVisible(false);
         event->ignore();
         //
-        WizDatabase::clearCertPassword();
+        // Hiding the main window is not a lock. The application session
+        // monitor applies the shared five-minute/sleep/system-lock policy;
+        // keep credentials required by pending encrypted saves intact.
         //
         return;
     }
@@ -687,13 +689,8 @@ void WizMainWindow::changeEvent(QEvent* event)
     {
         QTimer::singleShot(0, this, SLOT(windowActived()));
     }
-    else if (event->type() == QEvent::WindowStateChange)
-    {
-        if (isMinimized())
-        {
-            WizDatabase::clearCertPassword();
-        }
-    }
+    // Minimizing follows the same application-session grace, not a separate
+    // immediate password-cache clear. Other visible note windows remain usable.
 
     _baseClass::changeEvent(event);
 }

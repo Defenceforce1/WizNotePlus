@@ -97,6 +97,10 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     connect(m_passwordView, SIGNAL(cipherCheckRequest()), SLOT(onCipherCheckRequest()));
     connect(m_passwordView, &WizUserCipherForm::biometricCredentialReady,
             this, &WizDocumentView::onBiometricCredentialReady);
+    auto* session=WizBiometricNoteAccess::Session::applicationSession();
+    m_biometricGate.setSession(session);
+    connect(session,&WizBiometricNoteAccess::Session::authorizationAvailable,
+            this,&WizDocumentView::onSessionAuthorizationAvailable);
     connect(WizSessionAccess::Monitor::applicationMonitor(),&WizSessionAccess::Monitor::accessRetired,
             this,&WizDocumentView::onSessionAccessRetired);
     connect(WizBiometricNoteAccess::PolicyEvents::applicationEvents(),&WizBiometricNoteAccess::PolicyEvents::accessRetired,
@@ -398,6 +402,10 @@ void WizDocumentView::showEvent(QShowEvent *event)
     if (!self) return;
     if (m_encryptedAccessEnabled && !m_note.strGUID.isEmpty() && !m_accessClosing)
         if (!prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))) return;
+    if(self&&m_encryptedAccessEnabled&&!m_accessClosing&&m_stack->currentWidget()==m_passwordView){
+        showAuthorizedNote(biometricContext(),m_biometricGate.ticket());
+        return;
+    }
     if (self && !m_accessClosing) {
         m_web->resumePendingDocumentLoad();
         if (self) m_web->resumeEditorSetup();
@@ -407,7 +415,7 @@ void WizDocumentView::showEvent(QShowEvent *event)
 void WizDocumentView::hideEvent(QHideEvent* event)
 {
     QPointer<WizDocumentView> self(this);
-    // Hiding cancels authentication, not a pending save/navigation completion.
+    // Retire this page's reads/authentication, not the verified app session.
     m_biometricGate.revoke();
     m_biometricPrepared = false;
     m_web->cancelLinkInsert();
@@ -550,7 +558,7 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
     const auto pendingLoad = m_web->pendingLoadSequence();
     const auto requestSequence = ++m_openSequence;
     m_accessClosing = false;
-    revokeBiometricAccess();
+    revokeBiometricAccess(false,false,true);
     if (!self || m_openSequence != requestSequence || m_accessClosing) return;
     const auto opening = m_openEpoch.ticket();
     const bool hadLoadedNote = m_noteLoaded;
@@ -1045,10 +1053,13 @@ WizBiometricNoteAccess::Context WizDocumentView::biometricContext() const
             m_note.strGUID,m_openSequence};
 }
 
-void WizDocumentView::revokeBiometricAccess(bool closing,bool preserveCapture)
+void WizDocumentView::revokeBiometricAccess(bool closing,bool preserveCapture,bool retainSession)
 {
     const QPointer<WizDocumentView> self(this);
     m_openEpoch.invalidate();
+    // Closing a note/window or navigating retires requests, not a certificate
+    // session. Explicit policy/lock/certificate retirement still drops proof.
+    if(!closing&&!retainSession)m_biometricGate.retireSession();
     m_biometricGate.revoke();
     m_biometricPrepared = false;
     if (closing) m_accessClosing = true;
@@ -1066,6 +1077,9 @@ void WizDocumentView::revokeBiometricAccess(bool closing,bool preserveCapture)
 void WizDocumentView::showCertificateUnavailable()
 {
     const QPointer<WizDocumentView> self(this);
+    // Navigation may still have the previous note's gate context. Retire the
+    // failing target's certificate scope, not an unrelated previous KB.
+    m_biometricGate.begin(biometricContext(),true);
     revokeBiometricAccess();
     if (!self) return;
     // Keep the loaded DOM and save credentials. The blank page rejects reads
@@ -1082,22 +1096,20 @@ void WizDocumentView::onSessionAccessRetired(bool hard)
     // Password and Touch ID share this retirement policy. Never retire the
     // save password, dirty DOM, snapshot producer or queued local saves.
     if(!m_encryptedAccessEnabled||m_accessClosing)return;
-    // The native Touch ID panel itself may temporarily deactivate the app.
-    // This exception preserves only an explicit pending native request while
-    // the note is ALREADY locked. It preserves no body grant; the widget holds
-    // success until active. Hard boundaries and hide/navigation still revoke.
-    if(!hard && m_stack->currentWidget()==m_passwordView
-        && m_biometricGate.requiresAuthorization(true)
-        && m_passwordView->preserveNativeAuthenticationOnInactive()) return;
+    // This is an actual grace expiry or hard boundary, not a brief activation
+    // change caused by a native panel. Retire pending proof as well as reads.
     const QPointer<WizDocumentView> self(this);
-    revokeBiometricAccess(false,!hard);
+    // Session subscribes first and already retired the global generation once.
+    // Per-window callbacks must not destroy each other's new locked contexts.
+    revokeBiometricAccess(false,!hard,true);
     if(!self)return;
     m_web->cancelPdfExport();
     if(!self)return;
     m_stack->setCurrentWidget(m_passwordView);
     if(!self||m_accessClosing)return;
-    m_biometricPrepared=true;
     const auto context=biometricContext();
+    m_biometricGate.begin(context,true);
+    m_biometricPrepared=true;
     m_passwordView->prepareBiometric(context,WizBiometricNoteAccess::optedIn(m_userSettings,context.scope));
     // Automatic verification waits for an active, visible locked window. No
     // focus, body grant or navigation while the session is inactive.
@@ -1111,11 +1123,14 @@ void WizDocumentView::onBiometricPolicyRetired(const QString& policy)
     const auto context=biometricContext();
     if(policy.isEmpty()||policy!=WizBiometricNoteAccess::policyIdentity(context.scope))return;
     if(!m_encryptedAccessEnabled&&!WizBiometricNoteAccess::optedIn(m_userSettings,context.scope))return;
-    // New opt-in must upgrade a previously legacy gate before showing password;
-    // certificate revisions retain the policy but never retain the old grant.
-    m_biometricGate.begin(context,true);m_encryptedAccessEnabled=true;
     const QPointer<WizDocumentView> self(this);
-    onSessionAccessRetired();
+    // A record/policy change affects this certificate only, not unrelated KBs.
+    // Its shared generation was already retired by Session's earlier listener.
+    revokeBiometricAccess(false,false,true);
+    if(!self||m_accessClosing)return;
+    m_biometricGate.begin(context,true);m_encryptedAccessEnabled=true;
+    m_web->cancelPdfExport();if(!self)return;
+    m_stack->setCurrentWidget(m_passwordView);
     if(!self||m_accessClosing||!m_biometricGate.current(context))return;
     // Policy changes may lock an already-open legacy note without another
     // review/navigation. Refresh that password page now, without focus, read,
@@ -1132,9 +1147,20 @@ void WizDocumentView::awaitScreenShotAuthorization()
 {
     if(m_accessClosing||!m_encryptedAccessEnabled)return;
     const QPointer<WizDocumentView> self(this);
-    revokeBiometricAccess(false,true);if(!self)return;
-    if(!prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))&&self)
+    revokeBiometricAccess(false,true,true);if(!self)return;
+    if(prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))){
+        if(self)showAuthorizedNote(biometricContext(),m_biometricGate.ticket());
+    }else if(self)
         m_passwordView->setPasswordText(tr("重新输入证书密码以插入刚才的截图；切换笔记将丢弃截图"));
+}
+
+void WizDocumentView::onSessionAuthorizationAvailable(const QString& policy)
+{
+    if(m_accessClosing||!isVisible()||!m_encryptedAccessEnabled
+        ||m_stack->currentWidget()!=m_passwordView||policy!=WizBiometricNoteAccess::policyIdentity(biometricContext().scope))return;
+    const QPointer<WizDocumentView> self(this);
+    if(prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID))&&self)
+        showAuthorizedNote(biometricContext(),m_biometricGate.ticket());
 }
 
 bool WizDocumentView::prepareEncryptedAccess(WizDatabase& db)
@@ -1189,7 +1215,18 @@ bool WizDocumentView::completeBiometricUnlock(const QString& password, const Wiz
     const bool verified = db.cacheCertPasswordLocally(password,cert.n,cert.e,cert.encryptedD);
     if (!self || !verified
         || !biometricRequestCurrent(context,ticket) || !m_biometricGate.grant(context,ticket)) return false;
+    return showAuthorizedNote(context,ticket);
+}
+
+bool WizDocumentView::showAuthorizedNote(const WizBiometricNoteAccess::Context& context,
+                                       const WizBiometricNoteAccess::Gate::Ticket& ticket)
+{
+    if(!biometricRequestCurrent(context,ticket)
+        ||m_biometricGate.requiresAuthorization(!m_dbMgr.db(m_note.strKbGUID).getCertPassword().isEmpty()))return false;
+    const QPointer<WizDocumentView> self(this);
     const auto data = m_note;
+    m_passwordView->cancelBiometric();
+    if(!self||!biometricRequestCurrent(context,ticket))return false;
     m_passwordView->cipherCorrect();
     if (!self || !biometricRequestCurrent(context,ticket)) return false;
     m_stack->setCurrentWidget(m_docView);
