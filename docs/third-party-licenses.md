@@ -21,6 +21,7 @@ engineering inventory, not legal clearance or a complete asset audit.
 | Welcome jQuery UI 1.14.2 | MIT; official CDN bytes verified against published SRI; full license in share/files/welcomepage/js/jquery-ui-dist-LICENSE.txt |
 | Welcome i18next 26.4.2 | MIT; official npm UMD bytes/integrity; full license in share/files/welcomepage/js/i18next-LICENSE.txt; see tests/standalone-reader-opening/welcome-i18n.md |
 | Welcome jQuery 4.0.0 | MIT; official npm/CDN full build with published SRI; unchanged full license in share/files/welcomepage/js/jquery-LICENSE.txt; see tests/standalone-reader-opening/welcome-jquery4.md |
+| Markdown standalone jQuery 3.7.1 | MIT; unmodified official full distribution at legacy compatibility URL share/files/wizeditor/dependency/jquery-3.3.1.js; complete jquery-LICENSE.txt in the same directory; exact input/integrity in tests/component-editor-jquery/inputs.json. Retained1.11.3 and restricted bundled editor are not replaced. |
 
 The original web editor, templates, fonts, images, plugins and further JS
 dependencies retain upstream files and notices. Their full redistribution audit

@@ -3,7 +3,8 @@
 static int runDiagramComponents(QTemporaryDir& root,const QString& resources,const QString& output,const QString& variant){
  QFile marker(output+"/.wiz-synthetic-diagram-components");if(!marker.open(QIODevice::ReadOnly)||marker.readAll()!="synthetic-only\n")return 4;
  const bool flowMaintenance=variant=="flow-baseline"||variant=="flow-candidate";
- const bool candidate=variant=="candidate"||variant=="flow-candidate";if(!candidate&&variant!="baseline"&&!flowMaintenance)return 4;
+ const bool jqueryRelated=variant=="jquery-related";
+ const bool candidate=variant=="candidate"||variant=="flow-candidate"||jqueryRelated;if(!candidate&&variant!="baseline"&&!flowMaintenance)return 4;
  int checks=0,failures=0;const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<text;return ok;};
  QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
  QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(1100,800);auto* page=new QWebEnginePage(&profile,&view);view.setPage(page);QWebChannel channel;Bridge editor,explorer;channel.registerObject("WizQtEditor",&editor);channel.registerObject("WizExplorerApp",&explorer);page->setWebChannel(&channel);
@@ -20,7 +21,7 @@ static int runDiagramComponents(QTemporaryDir& root,const QString& resources,con
  check(js(page,diagrams).toBool(),"existing flow and sequence fences produce labeled SVG diagrams");
  check(js(page,"document.getElementById('mjx-eqn-diagram:eq')&&MathJax.Hub.getAllJax().filter(j=>/\\\\eqref\\{/.test(j.originalText)).every(j=>!new DOMParser().parseFromString(j.root.toMathML(''),'text/xml').documentElement.textContent.includes('?'))").toBool(),"single mixed math reference stays resolved");
  check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"initial exact Markdown source preserved");
- if(!flowMaintenance){const QStringList utilities={
+ if(!flowMaintenance&&!jqueryRelated){const QStringList utilities={
  "JSON.stringify(_.map([1,2],x=>x+1))==='[2,3]'","_.reduce([1,2,3],(a,b)=>a+b,0)===6","_.findWhere([{id:1},{id:2}],{id:2}).id===2","JSON.stringify(_.pluck([{x:'a'},{x:'b'}],'x'))==='[\"a\",\"b\"]'",
  "_.sortBy([{n:2},{n:1}],'n')[0].n===1","_.groupBy([1,2,3],x=>x%2)['1'].length===2","_.isEqual(_.flatten([1,[2,[3]]]),[1,2,3])","_.isEqual(_.uniq([1,1,2]),[1,2])",
  "_.isEqual(_.defaults({a:1},{a:2,b:3}),{a:1,b:3})","_.isEqual(_.extend({a:1},{b:2}),{a:1,b:2})","_.template('<%= name %> / <%- html %>')({name:'中文',html:'<b>'})==='中文 / &lt;b&gt;'","_.chain([1,2,3]).map(x=>x*2).filter(x=>x>2).value().join(',')==='4,6'",
@@ -41,7 +42,7 @@ static int runDiagramComponents(QTemporaryDir& root,const QString& resources,con
  check(wait([&]{return js(page,"modeDone&&!document.body.isContentEditable").toBool();})&&js(page,diagrams).toBool(),"reading after editing redraws both diagrams");
  check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"full diagram mode cycle preserves exact source");
  QJsonArray geometry=QJsonArray::fromVariantList(js(page,"[...document.querySelectorAll('svg')].filter(s=>!s.closest('.MathJax_SVG,mjx-container')).map(s=>({width:s.getBoundingClientRect().width,height:s.getBoundingClientRect().height,text:s.textContent,paths:s.querySelectorAll('path').length}))").toList());
- if(candidate){const auto beforeHtml=js(page,"WizEditor.getContentHtml()"),beforeDom=js(page,"document.documentElement.outerHTML"),beforeModified=js(page,"WizEditor.isModified()");WizPdfPageOperations operations;
+ if(candidate&&!jqueryRelated){const auto beforeHtml=js(page,"WizEditor.getContentHtml()"),beforeDom=js(page,"document.documentElement.outerHTML"),beforeModified=js(page,"WizEditor.isModified()");WizPdfPageOperations operations;
  for(const auto mode:{WizPdfExport::Mode::A4,WizPdfExport::Mode::ReadingWidth}){
  const QString name=mode==WizPdfExport::Mode::A4?"a4":"reading";auto done=std::make_shared<bool>(false);auto bytes=std::make_shared<QByteArray>();
  operations.printWithMode(page,[]{return true;},0,QMarginsF(10,10,10,10),mode,[done,bytes](const QByteArray& data){*bytes=data;*done=true;},[]{return true;},QUrl::fromLocalFile(resources+"wizeditor/dependency/mathjax/MathJax.js"));
