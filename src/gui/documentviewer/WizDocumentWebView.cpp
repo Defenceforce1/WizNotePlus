@@ -1984,7 +1984,7 @@ void WizDocumentWebView::insertScriptAndStyleCore(QString& strHtml, const std::m
 }
 
 
-bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName, bool prepareMarkdownReader)
+bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName, bool prepareReaderPresentation)
 {
     const QPointer<WizDocumentWebView> self(this);
     const auto read = noteReadPermit();
@@ -2009,7 +2009,7 @@ bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName, b
     replaceDefaultCss(strHtml);
     if (!self || !read.current()) return false;
 
-    if (prepareMarkdownReader)
+    if (prepareReaderPresentation)
         WizHTMLAppendTextInHead(WizReaderOpeningPresentation::bootstrapHtml(), strHtml);
 
     const bool written = WizDocumentReadOutput::writeUtf8(read, htmlFileName, strHtml, true);
@@ -2048,7 +2048,13 @@ bool WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode, WizDocument
     bool ret = WizLoadUnicodeTextFromFile(strFileName, strHtml);
     if (!preparing() || !ret) return false;
 
-    const bool prepareReader = editorMode != modeEditor && getNoteType() == "markdown";
+    // Both readers initialize the editor before applying their final layout.
+    // Presenting common HTML in between exposes the same raw/body/style jumps
+    // as Markdown. Reuse the bounded, source-free presentation bootstrap only
+    // for these two reader paths; initial editing and other note types keep
+    // their existing behavior.
+    const QString noteType = getNoteType();
+    const bool prepareReader = WizReaderOpeningPresentation::shouldPrepare(editorMode == modeEditor, noteType);
     if (!preparing() || !addDefaultScriptsToDocumentHtml(strFileName, prepareReader) || !preparing()) return false;
 
     WizEditorMode oldMode = m_currentEditorMode;

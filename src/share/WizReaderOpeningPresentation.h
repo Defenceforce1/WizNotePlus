@@ -3,6 +3,10 @@
 #include <QRegularExpression>
 
 namespace WizReaderOpeningPresentation {
+inline bool shouldPrepare(bool editing, const QString& noteType)
+{
+    return !editing && (noteType == "markdown" || noteType == "common");
+}
 inline void removeBootstrap(QString& html)
 {
     // Cached temporary HTML can be reopened directly in edit mode. Remove

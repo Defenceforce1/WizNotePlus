@@ -1,5 +1,14 @@
 # PDF设置文案检查与Markdown打开时序诊断
 
+第235轮增加`reader-opening FILES ordinary-opening OUTPUT gated|ungated`。
+OUTPUT须已有`.wiz-synthetic-ordinary-opening`标记，内容`synthetic-only`加换行。
+使用真实common公开初始化、与原生相同默认CSS注入、同一生产呈现准入函数，
+观察冷／热／自定义样式页面的animation-frame几何和可见性。无控制对照27项，
+有控制33项；最终三个场景可见布局均2→1、未就绪可见帧归零。合成修改／表格
+及编辑阅读往返保留，CSSOM隐藏规则不入保存内容。另普通18／保存50／控制38
+关联检查和Markdown三轮情景通过，不重跑无关全套。不是屏幕录像、真实资料或
+整个主窗口验收；235仅源码，已编译但未制作新App，当前234不含本轮。
+
 当前原生内存归因使用下文第209轮`retention-*`模式。第208轮`stress-*`仍用于
 功能／吞吐；其多次开关在同一外层回调里，内存曲线不能代表逐次用户操作后的
 回收，也不能据此判定共享profile泄漏。既有公式正确性结果不因此重跑。

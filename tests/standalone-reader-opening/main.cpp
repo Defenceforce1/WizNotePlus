@@ -55,6 +55,7 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "mathjax-font-preview.h"
 #include "frontend-components.h"
 #include "ordinary-workflow.h"
+#include "ordinary-opening.h"
 #include "diagram-components.h"
 #include "welcome-jquery4.h"
 #include "welcome-components.h"
@@ -79,6 +80,7 @@ int main(int argc,char**argv){
     if(kind=="math-references"&&argc==4)return runMathReferences(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="frontend-components"&&argc==4)return runFrontendComponents(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="ordinary-workflow"&&argc==4)return runOrdinaryWorkflow(root,resources,QString::fromLocal8Bit(argv[3]));
+    if(kind=="ordinary-opening"&&argc==5)return runOrdinaryOpening(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4])=="gated");
     if(kind=="mathjax-benchmark"&&argc==5)return runMathjaxBenchmark(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-font-preview"&&argc==5)return runMathjaxFontPreview(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-upgrade"&&argc==5)return runMathjaxUpgrade(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
