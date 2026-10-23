@@ -12,6 +12,7 @@ const en_US = {
     "labelRecentDocuments": "Recent Documents",
     "labelRecentAccessedDocuments": "Recent Read",
     "labelUnreadDocuments": "Unread Documents",
+    "unreadEmpty": "No documents",
     "labelTodo": "Todo",
     "todoAdd": "Add",
     "todoSave": "Add",
@@ -32,6 +33,7 @@ const zh_CN = {
     "labelRecentDocuments": "近期文档",
     "labelRecentAccessedDocuments": "近期阅读",
     "labelUnreadDocuments": "未读文档",
+    "unreadEmpty": "暂无文档",
     "labelTodo": "待办事宜",
     "todoAdd": "添加",
     "todoSave": "添加",
@@ -141,7 +143,7 @@ async function listUnreadDocuments() {
     listUnread.innerHTML = "";
     if (documents.length == 0) {
         const item = document.createElement("li");
-        item.innerHTML = "No documents";
+        item.textContent = i18next.t("unreadEmpty");
         listUnread.appendChild(item);
         return;
     }

@@ -33,6 +33,7 @@ static int runTodoWelcome(QTemporaryDir& root, const QString& resources, const Q
     if (!check(wait([&] { return loaded; }) && ok, "actual local Welcome assets load")) return 6;
     if (!check(wait([&] { return js(page, "window.syntheticTodo&&getComputedStyle(document.body).visibility==='visible'").toBool(); }), "actual Welcome initialization completes")) return 7;
     check(js(page, "todoForm.hidden&&listTodo.textContent==='暂无待办'&&todoAdd.textContent==='添加'").toBool(), "simple Chinese Add entry with initially hidden form");
+    check(js(page, "listUnread.textContent==='暂无文档'&&!listUnread.querySelector('a')").toBool(), "empty unread list is Chinese rather than a hardcoded English fallback");
     js(page, "todoAdd.click();");
     check(js(page, "!todoForm.hidden&&todoTitle.value===''&&todoDate.value==='2026-10-23'&&!todoTitle.readOnly").toBool(), "Add opens title and local-date fields");
     js(page, "todoCancel.click();");
@@ -72,14 +73,17 @@ static int runTodoWelcome(QTemporaryDir& root, const QString& resources, const Q
     check(wait([&] { return js(page, "oldRefreshFinished&&!listTodo.textContent.includes('排队双击')").toBool(); }), "late refresh cannot restore completed task");
     check(js(page, "dateToStr(new Date('2026-10-23T00:10:00+08:00'))==='2026-10-23'").toBool(), "local midnight date does not shift to prior UTC day");
     check(js(page, "$('#datepicker').hasClass('hasDatepicker')&&$('#tabs').tabs('option','active')===0").toBool(), "existing calendar and tabs retained");
+    const auto welcomeEmptyRect = QJsonObject::fromVariantMap(js(page,"listUnread.getBoundingClientRect().toJSON()").toMap());
     check(view.grab().save(output + "/todo-welcome.png"), "capture synthetic Welcome for visual review");
     js(page, "todoAdd.click();todoTitle.value='下一项待办';");
+    const auto formEmptyRect = QJsonObject::fromVariantMap(js(page,"listUnread.getBoundingClientRect().toJSON()").toMap());
     check(view.grab().save(output + "/todo-form.png"), "capture minimal creation form");
     checkWelcomeJquery4(page, output, check);
     check(local.blocked.load() == 0, "no external requests or account access");
     check(!view.windowHandle() || !view.windowHandle()->isExposed(), "no foreground test window");
     QJsonObject result{{"checks", checks}, {"failures", failures}, {"syntheticTransportOnly", true},
         {"actualDatabaseOrAccountAccepted", false}, {"externalBlocked", local.blocked.load()},
+        {"welcomeEmptyUnreadRect",welcomeEmptyRect},{"formEmptyUnreadRect",formEmptyRect},{"devicePixelRatio",view.devicePixelRatioF()},
         {"jquery",js(page,"jQuery.fn.jquery").toString()},
         {"migrationDiagnostic",QFile::exists(output+"/migration-input.js")},
         {"migrationWarnings",QJsonArray::fromVariantList(js(page,"jQuery.migrateWarnings||[]").toList())},
