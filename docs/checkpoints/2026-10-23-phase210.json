@@ -1,0 +1,83 @@
+{
+  "phase": 210,
+  "importantRollbackBuild": 207,
+  "sourceCheckpoint": "b3ee89d3e187aff94c32e25785b3761175d68391",
+  "appEntriesVerified": 1700,
+  "dmg": {
+    "bytes": 130129616,
+    "sha256": "2d37edbdea0651cb893a52c5eab467e6f8587bdc2b74f7985b9c84f624b04e65"
+  },
+  "source": {
+    "bytes": 29161755,
+    "sha256": "7bc2df1127d45cd8d9225c1199b4da1151877fe41b109eb52d29e837d1f373c9",
+    "entries": 2818
+  },
+  "branch": "improve/component-updates-20261023",
+  "branchCreated": true,
+  "existingLogicAndHabitsPreserved": true,
+  "sqlitePilot": {
+    "phase": 210,
+    "accepted": true,
+    "officialSourceSha3_256": "e2b869d3003b33c942b7dd7063604fbc53553e1b66609570df39b9b7b558ee81",
+    "downloadUrl": "https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip",
+    "oldVersion": "3.7.8",
+    "candidateVersion": "3.54.1",
+    "results": [
+      {
+        "tag": "old-create",
+        "version": "3.7.8",
+        "mode": "create",
+        "checks": 6042,
+        "failures": 0,
+        "syntheticOnly": true
+      },
+      {
+        "tag": "old-to-new",
+        "version": "3.54.1",
+        "mode": "check",
+        "checks": 37,
+        "failures": 0,
+        "syntheticOnly": true
+      },
+      {
+        "tag": "old-to-old",
+        "version": "3.7.8",
+        "mode": "check",
+        "checks": 37,
+        "failures": 0,
+        "syntheticOnly": true
+      },
+      {
+        "tag": "new-create",
+        "version": "3.54.1",
+        "mode": "create",
+        "checks": 6042,
+        "failures": 0,
+        "syntheticOnly": true
+      },
+      {
+        "tag": "new-to-old",
+        "version": "3.7.8",
+        "mode": "check",
+        "checks": 37,
+        "failures": 0,
+        "syntheticOnly": true
+      },
+      {
+        "tag": "new-to-new",
+        "version": "3.54.1",
+        "mode": "check",
+        "checks": 37,
+        "failures": 0,
+        "syntheticOnly": true
+      }
+    ],
+    "productionSourceChanged": false,
+    "mainWrapperOrClientAcceptance": false,
+    "realDatabasesAccessed": false,
+    "existingLogicChangeAllowed": false,
+    "next": "Test actual application SQLite wrapper and synthetic schema/queries before production dependency replacement."
+  },
+  "installed": false,
+  "realNotesAccessed": false
+}
