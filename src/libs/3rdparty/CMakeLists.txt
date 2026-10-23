@@ -8,6 +8,12 @@ if (WIN32)
 endif()
 
 add_subdirectory(framelesshelper)
+# Retain the previous archive/filename behavior during the QuaZip update.
+# No new compression dependency or configure-time dependency download.
+set(QUAZIP_BZIP2 OFF CACHE BOOL "Keep existing zlib-only archive support")
+set(QUAZIP_ENABLE_QTEXTCODEC ON CACHE BOOL "Keep existing filename encodings")
+set(QUAZIP_FETCH_LIBS OFF CACHE BOOL "No automatic dependency downloads")
+set(QUAZIP_FORCE_FETCH_LIBS OFF CACHE BOOL "No forced dependency downloads")
 add_subdirectory(quazip)
 
 # Build gumbo-parser

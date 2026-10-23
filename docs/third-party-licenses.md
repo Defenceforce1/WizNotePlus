@@ -9,7 +9,7 @@ engineering inventory, not legal clearance or a complete asset audit.
 | Qt 6 modules | LGPL-3.0 / GPL options; inspect exact module and bundled dependency notices |
 | Qt WebEngine / Chromium | Qt license plus many third-party notices in QtWebEngineCore resources |
 | FramelessHelper | MIT, pinned source headers/LICENSE |
-| QuaZip | LGPL-2.1-or-later; COPYING and static-link exception in pinned source |
+| QuaZip 1.7.2 | LGPL-2.1-or-later; COPYING and static-link exception in pinned upstream commit 3108956647d02547615d4b9aca71b0c517f6dda1; see tests/standalone-quazip-upgrade/README.md |
 | MiniZip | zlib, QuaZip zip/unzip source headers |
 | Gumbo | Apache-2.0, COPYING |
 | Crypto++ 8.9 | Boost Software License 1.0; License.txt, some historical files public domain |
