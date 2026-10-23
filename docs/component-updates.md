@@ -2,6 +2,20 @@
 
 更新：2026-10-23；分支`improve/component-updates-20261023`。
 
+## 第224轮：Underscore与Raphaël
+
+Underscore1.8.3→1.13.8（UMD），Raphaël2.1.4→2.3.0（含原有Eve完整分发），
+固定官方包／逐文件字节并保留MIT。旧流程图1.11.3、时序图2.0.1、语法、字体、
+菜单、jQuery及受限编辑器保持；这不是图表引擎重写或新语法。官方版本记录见
+[Underscore](https://underscorejs.org/#changelog)与[Raphaël](https://github.com/DmitryBaranovskiy/raphael/releases/tag/v2.3.0)。
+
+旧包31项、新资源与最终[224候选](release-14.4.25-build224-diagrams-test.md)各37项
+图表关联检查通过；固定样本图形尺寸／路径数保持，编辑保存／原文和双PDF保持。
+四份PDF严格字号／纸宽／标签矢量／跳转及4页渲染查看通过，包内图像与受验资源
+一致。不称全功能、真实同步、所有图表／宏包或长期内存验收，不承诺整App提速。
+未压缩包合计增加7212字节，原生执行内容与Qt／其它组件保持。试用沿用固定资料
+目录及入口，不再按版本新建，222原App与220／207重要回退不动。
+
 ## 第222轮：Marked与CodeMirror5
 
 Marked17.0.5→18.1.1，CodeMirror5.53.2→5.65.21（核心和原有三个扩展），

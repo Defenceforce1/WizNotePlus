@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "scope": "Underscore UMD and full Raphael with bundled Eve only;flow/sequence grammars and editor unchanged",
+  "packages": [
+    {
+      "name": "underscore",
+      "version": "1.13.8",
+      "gitHead": "4a4019e00beb2c42eda20c05f375a35983b748f0",
+      "tarball": "https://registry.npmjs.org/underscore/-/underscore-1.13.8.tgz",
+      "integrity": "sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==",
+      "shasum": "a93a21186c049dbf0e847496dba72b7bd8c1e92b",
+      "sha256": "6547214df2878ae60cc552422ef14af38b8d4e3aa613be5bfe9c52b775d96f7a",
+      "bytes": 218015,
+      "jsfile": "underscore-umd-min.js",
+      "license": "LICENSE",
+      "jsSha256": "89e99999dfa83ee9fb88e58beb7820961dbfcf391cee2f361ffd4a3489309c69",
+      "licenseSha256": "92905fb54f5d168a27e6d5dc7c2197020add11842be4c70689d084bae3bfe37a",
+      "integrityVerified": true,
+      "noInstallLifecycle": true
+    },
+    {
+      "name": "raphael",
+      "version": "2.3.0",
+      "gitHead": "d8fbe4be81d362837f95e33886b80fb41de443b4",
+      "tarball": "https://registry.npmjs.org/raphael/-/raphael-2.3.0.tgz",
+      "integrity": "sha512-w2yIenZAQnp257XUWGni4bLMVxpUpcIl7qgxEgDIXtmSypYtlNxfXWpOBxs7LBTps5sDwhRnrToJrMUrivqNTQ==",
+      "shasum": "eabeb09dba861a1d4cee077eaafb8c53f3131f89",
+      "sha256": "0100bbfd229950e6ef94e560aa65335d2dcaa76a257bbdf8952d485c6d02c51f",
+      "bytes": 265595,
+      "jsfile": "raphael.min.js",
+      "license": "license.txt",
+      "jsSha256": "4da6e9aca75e3576d27ac0962ccadc6d6483cd486901d70d3dee50e77ae7f588",
+      "licenseSha256": "4cafcc8112392ea76caa7e4362c7aa557bcc613b9730a897828b2c858e857f1f",
+      "integrityVerified": true,
+      "noInstallLifecycle": true
+    }
+  ],
+  "files": [
+    {
+      "package": "underscore",
+      "source": "underscore-umd-min.js",
+      "path": "share/files/wizeditor/dependency/underscore.js",
+      "sha256": "89e99999dfa83ee9fb88e58beb7820961dbfcf391cee2f361ffd4a3489309c69"
+    },
+    {
+      "package": "underscore",
+      "source": "LICENSE",
+      "path": "share/files/wizeditor/dependency/underscore-LICENSE.txt",
+      "sha256": "92905fb54f5d168a27e6d5dc7c2197020add11842be4c70689d084bae3bfe37a"
+    },
+    {
+      "package": "raphael",
+      "source": "raphael.min.js",
+      "path": "share/files/wizeditor/dependency/raphael.js",
+      "sha256": "4da6e9aca75e3576d27ac0962ccadc6d6483cd486901d70d3dee50e77ae7f588"
+    },
+    {
+      "package": "raphael",
+      "source": "license.txt",
+      "path": "share/files/wizeditor/dependency/raphael-LICENSE.txt",
+      "sha256": "4cafcc8112392ea76caa7e4362c7aa557bcc613b9730a897828b2c858e857f1f"
+    }
+  ],
+  "officialSources": [
+    "https://underscorejs.org/#changelog",
+    "https://github.com/DmitryBaranovskiy/raphael/releases/tag/v2.3.0"
+  ]
+}
