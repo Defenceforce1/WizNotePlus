@@ -1,0 +1,48 @@
+{
+  "phase": 213,
+  "date": "2026-10-23",
+  "kind": "qt-612-candidate-input-review-no-production-change",
+  "branch": "improve/component-updates-20261023",
+  "previousSourceCommit": "3f85c6c4ad54a40a88f15617478938f345f2f8f5",
+  "alreadyIntegrated": ["SQLite 3.54.1", "QuaZip 1.7.2"],
+  "candidate": {
+    "name": "Qt and QtWebEngine",
+    "requestedVersion": "6.12.0",
+    "accepted": false,
+    "basePackageBuild": "6.12.0-0-202609280346",
+    "webEngineExtensionBuild": "6.12.0-0-202607081027",
+    "webEngineSourceArchive": "qtwebengine-everywhere-src-6.12.0-beta2.tar.xz",
+    "sourceMetadata": "https://download.qt.io/online/qtsdkrepository/all_os/extensions/qtwebengine/6120/src_doc_examples/Updates.xml",
+    "macBinaryMetadata": "https://download.qt.io/online/qtsdkrepository/mac_x64/extensions/qtwebengine/6120/clang_64/Updates.xml",
+    "officialReleaseModules": "https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/",
+    "officialTarXzModulesListed": 41,
+    "webEngineInReviewedFinalDirectory": false,
+    "gitHubMirrorTagAndCodeQtSourceStatus": 404,
+    "installerDryRunListsMixedBaseAndExtensionBuilds": true,
+    "reasonNotSelected": "WebEngine source metadata explicitly selects beta2; matching final source inputs are not established through reviewed official endpoints.",
+    "differentBuildDatesAloneProveIncompatibility": false,
+    "claimAllPossibleSourcesUnavailable": false
+  },
+  "retainedRuntime": {
+    "version": "6.11.3",
+    "existingPdfDestinationPatchPreserved": true,
+    "existingOffscreenMetalOwnershipPatchPreserved": true,
+    "pinnedBuildIdentityChecksWeakened": false,
+    "mathJaxMajorVersionChanged": false
+  },
+  "validationScope": {
+    "metadataAndInstallerDryRunOnly": true,
+    "runtimeOrSdkInstalled": false,
+    "sourceOrBinaryArchivesDownloaded": false,
+    "enginePatchPortOrBuildAttempted": false,
+    "formulaPdfOrMemorySuitesRepeated": false,
+    "securityTesting": false,
+    "productionCodeChanged": false,
+    "fullClientAcceptance": false
+  },
+  "installedAppOrRealNotesTouched": false,
+  "importantRollbackUnchanged": true,
+  "newPackageProduced": false,
+  "automationPaused": true,
+  "next": "Keep the two accepted source integrations. Only evaluate a new Qt runtime after matching final WebEngine source and SDK provenance, then port existing patches in isolation and run necessary affected regressions; do not substitute beta2."
+}

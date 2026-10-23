@@ -67,3 +67,25 @@ SQLite和QuaZip的首批兼容更新均已源码接入；暂未制作新DMG，�
 Qt含本项目WebEngine补丁，MathJax存在大版本API差异，均保留现有实现，另案做
 独立候选及关联验证；不直接替换生产运行时或第三方编辑器。不会为了更新数量
 强行改用新API、改变资料格式或扩大到真实资料测试。
+
+## Qt 6.12候选暂不采用
+
+第213轮核对的[Qt 6.12发布记录](https://www.qt.io/blog/qt-6.12-released)和安装器
+列表已提供6.12.0基础组件，但不能据此推断WebEngine扩展也已正式发布。
+当前[WebEngine源码元数据](https://download.qt.io/online/qtsdkrepository/all_os/extensions/qtwebengine/6120/src_doc_examples/Updates.xml)
+的源码归档是`qtwebengine-everywhere-src-6.12.0-beta2.tar.xz`，版本构建号
+`6.12.0-0-202607081027`。[macOS扩展元数据](https://download.qt.io/online/qtsdkrepository/mac_x64/extensions/qtwebengine/6120/clang_64/Updates.xml)
+也指向同一7月构建；安装器dry-run会把它与9月28日构建的6.12.0基础包放入同一
+SDK。本轮不据此安装或拼接运行时。
+
+已核对的[6.12.0正式源码目录](https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/)
+列出41个tar.xz模块，但没有qtwebengine。GitHub镜像的v6.12.0标签和code.qt.io
+对应源码路径返回404。这些结果限定于本次已查官方入口，不代表所有来源均不存在，
+也不把不同日期本身当作二进制不兼容证明；明确的beta2源码才是当前候选不采用的
+依据。
+
+SDK／源码／二进制均未安装或下载，未尝试将原PDF目的地补丁和Metal最终纹理
+所有权补丁移植到该beta候选。现有打包工具继续固定6.11.3、五个源码摘要和四个
+底层Qt构建身份，不放宽版本检查。正式WebEngine源与匹配SDK可核对后，下一阶段
+才做补丁适用性、独立构建和受影响PDF／内存路径的必要回归；不以Qt基础版发布
+代替这项接入条件。
