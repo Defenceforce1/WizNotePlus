@@ -1,0 +1,47 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != --check ) ]]; then
+    echo '用法：启动测试版.command [--check]'
+    exit 2
+fi
+package_dir=$(cd "$(dirname "$0")" && pwd -P)
+app_bundle="$package_dir/WizNotePlus Apple Silicon.app"
+app_binary="$app_bundle/Contents/MacOS/WizNotePlus"
+# All future candidates reuse this sibling store; never use a build number here.
+test_root="$(cd "$package_dir/.." && pwd -P)/WizNotePlus-测试资料"
+if [[ ! -d "$app_bundle" || -L "$app_bundle" || ! -x "$app_binary" || -L "$app_binary" ]]; then
+    echo '未找到旁边的 build@BUILD@ 测试程序；请保留整个测试目录。'
+    exit 1
+fi
+if [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Contents/Info.plist") != io.github.defenceforce1.wiznoteplus.applesilicon ||
+      $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_bundle/Contents/Info.plist") != 14425.@BUILD@ ]]; then
+    echo '不是 build@BUILD@ 候选；未启动任何程序。'
+    exit 1
+fi
+expected=@EXE_SHA256@
+actual=$(/usr/bin/shasum -a 256 "$app_binary")
+if [[ ${actual%% *} != "$expected" ]]; then
+    echo '测试程序与已验证的 build@BUILD@ 不一致；未启动。'
+    exit 1
+fi
+/usr/bin/codesign --verify --deep --strict "$app_bundle"
+if [[ -L "$test_root" || ( -e "$test_root" && ! -d "$test_root" ) ]]; then
+    echo '测试资料路径不是普通目录；未启动。'
+    exit 1
+fi
+
+# Do not create/copy/reset a user store or change saved login preferences here.
+unset DYLD_FRAMEWORK_PATH DYLD_LIBRARY_PATH QT_PLUGIN_PATH QT_QPA_PLATFORM
+unset QT_QPA_PLATFORM_PLUGIN_PATH QTWEBENGINE_CHROMIUM_FLAGS QTWEBENGINE_DISABLE_SANDBOX
+export WIZNOTE_DATA_STORE="$test_root"
+if [[ ${1:-} == --check ]]; then
+    exec "$app_binary" --check-startup
+fi
+if /usr/sbin/lsof -nP -iTCP:8848 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo '已有程序占用启动端口，请先正常退出它；本启动器不会关闭现用 App。'
+    exit 1
+fi
+echo '启动 build@BUILD@ 测试版，无需安装。'
+echo "固定测试资料：$test_root"
+exec "$app_binary"
