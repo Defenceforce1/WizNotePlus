@@ -203,6 +203,34 @@ function WizApplyNoteStyle(css) {
 // The preset marker is an explicit opt-in; normal quotes and code are untouched.
 var WizMathDecoration = { blocks: [], links: [], splits: [] };
 var WizMathReferenceNavigation = { timer: null, sequence: 0 };
+var WizMathReferenceRoot = null;
+function WizInstallMathReferenceNavigation() {
+  var root = document.body;
+  if (!root || root === WizMathReferenceRoot) return;
+  WizMathReferenceRoot = root;
+  // The reader replaces body/document nodes, losing MathJax's per-node click
+  // handlers. Delegate on each new root and handle SVG children as well as HTML.
+  root.addEventListener('click', function (event) {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey
+        || event.altKey || event.shiftKey || document.body !== root || root.isContentEditable) return;
+    var node = event.target && event.target.nodeType === 1 ? event.target : event.target.parentElement;
+    var link = node && node.closest('a');
+    if (!link || !(link.classList.contains('wiz-math-reference')
+        || link.closest('.MathJax_SVG,.MathJax,.MathJax_Display'))) return;
+    var href = link.getAttribute('href') || link.getAttributeNS('http://www.w3.org/1999/xlink','href');
+    if (!href) return;
+    try {
+      var target = new URL(href, document.baseURI), current = new URL(location.href);
+      var anchor = decodeURIComponent(target.hash.slice(1));
+      target.hash = current.hash = '';
+      if ((!href.startsWith('#') && target.href !== current.href)
+          || !/^(?:mjx-eqn-|wiz-math-)[A-Za-z0-9_:./-]{1,128}$/.test(anchor)
+          || !document.getElementById(anchor)) return;
+      event.preventDefault(); event.stopPropagation();
+      WizNavigateMathReference(anchor);
+    } catch (_) { /* Ordinary or malformed links keep their original behavior. */ }
+  }, true);
+}
 function WizClearMathReferenceNavigation() {
   var state = WizMathReferenceNavigation;
   if (state.timer !== null) clearTimeout(state.timer);
@@ -337,6 +365,7 @@ function WizMathTextContexts(nodes, body) {
   return contexts;
 }
 function WizApplyMathEnvironments() {
+  WizInstallMathReferenceNavigation();
   WizClearMathEnvironments();
   var body = document.body;
   var preset = window.WizNoteCss && window.WizNoteCss.indexOf('/* WizNotePlus scientific math environments v1 */') >= 0;

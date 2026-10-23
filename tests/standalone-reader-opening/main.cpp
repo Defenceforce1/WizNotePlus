@@ -50,12 +50,16 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "stress.h"
 #include "retention.h"
 #include "mathjax-upgrade.h"
+#include "math-references.h"
+#include "mathjax-benchmark.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
+    if(kind=="math-references"&&argc==4)return runMathReferences(root,resources,QString::fromLocal8Bit(argv[3]));
+    if(kind=="mathjax-benchmark"&&argc==5)return runMathjaxBenchmark(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-upgrade"&&argc==5)return runMathjaxUpgrade(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="retention-nested"||kind=="retention-yield"||kind=="retention-nested-pool"||kind=="retention-yield-persistent"){
         if(QGuiApplication::platformName()!="cocoa")return 4;int status=0;

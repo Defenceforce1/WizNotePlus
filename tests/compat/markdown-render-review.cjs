@@ -10,7 +10,7 @@ function fixture(code=source){
  const events=[],loads=[],listeners=new Map(),block={querySelector:()=>null,isConnected:true,textContent:'Synthetic',tagName:'DIV',replaceWith(){}};
  const context={console:{error(){}},Map,Uint8Array,Promise,setTimeout,clearTimeout,document:{body:{classList:{contains:()=>true},isContentEditable:false},querySelectorAll:()=>[block]},addEventListener:(n,f)=>listeners.set(n,f),removeEventListener:(n,f)=>{if(listeners.get(n)===f)listeners.delete(n);}};
  context.window=context;context.WizEditor={on:function(o,cb){events.push('on');context.document.body.isContentEditable=true;if(typeof o==='function')o();else if(cb)cb();return this;},off:function(o,cb){events.push('off');context.document.body.isContentEditable=false;if(cb)cb();return this;}};
- context.WizReader={};context.MathJax={InputJax:{TeX:{resetEquationNumbers(){}}},Hub:{Queue(args){events.push('typeset');args[3]();}}};
+ context.WizReader={};context.MathJax={InputJax:{TeX:{resetEquationNumbers(){}}},Hub:{Queue(args,callback){events.push(typeof args==='function'?'callback':args[0]);if(typeof args==='function')args();else if(args[3])args[3]();if(callback)callback();}}};
  vm.createContext(context);vm.runInContext(code,context);context.WizLoadMarkdownEnvironmentMathJax=()=>new Promise((resolve,reject)=>loads.push({resolve,reject}));
  context.WizInstallMarkdownEnvironmentRendering('synthetic-local',{});
  return {context,events,loads,listeners};

@@ -55,10 +55,22 @@ function WizMarkdownEnvironmentBlocks(source) {
 }
 
 function WizProtectMarkdownEquationReferences(source) {
-  if (source.indexOf('\\eqref{') < 0) return source;
+  if (!/\\(?:eqref|ref)\{/.test(source)) return source;
   var code = WizMarkdownEnvironmentCodePositions(source), math = WizMathProtectedPositions(source);
-  return source.replace(/\\eqref\{[A-Za-z0-9_:./-]{1,128}\}/g, function (reference, offset) {
+  // Plain \ref also needs the supplemental pass when there is no $ math to
+  // start the old reader's engine. Only known mathematical labels qualify;
+  // theorem/quote references remain owned by the existing prose decorator.
+  var raw = WizEditor.getMarkdownSrc({unEscapeHtml:true}), rawCode = WizMarkdownEnvironmentCodePositions(raw);
+  var mathLabels = new Set(), label;
+  var environments = /\\begin\{((?:equation|align|gather|multline|alignat)\*?)\}[\s\S]*?\\end\{\1\}/g, environment;
+  while ((environment = environments.exec(raw))) {
+    if (rawCode[environment.index]) continue;
+    var labels = /\\label\{([A-Za-z0-9_:./-]{1,128})\}/g;
+    while ((label = labels.exec(environment[0]))) mathLabels.add(label[1]);
+  }
+  return source.replace(/\\(eqref|ref)\{([A-Za-z0-9_:./-]{1,128})\}/g, function (reference, kind, key, offset) {
     if (code[offset] || math[offset]) return reference;
+    if (kind === 'ref' && !mathLabels.has(key)) return reference;
     var encoded = Array.from(reference).map(function (c) { return '&#' + c.codePointAt(0) + ';'; }).join('');
     return '<span class="wiz-latex-math">' + encoded + '</span>';
   });
@@ -148,6 +160,12 @@ function WizPrepareMarkdownMathJaxScheduling() {
 var WizMarkdownEnvironmentLoader = null;
 function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
   if (WizMarkdownEnvironmentLoader) return WizMarkdownEnvironmentLoader;
+  // A reading pass with ordinary $...$/$$...$$ has already created the
+  // current engine and live jax. Replacing it discards its equation labels.
+  // Never reuse a previous pass whose body/glyph cache has been removed.
+  if (window.MathJax && MathJax.Hub && MathJax.Hub.getAllJax
+      && MathJax.Hub.getAllJax(document.body).length)
+    return new Promise(function (resolve) { MathJax.Hub.Queue(resolve); });
   var request = new Promise(function (resolve, reject) {
     var settled = false, script;
     var deadline = setTimeout(function () { finish(new Error('Bundled MathJax initialization timed out')); }, 30000);
@@ -232,16 +250,21 @@ function WizInstallMarkdownEnvironmentRendering(dependencyUrl, callbacks) {
       window.WizMarkdownEnvironmentRenderState = 'pending';
       var render = WizLoadMarkdownEnvironmentMathJax(dependencyUrl).then(function () {
         if (!current(token) || document.body.isContentEditable) return;
-        if (MathJax.InputJax.TeX.resetEquationNumbers) MathJax.InputJax.TeX.resetEquationNumbers();
         return new Promise(function (resolve) {
-          // Only accepted math/reference wrappers: the legacy reader leaves
-          // some tilde code fences as ordinary DOM text, not <pre> elements.
-          MathJax.Hub.Queue(['Typeset', MathJax.Hub, blocks, resolve]);
+          // Preprocess only accepted wrappers (legacy tilde fences can remain
+          // plain DOM text). Reprocess all live jax as one numbering pass so
+          // previously unresolved forward references see supplemental labels.
+          MathJax.Hub.Queue(['PreProcess', MathJax.Hub, blocks], function () {
+            if (!current(token) || document.body.isContentEditable) { resolve(); return; }
+            if (MathJax.InputJax.TeX.resetEquationNumbers) MathJax.InputJax.TeX.resetEquationNumbers();
+            MathJax.Hub.Queue(['Reprocess', MathJax.Hub, document.body, resolve]);
+          });
         });
       }).then(function () {
         if (!current(token)) return;
         window.WizMarkdownEnvironmentRenderState = 'ready';
         if (callbacks && typeof callbacks.mathJax === 'function') callbacks.mathJax();
+        if (typeof WizInstallMathReferenceNavigation === 'function') WizInstallMathReferenceNavigation();
       }).catch(function (error) {
         if (!current(token)) return;
         blocks.forEach(function (block) {

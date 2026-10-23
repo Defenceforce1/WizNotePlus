@@ -102,6 +102,9 @@ function WizLatexTheoremBody(source, depth) {
   spans.sort(function (a, b) { return b.start - a.start; }).forEach(function (span) {
     source = source.slice(0, span.start) + span.html + source.slice(span.end);
   });
+  // Use the same known-math-label rule for plain \ref inside theorem prose;
+  // theorem-to-theorem references remain ordinary text for the block decorator.
+  source = WizProtectMarkdownEquationReferences(source);
   if (!window.marked || typeof marked.parse !== 'function') throw new Error('Local theorem Markdown parser unavailable');
   return marked.parse(source, {async:false, gfm:true, breaks:true});
 }
