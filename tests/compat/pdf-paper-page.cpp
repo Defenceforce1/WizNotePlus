@@ -32,6 +32,11 @@ std::shared_ptr<Prepared> prepare(QObject* owner,QWebEnginePage* source,const QV
 void settle() {QEventLoop loop;QTimer::singleShot(200,&loop,&QEventLoop::quit);loop.exec();}
 }
 int main(int argc,char** argv) {
+#ifdef Q_OS_MAC
+    // Synthetic hidden-Cocoa diagnostics only; never activate a foreground App.
+    if(qEnvironmentVariableIntValue("WIZNOTE_SYNTHETIC_HIDDEN_COCOA")==1)
+        QCoreApplication::setAttribute(Qt::AA_PluginApplication);
+#endif
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication app(argc,argv);app.setApplicationName("WizPdfPaperPageTests");
     QTemporaryDir directory;if(!directory.isValid())return 2;

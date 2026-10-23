@@ -665,6 +665,11 @@ if(UNIX)
 
         add_executable(WizNotePlus MACOSX_BUNDLE  ${wiznote_HEADERS} ${wiznote_HEADERS_MAC} ${wiznote_FORM_HEADERS} ${wiznote_SOURCES_MAC} ${wiznote_SOURCES} ${wiznote_QM} ${_qt5_QM} ${wiznote_RC} ${wiznote_LOGO})
         set_target_properties(WizNotePlus PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+        # Native release size only. Keep Qt/resources/plugins and runtime
+        # meta-object interfaces; do not alter Debug builds or other platforms.
+        if(WIZNOTE_RELEASE_DEAD_STRIP)
+            target_link_options(WizNotePlus PRIVATE "$<$<CONFIG:Release>:-Wl,-dead_strip>")
+        endif()
         set_target_properties(${PROJECT_NAME} PROPERTIES AUTOMOC_MOC_OPTIONS "-DQ_OS_MAC")
 
         # this should be issue of cmake, refer: http://public.kitware.com/Bug/bug_revision_view_page.php?rev_id=958

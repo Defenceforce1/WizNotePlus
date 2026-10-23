@@ -24,3 +24,11 @@ The stronger check requires unchanged original body, no row copies, bounded
 geometry, a number destination and exact restoration. The helper is ensured
 before attaching a trusted active-print observer, matching the adjacent control.
 No production PDF logic was changed to make that test pass.
+
+For the macOS paper-page graphics path, use `QT_QPA_PLATFORM=cocoa` together
+with `WIZNOTE_SYNTHETIC_HIDDEN_COCOA=1`. That test-only opt-in sets the Qt plugin
+application attribute before QApplication; output views already have
+WA_DontShowOnScreen. It does not open the normal client or foreground a window.
+Retain and reject offscreen SkSurface errors as normal-graphics acceptance,
+even if the functional assertions pass. Phase237 only repeats this affected
+case with hidden Cocoa, not the full formula or component suites.
