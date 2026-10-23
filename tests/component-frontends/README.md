@@ -45,3 +45,11 @@ languages, documents, real synchronization, memory usage or full-client acceptan
 Further Qt/WebEngine updates remain separate work, including the newly separate
 WebEngine release/version scheme; no runtime or project-specific Qt patch is
 changed by this maintenance update.
+
+At the user's request, the packaged candidate also runs an ordinary rich-text
+public-editor workflow: insert, undo/redo, Unicode, source snapshot/atomic HTML
+writer, exact readback and reopening (18 assertions). Rapid mode requests (22),
+three edited-source cycles, presentation controls(38), settings labels(14),
+PDF submenu dispatch(21) and owned loader controls(20) pass separately. These
+are not real database saves, cloud synchronization, system clipboard operations
+or a complete client acceptance test. See the component functional-check matrix.

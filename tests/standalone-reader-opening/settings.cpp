@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QFile>
 int main(int argc,char** argv) {
+    QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);QDialog dialog;QTranslator zh;int checks=0,failures=0;
     const auto check=[&](bool v,const char* text){++checks;failures+=!v;qInfo().noquote()<<(v?"PASS":"FAIL")<<text;};
     check(argc==2&&zh.load(QString::fromLocal8Bit(argv[1])),"fresh Chinese catalog loads");app.installTranslator(&zh);

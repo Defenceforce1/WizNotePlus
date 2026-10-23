@@ -7,6 +7,7 @@
 
 int main(int argc, char** argv)
 {
+    QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);
     QTemporaryDir root;
     if (!root.isValid()) return 2;
