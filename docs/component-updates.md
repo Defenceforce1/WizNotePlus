@@ -42,7 +42,9 @@ SQLite源文件比旧版更大，本次不声称体积缩小、查询必然变�
 ## 已接入：QuaZip Qt6适配1.3 → 1.7.2（第212轮）
 
 上游固定提交的111份源文件和目录摘要核对后，更新原QuaZip子模块gitlink。
-本地保留旧源码、Git HEAD／索引和.git文件，不对脏工作树执行checkout/reset。
+本地保留旧源码、Git HEAD／暂存条目和.git指针，不执行checkout/reset/stage。
+后续git status触发子模块索引stat缓存刷新，索引文件摘要改变，但暂存条目无差异；
+这项元数据变化留证，不恢复或重写用户索引以掩盖它。根仓库HEAD／索引仍保持。
 原Qt6适配已核查，新上游覆盖所需支持；项目WizZip包装实现保持。
 
 保持QTextCodec/Core5Compat和系统zlib，BZIP2与依赖自动下载OFF，不调用新的

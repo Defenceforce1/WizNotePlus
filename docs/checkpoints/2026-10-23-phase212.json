@@ -23,7 +23,10 @@
     "dependencyAutoFetchEnabled": false,
     "newCompressionOrEncryptionApiUsed": false,
     "noteOrEncryptionFormatChanged": false,
-    "localSubmoduleGitMetadataChanged": false
+    "localSubmoduleHeadOrGitPointerChanged": false,
+    "localSubmoduleStagedEntriesChanged": false,
+    "localSubmoduleIndexStatCacheRefreshed": true,
+    "indexMetadataNote": "Post-import git status refreshed stat cache. Index bytes changed; staged diff is empty. No checkout/reset/stage or cosmetic index restoration was performed."
   },
   "validation": {
     "syntheticOnly": true,

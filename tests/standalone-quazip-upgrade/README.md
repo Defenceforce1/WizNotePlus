@@ -8,8 +8,10 @@
 111份源文件blob和完整目录摘要与上游固定树一致，许可证及静态链接例外保留。
 
 项目仍用同一个QuaZip子模块，不复制另一套归档实现；远端gitlink更新为固定提交。
-本地不checkout/reset/stage，保留原Git元数据和旧源码副本，工作文件按已验证上游
-字节更新。原1.3的C++17、QLatin1Char、Qt zlib配置适配已检查，新上游覆盖所需
+本地不checkout/reset/stage，保留HEAD、.git指针、暂存条目和旧源码副本，工作文件
+按已验证上游字节更新。后续git status刷新了子模块索引stat缓存，其索引文件摘要
+因此改变；已确认没有暂存内容差异，不回写索引来掩盖这项元数据变化。原1.3的
+C++17、QLatin1Char、Qt zlib配置适配已检查，新上游覆盖所需
 Qt6支持；本项目WizZip.cpp／WizZip.h未改。
 
 保留原QTextCodec/Core5Compat编码后端和系统zlib；BZIP2与依赖自动下载OFF。
