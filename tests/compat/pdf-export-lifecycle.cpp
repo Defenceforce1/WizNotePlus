@@ -350,11 +350,36 @@ int main(int argc,char** argv) {
           "starred multline fits and restores without inventing a number or changing its source");
     check(load(page.get(),multlineHtml(false,true)),"explicit shove multline fixture loads");
     const auto shoveBefore=evaluate(page.get(),"document.body.innerHTML").toString();
+    // As in the ordinary multline observer above, ensure the idempotent
+    // production helper before registering our observation listener. The
+    // native print entry also ensures it, but that can be after this listener
+    // when Qt did not deliver the DocumentReady script for the new document.
+    evaluate(page.get(),WizPdfSvgLinks::source(),QWebEngineScript::ApplicationWorld);
+    // Explicit row placement must not use the recognized-row reconstruction.
+    // The later inseparable-SVG fallback may still fit the complete original
+    // body locally; verify its geometry and exact body rather than the retired
+    // assumption that all fitting is forbidden for a shove command.
+    evaluate(page.get(),R"JS(globalThis.shoveOriginalBody=document.querySelector('#math-Frame > svg > g > g').outerHTML;
+      addEventListener('beforeprint',event=>{
+        if(!event.isTrusted||!globalThis.__wizPdfSvgLinks.status().active)return;
+        const frame=document.getElementById('math-Frame'),image=frame.querySelector(':scope > svg'),box=frame.closest('.MathJax_SVG_Display');
+        const r=image.getBoundingClientRect(),b=box.getBoundingClientRect();
+        globalThis.shoveGeometry={bodySame:image.querySelector(':scope > g > g').outerHTML===shoveOriginalBody,
+          copiedRows:box.querySelectorAll(':scope > span[aria-hidden] > svg').length,
+          frameVisible:getComputedStyle(frame).display!=='none',aspect:image.getAttribute('preserveAspectRatio'),
+          inside:r.left>=b.left-.5&&r.right<=b.right+.5,
+          proxy:document.getElementById('mjx-eqn-fit')?.namespaceURI==='http://www.w3.org/1999/xhtml'};
+      },true);true)JS",QWebEngineScript::ApplicationWorld);
     ticket=request.begin(&owner,page.get(),document.ticket());
     auto fitShove=print(page.get(),ticket,root.filePath("multline-shove.pdf"),{},&operations);
-    check(fitShove->result==WizPdfExportRequest::Result::Saved&&!status(page.get()).value("lastFitted").toInt()
+    const auto shoveGeometry=evaluate(page.get(),"globalThis.shoveGeometry",QWebEngineScript::ApplicationWorld).toMap();
+    qInfo()<<"Synthetic explicit-placement geometry"<<shoveGeometry<<"final print state"<<status(page.get());
+    check(fitShove->result==WizPdfExportRequest::Result::Saved&&status(page.get()).value("lastFitted").toInt()==1
+          &&shoveGeometry.value("bodySame").toBool()&&shoveGeometry.value("copiedRows").toInt()==0
+          &&shoveGeometry.value("frameVisible").toBool()&&shoveGeometry.value("inside").toBool()
+          &&shoveGeometry.value("proxy").toBool()&&shoveGeometry.value("aspect").toString()=="xMidYMid meet"
           &&evaluate(page.get(),"document.body.innerHTML").toString()==shoveBefore,
-          "unsupported explicit row placement conservatively keeps the original display");
+          "explicit row placement keeps the original SVG body and fits locally with exact print restoration");
     check(load(page.get(),multlineHtml()),"multline restoration-fault fixture loads");
     evaluate(page.get(),"const originalSet=Element.prototype.setAttribute;Element.prototype.setAttribute=function(name,value){"
         "if(this.id==='math-Frame'&&name==='style')throw Error('synthetic frame restore failure');"

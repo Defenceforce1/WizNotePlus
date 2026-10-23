@@ -165,6 +165,12 @@ python3 tests/standalone-qt-pdf/audit-equation-regression.py \
 
 ### 第 99 轮 multline 逐行适配
 
+第236轮补充当前回归口径：后续已存在不可拆整SVG的局部适配兜底，因此显式
+shove的“保守回退”不是完全禁止缩放，而是保留原body、不逐行重构。生命周期
+测试现在核对原body、不生成行副本、界内几何、编号目的地和精确恢复，产品
+helper未改；观察器须在确保同一幂等helper后注册，并只记录真实活跃打印事件。
+历史“lastFitted必须零”断言已不符合该兜底，初次失败保留，不能仅删断言求通过。
+
 `--multline-fit-base`、`--multline-fit-star-base`、`--multline-fit-long-base`、
 `--multline-fit-contained-base`、`--multline-fit-ref-base` 生成红／绿／蓝三色合成公式，分别覆盖
 普通、星号、真实长行和五位编号、引用块／列表、公式内引用。每份包含可提取的 `Last row:`
