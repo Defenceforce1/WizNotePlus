@@ -41,6 +41,11 @@ endif()
 # Sources
 #============================================================================
 
+# Keep the legacy database creation defaults when updating the SQLite engine.
+# Existing files keep their own page size; no WAL/schema/format migration.
+set_source_files_properties(database/sqlite3.c PROPERTIES
+    COMPILE_DEFINITIONS "SQLITE_THREADSAFE=1;SQLITE_DEFAULT_PAGE_SIZE=1024")
+
 set(wiznote_SOURCES_MAC
     mac/WizMacHelper.mm
     mac/WizSessionAccess.mm
