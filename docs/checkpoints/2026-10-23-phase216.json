@@ -1,0 +1,48 @@
+{
+  "phase": 216,
+  "date": "2026-10-23",
+  "kind": "mathjax-isolated-candidate-and-a4-code-clone-fix",
+  "branch": "improve/component-updates-20261023",
+  "predecessor": "c0a5c3b7ff82382673628c10980d39a879593df0",
+  "sourceFilesVerifiedBeforeWork": 496,
+  "mathJax": {
+    "production": "2.7.6",
+    "selectedIsolatedCandidate": "2.7.8",
+    "candidateCommit": "85e47d7801b2dea6c15878ac7b3dcf62cfd659b5",
+    "candidateTree": "6436a2b2915cd62f5849a236e1f5563d9fd6c423",
+    "retainedPathsVerifiedOldAndNew": 676,
+    "changedRetainedFiles": 563,
+    "productionImported": false,
+    "notSelected": "2.7.9 primarily changes unused speech dependencies and replaces 102 voice map files; no VoiceOver scope expansion."
+  },
+  "productionFix": {
+    "scope": "A4 private paper snapshot only",
+    "cause": "CodeMirror scroll layer grows 700px paper scrollWidth to 730px in both math versions.",
+    "change": "Public getValue freezes actual editor text and basic font in private output clone.",
+    "liveSourceDomOrEditorChanged": false,
+    "overflowGuardRelaxed": false
+  },
+  "validation": {
+    "nativeChecks": 44,
+    "nativeFailuresAfterFix": 0,
+    "mathObjects": 12,
+    "pdfs": 4,
+    "remoteRequests": 0,
+    "sourceHtmlModifiedAndPrintRestorationPreserved": true,
+    "fourExactGoToTargetsPresent": true,
+    "componentRelativeComparisonPassed": true,
+    "strictPdfAccepted": false,
+    "remainingFailure": "Both reading-width outputs have ordinary text about 11.6817pt instead of 12pt; A4 is 12pt.",
+    "allPageVisualAcceptanceClaimed": false,
+    "mainBuildPassed": true,
+    "nonGuiStartupPassed": true,
+    "executableSha256": "28ff469e68261325efdc305465cef73335915ad2aa5e2038830412392e3f28a2"
+  },
+  "installedAppOrRealNotesChanged": false,
+  "grammarFeatureChanged": false,
+  "qtOrRestrictedEditorChanged": false,
+  "important207AndCandidate214Preserved": true,
+  "packageCreatedOrOverwritten": false,
+  "automationPaused": true,
+  "next": "Resolve associated reading-width CodeMirror overflow/shrink without lowering 12pt gate, then reconsider import."
+}

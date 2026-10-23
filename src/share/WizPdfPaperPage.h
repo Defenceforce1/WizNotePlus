@@ -44,6 +44,27 @@ public:
               if(frame){const display=frame.closest('.MathJax_SVG_Display');(display||frame).remove();}
             }
             root.querySelectorAll('.MathJax_Preview,#MathJax_SVG_Hidden,#MathJax_Message').forEach(e=>e.remove());
+            // CodeMirror's interactive scroll margins and input textarea are
+            // viewport-sized. A clone has no live editor to resize them after
+            // paper reflow. Freeze only actual editor instances into plain
+            // code in this private output document, never in the reading DOM.
+            const codeEditors=Array.from(document.querySelectorAll('.CodeMirror'));
+            const codeCopies=Array.from(root.querySelectorAll('.CodeMirror'));
+            if(codeEditors.length!==codeCopies.length)return {error:'Code editor structure changed'};
+            for(let i=0;i<codeEditors.length;++i){
+              const editor=codeEditors[i],copy=codeCopies[i],instance=editor.CodeMirror;
+              if(!instance||typeof instance.getValue!=='function')continue;
+              const rect=editor.getBoundingClientRect();
+              if(!(rect.width>0&&rect.height>0)){copy.remove();continue;}
+              const value=instance.getValue();
+              if(typeof value!=='string')return {error:'Code editor text is unavailable'};
+              const frozen=document.createElement(editor.closest('pre')?'code':'pre');
+              frozen.setAttribute('data-wiz-pdf-static-code','');frozen.textContent=value;
+              const style=getComputedStyle(editor);
+              for(const key of ['fontFamily','fontSize','fontWeight','fontStyle','lineHeight','color','backgroundColor'])frozen.style[key]=style[key];
+              Object.assign(frozen.style,{display:'block',whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxWidth:'100%',minWidth:'0',boxSizing:'border-box'});
+              copy.replaceWith(frozen);
+            }
             const originals=Array.from(document.querySelectorAll('img,canvas,iframe,object,embed,video,audio'));
             const copies=Array.from(root.querySelectorAll('img,canvas,iframe,object,embed,video,audio'));
             if(originals.length!==copies.length)return {error:'Unsupported generated media structure'};
