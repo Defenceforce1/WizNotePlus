@@ -1,0 +1,57 @@
+{
+  "phase": 243,
+  "productCodeChanged": false,
+  "diagnosticOnly": true,
+  "diagnosticIncludedInProduction": false,
+  "newStagedAsyncWorkload": true,
+  "finalAssociatedChecks": 116,
+  "otherControlOrObserverChecksExcluded": 174,
+  "closeCycles": 40,
+  "finalPairOrder": [
+    "new239",
+    "old238"
+  ],
+  "finalPairFootprintMiB": [
+    85.6728515625,
+    85.6259765625
+  ],
+  "finalPairMallocInUseMiB": [
+    19.4833984375,
+    20.7890625
+  ],
+  "earlierOld238FootprintMiB": 61.7822265625,
+  "defaultMallocZoneResidentMiB": [
+    61.8,
+    61
+  ],
+  "defaultMallocZoneAllocatedMiB": [
+    18.6,
+    19.9
+  ],
+  "defaultMallocZoneFragmentationMiB": [
+    43.1,
+    41.1
+  ],
+  "regionObservationAfterAcceptancePossiblyAfterProfileTeardown": true,
+  "exactProductAllocatingCallsiteIdentified": false,
+  "highWaterRiskResolved": false,
+  "wholeAppMemoryReductionAccepted": false,
+  "forcedGcCachePurgePressureReliefOrProductionPoolUsed": false,
+  "installerBuild": 242,
+  "installerUsesExact242App": true,
+  "installerBytes": 117146222,
+  "installerSha256": "1ef80fb82e24efa84dc34447ec6e3064dae42ac9c7154cd7036b3e467dbb975f",
+  "mountedAppEntriesVerified": 1082,
+  "mountedNativeComponents": 48,
+  "mountedSignatureAndNonGuiPathPassed": true,
+  "installed": false,
+  "testBuildPathsRetired": 36,
+  "cleanupLogicalBytesMoved": 969039025,
+  "cleanupRecoverable": true,
+  "trashEmptied": false,
+  "sourcesSdkSigningAndProductionBuildKept": true,
+  "normalAppUserDataOrClipboardAccessed": false,
+  "fullFormulaPdfOrComponentMatrixRepeated": false,
+  "binariesUploaded": false,
+  "automationPaused": true
+}
