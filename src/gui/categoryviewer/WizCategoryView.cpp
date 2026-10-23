@@ -3397,6 +3397,7 @@ void WizCategoryView::manageBiz(const QString& bizGUID, bool bUpgrade)
 
 void WizCategoryView::init()
 {    
+    m_initialSelection.begin();
     initTopLevelItems();
     initGeneral();
     initFolders();
@@ -3422,6 +3423,8 @@ void WizCategoryView::init()
     {
         sortGroupTags(m_dbMgr.at(i).kbGUID());
     }
+    m_initialSelection.finish();
+    on_initGroupFolder_finished();
 }
 
 void WizCategoryView::resetSections()
@@ -3746,14 +3749,9 @@ void WizCategoryView::on_updateGroupFolderDocumentCount_mapped_timeout(const QSt
 
 void WizCategoryView::on_initGroupFolder_finished()
 {
-    static int count = 0;
-    ++count;
-//    qDebug() << count << " group init finished, total " << m_dbMgr.count();
-    if (count >= m_dbMgr.count())
-    {
-        loadExpandState();
-        loadSectionStatus();
-    }
+    if (!m_initialSelection.claimRestore()) return;
+    loadExpandState();
+    loadSectionStatus();
 }
 
 void WizCategoryView::updatePersonalTagDocumentCount_impl(const QString& strKbGUID)
@@ -4586,6 +4584,9 @@ void WizCategoryView::loadExpandState()
         loadChildState(topLevelItem(i), settings);
     }
     settings->endGroup();
+    // A saved folder/tag ID can disappear. Select an existing root instead
+    // of leaving the document list empty or creating a replacement folder.
+    WizCategoryInitialSelection::ensureSelection(this,findAllFolderItem());
 }
 
 void WizCategoryView::initTags()
@@ -5815,12 +5816,6 @@ void WizCategoryView::loadChildState(QTreeWidgetItem* pItem, QSettings* settings
             setCurrentItem(pItem);
         }
     }
-    else
-    {
-        WizCategoryViewItemBase* pi = findAllFolderItem();
-        setCurrentItem(pi);
-    }
-
     for (int i = 0; i < pItem->childCount(); i++)
     {
         loadChildState(pItem->child(i), settings);

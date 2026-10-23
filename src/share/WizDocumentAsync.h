@@ -79,7 +79,7 @@ private:
 
 namespace WizDocumentSaveSnapshot {
 enum class State { Failed, Unchanged, Changed };
-struct Result { State state = State::Failed; QString html; QString reason; };
+struct Result { State state = State::Failed; QString html; QString reason; QString mode; };
 
 // The caller filters exact requester/note; saver acknowledgments are FIFO.
 // A newer successful write resolves an older failed attempt for that note.
@@ -96,7 +96,9 @@ inline QString editorScript(bool force, bool nativeDirty)
     return QString::fromLatin1(R"JS((function(){try{
         if(!window.WizNativeEditorInitialized || !window.WizEditor) return {ok:false,reason:'editor-unavailable'};
         if(window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready') return {ok:false,reason:'setup-not-ready'};
-        if(!document.body || !document.body.isContentEditable || document.body.classList.contains('wiz-readonly')) return {ok:false,reason:'mode-mismatch'};
+        var body=document.body;
+        var templateEditing=body&&body.classList.contains('wiz-editor-body')&&body.classList.contains('wiz-editing');
+        if(!body || (!body.isContentEditable&&!templateEditing) || body.classList.contains('wiz-readonly')) return {ok:false,reason:'mode-mismatch'};
         if(!%1 && !%2 && !WizEditor.isModified()) return {ok:true,changed:false};
         var html=WizEditor.getContentHtml();
         if(typeof html!=='string' || !html.length) return {ok:false,reason:'invalid-html'};
@@ -114,7 +116,7 @@ inline QString readerScript(bool nativeDirty = false)
         if(!window.WizNativeEditorInitialized || !window.WizReader ||
             typeof WizReader.closeDocument!=='function') return {ok:false,reason:'editor-unavailable'};
         if(window.WizNativeEditorSetup && WizNativeEditorSetup.state!=='ready') return {ok:false,reason:'setup-not-ready'};
-        if(!document.body || document.body.isContentEditable) return {ok:false,reason:'mode-mismatch'};
+        if(!document.body || document.body.isContentEditable || document.body.classList.contains('wiz-editing')) return {ok:false,reason:'mode-mismatch'};
         var html=WizReader.closeDocument();
         if(html==null || html==='') {
             if(!%1) return {ok:true,changed:false};
@@ -127,6 +129,27 @@ inline QString readerScript(bool nativeDirty = false)
     }catch(error){return {ok:false,reason:'capture-exception'};}})())JS").arg(nativeDirty ? "true" : "false");
 }
 
+// Select and capture in the same renderer task. Native requested mode can be
+// stale while the public on/off transition completes; it is not a body-mode
+// authority. Do not accept an uninitialized or internally contradictory body.
+inline QString currentPageScript(bool force, bool nativeDirty, bool canEdit = true)
+{
+    return QStringLiteral("(function(){try{"
+        "if(!window.WizNativeEditorInitialized||!window.WizEditor)return {ok:false,reason:'editor-unavailable'};"
+        "if(window.WizNativeEditorSetup&&WizNativeEditorSetup.state!=='ready')return {ok:false,reason:'setup-not-ready'};"
+        "var body=document.body;if(!body||!body.classList.contains('wiz-editor-body'))return {ok:false,reason:'mode-mismatch'};"
+        // Structured templates may edit local regions while body itself stays
+        // non-contenteditable. The public editor's exclusive mode markers are
+        // authoritative; never force body.contentEditable or rewrite the note.
+        "var editing=body.classList.contains('wiz-editing'),readonly=body.classList.contains('wiz-readonly');"
+        "if(editing===readonly||(!editing&&body.isContentEditable))return {ok:false,reason:'mode-mismatch'};"
+        "if(editing&&!%3)return {ok:false,reason:'edit-permission-denied'};"
+        "var result=editing?%1:%2;"
+        "if(result&&result.ok===true)result.mode=editing?'editor':'reader';return result;"
+        "}catch(error){return {ok:false,reason:'capture-exception'};}})()")
+        .arg(editorScript(force,nativeDirty),readerScript(nativeDirty),canEdit?"true":"false");
+}
+
 inline Result parse(const QVariant& value)
 {
     if (value.userType() != QMetaType::QVariantMap) return {};
@@ -135,13 +158,17 @@ inline Result parse(const QVariant& value)
     if (ok.userType() != QMetaType::Bool || !ok.toBool()
         || changed.userType() != QMetaType::Bool) {
         const auto reason=map.value("reason").toString();
-        const QStringList known{"editor-unavailable","setup-not-ready","mode-mismatch","invalid-html","capture-exception"};
+        const QStringList known{"editor-unavailable","setup-not-ready","mode-mismatch","invalid-html","capture-exception","edit-permission-denied"};
         return {State::Failed,{},known.contains(reason)?reason:QStringLiteral("invalid-snapshot")};
     }
-    if (!changed.toBool()) return {State::Unchanged, {}};
+    const auto modeValue=map.value("mode");
+    const QString mode=modeValue.toString();
+    if (map.contains("mode") && (modeValue.userType()!=QMetaType::QString
+        || (mode!="editor" && mode!="reader"))) return {};
+    if (!changed.toBool()) return {State::Unchanged, {}, {}, mode};
     const auto html = map.value("html");
     if (html.userType() != QMetaType::QString || html.toString().isEmpty()) return {};
-    return {State::Changed, html.toString()};
+    return {State::Changed, html.toString(), {}, mode};
 }
 
 inline bool writeHtmlFile(const QString& fileName, const QString& html)

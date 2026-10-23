@@ -16,3 +16,7 @@ add_executable(reader-opening main.cpp ../compat/native-memory-pool.mm ../../src
 target_link_libraries(reader-opening PRIVATE Qt6::Widgets Qt6::WebEngineWidgets Qt6::WebChannel Qt6::QuickWidgets "-framework Foundation")
 target_include_directories(reader-opening PRIVATE ../../src)
 target_compile_features(reader-opening PRIVATE cxx_std_17)
+add_executable(category-selection category-selection.cpp)
+target_include_directories(category-selection PRIVATE ../../src)
+target_link_libraries(category-selection PRIVATE Qt6::Widgets)
+target_compile_features(category-selection PRIVATE cxx_std_17)

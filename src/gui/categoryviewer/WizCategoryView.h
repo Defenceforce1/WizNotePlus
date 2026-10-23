@@ -4,6 +4,7 @@
 #include <QPointer>
 #include <memory>
 #include <QTreeView>
+#include "share/WizCategoryInitialSelection.h"
 #include "gui/categoryviewer/WizCategoryViewItem.h"
 
 class WizFolder;
@@ -601,6 +602,7 @@ private:
     QString m_strRequestedGroupKbGUID;
 
     QString m_strSelectedId;
+    WizCategoryInitialSelection m_initialSelection;
 
 };
 

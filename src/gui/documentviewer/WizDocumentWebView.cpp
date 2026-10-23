@@ -1738,7 +1738,8 @@ void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bo
     const quint64 changeSequence = m_contentChangeSequence;
     if (sourceFile.isEmpty() || extractedFile.isEmpty()) { callback(false); return; }
     m_pdfPageOperations.snapshot(page(),[self,ticket,doc]{return self && self->acceptsDocumentCallback(ticket,doc);},
-        WizDocumentSaveSnapshot::editorScript(force, m_bContentsChanged),
+        WizDocumentSaveSnapshot::currentPageScript(force, m_bContentsChanged,
+            m_dbMgr.db(doc.strKbGUID).canEditDocument(doc)),
         [self, ticket, doc, extractedFile, sourceFile, changeSequence, callback](const QVariant& value) {
         if (!self || !self->acceptsDocumentCallback(ticket, doc)) { callback(false); return; }
         const auto result = WizDocumentSaveSnapshot::parse(value);
@@ -1768,16 +1769,17 @@ void WizDocumentWebView::saveEditingViewDocument(const WIZDOCUMENTDATA &data, bo
  */
 void WizDocumentWebView::saveReadingViewDocument(const WIZDOCUMENTDATA &data, bool force, std::function<void(const QVariant &)> callback)
 {
-    Q_UNUSED(force);
     const WIZDOCUMENTDATA doc = data;
 
     const QPointer<WizDocumentWebView> self(this);
     const auto ticket = m_documentCallbacks.ticket();
     const QString sourceFile = m_mapFile.value(doc.strGUID);
+    const QString extractedFile = m_strNoteHtmlFileName;
     const quint64 changeSequence = m_contentChangeSequence;
     m_pdfPageOperations.snapshot(page(),[self,ticket,doc]{return self && self->acceptsDocumentCallback(ticket,doc);},
-        WizDocumentSaveSnapshot::readerScript(m_bContentsChanged),
-        [self, ticket, doc, sourceFile, changeSequence, callback](const QVariant& value) {
+        WizDocumentSaveSnapshot::currentPageScript(force, m_bContentsChanged,
+            m_dbMgr.db(doc.strKbGUID).canEditDocument(doc)),
+        [self, ticket, doc, sourceFile, extractedFile, changeSequence, callback](const QVariant& value) {
         if (!self || !self->acceptsDocumentCallback(ticket, doc)) { callback(false); return; }
         const auto result = WizDocumentSaveSnapshot::parse(value);
         if (result.state == WizDocumentSaveSnapshot::State::Failed
@@ -1786,8 +1788,24 @@ void WizDocumentWebView::saveReadingViewDocument(const WIZDOCUMENTDATA &data, bo
                 ? result.reason : QStringLiteral("source-path-unavailable")); callback(false); return;
         }
         if (result.state == WizDocumentSaveSnapshot::State::Changed) {
+            // A native reader request may reach a body that has already entered
+            // editing. Preserve the ordinary editor's temp/cache handoff too.
+            if (result.mode=="editor") {
+                if (!self->m_dbMgr.db(doc.strKbGUID).canEditDocument(doc)) {
+                    self->reportSnapshotSaveFailure(QStringLiteral("edit-permission-denied"));
+                    callback(false); return;
+                }
+                if (!WizDocumentSaveSnapshot::writeHtmlFile(extractedFile,result.html)) {
+                    self->reportSnapshotSaveFailure(QStringLiteral("temporary-html-write-failed"));
+                    callback(false); return;
+                }
+                self->m_currentNoteHtml=result.html;
+                self->m_currentNoteHtmlDocument=doc;
+            }
             if (self->m_contentChangeSequence == changeSequence) self->m_bContentsChanged = false;
             Q_EMIT self->saveDocumentRequested(doc, result.html, sourceFile, 0);
+            if (result.mode=="editor" && self && self->acceptsDocumentCallback(ticket,doc))
+                Q_EMIT self->currentHtmlChanged();
         }
         callback(true);
     });
@@ -1814,6 +1832,7 @@ void WizDocumentWebView::reportSnapshotSaveFailure(const QString& reason)
             {"editor-unavailable",tr("页面编辑器尚未就绪。")},
             {"setup-not-ready",tr("页面初始化尚未完成。")},
             {"mode-mismatch",tr("页面实际编辑／阅读状态与保存请求不一致。")},
+            {"edit-permission-denied",tr("当前笔记没有编辑权限。")},
             {"invalid-html",tr("页面未返回完整的笔记内容。")},
             {"capture-exception",tr("页面在读取笔记内容时出错。")},
             {"temporary-html-write-failed",tr("无法写入本机临时 HTML 文件，请检查空间与目录权限。")},
