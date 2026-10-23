@@ -3,7 +3,7 @@
 后续组件候选共用 `outputs/WizNotePlus-测试资料`，不再把资料放在每个build目录内。
 日常资料目录规则不变；现用App、真实资料、重要回退安装包不参与合并或迁移。
 
-本机固定入口为 `outputs/启动测试版.command`，当前指向build234。234包内入口也
+本机固定入口为 `outputs/启动测试版.command`，当前指向build242。242包内入口也
 使用同一目录；保留整个项目输出结构，不要单独复制App直接启动。后续交付只更新
 固定入口的候选路径，并用 `build/osx/launch-test-candidate.sh.in` 渲染包内启动器，
 替换build编号与已验证的可执行文件SHA256；不要恢复按版本创建资料的旧规则。
