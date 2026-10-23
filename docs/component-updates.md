@@ -2,6 +2,23 @@
 
 更新：2026-10-23；分支`improve/component-updates-20261023`。
 
+## 第222轮：Marked与CodeMirror5
+
+Marked17.0.5→18.1.1，CodeMirror5.53.2→5.65.21（核心和原有三个扩展），
+固定官方包／逐文件摘要，保留MIT。自有定理正文的解析参数、旧语言包和CSS／
+操作习惯保持，不是替换整个编辑器或迁移CodeMirror6。两数学引擎82组定理及
+292项原生关联断言、四PDF严格／渲染检查通过；另有222包内148项关联复核。
+详见[222候选说明](release-14.4.25-build222-frontends-test.md)和
+[接口验证](../tests/component-frontends/README.md)。没有声称整App提速或减小体积。
+
+MathJax4已按新增授权进入221／222独立测试版，源默认／220仍2.7.8；本页后续
+“仅评估／未开始v4”的文字为对应旧阶段历史，不能覆盖221／222当前记录。
+
+Qt/WebEngine后续评估需要纠正旧查找方式：[官方独立发布说明](https://www.qt.io/blog/qt-webengine-will-release-separate)
+明确从Qt6.12起WebEngine改用6.140等独立版本号；不应因找不到名为WebEngine6.12
+的正式包就断言无正式版。尚未核对并接入匹配源／SDK，当前6.11.3及PDF／Metal
+补丁不改，也不以基础Qt版本发布或官网说明冒充运行时兼容验收。
+
 ## 不变的边界
 
 保持现有逻辑和使用习惯，不改菜单、工作流程、正文／加密格式、业务数据库

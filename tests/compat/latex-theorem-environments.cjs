@@ -3,7 +3,7 @@
 // Original editor and local licensed parser; synthetic notes, all remote URLs blocked.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {pathToFileURL}=require('node:url'),{chromium}=require('playwright');
-const root=path.resolve(__dirname,'../..'),assets=path.join(root,'share/files/wizeditor'),output=process.argv[2];
+const root=path.resolve(__dirname,'../..'),assets=process.env.WIZ_THEOREM_ASSETS?path.resolve(process.env.WIZ_THEOREM_ASSETS):path.join(root,'share/files/wizeditor'),output=process.argv[2];
 if(!output||!path.isAbsolute(output)||fs.existsSync(output))throw Error('New absolute report path required');
 const selected=process.env.WIZ_THEOREM_CASES?new Set(process.env.WIZ_THEOREM_CASES.split(',')):null;
 const env=(name,body='A **bold** statement.',title='',label='')=>'\\begin{'+name+'}'+(title?'['+title+']':'')+(label?'\\label{'+label+'}':'')+'\n'+body+'\n\\end{'+name+'}';
@@ -41,7 +41,7 @@ cases.push(
   {name:'legacy-no-preset',source:'> **定理**\n>\n> Ordinary quote.\n\n'+env('corollary'),blocks:1,math:0,numbers:['1'],refs:0},
   {name:'unknown-environment',source:'\\begin{customtheorem}\nNot configured.\n\\end{customtheorem}',blocks:0,math:0,numbers:[],refs:0}
 );
-const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'wiz-latex-theorems-'));
+const temporary=fs.mkdtempSync(path.join(process.env.WIZ_THEOREM_TEMP_ROOT||os.tmpdir(),'wiz-latex-theorems-'));
 const json=s=>JSON.stringify(s).replace(/</g,'\\u003c'),escape=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const report={schema:1,remoteRequests:[],pageErrors:[],cases:[]};
 (async()=>{

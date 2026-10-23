@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "scope": "Marked theorem-body parser and CodeMirror5 maintenance only;no editor/vendor internals modified",
+  "packages": [
+    {
+      "name": "marked",
+      "version": "18.1.1",
+      "gitHead": "cdbdc0122ab83b2b97560944bf009a22cfb78b05",
+      "tarball": "https://registry.npmjs.org/marked/-/marked-18.1.1.tgz",
+      "integrity": "sha512-zEGgrtUG8crk+TrMacJSVABU4DYDDkS8uqgU3ohrn/2fW9C2AEfUrO3m6IhpIpQpl7YcVpiXXC9cSMWDANT3dg==",
+      "sha256": "c05b3cff890d35e1208805a01fd0501571d09a81e725de0559b10bdfae90adad",
+      "bytes": 131664,
+      "integrityVerified": true,
+      "shasumVerified": true,
+      "noInstallLifecycle": true
+    },
+    {
+      "name": "codemirror",
+      "version": "5.65.21",
+      "gitHead": "24ee74bbf433e8d484097a6ea421818a621ca13c",
+      "tarball": "https://registry.npmjs.org/codemirror/-/codemirror-5.65.21.tgz",
+      "integrity": "sha512-6teYk0bA0nR3QP0ihGMoxuKzpl5W80FpnHpBJpgy66NK3cZv5b/d/HY8PnRvfSsCG1MTfr92u2WUl+wT0E40mQ==",
+      "sha256": "b26d9d7ae0f42e34b44a8f7667d29a3ab0d3df88d0e79c0dad39dc03ba43f6dc",
+      "bytes": 759412,
+      "integrityVerified": true,
+      "shasumVerified": true,
+      "noInstallLifecycle": true
+    }
+  ],
+  "files": [
+    {
+      "package": "marked-18.1.1",
+      "source": "lib/marked.umd.js",
+      "path": "share/files/wizeditor/dependency/marked/marked.umd.js",
+      "sha256": "b82b9334406d8bdd16b6236c08de1cb65b2a859873ca9503d9cc0b292ca3c12a"
+    },
+    {
+      "package": "marked-18.1.1",
+      "source": "LICENSE",
+      "path": "share/files/wizeditor/dependency/marked/LICENSE.md",
+      "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+    },
+    {
+      "package": "codemirror-5.65.21",
+      "source": "lib/codemirror.js",
+      "path": "share/files/wizeditor/dependency/codemirror/codemirror.js",
+      "sha256": "e98aac5ffa07bae58acd4ff07c4293059f8921c0ae0eba506929d8c6f41c9288"
+    },
+    {
+      "package": "codemirror-5.65.21",
+      "source": "LICENSE",
+      "path": "share/files/wizeditor/dependency/codemirror/LICENSE.txt",
+      "sha256": "168a4becc968f5001e2ee2e0291b6e4daabafc1894a11ade1e11d56e96096e07"
+    },
+    {
+      "package": "codemirror-5.65.21",
+      "source": "addon/selection/active-line.js",
+      "path": "share/files/wizeditor/dependency/codemirror/addon/selection/active-line.js",
+      "sha256": "3afbcf78835c9bdc342e3992c53d9b74286722613bb1a8adc9d140edc8737ee8"
+    },
+    {
+      "package": "codemirror-5.65.21",
+      "source": "addon/edit/matchbrackets.js",
+      "path": "share/files/wizeditor/dependency/codemirror/addon/edit/matchbrackets.js",
+      "sha256": "9d23a177f1e4d07e3acc37c210ffbe4c1c2eb4d55bbe54c16d3e7ad3d04d0401"
+    },
+    {
+      "package": "codemirror-5.65.21",
+      "source": "addon/mode/simple.js",
+      "path": "share/files/wizeditor/dependency/codemirror/addon/mode/simple.js",
+      "sha256": "400f49309b31197c0c4ec76519c93647b494ab80f59f96d7f051463e0aa37eb0"
+    }
+  ]
+}

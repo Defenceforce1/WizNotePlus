@@ -53,6 +53,7 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "math-references.h"
 #include "mathjax-benchmark.h"
 #include "mathjax-font-preview.h"
+#include "frontend-components.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
@@ -60,6 +61,7 @@ int main(int argc,char**argv){
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
     if(kind=="math-references"&&argc==4)return runMathReferences(root,resources,QString::fromLocal8Bit(argv[3]));
+    if(kind=="frontend-components"&&argc==4)return runFrontendComponents(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="mathjax-benchmark"&&argc==5)return runMathjaxBenchmark(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-font-preview"&&argc==5)return runMathjaxFontPreview(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-upgrade"&&argc==5)return runMathjaxUpgrade(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
