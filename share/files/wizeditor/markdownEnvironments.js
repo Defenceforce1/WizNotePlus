@@ -75,17 +75,26 @@ function WizProtectMarkdownEquationReferences(source) {
   // Plain \ref also needs the supplemental pass when there is no $ math to
   // start the old reader's engine. Only known mathematical labels qualify;
   // theorem/quote references remain owned by the existing prose decorator.
-  var raw = WizEditor.getMarkdownSrc({unEscapeHtml:true}), rawCode = WizMarkdownEnvironmentCodePositions(raw);
-  var mathLabels = new Set(), label;
-  var environments = /\\begin\{((?:equation|align|gather|multline|alignat)\*?)\}[\s\S]*?\\end\{\1\}/g, environment;
-  while ((environment = environments.exec(raw))) {
-    if (rawCode[environment.index]) continue;
-    var labels = /\\label\{([A-Za-z0-9_:./-]{1,128})\}/g;
-    while ((label = labels.exec(environment[0]))) mathLabels.add(label[1]);
+  var mathLabels = null;
+  function hasMathLabel(key) {
+    if (!mathLabels) {
+      // Eqref is unconditional; only an eligible plain ref needs raw labels.
+      // Keep this lookup local to the call so changed notes never reuse labels.
+      var raw = WizEditor.getMarkdownSrc({unEscapeHtml:true});
+      var rawCode = WizMarkdownEnvironmentCodePositions(raw);
+      mathLabels = new Set();
+      var environments = /\\begin\{((?:equation|align|gather|multline|alignat)\*?)\}[\s\S]*?\\end\{\1\}/g, environment, label;
+      while ((environment = environments.exec(raw))) {
+        if (rawCode[environment.index]) continue;
+        var labels = /\\label\{([A-Za-z0-9_:./-]{1,128})\}/g;
+        while ((label = labels.exec(environment[0]))) mathLabels.add(label[1]);
+      }
+    }
+    return mathLabels.has(key);
   }
   return source.replace(/\\(eqref|ref)\{([A-Za-z0-9_:./-]{1,128})\}/g, function (reference, kind, key, offset) {
     if (code[offset] || math[offset]) return reference;
-    if (kind === 'ref' && !mathLabels.has(key)) return reference;
+    if (kind === 'ref' && !hasMathLabel(key)) return reference;
     var encoded = WizMarkdownEnvironmentEntities(reference);
     return '<span class="wiz-latex-math">' + encoded + '</span>';
   });
@@ -114,26 +123,31 @@ function WizConfigureMarkdownEnvironments(options) {
   plugins.customBlockGamut = function (source) {
     if (original) source = original(source);
     if (!/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof|equation|align|gather|multline|alignat)\*?\}/.test(source)) return WizProtectMarkdownEquationReferences(source);
-    var markerCode = WizMarkdownEnvironmentCodePositions(source);
-    source = source.replace(/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*\}/g,
-      function (marker, offset) { return markerCode[offset] ? marker : marker.replace('*', '&#42;'); });
+    if (/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*\}/.test(source)) {
+      var markerCode = WizMarkdownEnvironmentCodePositions(source);
+      source = source.replace(/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*\}/g,
+        function (marker, offset) { return markerCode[offset] ? marker : marker.replace('*', '&#42;'); });
+    }
     if (!/\\begin\{(?:equation|align|gather|multline|alignat)\*?\}/.test(source)) return WizProtectMarkdownEquationReferences(source);
     // The old reader doubles the first TeX row separator before this hook.
     // Recover each exact block from its public source getter instead of
     // treating that transient parser representation as authoritative text.
-    var raw = WizEditor.getMarkdownSrc({unEscapeHtml:true});
-    var originals = new Map();
-    WizMarkdownEnvironmentBlocks(raw).forEach(function (candidate) {
-      // Preserve the former first-match order, including collisions between
-      // exact source and the legacy reader's doubled first row separator.
-      if (!originals.has(candidate)) originals.set(candidate, candidate);
-      var expanded = candidate.replace('\\\\','\\\\\\\\');
-      if (!originals.has(expanded)) originals.set(expanded, candidate);
-    });
+    var originals = null;
     var protectedCode = WizMarkdownEnvironmentCodePositions(source);
     var pattern = WizMarkdownEnvironmentPattern();
     return WizProtectMarkdownEquationReferences(source.replace(pattern, function (all, newline, indent, tex, environment, offset) {
       if (protectedCode[offset + newline.length + indent.length]) return all;
+      // A begin token may occur only in a code fence or an incomplete block.
+      // Fetch/build the original-byte lookup only for a renderable candidate.
+      if (!originals) {
+        originals = new Map();
+        WizMarkdownEnvironmentBlocks(WizEditor.getMarkdownSrc({unEscapeHtml:true})).forEach(function (candidate) {
+          // Keep first-match order, including legacy doubled-row collisions.
+          if (!originals.has(candidate)) originals.set(candidate, candidate);
+          var expanded = candidate.replace('\\\\','\\\\\\\\');
+          if (!originals.has(expanded)) originals.set(expanded, candidate);
+        });
+      }
       tex = WizMarkdownEnvironmentContainerText(tex, indent);
       var originalTex = originals.get(tex);
       if (!originalTex) return all;

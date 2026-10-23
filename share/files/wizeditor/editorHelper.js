@@ -352,10 +352,13 @@ function WizMathTextContexts(nodes, body) {
   var excluded = 'pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading';
   nodes.forEach(function (text) { scopes.add(text.parentElement.closest(selector) || body); });
   scopes.forEach(function (scope) {
-    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {acceptNode:function (node) {
-      return node.parentElement && !node.parentElement.closest(excluded)
-        && (node.parentElement.closest(selector) || body) === scope
-        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    if (scope.closest(excluded)) return;
+    // An element-aware walker can reject whole nested scopes/code subtrees.
+    // Text-only walkers still visit every descendant of those rejected areas.
+    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {acceptNode:function (node) {
+      if (node.nodeType === Node.ELEMENT_NODE)
+        return node.matches(excluded) || node.matches(selector) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+      return NodeFilter.FILTER_ACCEPT;
     }});
     var parts = [], offsets = [], length = 0, node;
     while ((node = walker.nextNode())) {
@@ -406,9 +409,13 @@ function WizApplyMathEnvironments() {
     if (!heading || heading.tagName !== 'P') return null;
     var strong = heading.firstElementChild;
     if (!strong || strong.tagName !== 'STRONG' || strong !== heading.children[0]) return null;
-    var rest = Array.from(heading.childNodes).filter(function (node) { return node !== strong; });
-    if (rest.some(function (node) { return node.nodeType !== Node.TEXT_NODE; })) return null;
-    var suffix = rest.map(function (node) { return node.textContent; }).join('').trim();
+    var suffix = '';
+    for (var child = heading.firstChild; child; child = child.nextSibling) {
+      if (child === strong) continue;
+      if (child.nodeType !== Node.TEXT_NODE) return null;
+      suffix += child.nodeValue;
+    }
+    suffix = suffix.trim();
     var label = suffix.match(/^\\label\{([A-Za-z0-9_:.\/-]{1,128})\}$/);
     if (suffix && !label) return null;
     var title = strong.textContent.trim();
@@ -483,8 +490,9 @@ function WizApplyMathEnvironments() {
   });
   var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
     acceptNode: function (node) {
-      return node.parentElement && !node.parentElement.closest('pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading')
-        && node.nodeValue.indexOf('\\ref{') >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      return node.nodeValue.indexOf('\\ref{') >= 0 && node.parentElement
+        && !node.parentElement.closest('pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading')
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     }
   });
   var nodes = [], node;

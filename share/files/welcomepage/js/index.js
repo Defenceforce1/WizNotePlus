@@ -321,6 +321,40 @@ async function listDocumentsByDate(dt) {
     return 0;
 }
 
+// Database signals often arrive together for one update. Keep a single active
+// read and one trailing refresh instead of creating a query/proxy set per signal.
+// Explicit user actions still await their original refresh functions directly.
+function welcomeScheduledRefresh(refresh) {
+    let timer = null, running = false, dirty = false, retired = false;
+    function schedule() {
+        if (retired) return;
+        dirty = true;
+        if (timer !== null || running) return;
+        timer = setTimeout(async () => {
+            timer = null;
+            if (retired) return;
+            dirty = false;
+            running = true;
+            try { await refresh(); }
+            catch (error) { console.error('Welcome refresh failed', error); }
+            finally {
+                running = false;
+                if (dirty) schedule();
+            }
+        }, 0);
+    }
+    function retire(event) {
+        if (event.persisted) return;
+        retired = true;
+        dirty = false;
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+        window.removeEventListener('pagehide', retire);
+    }
+    window.addEventListener('pagehide', retire);
+    return schedule;
+}
+
 function viewDocumentsByDate(dateText) {
     var date = strToDate(dateText);
     try {
@@ -387,16 +421,19 @@ $(document).ready(function() {
                 {dateFormat: 'yy-mm-dd', prevText: '', nextText: ''})
         );
 
-        objDatabase.documentCreated.connect(listDocuments);
-        objDatabase.documentCreated.connect(listEvents);
-        objDatabase.documentDeleted.connect(listDocuments);
-        objDatabase.documentDeleted.connect(listEvents);
-        objDatabase.documentModified.connect(listDocuments);
-        objDatabase.documentModified.connect(listEvents);
-        objDatabase.documentDataModified.connect(listDocuments);
-        objDatabase.documentAccessDateModified.connect(listDocumentsRecentAccessed);
+        const refreshDocuments = welcomeScheduledRefresh(listDocuments);
+        const refreshEvents = welcomeScheduledRefresh(listEvents);
+        const refreshRecentAccessed = welcomeScheduledRefresh(listDocumentsRecentAccessed);
+        objDatabase.documentCreated.connect(refreshDocuments);
+        objDatabase.documentCreated.connect(refreshEvents);
+        objDatabase.documentDeleted.connect(refreshDocuments);
+        objDatabase.documentDeleted.connect(refreshEvents);
+        objDatabase.documentModified.connect(refreshDocuments);
+        objDatabase.documentModified.connect(refreshEvents);
+        objDatabase.documentDataModified.connect(refreshDocuments);
+        objDatabase.documentAccessDateModified.connect(refreshRecentAccessed);
         if (objDatabase.documentParamModified)
-            objDatabase.documentParamModified.connect(listEvents);
+            objDatabase.documentParamModified.connect(refreshEvents);
 
         document.getElementById("todoAdd").disabled = false;
         document.getElementById("todoAdd").onclick = () => showTodoForm();

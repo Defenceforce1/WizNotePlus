@@ -11,6 +11,9 @@ function WizLatexTheoremMask(source) {
 }
 
 function WizLatexTheoremRecords(source) {
+  // Most notes and theorem bodies have no nested theorem markers. Avoid two
+  // note-sized protection arrays unless the parser can encounter a token.
+  if (!/(^|\n) {0,3}\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*?\}/.test(source)) return [];
   var code = WizMarkdownEnvironmentCodePositions(source);
   var math = WizMathProtectedPositions(WizLatexTheoremMask(source));
   var pattern = /(^|\n) {0,3}\\(begin|end)\{((?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*?)\}/g;
@@ -91,34 +94,42 @@ function WizLatexTheoremBody(source, depth) {
     return {start:record.start, end:record.end,
       html:'\n\n' + WizLatexTheoremHtml(record, depth + 1) + '\n\n'};
   }));
-  var code = WizMarkdownEnvironmentCodePositions(source), spans = [], match;
-  var environments = WizMarkdownEnvironmentPattern();
-  while ((match = environments.exec(source))) {
-    var offset = match.index + match[1].length + match[2].length;
-    if (!code[offset]) spans.push({start:offset, end:environments.lastIndex,
-      html:'\n<div class="wiz-bare-math-environment">'
-        + WizLatexTheoremEntities(WizMarkdownEnvironmentContainerText(match[3], match[2])) + '</div>\n'});
+  var code = null, spans = [], match;
+  // Plain prose still goes through the same Markdown parser. Prepare math
+  // projection only when a delimiter or environment opener can occur.
+  if (/[$]|\\(?:begin\{|[([])/.test(source)) {
+    code = WizMarkdownEnvironmentCodePositions(source);
+    var environments = WizMarkdownEnvironmentPattern();
+    while ((match = environments.exec(source))) {
+      var offset = match.index + match[1].length + match[2].length;
+      if (!code[offset]) spans.push({start:offset, end:environments.lastIndex,
+        html:'\n<div class="wiz-bare-math-environment">'
+          + WizLatexTheoremEntities(WizMarkdownEnvironmentContainerText(match[3], match[2])) + '</div>\n'});
+    }
+    var environmentSpans = spans.slice();
+    var delimiters = /\$\$[\s\S]*?\$\$|\$(?:\\.|[^\n$\\])+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
+    while ((match = delimiters.exec(source))) {
+      var backslashes = 0;
+      for (var i = match.index - 1; i >= 0 && source[i] === '\\'; --i) ++backslashes;
+      if (code[match.index] || backslashes % 2
+          || WizLatexTheoremOverlaps(environmentSpans, match.index, delimiters.lastIndex)) continue;
+      var block = match[0].slice(0, 2) === '$$' || match[0].slice(0, 2) === '\\[';
+      var tag = block ? 'div' : 'span', className = block ? 'wiz-bare-math-environment' : 'wiz-latex-math';
+      spans.push({start:match.index, end:delimiters.lastIndex,
+        html:'<' + tag + ' class="' + className + '">' + WizLatexTheoremEntities(match[0]) + '</' + tag + '>'});
+    }
   }
-  var environmentSpans = spans.slice();
-  var delimiters = /\$\$[\s\S]*?\$\$|\$(?:\\.|[^\n$\\])+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
-  while ((match = delimiters.exec(source))) {
-    var backslashes = 0;
-    for (var i = match.index - 1; i >= 0 && source[i] === '\\'; --i) ++backslashes;
-    if (code[match.index] || backslashes % 2
-        || WizLatexTheoremOverlaps(environmentSpans, match.index, delimiters.lastIndex)) continue;
-    var block = match[0].slice(0, 2) === '$$' || match[0].slice(0, 2) === '\\[';
-    var tag = block ? 'div' : 'span', className = block ? 'wiz-bare-math-environment' : 'wiz-latex-math';
-    spans.push({start:match.index, end:delimiters.lastIndex,
-      html:'<' + tag + ' class="' + className + '">' + WizLatexTheoremEntities(match[0]) + '</' + tag + '>'});
-  }
-  var references = /\\eqref\{[A-Za-z0-9_:./-]{1,128}\}/g;
-  var math = WizMathProtectedPositions(source);
-  var protectedSpans = spans.slice().sort(function (a, b) { return a.start - b.start; });
-  while ((match = references.exec(source))) {
-    if (code[match.index] || math[match.index]
-        || WizLatexTheoremOverlaps(protectedSpans, match.index, references.lastIndex)) continue;
-    spans.push({start:match.index,end:references.lastIndex,
-      html:'<span class="wiz-latex-math">' + WizLatexTheoremEntities(match[0]) + '</span>'});
+  if (source.indexOf('\\eqref{') >= 0) {
+    if (!code) code = WizMarkdownEnvironmentCodePositions(source);
+    var references = /\\eqref\{[A-Za-z0-9_:./-]{1,128}\}/g;
+    var math = WizMathProtectedPositions(source);
+    var protectedSpans = spans.slice().sort(function (a, b) { return a.start - b.start; });
+    while ((match = references.exec(source))) {
+      if (code[match.index] || math[match.index]
+          || WizLatexTheoremOverlaps(protectedSpans, match.index, references.lastIndex)) continue;
+      spans.push({start:match.index,end:references.lastIndex,
+        html:'<span class="wiz-latex-math">' + WizLatexTheoremEntities(match[0]) + '</span>'});
+    }
   }
   source = WizLatexTheoremReplaceSpans(source, spans);
   // Use the same known-math-label rule for plain \ref inside theorem prose;
