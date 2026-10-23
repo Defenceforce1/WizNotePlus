@@ -8,6 +8,8 @@ an assertion that every bundled editor/font/image/Chromium dependency is cleared
 - GPL-3.0.txt: SPDX license-list-data, GPL-3.0-only.txt (GPL version 3 text).
 - LGPL-3.0.txt: SPDX license-list-data, LGPL-3.0-only.txt (LGPL version 3 text).
 - CryptoPP-8.9.0.txt: exact License.txt from the local Crypto++ 8.9.0 build package.
+- MathJax-2.7.8-Apache-2.0.txt: official 2.7.8 LICENSE for the component-update
+  source branch; the older 2.7.6 license and frozen packages remain historical.
 - Existing application LICENSE and third-party notices are copied separately.
 
 Canonical license-text sources:

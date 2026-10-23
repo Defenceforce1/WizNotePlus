@@ -127,6 +127,16 @@ inline QString source()
         if(!event.isTrusted||!armed||active||document.body?.isContentEditable)return;
         active=true;++prepares;lastAdded=0;lastFitted=0;
         try{
+          // CodeMirror reserves scrollbar gutters with negative right margins.
+          // Chromium includes that extra width when deciding to shrink a PDF,
+          // even for a short read-only code line. Remove only this known gutter
+          // during an armed print; retain the same live node and restore its
+          // exact inline style through the existing print/snapshot FIFO.
+          for(const node of document.querySelectorAll('.CodeMirror > .CodeMirror-scroll')){
+            if(!(parseFloat(getComputedStyle(node).marginRight)<0))continue;
+            boxes.push({node,hadStyle:node.hasAttribute('style'),style:node.getAttribute('style')});
+            node.style.setProperty('margin-right','0','important');
+          }
           const referenced=new Map();
           for(const node of document.querySelectorAll('.MathJax_SVG a')){
             if(node.namespaceURI!==svg||node.hasAttributeNS(null,'href'))continue;

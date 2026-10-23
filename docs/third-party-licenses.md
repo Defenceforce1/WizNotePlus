@@ -16,7 +16,7 @@ engineering inventory, not legal clearance or a complete asset audit.
 | zlib | zlib license; system zlib used by native build |
 | SQLite 3.54.1 | public domain, unmodified official sqlite3.c / sqlite3.h / sqlite3ext.h headers; see tests/standalone-sqlite-upgrade/README.md for source checksum and compatibility settings |
 | JsonCpp 1.9.8 | MIT/public-domain options, bundled unmodified official amalgamation headers; commit 8519b8381f3c741ad1421f88237b1deda0b11412; see tests/standalone-jsoncpp-upgrade/README.md |
-| MathJax 2 | Apache-2.0, MathJax.js header |
+| MathJax 2.7.8 | Apache-2.0; unmodified retained upstream resources at 85e47d7801b2dea6c15878ac7b3dcf62cfd659b5; full LICENSE in build/osx/licenses/MathJax-2.7.8-Apache-2.0.txt |
 | Marked 17.0.5 | MIT; exact local browser distribution and full license in share/files/wizeditor/dependency/marked; used only for explicit theorem bodies |
 
 The original web editor, templates, fonts, images, plugins and further JS

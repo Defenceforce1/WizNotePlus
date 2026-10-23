@@ -2,6 +2,12 @@
 #include "share/WizPdfPageOperations.h"
 #include <QWebEngineScript>
 
+static QVariant mathjaxApplicationValue(QWebEnginePage* page,const QString& code){
+ struct State{bool ready=false;QVariant value;};auto s=std::make_shared<State>();
+ page->runJavaScript(code,QWebEngineScript::ApplicationWorld,[s](const QVariant& v){s->value=v;s->ready=true;});
+ wait([s]{return s->ready;},5000);return s->value;
+}
+
 // Bounded component acceptance using the actual bridge/editor and product PDF
 // entry point. Only synthetic source and explicitly marked local output.
 static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
@@ -44,6 +50,10 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
  js(page,"window.changedMode=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>window.changedMode=true);");check(wait([&]{return js(page,"window.changedMode&&!document.body.isContentEditable").toBool();})&&js(page,valid).toBool(),"return to reading retains rendered formulas");
  check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"reading after edit preserves exact source");
  const QString beforeHtml=js(page,"WizEditor.getContentHtml()").toString(),beforeDom=js(page,"document.documentElement.outerHTML").toString();const auto beforeModified=js(page,"WizEditor.isModified()");
+ mathjaxApplicationValue(page,WizPdfSvgLinks::source());
+ check(mathjaxApplicationValue(page,"(()=>{const n=document.querySelector('.CodeMirror > .CodeMirror-scroll');const before=n.getAttribute('style');dispatchEvent(new Event('beforeprint'));return n.getAttribute('style')===before&&!__wizPdfSvgLinks.status().active;})()").toBool(),"unarmed synthetic print does not adjust code gutters");
+ check(mathjaxApplicationValue(page,"(()=>{const n=document.querySelector('.CodeMirror > .CodeMirror-scroll');const before=n.getAttribute('style');const armed=__wizPdfSvgLinks.arm();dispatchEvent(new Event('beforeprint'));return armed&&n.getAttribute('style')===before&&!__wizPdfSvgLinks.status().active&&__wizPdfSvgLinks.finish();})()").toBool(),"armed but untrusted print does not adjust code gutters");
+ check(js(page,"document.documentElement.outerHTML").toString()==beforeDom,"print guard controls preserve exact reader DOM");
  const auto capture=js(page,WizPdfPaperPage::captureScript()).toMap();qInfo()<<"Component paper snapshot"<<capture.keys()<<capture.value("error")<<capture.value("mathCount")<<capture.value("html").toString().size();
  check(!capture.contains("error")&&js(page,"(()=>{const d=new DOMParser().parseFromString("+literal(capture.value("html").toString())+",'text/html');return d.querySelectorAll('.CodeMirror').length===0&&d.querySelector('[data-wiz-pdf-static-code]')?.textContent==='\\\\begin{equation}code_only\\\\end{equation}';})()").toBool(),"paper clone freezes actual code text without an interactive scroll layer");
  check(js(page,"document.querySelectorAll('.CodeMirror').length===1").toBool()&&js(page,"WizEditor.getContentHtml()").toString()==beforeHtml,"code capture leaves live editor and source intact");
