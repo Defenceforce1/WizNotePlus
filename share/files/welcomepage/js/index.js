@@ -178,8 +178,11 @@ async function listEvents() {
     const items = [];
     try {
         for (const doc of events) {
+            if (revision !== todoRevision) return;
             const date = (await doc.GetParamValue("CALENDAR_START") || "").slice(0, 10);
+            if (revision !== todoRevision) return;
             const isTask = await doc.GetParamValue("WIZ_TODO") === "1";
+            if (revision !== todoRevision) return;
             const item = document.createElement("li");
             const link = document.createElement("a");
             const guid = doc.GUID, title = doc.Title;

@@ -20,6 +20,9 @@ public:
     }
     Ticket beginLoad(const QString& key) {
         QMutexLocker lock(&m_mutex);if(m_closed)return {};
+        // A worker can populate the cache after find() missed but before the
+        // caller reaches this lock. Do not queue another database read then.
+        if(m_values.contains(key))return {};
         if(m_pending.contains(key)){++m_coalesced;return {};}
         const auto token=std::make_shared<const char>(0);m_pending.insert(key,{token,false});++m_loads;return token;
     }

@@ -2,7 +2,11 @@
 // Source and the bundled editor/MathJax remain unchanged.
 function WizMarkdownEnvironmentCodePositions(source) {
   var code = new Uint8Array(source.length), fence = null, offset = 0;
-  source.split('\n').forEach(function (line) {
+  // Keep only the current line, not an array of every line in a large note.
+  while (offset <= source.length) {
+    var end = source.indexOf('\n', offset);
+    if (end < 0) end = source.length;
+    var line = source.slice(offset, end);
     var marker = line.match(/^ {0,3}(`{3,}|~{3,}|(?:~T){3,})(.*)$/);
     if (marker) marker[1] = marker[1].replace(/~T/g, '~');
     if (fence) {
@@ -12,8 +16,8 @@ function WizMarkdownEnvironmentCodePositions(source) {
     } else if (marker) {
       fence = marker[1]; code.fill(1, offset, offset + line.length + 1);
     } else if (/^( {4}|\t)/.test(line)) code.fill(1, offset, offset + line.length + 1);
-    offset += line.length + 1;
-  });
+    offset = end + 1;
+  }
   var ticks = /(`+)/g, open;
   while ((open = ticks.exec(source))) {
     if (code[open.index]) continue;
@@ -32,6 +36,17 @@ function WizMarkdownEnvironmentPattern(rawSource) {
   // Their container prefixes are absent there but still present in raw source.
   var prefix = rawSource ? String.raw`(?:[ \t]*>[ \t]?)*[ \t]*` : String.raw`(?: {0,3}>[ \t]?)* {0,3}`;
   return new RegExp(String.raw`(^|\n)(${prefix})(\\begin\{((?:equation|align|gather|multline|alignat)\*?)\}[\s\S]*?\\end\{\4\})(?=[ \t]*(?:\n|$))`, 'g');
+}
+
+function WizMarkdownEnvironmentEntities(source) {
+  // Bounded chunks avoid two eager arrays containing every Unicode code point.
+  var chunks = [], chunk = '';
+  for (var character of source) {
+    chunk += '&#' + character.codePointAt(0) + ';';
+    if (chunk.length >= 8192) { chunks.push(chunk); chunk = ''; }
+  }
+  if (chunk) chunks.push(chunk);
+  return chunks.join('');
 }
 
 function WizMarkdownEnvironmentContainerText(tex, prefix) {
@@ -71,7 +86,7 @@ function WizProtectMarkdownEquationReferences(source) {
   return source.replace(/\\(eqref|ref)\{([A-Za-z0-9_:./-]{1,128})\}/g, function (reference, kind, key, offset) {
     if (code[offset] || math[offset]) return reference;
     if (kind === 'ref' && !mathLabels.has(key)) return reference;
-    var encoded = Array.from(reference).map(function (c) { return '&#' + c.codePointAt(0) + ';'; }).join('');
+    var encoded = WizMarkdownEnvironmentEntities(reference);
     return '<span class="wiz-latex-math">' + encoded + '</span>';
   });
 }
@@ -124,7 +139,7 @@ function WizConfigureMarkdownEnvironments(options) {
       if (!originalTex) return all;
       // Numeric entities keep Markdown punctuation, TeX backslashes and line
       // breaks opaque through the remaining inline parser and HTML filter.
-      var encoded = Array.from(originalTex).map(function (c) { return '&#' + c.codePointAt(0) + ';'; }).join('');
+      var encoded = WizMarkdownEnvironmentEntities(originalTex);
       return newline + '<div class="wiz-bare-math-environment">' + encoded + '</div>\n';
     }));
   };

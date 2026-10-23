@@ -38,6 +38,9 @@ int main(int argc,char** argv)
     check(admitted==1&&c.stats().pending==1&&c.stats().coalesced==499,"500 simultaneous misses coalesce to one pending load");
     check(c.complete("kb-a::note",a,value,4096)==Cache::Completion::Stored&&c.find("kb-a::note",read)&&read.text==value.text,"current result publishes an exact copy");
     check(c.complete("kb-a::note",a,value,4096)==Cache::Completion::Dropped,"a ticket cannot publish twice");
+    const auto loadsAfterFill=c.stats().loads;
+    check(!c.beginLoad("kb-a::note")&&c.stats().pending==0&&c.stats().loads==loadsAfterFill,
+          "completion between miss and admission cannot queue a redundant load");
     const auto other=c.beginLoad("kb-b::note");check(other&&other!=a,"same note identifier in another knowledge base is independent");c.cancel("kb-b::note",other);
     for(const auto& k:{"b","c","d"})c.complete(k,c.beginLoad(k),value,4096);
     c.find("kb-a::note",read);c.complete("e",c.beginLoad("e"),value,4096);

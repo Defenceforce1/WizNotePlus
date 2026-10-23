@@ -44,7 +44,13 @@ function WizRunMathBoundaryRegression() {
     document.body.innerHTML = '<p>' + entry[1] + '</p><blockquote><p><strong>定理</strong> \\label{thm:a}</p><p>Target.</p></blockquote>';
     var before = document.body.innerHTML;
     window.WizNoteCss = '/* WizNotePlus scientific math environments v1 */';
-    window.WizEditor = {getContentHtml:function () { return document.body.innerHTML; },getMarkdownSrc:function () { return document.body.innerHTML; }};
+    window.WizEditor = {getContentHtml:function () { return document.body.innerHTML; },getMarkdownSrc:function () { return document.body.innerHTML; },
+      insertCustomStyle:function (id, css) {
+        var style = document.getElementById(id);
+        if (!style) { style = document.createElement('style'); style.id = id; document.head.appendChild(style); }
+        style.textContent = css;
+      },
+      removeStyleById:function (id) { var style = document.getElementById(id); if (style) style.remove(); }};
     var links = [], exact = true;
     for (var round = 0; round < 4; ++round) {
       WizApplyMathEnvironments();

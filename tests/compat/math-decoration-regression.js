@@ -9,7 +9,13 @@ function WizRunMathDecorationRegression() {
     document.body.innerHTML = html;
     window.WizNoteCss = options && options.disabled ? '' : '/* WizNotePlus scientific math environments v1 */';
     window.WizEditor = {getContentHtml:function () { return document.body.innerHTML; },
-      getMarkdownSrc:function () { return document.body.innerHTML; }};
+      getMarkdownSrc:function () { return document.body.innerHTML; },
+      insertCustomStyle:function (id, css) {
+        var style = document.getElementById(id);
+        if (!style) { style = document.createElement('style'); style.id = id; document.head.appendChild(style); }
+        style.textContent = css;
+      },
+      removeStyleById:function (id) { var style = document.getElementById(id); if (style) style.remove(); }};
     return document.body.innerHTML;
   }
   function texts() {

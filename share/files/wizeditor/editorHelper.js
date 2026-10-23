@@ -310,13 +310,15 @@ function WizClearMathEnvironments() {
 function WizMathProtectedPositions(source) {
   var flags = new Uint8Array(source.length + 1);
   var delimiter = null, braces = 0, environments = [];
+  var environmentPattern = /\\(begin|end)\{([^{}]+)\}/y;
   for (var i = 0; i < source.length;) {
     var before = delimiter !== null || environments.length !== 0;
     var c = source[i], next = source[i+1], length = 1;
     if (c === '\\') {
       if (next === '\\' || next === '$' || next === '{' || next === '}') length = 2;
       else {
-        var environment = source.slice(i).match(/^\\(begin|end)\{([^{}]+)\}/);
+        environmentPattern.lastIndex = i;
+        var environment = environmentPattern.exec(source);
         if (environment) {
           if (environment[1] === 'begin') environments.push(environment[2]);
           else if (environments[environments.length-1] === environment[2]) environments.pop();
@@ -345,7 +347,7 @@ function WizMathProtectedPositions(source) {
   return flags;
 }
 function WizMathTextContexts(nodes, body) {
-  var contexts = new Map(), scopes = new Set();
+  var contexts = new Map(), scopes = new Set(), requested = new Set(nodes);
   var selector = 'p,li,td,th,blockquote,h1,h2,h3,h4,h5,h6,div';
   var excluded = 'pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading';
   nodes.forEach(function (text) { scopes.add(text.parentElement.closest(selector) || body); });
@@ -357,7 +359,8 @@ function WizMathTextContexts(nodes, body) {
     }});
     var parts = [], offsets = [], length = 0, node;
     while ((node = walker.nextNode())) {
-      offsets.push({node:node, offset:length}); parts.push(node.nodeValue); length += node.nodeValue.length;
+      if (requested.has(node)) offsets.push({node:node, offset:length});
+      parts.push(node.nodeValue); length += node.nodeValue.length;
     }
     var protectedPositions = WizMathProtectedPositions(parts.join(''));
     offsets.forEach(function (entry) { contexts.set(entry.node, {protectedPositions:protectedPositions, offset:entry.offset}); });
@@ -392,8 +395,14 @@ function WizApplyMathEnvironments() {
     definition:'定义', example:'例', remark:'注', proof:'证明' };
   var labels = Object.create(null), duplicates = Object.create(null);
   var blockRecords = new Map();
+  var headingRecords = new WeakMap();
   var attributes = ['class','id','style','data-wiz-math-title','data-wiz-math-number','data-wiz-math-heading'];
   function parseHeading(heading) {
+    if (!heading || heading.tagName !== 'P') return null;
+    if (!headingRecords.has(heading)) headingRecords.set(heading, readHeading(heading));
+    return headingRecords.get(heading);
+  }
+  function readHeading(heading) {
     if (!heading || heading.tagName !== 'P') return null;
     var strong = heading.firstElementChild;
     if (!strong || strong.tagName !== 'STRONG' || strong !== heading.children[0]) return null;

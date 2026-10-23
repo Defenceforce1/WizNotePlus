@@ -61,15 +61,36 @@ function WizLatexTheoremRecords(source) {
 }
 
 function WizLatexTheoremEntities(source) {
-  return Array.from(source).map(function (c) { return '&#' + c.codePointAt(0) + ';'; }).join('');
+  return WizMarkdownEnvironmentEntities(source);
+}
+
+function WizLatexTheoremReplaceSpans(source, spans) {
+  if (!spans.length) return source;
+  var parts = [], offset = 0;
+  spans.sort(function (a, b) { return a.start - b.start; }).forEach(function (span) {
+    parts.push(source.slice(offset, span.start), span.html); offset = span.end;
+  });
+  parts.push(source.slice(offset));
+  return parts.join('');
+}
+
+function WizLatexTheoremOverlaps(spans, start, end) {
+  // Input spans are ordered and disjoint; touching endpoints do not overlap.
+  var low = 0, high = spans.length;
+  while (low < high) {
+    var middle = (low + high) >>> 1;
+    if (spans[middle].end <= start) low = middle + 1;
+    else high = middle;
+  }
+  return low < spans.length && spans[low].start < end;
 }
 
 function WizLatexTheoremBody(source, depth) {
   if (depth > 16) throw new Error('Theorem nesting exceeds the supported limit');
-  WizLatexTheoremRecords(source).reverse().forEach(function (record) {
-    source = source.slice(0, record.start) + '\n\n' + WizLatexTheoremHtml(record, depth + 1)
-      + '\n\n' + source.slice(record.end);
-  });
+  source = WizLatexTheoremReplaceSpans(source, WizLatexTheoremRecords(source).reverse().map(function (record) {
+    return {start:record.start, end:record.end,
+      html:'\n\n' + WizLatexTheoremHtml(record, depth + 1) + '\n\n'};
+  }));
   var code = WizMarkdownEnvironmentCodePositions(source), spans = [], match;
   var environments = WizMarkdownEnvironmentPattern();
   while ((match = environments.exec(source))) {
@@ -78,13 +99,13 @@ function WizLatexTheoremBody(source, depth) {
       html:'\n<div class="wiz-bare-math-environment">'
         + WizLatexTheoremEntities(WizMarkdownEnvironmentContainerText(match[3], match[2])) + '</div>\n'});
   }
+  var environmentSpans = spans.slice();
   var delimiters = /\$\$[\s\S]*?\$\$|\$(?:\\.|[^\n$\\])+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
   while ((match = delimiters.exec(source))) {
     var backslashes = 0;
     for (var i = match.index - 1; i >= 0 && source[i] === '\\'; --i) ++backslashes;
-    if (code[match.index] || backslashes % 2 || spans.some(function (span) {
-      return match.index < span.end && delimiters.lastIndex > span.start;
-    })) continue;
+    if (code[match.index] || backslashes % 2
+        || WizLatexTheoremOverlaps(environmentSpans, match.index, delimiters.lastIndex)) continue;
     var block = match[0].slice(0, 2) === '$$' || match[0].slice(0, 2) === '\\[';
     var tag = block ? 'div' : 'span', className = block ? 'wiz-bare-math-environment' : 'wiz-latex-math';
     spans.push({start:match.index, end:delimiters.lastIndex,
@@ -92,16 +113,14 @@ function WizLatexTheoremBody(source, depth) {
   }
   var references = /\\eqref\{[A-Za-z0-9_:./-]{1,128}\}/g;
   var math = WizMathProtectedPositions(source);
+  var protectedSpans = spans.slice().sort(function (a, b) { return a.start - b.start; });
   while ((match = references.exec(source))) {
-    if (code[match.index] || math[match.index] || spans.some(function (span) {
-      return match.index < span.end && references.lastIndex > span.start;
-    })) continue;
+    if (code[match.index] || math[match.index]
+        || WizLatexTheoremOverlaps(protectedSpans, match.index, references.lastIndex)) continue;
     spans.push({start:match.index,end:references.lastIndex,
       html:'<span class="wiz-latex-math">' + WizLatexTheoremEntities(match[0]) + '</span>'});
   }
-  spans.sort(function (a, b) { return b.start - a.start; }).forEach(function (span) {
-    source = source.slice(0, span.start) + span.html + source.slice(span.end);
-  });
+  source = WizLatexTheoremReplaceSpans(source, spans);
   // Use the same known-math-label rule for plain \ref inside theorem prose;
   // theorem-to-theorem references remain ordinary text for the block decorator.
   source = WizProtectMarkdownEquationReferences(source);
@@ -116,6 +135,18 @@ function WizLatexTheoremHtml(record, depth) {
     + '<p><strong>' + WizLatexTheoremEntities(title) + '</strong>'
     + (record.label ? ' \\label{' + record.label + '}' : '') + '</p>'
     + WizLatexTheoremBody(record.body, depth || 0) + '</blockquote>';
+}
+
+function WizLatexTheoremTextPosition(entries, offset) {
+  var low = 0, high = entries.length;
+  while (low < high) {
+    var middle = (low + high) >>> 1;
+    if (entries[middle].offset <= offset) low = middle + 1;
+    else high = middle;
+  }
+  var entry = entries[low - 1];
+  return entry && offset <= entry.offset + entry.node.length
+    ? {node:entry.node, offset:offset - entry.offset} : undefined;
 }
 
 function WizRenderLatexTheorems(html, source) {
@@ -135,8 +166,7 @@ function WizRenderLatexTheorems(html, source) {
   var tokens = /(^|\n) {0,3}\\(begin|end)\{((?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*?)\}/g;
   var stack = [], matches = [], match;
   function position(offset) {
-    var entry = entries.find(function (item) { return offset >= item.offset && offset <= item.offset + item.node.length; });
-    return entry && {node:entry.node, offset:offset - entry.offset};
+    return WizLatexTheoremTextPosition(entries, offset);
   }
   while ((match = tokens.exec(text))) {
     var start = match.index + match[1].length, command = text.indexOf('\\', start);

@@ -197,6 +197,9 @@ bool WizDatabaseManager::close(const QString& strKbGUID, bool bNotify)
     if (strKbGUID.isEmpty()) {
         Q_ASSERT(m_mapGroups.isEmpty());
 
+        // Opening can fail before a personal database exists. Teardown must
+        // not dereference a null QPointer in that ordinary failure path.
+        if (!m_dbPrivate) return false;
         m_dbPrivate->close();
         m_dbPrivate->deleteLater();
         return true;
