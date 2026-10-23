@@ -58,6 +58,7 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "diagram-components.h"
 #include "welcome-components.h"
 #include "save-state.h"
+#include "todo-welcome.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
@@ -65,6 +66,7 @@ int main(int argc,char**argv){
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
     if(kind=="save-state"&&argc==4)return runSaveState(root,resources,QString::fromLocal8Bit(argv[3]));
+    if(kind=="todo-welcome"&&argc==4)return runTodoWelcome(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="welcome-components"&&argc==5)return runWelcomeComponents(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="diagram-components"&&argc==5)return runDiagramComponents(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="math-references"&&argc==4)return runMathReferences(root,resources,QString::fromLocal8Bit(argv[3]));

@@ -2,6 +2,7 @@
 #define API_APIWIZEXPLORERWINDOW_H
 
 #include <QObject>
+#include <QVariantMap>
 
 class WizMainWindow;
 
@@ -19,6 +20,8 @@ public:
     Q_INVOKABLE void ViewDocument(QObject *pWizDocument, bool vbOpenInNewTab = true);
     Q_INVOKABLE void ViewAttachment(QObject *pWizDocumentAttachment);
     Q_INVOKABLE void OpenMessageConsole();
+    Q_INVOKABLE QVariantMap CreateTodo(const QString& title, const QString& date);
+    Q_INVOKABLE bool SetTodoDate(const QString& guid, const QString& date);
 
 };
 

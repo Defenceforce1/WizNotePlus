@@ -2,6 +2,9 @@ var objApp = null;
 var objDatabase = null;
 
 const ITEM_LIMITS = 10;
+let todoRevision = 0;
+let todoBusy = false;
+let todoGuid = "";
 
 const en_US = {
     "labelOverview": "Overview",
@@ -10,6 +13,16 @@ const en_US = {
     "labelRecentAccessedDocuments": "Recent Read",
     "labelUnreadDocuments": "Unread Documents",
     "labelTodo": "Todo",
+    "todoAdd": "Add",
+    "todoSave": "Add",
+    "todoCancel": "Cancel",
+    "todoTitle": "Title",
+    "todoDate": "Date",
+    "todoEdit": "Save",
+    "todoDone": "Complete",
+    "todoEmpty": "No pending tasks",
+    "todoFailed": "Could not save. Please retry.",
+    "todoPartial": "Note created; date not saved. Retry to keep this same note.",
     "Title": "Welcome to Wiz"
 }
 
@@ -20,6 +33,16 @@ const zh_CN = {
     "labelRecentAccessedDocuments": "近期阅读",
     "labelUnreadDocuments": "未读文档",
     "labelTodo": "待办事宜",
+    "todoAdd": "添加",
+    "todoSave": "添加",
+    "todoCancel": "取消",
+    "todoTitle": "待办标题",
+    "todoDate": "日期",
+    "todoEdit": "保存",
+    "todoDone": "完成",
+    "todoEmpty": "暂无待办",
+    "todoFailed": "保存失败，请重试。",
+    "todoPartial": "笔记已创建，日期保存失败；请重试，不会重复创建笔记。",
     "Title": "欢迎使用为知笔记"
 }
 
@@ -30,11 +53,21 @@ const zh_TW = {
     "labelRecentAccessedDocuments": "近期閲讀",
     "labelUnreadDocuments": "未讀筆記",
     "labelTodo": "待辦事項",
+    "todoAdd": "新增",
+    "todoSave": "新增",
+    "todoCancel": "取消",
+    "todoTitle": "待辦標題",
+    "todoDate": "日期",
+    "todoEdit": "儲存",
+    "todoDone": "完成",
+    "todoEmpty": "暫無待辦",
+    "todoFailed": "儲存失敗，請重試。",
+    "todoPartial": "筆記已建立，日期儲存失敗；請重試，不會重複建立筆記。",
     "Title": "歡迎使用為知筆記"
 }
 
 function dateToStr(dt) {
-    return "" + dt.getFullYear() + "-" + (dt.getMonth() + 1) + "-" + dt.getDate();
+    return String(dt.getFullYear()).padStart(4, "0") + "-" + formatInt(dt.getMonth() + 1) + "-" + formatInt(dt.getDate());
 }
 
 function strToDate(str) {
@@ -60,7 +93,7 @@ async function viewDocument(doc_guid) {
     if (doc != null) {
         objApp.Window.ViewDocument(doc, true);
     }
-    doc.deleteLater();
+    if (doc) doc.deleteLater();
 }
 
 function getMetaInt(objDatabase, metaName, metaKey, defVal) {
@@ -140,43 +173,129 @@ async function listUnreadDocuments() {
 }
 
 async function listEvents() {
-    // Get query data
+    const revision = ++todoRevision;
     const begin = new Date();
     const end = new Date();
     end.setDate(end.getDate() + 7);
-    // Construct SQL
-    let sql = `DOCUMENT_LOCATION not like '/Deleted Items/%'`;
-    const and1 = ` and DOCUMENT_GUID in (select DOCUMENT_GUID from WIZ_DOCUMENT_PARAM where PARAM_NAME = 'CALENDAR_START'  and  PARAM_VALUE <= '${end.toISOString().replace(/T.*/, "") + " 23:59:59"}' )`;
-    const and2 = ` and DOCUMENT_GUID in (select DOCUMENT_GUID from WIZ_DOCUMENT_PARAM where PARAM_NAME = 'CALENDAR_END'  and  PARAM_VALUE >= '${begin.toISOString().replace(/T.*/, "") + " 00:00:00"}' )`;
-    sql += and2;
-    sql += and1;
-    // Get documents which contains events data
-    // Wait for event creation
-    await new Promise(r => setTimeout(r, 1000));
-    const events = await objDatabase.DocumentsFromSQLWhere(sql);
-    let liItems = [];
-    if (events == undefined || events.length == 0) {
-        const item = document.createElement("li");
-        item.innerHTML = "No events";
-        liItems.push(item)
-    } else {
+    // Explicit tasks remain visible when overdue or more than seven days away.
+    // Retain the old seven-day window for legacy calendar notes only. Use local
+    // dates, not UTC dates (which shift the day near midnight in many timezones).
+    const task = `DOCUMENT_GUID in (select DOCUMENT_GUID from WIZ_DOCUMENT_PARAM where PARAM_NAME='WIZ_TODO' and PARAM_VALUE='1')`;
+    const legacy = `DOCUMENT_GUID not in (select DOCUMENT_GUID from WIZ_DOCUMENT_PARAM where PARAM_NAME='WIZ_TODO')`
+        + ` and DOCUMENT_GUID in (select DOCUMENT_GUID from WIZ_DOCUMENT_PARAM where PARAM_NAME='CALENDAR_START' and PARAM_VALUE <= '${dateToStr(end)} 23:59:59')`
+        + ` and DOCUMENT_GUID in (select DOCUMENT_GUID from WIZ_DOCUMENT_PARAM where PARAM_NAME='CALENDAR_END' and PARAM_VALUE >= '${dateToStr(begin)} 00:00:00')`;
+    const sql = `DOCUMENT_LOCATION not like '/Deleted Items/%' and ((${task}) or (${legacy}))`
+        + ` order by (select PARAM_VALUE from WIZ_DOCUMENT_PARAM p where p.DOCUMENT_GUID=WIZ_DOCUMENT.DOCUMENT_GUID and PARAM_NAME='CALENDAR_START'), DOCUMENT_GUID`;
+    const events = await objDatabase.DocumentsFromSQLWhere(sql) || [];
+    const items = [];
+    try {
         for (const doc of events) {
-            // Get start date of event
-            const eventBegin = strToDate(await doc.GetParamValue("CALENDAR_START"));
-            const eventBeginString = eventBegin.toLocaleDateString();
-
+            const date = (await doc.GetParamValue("CALENDAR_START") || "").slice(0, 10);
+            const isTask = await doc.GetParamValue("WIZ_TODO") === "1";
             const item = document.createElement("li");
-            item.innerHTML = "<a href=\"javascript:void(0);\" onclick=\"viewDocument('" + doc.GUID + "');\" >" + doc.Title + "</a>&nbsp;(" + eventBeginString + ")";
-            liItems.push(item)
-
-            doc.deleteLater();
+            const link = document.createElement("a");
+            const guid = doc.GUID, title = doc.Title;
+            link.href = "#";
+            link.textContent = title;
+            link.onclick = event => { event.preventDefault(); viewDocument(guid); };
+            item.appendChild(link);
+            const dateLabel = document.createElement(isTask ? "button" : "span");
+            dateLabel.textContent = date;
+            dateLabel.className = "todo-date" + (isTask ? " todo-action" : "")
+                + (date < dateToStr(begin) ? " todo-overdue" : "");
+            if (isTask) {
+                dateLabel.type = "button";
+                dateLabel.title = i18next.t("todoDate");
+                dateLabel.onclick = () => showTodoForm(guid, title, date);
+                const done = document.createElement("button");
+                done.type = "button";
+                done.textContent = i18next.t("todoDone");
+                done.className = "todo-action";
+                done.onclick = () => completeTodo(guid);
+                item.appendChild(dateLabel);
+                item.appendChild(done);
+            } else item.appendChild(dateLabel);
+            items.push(item);
         }
+    } finally {
+        for (const doc of events) doc.deleteLater();
     }
+    if (revision !== todoRevision) return;
+    if (!items.length) {
+        const empty = document.createElement("li");
+        empty.textContent = i18next.t("todoEmpty");
+        items.push(empty);
+    }
+    document.getElementById("listTodo").replaceChildren(...items);
+}
 
-    listTodo.innerHTML = "";
-    for (const liItem of liItems) {
-        listTodo.appendChild(liItem);
-    }
+function todoStatus(key) {
+    const status = document.getElementById("todoStatus");
+    status.textContent = key ? i18next.t(key) : "";
+    status.hidden = !key;
+}
+
+function showTodoForm(guid = "", title = "", date = dateToStr(new Date())) {
+    if (todoBusy) return;
+    todoGuid = guid;
+    todoStatus("");
+    document.getElementById("todoForm").hidden = false;
+    document.getElementById("todoTitle").value = title;
+    document.getElementById("todoTitle").readOnly = !!guid;
+    document.getElementById("todoDate").value = date;
+    document.getElementById("todoSave").textContent = i18next.t(guid ? "todoEdit" : "todoSave");
+    document.getElementById(guid ? "todoDate" : "todoTitle").focus();
+}
+
+function setTodoBusy(busy) {
+    todoBusy = busy;
+    for (const id of ["todoAdd", "todoTitle", "todoDate", "todoSave", "todoCancel"])
+        document.getElementById(id).disabled = busy;
+}
+
+async function saveTodo(event) {
+    event.preventDefault();
+    if (todoBusy) return;
+    const form = document.getElementById("todoForm");
+    if (!form.reportValidity()) return;
+    const title = document.getElementById("todoTitle").value.trim();
+    if (!title) { document.getElementById("todoTitle").focus(); return; }
+    const date = document.getElementById("todoDate").value;
+    setTodoBusy(true);
+    todoStatus("");
+    try {
+        let result;
+        if (todoGuid) result = {ok: await objApp.Window.SetTodoDate(todoGuid, date)};
+        else result = await objApp.Window.CreateTodo(title, date);
+        if (!result || !result.ok) {
+            if (result && result.guid) {
+                todoGuid = result.guid;
+                document.getElementById("todoTitle").readOnly = true;
+            }
+            todoStatus(result && result.error === "date-save-failed" ? "todoPartial" : "todoFailed");
+            return;
+        }
+        form.hidden = true;
+        todoGuid = "";
+        await listEvents();
+    } catch (error) {
+        todoStatus("todoFailed");
+    } finally { setTodoBusy(false); }
+}
+
+async function completeTodo(guid) {
+    if (todoBusy) return;
+    setTodoBusy(true);
+    todoStatus("");
+    try {
+        if (!await objApp.Window.SetTodoDate(guid, "")) { todoStatus("todoFailed"); return; }
+        if (todoGuid === guid) {
+            document.getElementById("todoForm").hidden = true;
+            todoGuid = "";
+        }
+        await listEvents();
+    } catch (error) { todoStatus("todoFailed"); }
+    finally { setTodoBusy(false); }
 }
 
 function formatInt(val) {
@@ -268,20 +387,37 @@ $(document).ready(function() {
             }
 
             const elem = document.getElementById(id);
-            if (elem)
-                elem.innerHTML = t(id);
+            if (elem) {
+                if (elem.tagName === "INPUT") {
+                    elem.setAttribute("aria-label", t(id));
+                    if (id === "todoTitle") elem.placeholder = t(id);
+                } else elem.textContent = t(id);
+            }
         }
         $('#datepicker').datepicker(
             $.datepicker.regional[lang.replace(/_/, "-")]
         );
 
         objDatabase.documentCreated.connect(listDocuments);
+        objDatabase.documentCreated.connect(listEvents);
         objDatabase.documentDeleted.connect(listDocuments);
         objDatabase.documentDeleted.connect(listEvents);
         objDatabase.documentModified.connect(listDocuments);
         objDatabase.documentModified.connect(listEvents);
         objDatabase.documentDataModified.connect(listDocuments);
         objDatabase.documentAccessDateModified.connect(listDocumentsRecentAccessed);
+        if (objDatabase.documentParamModified)
+            objDatabase.documentParamModified.connect(listEvents);
+
+        document.getElementById("todoAdd").disabled = false;
+        document.getElementById("todoAdd").onclick = () => showTodoForm();
+        document.getElementById("todoForm").onsubmit = saveTodo;
+        document.getElementById("todoCancel").onclick = () => {
+            if (todoBusy) return;
+            document.getElementById("todoForm").hidden = true;
+            todoGuid = "";
+            todoStatus("");
+        };
 
         await listDocuments();
         await listDocumentsRecentAccessed();

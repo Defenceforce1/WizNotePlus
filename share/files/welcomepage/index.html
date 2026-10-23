@@ -21,6 +21,17 @@
 
 		li > a { text-decoration: none; }
 		li > a:hover { text-decoration: underline; }
+        .todo-heading { display: flex; align-items: baseline; gap: 12px; }
+        .todo-heading h3 { margin-bottom: 8px; }
+        .todo-action { border: 0; background: none; padding: 2px 4px; color: #3566a8; cursor: pointer; font: inherit; }
+        .todo-action:disabled { opacity: .5; cursor: default; }
+        #todoForm { margin: 6px 0 12px; }
+        #todoForm[hidden] { display: none; }
+        #todoTitle { width: 220px; max-width: 40vw; }
+        #todoForm input, #todoForm button { font: inherit; margin-right: 6px; }
+        #todoStatus { color: #a13030; margin: 6px 0; }
+        .todo-date { color: #666; margin-left: 8px; }
+        .todo-overdue { color: #a13030; }
     </style>
 </head>
 <body style="visibility: hidden">
@@ -37,8 +48,17 @@
                 <tbody>
                     <tr align="left">
                         <td style="width: 90%">
-                            <h3 id="labelTodo">
-                                Todo</h3>
+                            <div class="todo-heading">
+                                <h3 id="labelTodo">Todo</h3>
+                                <button id="todoAdd" class="todo-action" type="button" disabled>Add</button>
+                            </div>
+                            <form id="todoForm" hidden>
+                                <input id="todoTitle" type="text" maxlength="200" required aria-label="Title" />
+                                <input id="todoDate" type="date" min="0001-01-01" max="9999-12-31" required aria-label="Date" />
+                                <button id="todoSave" type="submit">Add</button>
+                                <button id="todoCancel" type="button">Cancel</button>
+                            </form>
+                            <div id="todoStatus" role="status" hidden></div>
                             <ul id="listTodo">
                             </ul>
                             <h3 id="labelRecentDocuments">
