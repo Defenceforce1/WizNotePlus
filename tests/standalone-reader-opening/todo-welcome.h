@@ -19,6 +19,7 @@ static int runTodoWelcome(QTemporaryDir& root, const QString& resources, const Q
     html.replace("src=\"js/", "src=\"" + base + "js/");
     html.replace("href=\"css/", "href=\"" + base + "css/");
     html.replace("../webengine/wizwebchannel.js", QUrl::fromLocalFile(transport.fileName()).toString());
+    if (!prepareWelcomeJquery4(html, root, output)) return 5;
     QFile fixture(root.filePath("todo-welcome.html"));
     if (!fixture.open(QIODevice::WriteOnly)) return 5;
     fixture.write(html.toUtf8()); fixture.close();
@@ -74,10 +75,14 @@ static int runTodoWelcome(QTemporaryDir& root, const QString& resources, const Q
     check(view.grab().save(output + "/todo-welcome.png"), "capture synthetic Welcome for visual review");
     js(page, "todoAdd.click();todoTitle.value='下一项待办';");
     check(view.grab().save(output + "/todo-form.png"), "capture minimal creation form");
+    checkWelcomeJquery4(page, output, check);
     check(local.blocked.load() == 0, "no external requests or account access");
     check(!view.windowHandle() || !view.windowHandle()->isExposed(), "no foreground test window");
     QJsonObject result{{"checks", checks}, {"failures", failures}, {"syntheticTransportOnly", true},
         {"actualDatabaseOrAccountAccepted", false}, {"externalBlocked", local.blocked.load()},
+        {"jquery",js(page,"jQuery.fn.jquery").toString()},
+        {"migrationDiagnostic",QFile::exists(output+"/migration-input.js")},
+        {"migrationWarnings",QJsonArray::fromVariantList(js(page,"jQuery.migrateWarnings||[]").toList())},
         {"query", js(page, "syntheticTodo.queries.find(q=>q.includes(\"PARAM_NAME='WIZ_TODO'\"))").toString()}};
     QFile report(output + "/runtime.json"); if (!report.open(QIODevice::WriteOnly | QIODevice::NewOnly)) return 8;
     report.write(QJsonDocument(result).toJson(QJsonDocument::Indented));

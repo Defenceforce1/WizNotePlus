@@ -335,10 +335,9 @@ $(document).ready(function() {
         prevText: '',
         nextText: ''
     });
-    $('#dialog_link, ul#icons li').hover(
-        function() { $(this).addClass('ui-state-hover'); },
-        function() { $(this).removeClass('ui-state-hover'); }
-    );
+    $('#dialog_link, ul#icons li')
+        .on('mouseenter', function() { $(this).addClass('ui-state-hover'); })
+        .on('mouseleave', function() { $(this).removeClass('ui-state-hover'); });
 
     // Initialize WizNote APIs
     new QWebChannel(qt.webChannelTransport, async function(channel) {

@@ -56,6 +56,7 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "frontend-components.h"
 #include "ordinary-workflow.h"
 #include "diagram-components.h"
+#include "welcome-jquery4.h"
 #include "welcome-components.h"
 #include "save-state.h"
 #include "todo-welcome.h"
