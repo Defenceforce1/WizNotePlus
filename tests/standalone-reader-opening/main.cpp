@@ -52,6 +52,7 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "mathjax-upgrade.h"
 #include "math-references.h"
 #include "mathjax-benchmark.h"
+#include "mathjax-font-preview.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
@@ -60,6 +61,7 @@ int main(int argc,char**argv){
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
     if(kind=="math-references"&&argc==4)return runMathReferences(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="mathjax-benchmark"&&argc==5)return runMathjaxBenchmark(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
+    if(kind=="mathjax-font-preview"&&argc==5)return runMathjaxFontPreview(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-upgrade"&&argc==5)return runMathjaxUpgrade(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="retention-nested"||kind=="retention-yield"||kind=="retention-nested-pool"||kind=="retention-yield-persistent"){
         if(QGuiApplication::platformName()!="cocoa")return 4;int status=0;
@@ -166,7 +168,8 @@ const originalStyle=WizApplyNoteStyle;WizApplyNoteStyle=function(){openingMark('
     body+="openingMark('native-init-resolved');WizPrepareNoteModeChange();openingMark('native-off-begin');await new Promise(resolve=>WizEditor.off(null,()=>{openingMark('native-off-complete');resolve();}));WizApplyNoteStyle();WizApplySpellCheck();";
     page->runJavaScript(WizDocumentPageReady::setupScript(literal("opening"),body));
     if(!wait([&]{return js(page,"WizNativeEditorSetup.state").toString()=="ready";}))return 5;
-    if(!wait([&]{return js(page,"!window.MathJax||!MathJax.Hub||(!MathJax.Hub.queue.running&&!MathJax.Hub.queue.pending)").toBool();}))return 6;
+    js(page,"window.mathIdle=false;if(window.MathJax&&MathJax.Hub)MathJax.Hub.Queue(()=>window.mathIdle=true);else window.mathIdle=true;");
+    if(!wait([&]{return js(page,"window.mathIdle").toBool();}))return 6;
     QEventLoop settle;QTimer::singleShot(500,&settle,&QEventLoop::quit);settle.exec();
     if(kind=="rapid"){
         int checks=0,failures=0;const auto check=[&](bool ok,const char* label){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;};

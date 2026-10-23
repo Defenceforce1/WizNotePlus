@@ -1,5 +1,7 @@
 #pragma once
 #include "share/WizPdfPageOperations.h"
+#include "WizNotePresentation.h"
+#include "share/WizDocumentAsync.h"
 #include <QWebEngineScript>
 
 static QVariant mathjaxApplicationValue(QWebEnginePage* page,const QString& code){
@@ -18,7 +20,7 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
  QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
  QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(1100,700);auto* page=new QWebEnginePage(&profile,&view);view.setPage(page);
  QWebChannel channel;Bridge editor,explorer;channel.registerObject("WizQtEditor",&editor);channel.registerObject("WizExplorerApp",&explorer);page->setWebChannel(&channel);
- const QString source=QStringLiteral("# Synthetic component formulas\n\n"
+ QString source=QStringLiteral("# Synthetic component formulas\n\n"
    "$$x+y=z$$\n\n"
    "\\begin{equation}\\label{component:equation}\nA+C-D=\\begin{cases}A\\\\B\\end{cases}\n\\end{equation}\n\n"
    "\\begin{align}a&=b\\\\c&=d\\label{component:align}\\end{align}\n\n"
@@ -28,18 +30,23 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
    "$$\\vphantom{\\frac{1}{2}}x+\\int_0^1 t\\,dt$$\n\n"
    "```latex\n\\begin{equation}code_only\\end{equation}\n```\n\n"
    "Reference \\eqref{component:equation}, \\eqref{component:align}, \\eqref{component:multline}, \\ref{component:theorem}.\n");
+ if(version=="4.1.3")source+="\n\\begin{multline*}"+QString("a+b+c+d+e+f+g+h+").repeated(5)+"x\\\\=z\\end{multline*}\n";
  editor.original="<!doctype html><html><head><meta charset='utf-8'></head><body>"+source.toHtmlEscaped().replace("\n","<br>")+"</body></html>";
  QString html=editor.original,scripts;for(const auto& name:QStringList{"webengine/wizwebchannel.js","wizeditor/wizEditorForMac.js","wizeditor/dependency/marked/marked.umd.js","wizeditor/latexTheorems.js","wizeditor/markdownEnvironments.js","wizeditor/editorHelper.js"})scripts+="<script name='wiz_inner_script' wiz_style='unsave' src='"+QUrl::fromLocalFile(resources+name).toString().toHtmlEscaped()+"'></script>";
  html.insert(html.lastIndexOf("</body>"),scripts);QFile fixture(root.filePath("formula.html"));if(!fixture.open(QIODevice::WriteOnly))return 5;fixture.write(html.toUtf8());fixture.close();
  bool loaded=false,loadOk=false;QObject::connect(&view,&QWebEngineView::loadFinished,[&](bool ok){loaded=true;loadOk=ok;});view.show();view.load(QUrl::fromLocalFile(fixture.fileName()));
  if(!check(wait([&]{return loaded;})&&loadOk,"local unchanged editor fixture loads"))return 6;
+ const QString noteCss=version=="4.1.3"?WizNotePresentation::mathBlockStyle()+WizNotePresentation::scientificMathStyle():"/* WizNotePlus scientific math environments v1 */";
  const auto initialize=WizDocumentPageReady::setupScript("'component-upgrade'",
-  "window.WizSpellCheckEnabled=false;window.WizNoteCss='/* WizNotePlus scientific math environments v1 */';"+
+  "window.WizSpellCheckEnabled=false;window.WizNoteCss="+literal(noteCss)+";"+
   WizDocumentPageReady::initializeEditorScript(resources+"wizeditor/","zh-cn","synthetic-component-user","Synthetic",false,"markdown")+
   "WizPrepareNoteModeChange();await new Promise(resolve=>WizEditor.off({reader:{type:'markdown'}},resolve));"
   "if(window.MathJax&&MathJax.Hub)await new Promise(resolve=>MathJax.Hub.Queue(resolve));WizApplyNoteStyle();");
  page->runJavaScript(initialize);
  if(!check(wait([&]{return js(page,"window.WizNativeEditorSetup?.state==='ready'").toBool();}),"actual bridge and formula initialization completes"))return 7;
+ if(output.endsWith("serialization-only")){
+  QFile saved(output+"/synthetic-serialized.html");if(!saved.open(QIODevice::WriteOnly|QIODevice::NewOnly))return 8;saved.write(js(page,"WizEditor.getContentHtml()").toString().toUtf8());profile.setUrlRequestInterceptor(nullptr);return 0;
+ }
  const QString original=js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString();check(original==source,"initial reading preserves exact source");
  check(js(page,"window.MathJax&&MathJax.version==="+literal(version)).toBool(),"expected actual MathJax version loaded");
  const QString valid="document.querySelectorAll('.MathJax_Error,merror,.merror,.noError').length===0&&document.querySelectorAll('.MathJax_SVG svg').length>=9&&['component:equation','component:align','component:gather','component:multline','component:nested'].every(k=>!!document.getElementById('mjx-eqn-'+k))&&!document.querySelector('pre .MathJax_SVG')";
@@ -47,8 +54,19 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
  check(js(page,R"JS((()=>{const refs=[...document.querySelectorAll('a')].map(a=>a.getAttribute('href')||a.getAttributeNS('http://www.w3.org/1999/xlink','href')).filter(h=>h&&h.startsWith('#'));return refs.length>=4&&refs.every(h=>!!document.getElementById(decodeURIComponent(h.slice(1))));})())JS").toBool(),"actual HTML and SVG references resolve to local targets");
  js(page,"window.changedMode=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>window.changedMode=true);");check(wait([&]{return js(page,"window.changedMode&&document.body.isContentEditable").toBool();}),"edit transition completes");
  check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source&&!js(page,"WizEditor.getContentHtml()").toString().isEmpty(),"editing source intact and serialization nonempty");
+ if(version=="4.1.3"){
+  const auto saved=WizDocumentSaveSnapshot::parse(js(page,WizDocumentSaveSnapshot::editorScript(true,false)));
+  check(saved.state==WizDocumentSaveSnapshot::State::Changed&&!saved.html.contains("<mjx-container")&&!saved.html.contains("WizMathJax4-Element-")&&js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"actual editing save snapshot retains original source without generated v4 markup");
+ }
  js(page,"window.changedMode=false;WizPrepareNoteModeChange();WizEditor.off({reader:{type:'markdown'}},()=>window.changedMode=true);");check(wait([&]{return js(page,"window.changedMode&&!document.body.isContentEditable").toBool();})&&js(page,valid).toBool(),"return to reading retains rendered formulas");
  check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"reading after edit preserves exact source");
+ if(version=="4.1.3"){
+  QFile serialized(output+"/synthetic-serialized.html");if(serialized.open(QIODevice::WriteOnly|QIODevice::NewOnly))serialized.write(js(page,"WizEditor.getContentHtml()").toString().toUtf8());
+  check(js(page,"!window.WizMathJax4Error&&MathJax.startup&&document.querySelectorAll('mjx-container').length>=13&&document.querySelectorAll('[data-semantic-type]').length===0").toBool(),"real v4 SVG engine without semantic enrichment or compatibility errors");
+  const auto unchanged=WizDocumentSaveSnapshot::parse(js(page,WizDocumentSaveSnapshot::readerScript(false)));
+  check(unchanged.state==WizDocumentSaveSnapshot::State::Unchanged,"actual unchanged reader save snapshot does not write rendered HTML");
+  check(js(page,"MathJax.Hub.getAllJax().filter(j=>/\\\\(?:eqref|ref)\\{/.test(j.originalText)).every(j=>!new DOMParser().parseFromString(j.root.toMathML(''),'text/xml').documentElement.textContent.includes('?'))").toBool(),"formula reference glyphs resolved not question marks");
+ }
  const QString beforeHtml=js(page,"WizEditor.getContentHtml()").toString(),beforeDom=js(page,"document.documentElement.outerHTML").toString();const auto beforeModified=js(page,"WizEditor.isModified()");
  mathjaxApplicationValue(page,WizPdfSvgLinks::source());
  check(mathjaxApplicationValue(page,"(()=>{const n=document.querySelector('.CodeMirror > .CodeMirror-scroll');const before=n.getAttribute('style');dispatchEvent(new Event('beforeprint'));return n.getAttribute('style')===before&&!__wizPdfSvgLinks.status().active;})()").toBool(),"unarmed synthetic print does not adjust code gutters");
