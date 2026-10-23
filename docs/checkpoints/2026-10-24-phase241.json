@@ -1,0 +1,32 @@
+{
+  "phase": 241,
+  "productOptimization": "release detached document-list items and clear context aliases",
+  "productFilesChanged": 2,
+  "nativeProductCodeChanged": true,
+  "finalAssociatedChecks": 26,
+  "baseline19AndFirstOptimized19Excluded": true,
+  "cycles": 300,
+  "liveAfterRemovalBeforeAfter": [
+    302,
+    0
+  ],
+  "liveAfterListDestructionBeforeAfter": [
+    303,
+    0
+  ],
+  "syntheticImagePayloadAcross300CyclesBytes": 19660800,
+  "wholeAppResidentMemoryReductionMeasured": false,
+  "actualManagerDeletionSignalVerified": true,
+  "allThreeSlotSourceRoutingChecked": true,
+  "modifiedAndParamFilteredMainWindowAcceptance": false,
+  "newPerItemFieldOrGlobalCache": false,
+  "productionBuildPassed": true,
+  "compiledExecutableSha256": "55ab9efe7ce71b058bc56d1b9be4ee934eab1738b5c675c00aaaef931ce286af",
+  "priorWebEngineNativeFootprintRiskResolved": false,
+  "fullFormulaPdfOrComponentMatrixRepeated": false,
+  "normalAppUserStoreOrClipboardAccessed": false,
+  "newPackageProduced": false,
+  "cleanupRecoverable": true,
+  "cleanupLogicalBytesMoved": 29911189,
+  "automationPaused": true
+}

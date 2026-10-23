@@ -1404,6 +1404,7 @@ int WizDocumentListView::documentCount() const
 
 void WizDocumentListView::clearAllItems()
 {
+    m_rightButtonFocusedItems.clear();
     clear();
     m_sectionItems.clear();
 }
@@ -1478,7 +1479,7 @@ void WizDocumentListView::on_document_modified(const WIZDOCUMENTDATA& documentOl
     } else {
         int index = documentIndexFromGUID(documentNew.strGUID);
         if (-1 != index) {
-            takeItem(index);
+            removeDocumentItem(index);
             //
             resetSectionData();
         }
@@ -1516,7 +1517,7 @@ void WizDocumentListView::on_document_param_modified(const WIZDOCUMENTPARAMDATA&
     } else {
         int index = documentIndexFromGUID(document.strGUID);
         if (-1 != index) {
-            takeItem(index);
+            removeDocumentItem(index);
             //
             resetSectionData();
         }
@@ -1544,7 +1545,7 @@ void WizDocumentListView::on_document_deleted(const WIZDOCUMENTDATA& document)
 {    
     int index = documentIndexFromGUID(document.strGUID);
     if (-1 != index) {
-        takeItem(index);
+        removeDocumentItem(index);
 
         //
         resetSectionData();
@@ -1638,6 +1639,19 @@ void WizDocumentListView::resetSectionData()
 {
     updateSectionItems();
     sortItems();
+}
+
+void WizDocumentListView::removeDocumentItem(int index)
+{
+    auto* documentItem = documentItemAt(index);
+    if (!documentItem)
+        return;
+
+    // takeItem transfers ownership out of the list. Keep the object alive until
+    // current signal/menu callers unwind, but do not retain a context-menu alias.
+    takeItem(index);
+    m_rightButtonFocusedItems.removeAll(documentItem);
+    documentItem->deleteLater();
 }
 
 void WizDocumentListView::on_action_documentHistory()

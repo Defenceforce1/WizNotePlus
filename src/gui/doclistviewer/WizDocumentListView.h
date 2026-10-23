@@ -253,6 +253,7 @@ private:
     bool acceptDocumentChange(const QString &documentGuid);
 
     void resetSectionData();
+    void removeDocumentItem(int index);
     //
     void moveDocumentsToPersonalFolder(const CWizDocumentDataArray& arrayDocument, const QString& targetFolder);
     void moveDocumentsToGroupFolder(const CWizDocumentDataArray& arrayDocument, const WIZTAGDATA& targetTag);
