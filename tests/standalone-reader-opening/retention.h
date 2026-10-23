@@ -8,7 +8,7 @@ public:
     LocalOnly local;QJsonArray samples;int round=0,checks=0,failures=0;const int rounds;
     std::function<void(int)> finished;
     NativeRetention(QTemporaryDir& root,const QString& kind,std::function<void(int)> done,const QString& assets=QString()):root(root),kind(kind),resources(assets),rounds(kind=="retention-yield-persistent"?16:8),finished(std::move(done)){
-        if(kind=="retention-yield-persistent"||kind=="retention-yield-editor"){
+        if(kind=="retention-yield-persistent"||kind.startsWith("retention-yield-editor")){
             QWebEngineProfileBuilder builder;builder.setPersistentStoragePath(root.filePath("profile")).setCachePath(root.filePath("cache"));
             profile.reset(builder.createProfile(QStringLiteral("SyntheticNativeRetention")));
             if(!profile)qFatal("Cannot construct synthetic isolated profile");
@@ -16,7 +16,7 @@ public:
         profile->setCachePath(root.filePath("cache"));profile->setPersistentStoragePath(root.filePath("profile"));profile->setUrlRequestInterceptor(&local);
         source="# Synthetic large document\n\n";
         for(int i=0;i<6000;++i)source+=QString("Paragraph %1: Synthetic academic prose with **emphasis**, a local list of concepts, and punctuation. 合成正文，仅用于离线大文档测试；不来自任何真实笔记。\n\n").arg(i);
-        if(kind=="retention-yield-editor"){
+        if(kind.startsWith("retention-yield-editor")){
             for(int i=0;i<128;++i)source+=QString("\\begin{equation}\\label{retention:%1}\na_{%1}+b=c\n\\end{equation}\n\n").arg(i);
             source+="See \\eqref{retention:0} and \\eqref{retention:127}.\n";
         }
@@ -28,7 +28,7 @@ public:
     }
     void one(){
         const QString current=source+QString("\nSynthetic document instance %1.\n").arg(round);
-        const bool editorCase=kind=="retention-yield-editor";
+        const bool editorCase=kind.startsWith("retention-yield-editor");
         QString html="<!doctype html><html><head><meta charset='utf-8'></head><body>"+current.toHtmlEscaped().replace("\n","<br>")+"</body></html>";
         struct EditorContext {QWebChannel channel;Bridge editor,explorer;};
         std::unique_ptr<EditorContext> context;
@@ -81,11 +81,23 @@ public:
         sample("batch-callback-end");
         QTimer::singleShot(10000,this,[this]{
             sample("profile-live-idle-10s");check(bool(profile)&&profile->findChildren<QObject*>().isEmpty(),"same profile remains alive after top-level event-loop idle");
-            profile->setUrlRequestInterceptor(nullptr);profile.reset();sample("profile-destroyed");
-            QTimer::singleShot(10000,this,[this]{
-                sample("profile-destroyed-idle-10s");check(local.blocked.load()==0,"all native controls stay local");
-                qInfo().noquote()<<"RETENTION_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"kind",kind},{"rounds",rounds},{"sourceBytes",source.toUtf8().size()},{"checks",checks},{"failures",failures},{"externalRequests",local.blocked.load()},{"formulaTestsRun",kind=="retention-yield-editor"},{"explicitPoolIsDiagnosticOnly",kind=="retention-nested-pool"},{"samples",samples}}).toJson(QJsonDocument::Compact));finished(failures?11:0);
-            });
+            if(kind=="retention-yield-editor-vm") {
+                QTimer::singleShot(20000,this,[this]{
+                    sample("profile-live-idle-30s");
+                    QTimer::singleShot(30000,this,[this]{
+                        sample("profile-live-idle-60s");
+                        check(profile&&profile->findChildren<QObject*>().isEmpty(),"same profile remains alive through sixty-second observation");
+                        destroyProfile();
+                    });
+                });
+            } else destroyProfile();
+        });
+    }
+    void destroyProfile(){
+        profile->setUrlRequestInterceptor(nullptr);profile.reset();sample("profile-destroyed");
+        QTimer::singleShot(10000,this,[this]{
+            sample("profile-destroyed-idle-10s");check(local.blocked.load()==0,"all native controls stay local");
+            qInfo().noquote()<<"RETENTION_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"kind",kind},{"rounds",rounds},{"sourceBytes",source.toUtf8().size()},{"checks",checks},{"failures",failures},{"externalRequests",local.blocked.load()},{"formulaTestsRun",kind.startsWith("retention-yield-editor")},{"explicitPoolIsDiagnosticOnly",kind=="retention-nested-pool"},{"samples",samples}}).toJson(QJsonDocument::Compact));finished(failures?11:0);
         });
     }
 };

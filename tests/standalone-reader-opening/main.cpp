@@ -84,7 +84,7 @@ int main(int argc,char**argv){
     if(kind=="mathjax-benchmark"&&argc==5)return runMathjaxBenchmark(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-font-preview"&&argc==5)return runMathjaxFontPreview(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
     if(kind=="mathjax-upgrade"&&argc==5)return runMathjaxUpgrade(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
-    if(kind=="retention-nested"||kind=="retention-yield"||kind=="retention-nested-pool"||kind=="retention-yield-persistent"||kind=="retention-yield-editor"){
+    if(kind=="retention-nested"||kind=="retention-yield"||kind=="retention-nested-pool"||kind=="retention-yield-persistent"||kind=="retention-yield-editor"||kind=="retention-yield-editor-vm"){
         if(QGuiApplication::platformName()!="cocoa")return 4;int status=0;
         NativeRetention probe(root,kind,[&](int result){status=result;app.quit();},resources);
         QTimer::singleShot(0,&probe,[&]{probe.start();});app.exec();return status;

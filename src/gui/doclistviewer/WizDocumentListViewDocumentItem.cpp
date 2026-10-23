@@ -7,6 +7,7 @@
 #include "database/WizDatabase.h"
 #include "database/WizDatabaseManager.h"
 #include "share/WizDocumentStyle.h"
+#include "share/WizMisc.h"
 #include "share/WizSettings.h"
 #include "sync/WizAvatarHost.h"
 
@@ -293,8 +294,17 @@ const QString& WizDocumentListViewDocumentItem::tags()
         return m_strTags;
     }
 
-    if (m_strTags.isEmpty()) {
-        m_strTags = m_app.databaseManager().db(m_data.doc.strKbGUID).getDocumentTagDisplayNameText(m_data.doc.strGUID);
+    // Null means not loaded; a non-null empty string is a successful empty
+    // result. Do not repeatedly query tagless notes on sorting/info refresh.
+    if (m_strTags.isNull()) {
+        CWizStdStringArray names;
+        if (m_app.databaseManager().db(m_data.doc.strKbGUID)
+                .getDocumentTagsDisplayNameStringArray(m_data.doc.strGUID, names)) {
+            CString text;
+            WizStringArrayToText(names, text, "; ");
+            m_strTags = text.isNull() ? QStringLiteral("") : text;
+        }
+        // Failed queries leave the null sentinel intact so the next call retries.
     }
 
     return m_strTags;

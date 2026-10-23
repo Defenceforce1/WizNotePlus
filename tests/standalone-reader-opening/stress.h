@@ -31,8 +31,21 @@ static QJsonObject stressMemory() {
         {"widgetCount",QApplication::allWidgets().size()},{"windowCount",QGuiApplication::allWindows().size()}};
 #ifdef Q_OS_MAC
     task_vm_info_data_t info{};mach_msg_type_number_t size=TASK_VM_INFO_COUNT;
-    if(task_info(mach_task_self(),TASK_VM_INFO,reinterpret_cast<task_info_t>(&info),&size)==KERN_SUCCESS)
+    if(task_info(mach_task_self(),TASK_VM_INFO,reinterpret_cast<task_info_t>(&info),&size)==KERN_SUCCESS) {
         result.insert("mainFootprintKiB",qint64(info.phys_footprint/1024));
+        result.insert("vmInternalKiB",qint64(info.internal/1024));
+        result.insert("vmExternalKiB",qint64(info.external/1024));
+        result.insert("vmCompressedKiB",qint64(info.compressed/1024));
+        result.insert("vmReusableKiB",qint64(info.reusable/1024));
+        result.insert("vmDeviceKiB",qint64(info.device/1024));
+        result.insert("vmRegionCount",info.region_count);
+        if(size>=TASK_VM_INFO_REV3_COUNT) {
+            result.insert("vmGraphicsFootprintKiB",qint64(info.ledger_tag_graphics_footprint/1024));
+            result.insert("vmGraphicsCompressedKiB",qint64(info.ledger_tag_graphics_footprint_compressed/1024));
+            result.insert("vmPurgeableNonvolatileKiB",qint64(info.ledger_purgeable_nonvolatile/1024));
+            result.insert("vmPurgeableVolatileKiB",qint64(info.ledger_purgeable_volatile/1024));
+        }
+    }
     malloc_statistics_t heap{};malloc_zone_statistics(nullptr,&heap);
     result.insert("mallocInUseKiB",qint64(heap.size_in_use/1024));
     result.insert("mallocAllocatedKiB",qint64(heap.size_allocated/1024));
