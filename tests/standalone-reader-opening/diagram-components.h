@@ -2,7 +2,8 @@
 // Public editor/diagram APIs only. Synthetic note; no account or user data.
 static int runDiagramComponents(QTemporaryDir& root,const QString& resources,const QString& output,const QString& variant){
  QFile marker(output+"/.wiz-synthetic-diagram-components");if(!marker.open(QIODevice::ReadOnly)||marker.readAll()!="synthetic-only\n")return 4;
- const bool candidate=variant=="candidate";if(!candidate&&variant!="baseline")return 4;
+ const bool flowMaintenance=variant=="flow-baseline"||variant=="flow-candidate";
+ const bool candidate=variant=="candidate"||variant=="flow-candidate";if(!candidate&&variant!="baseline"&&!flowMaintenance)return 4;
  int checks=0,failures=0;const auto check=[&](bool ok,const char* text){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<text;return ok;};
  QWebEngineProfile profile;profile.setCachePath(root.filePath("cache"));profile.setPersistentStoragePath(root.filePath("profile"));LocalOnly local;profile.setUrlRequestInterceptor(&local);
  QWebEngineView view;view.setAttribute(Qt::WA_DontShowOnScreen);view.resize(1100,800);auto* page=new QWebEnginePage(&profile,&view);view.setPage(page);QWebChannel channel;Bridge editor,explorer;channel.registerObject("WizQtEditor",&editor);channel.registerObject("WizExplorerApp",&explorer);page->setWebChannel(&channel);
@@ -13,13 +14,13 @@ static int runDiagramComponents(QTemporaryDir& root,const QString& resources,con
  page->runJavaScript(WizDocumentPageReady::setupScript("'diagram-components'","window.WizSpellCheckEnabled=false;window.WizNoteCss="+literal(WizNotePresentation::mathBlockStyle()+WizNotePresentation::scientificMathStyle())+";"+WizDocumentPageReady::initializeEditorScript(resources+"wizeditor/","zh-cn","synthetic-diagrams","Synthetic",false,"markdown")+"await new Promise(r=>WizEditor.off({reader:{type:'markdown'}},r));if(window.MathJax?.Hub)await new Promise(r=>MathJax.Hub.Queue(r));WizApplyNoteStyle();"));
  if(!check(wait([&]{return js(page,"window.WizNativeEditorSetup?.state==='ready'").toBool();}),"public Markdown reader initializes"))return 7;
  const auto diagnostics=[&]{QJsonObject d{{"underscore",js(page,"window._?.VERSION").toString()},{"raphael",js(page,"window.Raphael?.version").toString()},{"svg",js(page,"document.querySelectorAll('svg').length").toInt()},{"text",js(page,"document.body.innerText").toString()},{"html",js(page,"document.body.innerHTML").toString()}};QFile f(output+"/diagnostic.json");if(f.open(QIODevice::WriteOnly|QIODevice::NewOnly))f.write(QJsonDocument(d).toJson(QJsonDocument::Indented));};diagnostics();
- check(js(page,"window._?.VERSION==="+literal(candidate?"1.13.8":"1.8.3")).toBool(),"expected Underscore version loaded by real editor");
- check(js(page,"window.Raphael?.version==="+literal(candidate?"2.3.0":"2.1.4")).toBool(),"expected Raphael version loaded by real editor");
+ check(js(page,"window._?.VERSION==="+literal((candidate||flowMaintenance)?"1.13.8":"1.8.3")).toBool(),"expected Underscore version loaded by real editor");
+ check(js(page,"window.Raphael?.version==="+literal((candidate||flowMaintenance)?"2.3.0":"2.1.4")).toBool(),"expected Raphael version loaded by real editor");
  const QString diagrams="(()=>{const svgs=[...document.querySelectorAll('svg')].filter(s=>!s.closest('.MathJax_SVG,mjx-container'));return svgs.length===2&&svgs.some(s=>s.textContent.includes('Calculate')&&s.textContent.includes('Ready?'))&&svgs.some(s=>s.textContent.includes('Alice')&&s.textContent.includes('Request')&&s.textContent.includes('Result'));})()";
  check(js(page,diagrams).toBool(),"existing flow and sequence fences produce labeled SVG diagrams");
  check(js(page,"document.getElementById('mjx-eqn-diagram:eq')&&MathJax.Hub.getAllJax().filter(j=>/\\\\eqref\\{/.test(j.originalText)).every(j=>!new DOMParser().parseFromString(j.root.toMathML(''),'text/xml').documentElement.textContent.includes('?'))").toBool(),"single mixed math reference stays resolved");
  check(js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source,"initial exact Markdown source preserved");
- const QStringList utilities={
+ if(!flowMaintenance){const QStringList utilities={
  "JSON.stringify(_.map([1,2],x=>x+1))==='[2,3]'","_.reduce([1,2,3],(a,b)=>a+b,0)===6","_.findWhere([{id:1},{id:2}],{id:2}).id===2","JSON.stringify(_.pluck([{x:'a'},{x:'b'}],'x'))==='[\"a\",\"b\"]'",
  "_.sortBy([{n:2},{n:1}],'n')[0].n===1","_.groupBy([1,2,3],x=>x%2)['1'].length===2","_.isEqual(_.flatten([1,[2,[3]]]),[1,2,3])","_.isEqual(_.uniq([1,1,2]),[1,2])",
  "_.isEqual(_.defaults({a:1},{a:2,b:3}),{a:1,b:3})","_.isEqual(_.extend({a:1},{b:2}),{a:1,b:2})","_.template('<%= name %> / <%- html %>')({name:'中文',html:'<b>'})==='中文 / &lt;b&gt;'","_.chain([1,2,3]).map(x=>x*2).filter(x=>x>2).value().join(',')==='4,6'",
@@ -28,6 +29,11 @@ static int runDiagramComponents(QTemporaryDir& root,const QString& resources,con
  js(page,"window.diagramDebounceCount=0;window.diagramDebounce=_.debounce(()=>diagramDebounceCount++,20);diagramDebounce();diagramDebounce();diagramDebounce();");
  check(wait([&]{return js(page,"diagramDebounceCount===1").toBool();},2000),"legacy trailing debounce contract retained");
  check(js(page,"(()=>{const host=document.createElement('div');document.body.appendChild(host);const p=Raphael(host,180,100),r=p.rect(5,5,100,50).attr({fill:'#eee'}),t=p.text(55,30,'中文 ABC');const b=t.getBBox();const valid=Number.isFinite(b.width)&&b.width>0&&r.getBBox().width===100&&host.querySelector('svg');p.remove();const removed=!host.querySelector('svg');host.remove();return !!valid&&removed;})()").toBool(),"Raphael primitives Unicode bounding boxes and removal retained");
+ }
+ if(flowMaintenance){
+ check(js(page,"typeof window.flowchart?.parse==='function'").toBool(),"flowchart browser global public API remains available");
+ check(js(page,"(()=>{const host=document.createElement('div');host.id='flow-maintenance-probe';document.body.appendChild(host);try{const chart=flowchart.parse('st=>start: 开始\\nsub=>subroutine: 子程序\\nio=>inputoutput: 输入输出\\ne=>end: 结束\\nst->sub->io->e');chart.drawSVG(host.id,{'font-size':14,'line-width':3});const s=host.querySelector('svg'),r=s?.getBoundingClientRect();return !!s&&s.textContent.includes('子程序')&&s.textContent.includes('输入输出')&&Number.isFinite(r.width)&&r.width>0;}finally{host.remove();}})()").toBool(),"legacy subroutine input-output Unicode and draw options render");
+ }
  js(page,"window.modeDone=false;WizPrepareNoteModeChange();WizEditor.on(null,()=>modeDone=true);");check(wait([&]{return js(page,"modeDone&&document.body.isContentEditable").toBool();}),"editor transition completes");
  const auto saved=WizDocumentSaveSnapshot::parse(js(page,WizDocumentSaveSnapshot::editorScript(true,false)));
  check(saved.state==WizDocumentSaveSnapshot::State::Changed&&js(page,"WizEditor.getMarkdownSrc({unEscapeHtml:true})").toString()==source&&!saved.html.contains("<svg"),"actual save snapshot keeps source rather than diagram SVG");

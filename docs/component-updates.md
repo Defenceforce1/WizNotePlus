@@ -2,6 +2,40 @@
 
 更新：2026-10-23；分支`improve/component-updates-20261023`。
 
+## 第225轮：欢迎页jQuery／jQuery UI
+
+仅欢迎页jQuery1.11.3→3.7.1、jQuery UI1.12.1.custom→1.13.3维护更新，完整MIT
+保留，2份旧JS删除；不改index.js业务、CSS主题、i18next或编辑器jQuery。选择
+兼容维护版本，不宣称已升级到所有最新主版本；[UI1.13.3记录](https://jqueryui.com/changelog/1.13.3/)
+与[UI1.14迁移说明](https://jqueryui.com/upgrade-guide/1.14/)用于边界判断。
+
+原简中日历资源字面量“??”在224旧包重现，已换成同版本官方locale。旧／新／
+最终[225包](release-14.4.25-build225-welcome-test.md)各23项合成欢迎页关联检查
+通过，16项固定入口通过；中文日历高3px，字号／宽度／筛选规则保持。其余App
+资源与原生执行内容保持224，不重跑已验公式／PDF／数据库全量，不承诺全App提速。
+
+流程图官方1.18.1无浏览器预构建分发，本地用18个未改上游模块确定性打包，
+UMD12项、旧15／新21项API与双PDF机械检查通过，但循环分支线碰到no标签，
+渲染对照未通过。**新版flowchart暂不接入，225继续使用1.11.3**；不把机械通过
+称为视觉或完整验收。候选工具／输入摘要和判断保留，详见
+[验证记录](../tests/component-welcome-flow/README.md)。
+
+### 剩余组件的明确边界（本轮不强行迁移）
+
+| 组件 | 当前处理与后续条件 |
+| --- | --- |
+| flowchart.js | 1.18.1候选有已确认视觉回归；先保留1.11.3，后续需单独修复并通过旧图对照。 |
+| 编辑器jQuery | 欢迎页是独立作用域；编辑器旧插件及受限组件需公开接口兼容分析，不能沿用欢迎页结果直接替换。 |
+| Qt／WebEngine | 本次官方开发目录列6.140.0-rc／beta，旧6120源清单含6.12.0-beta2；这些入口未取得已核实的正式匹配源与macOS SDK，不以单个404断言不存在。需另案迁移既有PDF／Metal补丁。 |
+| Gumbo | [原仓库已归档](https://github.com/google/gumbo-parser)，换维护分支属于解析器迁移，不是简单覆盖版本。 |
+| FramelessHelper | [原仓库已归档](https://github.com/wangwenx190/framelesshelper)，转QWindowKit是窗口框架迁移，可能改变现有交互。 |
+| Code Prettify | [原仓库已归档](https://github.com/googlearchive/code-prettify)，不擅换新高亮器／新增语法检查。 |
+| Crypto++ | 核对官方config_ver.h仍为890，现有8.9.0不改；npm同名wrapper不是C++库更新。 |
+| 时序图库 | 没有核实到适合直接替换的官方发布；本次上游tags请求403，npm0.0.1-security为不相关占位包，不能用于更新。 |
+
+这些是保留项／迁移条件，不能宣称全部组件已更新完。源码／候选结果继续保留，
+不无限增加测试轮次、不下载beta SDK、不改使用习惯或恢复自动任务。
+
 ## 第224轮：Underscore与Raphaël
 
 Underscore1.8.3→1.13.8（UMD），Raphaël2.1.4→2.3.0（含原有Eve完整分发），

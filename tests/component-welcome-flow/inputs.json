@@ -1,0 +1,307 @@
+{
+  "phase": 225,
+  "packages": [
+    {
+      "name": "flowchart.js",
+      "version": "1.18.1",
+      "gitHead": "7bef061f2715c00505316d23c7c106c882d29c8d",
+      "tarball": "https://registry.npmjs.org/flowchart.js/-/flowchart.js-1.18.1.tgz",
+      "integrity": "sha512-dBIIRW+h2CZpKXpBUg1DsG2uUcLwcdXuf6FP7F9f7LpaDsSf0UMkRaTW4mt5YJbfEtJDlWkRlcTUnq3r69melg==",
+      "shasum": "f928266c061a9a40dd538e860116b5595840cabd",
+      "sha256": "6b57f09d4f564fcdefcd90f46b8d83b66bcab23e8785446911c8e45258b55105",
+      "bytes": 17459,
+      "jsfile": "index.js",
+      "license": "license",
+      "jsSha256": "508c03337cfc63a5cddf14bbc7c86a0277c0e8d52425376fa64f0faeeedcd550",
+      "licenseSha256": "5edb7be7159b8451f2748c2f1db7a840dbf2f5fa5f40c38ad32a63137c669740",
+      "integrityVerified": true,
+      "noInstallLifecycle": true,
+      "shipped": false
+    },
+    {
+      "name": "jquery",
+      "version": "3.7.1",
+      "gitHead": "fde1f76e2799dd877c176abde0ec836553246991",
+      "tarball": "https://registry.npmjs.org/jquery/-/jquery-3.7.1.tgz",
+      "integrity": "sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==",
+      "shasum": "083ef98927c9a6a74d05a6af02806566d16274de",
+      "sha256": "68a9f787516da47c680e09c187bcbac4536b6f85d90eb882844e12919e583f53",
+      "bytes": 404231,
+      "jsfile": "dist/jquery.min.js",
+      "license": "LICENSE.txt",
+      "jsSha256": "fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a",
+      "licenseSha256": "d4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d",
+      "integrityVerified": true,
+      "noInstallLifecycle": true,
+      "shipped": true
+    },
+    {
+      "name": "jquery-ui-dist",
+      "version": "1.13.3",
+      "gitHead": "227c12a190a5d1a441d53d5431a18d78b567c299",
+      "tarball": "https://registry.npmjs.org/jquery-ui-dist/-/jquery-ui-dist-1.13.3.tgz",
+      "integrity": "sha512-qeTR3SOSQ0jgxaNXSFU6+JtxdzNUSJKgp8LCzVrVKntM25+2YBJW1Ea8B2AwjmmSHfPLy2dSlZxJQN06OfVFhg==",
+      "shasum": "13c186eb403e660c96b9b7edb7ae1466eaef9974",
+      "sha256": "8b41fb4fc5bc8ebace9a353f917bebccf307cd16f67e3d771441b03d29ef7b52",
+      "bytes": 348734,
+      "jsfile": "jquery-ui.min.js",
+      "license": "LICENSE.txt",
+      "jsSha256": "b30d2234d5e63896d085816e0bd385da43a50f929029ed72e657c19f80bd4a38",
+      "licenseSha256": "f649025cf65c8dcd8588b0937883ba7a52bdb6d35129464a36a1602eb00250f1",
+      "integrityVerified": true,
+      "noInstallLifecycle": true,
+      "shipped": true
+    },
+    {
+      "name": "jquery-ui",
+      "version": "1.13.3",
+      "gitHead": "a9e8520d38e06b6a37100762ddc8af4952926752",
+      "tarball": "https://registry.npmjs.org/jquery-ui/-/jquery-ui-1.13.3.tgz",
+      "integrity": "sha512-D2YJfswSJRh/B8M/zCowDpNFfwsDmtfnMPwjJTyvl+CBqzpYwQ+gFYIbUUlzijy/Qvoy30H1YhoSui4MNYpRwA==",
+      "shasum": "d9f5292b2857fa1f2fdbbe8f2e66081664eb9bc5",
+      "sha256": "8323e5d570f94a3441e300741d1b55c6fcd83cf4cf9194f05cb41e5fe6923c2d",
+      "bytes": 5238707,
+      "jsfile": "ui/i18n/datepicker-zh-CN.js",
+      "license": "LICENSE.txt",
+      "jsSha256": "913f2ac6239e6162d2280117290714e9e549d56d681d1e28a5ce1f07b0b65c9a",
+      "licenseSha256": "f649025cf65c8dcd8588b0937883ba7a52bdb6d35129464a36a1602eb00250f1",
+      "integrityVerified": true,
+      "noInstallLifecycle": true,
+      "shipped": true
+    }
+  ],
+  "files": [
+    {
+      "package": "jquery",
+      "source": "dist/jquery.min.js",
+      "path": "share/files/welcomepage/js/jquery-3.7.1.min.js",
+      "sha256": "fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a",
+      "previousSha256": null,
+      "resumedExactPreviouslyPatchedResource": true
+    },
+    {
+      "package": "jquery",
+      "source": "LICENSE.txt",
+      "path": "share/files/welcomepage/js/jquery-LICENSE.txt",
+      "sha256": "d4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d",
+      "previousSha256": null
+    },
+    {
+      "package": "jquery-ui-dist",
+      "source": "jquery-ui.min.js",
+      "path": "share/files/welcomepage/js/jquery-ui-1.13.3.min.js",
+      "sha256": "b30d2234d5e63896d085816e0bd385da43a50f929029ed72e657c19f80bd4a38",
+      "previousSha256": null
+    },
+    {
+      "package": "jquery-ui-dist",
+      "source": "LICENSE.txt",
+      "path": "share/files/welcomepage/js/jquery-ui-dist-LICENSE.txt",
+      "sha256": "f649025cf65c8dcd8588b0937883ba7a52bdb6d35129464a36a1602eb00250f1",
+      "previousSha256": null
+    },
+    {
+      "package": "owned-resource-reference",
+      "source": "welcomepage/index.html",
+      "path": "share/files/welcomepage/index.html",
+      "sha256": "3b429e152afe454a531a1509a99018fb7c8441ec92a644b2c2f356efc87d4e53",
+      "generated": true,
+      "previousSha256": "a00ca8e2ab37e0d9c58455ba0a572d37b89fa855f9b313fe248d37aec3b54f31"
+    },
+    {
+      "package": "jquery-ui",
+      "source": "ui/i18n/datepicker-zh-CN.js",
+      "path": "share/files/welcomepage/js/datepicker-zh-CN.js",
+      "sha256": "913f2ac6239e6162d2280117290714e9e549d56d681d1e28a5ce1f07b0b65c9a",
+      "licenseCoveredBy": "share/files/welcomepage/js/jquery-ui-dist-LICENSE.txt",
+      "previousSha256": "9891a10905a739738a748e38b490ea58fcf775636d243a78db4a7f3a562e8dc3"
+    }
+  ],
+  "deletions": [
+    "share/files/welcomepage/js/jquery-1.11.3.min.js",
+    "share/files/welcomepage/js/jquery-ui-1.12.1.custom.js"
+  ],
+  "flowchartCandidate": {
+    "version": "1.18.1",
+    "shipped": false,
+    "reason": "Visual regression in unchanged legacy loop: right-angle segment becomes diagonal and touches no label.",
+    "artifact": {
+      "version": "1.18.1",
+      "artifactSha256": "eb4b62e666f309780dfde67fab4d4dccac4f87cd24fe1911e3a8c985ca5212df",
+      "artifactBytes": 76551,
+      "modules": [
+        {
+          "path": "index.js",
+          "dependencies": {
+            "./src/flowchart.shim": "src/flowchart.shim.js",
+            "./src/flowchart.parse": "src/flowchart.parse.js",
+            "./src/jquery-plugin": "src/jquery-plugin.js"
+          },
+          "bytes": 247,
+          "sha256": "508c03337cfc63a5cddf14bbc7c86a0277c0e8d52425376fa64f0faeeedcd550"
+        },
+        {
+          "path": "src/flowchart.chart.js",
+          "dependencies": {
+            "raphael": "@Raphael",
+            "./flowchart.helpers": "src/flowchart.helpers.js",
+            "./flowchart.defaults": "src/flowchart.defaults.js",
+            "./flowchart.symbol.condition": "src/flowchart.symbol.condition.js",
+            "./flowchart.symbol.parallel": "src/flowchart.symbol.parallel.js"
+          },
+          "bytes": 4321,
+          "sha256": "a39fa5fdf28273b6914e81940380e64956dd3e84a9de633cf6cfe55d53235741"
+        },
+        {
+          "path": "src/flowchart.defaults.js",
+          "dependencies": {},
+          "bytes": 893,
+          "sha256": "e21c0f217512fbe7be93cf285c32da163bed772c53f373b7297182e2af2a97fd"
+        },
+        {
+          "path": "src/flowchart.functions.js",
+          "dependencies": {},
+          "bytes": 5158,
+          "sha256": "9460c484fab7aa85e5dbde61eeb6118ce992da612645cdf71d9de7f3e07944cd"
+        },
+        {
+          "path": "src/flowchart.helpers.js",
+          "dependencies": {},
+          "bytes": 1320,
+          "sha256": "8be73ae8f8bae374cab53a57619fd2209abd71cf9865a750644060d863984cbb"
+        },
+        {
+          "path": "src/flowchart.parse.js",
+          "dependencies": {
+            "./flowchart.chart": "src/flowchart.chart.js",
+            "./flowchart.symbol.start": "src/flowchart.symbol.start.js",
+            "./flowchart.symbol.end": "src/flowchart.symbol.end.js",
+            "./flowchart.symbol.operation": "src/flowchart.symbol.operation.js",
+            "./flowchart.symbol.inputoutput": "src/flowchart.symbol.inputoutput.js",
+            "./flowchart.symbol.input": "src/flowchart.symbol.input.js",
+            "./flowchart.symbol.output": "src/flowchart.symbol.output.js",
+            "./flowchart.symbol.subroutine": "src/flowchart.symbol.subroutine.js",
+            "./flowchart.symbol.condition": "src/flowchart.symbol.condition.js",
+            "./flowchart.symbol.parallel": "src/flowchart.symbol.parallel.js"
+          },
+          "bytes": 10908,
+          "sha256": "3131b5985166aac0b0b01aa077912f4241664327cd8e3f7139a0def14552b83a"
+        },
+        {
+          "path": "src/flowchart.shim.js",
+          "dependencies": {},
+          "bytes": 1755,
+          "sha256": "316da7f823a4858d3c6a521f06bf7cbb72581498e7b5465a97237c6a8b973913"
+        },
+        {
+          "path": "src/flowchart.symbol.condition.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js",
+            "./flowchart.functions": "src/flowchart.functions.js"
+          },
+          "bytes": 5492,
+          "sha256": "9e1600411bf660e771b414d0c3a9de8f605925300abbc15309c6e9f44f08beda"
+        },
+        {
+          "path": "src/flowchart.symbol.end.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js"
+          },
+          "bytes": 341,
+          "sha256": "ec6b021e6ee5ddc0806c94dd9ae3351a0e3f7571b4fbc9798971dfb9a9cc762e"
+        },
+        {
+          "path": "src/flowchart.symbol.input.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js",
+            "./flowchart.functions": "src/flowchart.functions.js"
+          },
+          "bytes": 1893,
+          "sha256": "221b3380bcfdecae914f67681d61d27c595829c1ac697f14dcca04ac5fc0880e"
+        },
+        {
+          "path": "src/flowchart.symbol.inputoutput.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js",
+            "./flowchart.functions": "src/flowchart.functions.js"
+          },
+          "bytes": 1921,
+          "sha256": "c4ed97e1be812755a3db2e26d4a80bbc32adf0e78c00a5c64a41327024f2edfe"
+        },
+        {
+          "path": "src/flowchart.symbol.js",
+          "dependencies": {
+            "./flowchart.functions": "src/flowchart.functions.js"
+          },
+          "bytes": 21594,
+          "sha256": "2c8b0a89e7414e800cfb39cd593963bf64a573f195f0e9095b1f0e6024da00b5"
+        },
+        {
+          "path": "src/flowchart.symbol.operation.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js"
+          },
+          "bytes": 315,
+          "sha256": "7ac2a8b2ea47dc83d8d0b282097b15d350749be1fa7bffb9988c713191db28de"
+        },
+        {
+          "path": "src/flowchart.symbol.output.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js",
+            "./flowchart.functions": "src/flowchart.functions.js",
+            "./flowchart.symbol.inputoutput": "src/flowchart.symbol.inputoutput.js"
+          },
+          "bytes": 3546,
+          "sha256": "71a5d7101523456f5477bfa5d7e6df20b0e45b5f0117e5dc529ab6e3ed9312fa"
+        },
+        {
+          "path": "src/flowchart.symbol.parallel.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js"
+          },
+          "bytes": 7553,
+          "sha256": "edef32f90c0b330f7584c82a58e57c10c8c989ffe03c2f4a13a028c77a031149"
+        },
+        {
+          "path": "src/flowchart.symbol.start.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js"
+          },
+          "bytes": 995,
+          "sha256": "9a8302d7ba6447206befd88bc5f80471c6ba6471708645d27313094b531ace56"
+        },
+        {
+          "path": "src/flowchart.symbol.subroutine.js",
+          "dependencies": {
+            "./flowchart.symbol": "src/flowchart.symbol.js",
+            "./flowchart.helpers": "src/flowchart.helpers.js"
+          },
+          "bytes": 1418,
+          "sha256": "3e1df654e5db986d97bc4dbd5ddb2a28d4488b92af183719a759b56f089a3d33"
+        },
+        {
+          "path": "src/jquery-plugin.js",
+          "dependencies": {
+            "./flowchart.parse": "src/flowchart.parse.js"
+          },
+          "bytes": 2410,
+          "sha256": "97cc9bb92a5ee5ccc40f249a50f831f7c40286bb5277366ee34c1f3b746414c3"
+        }
+      ],
+      "upstreamModuleBytesPreserved": true,
+      "prebuiltUpstreamDistribution": false,
+      "onlyExternal": "Raphael"
+    }
+  },
+  "editorJqueryChanged": false,
+  "welcomeBusinessLogicOrThemeChanged": false,
+  "simplifiedChineseCalendarFixed": true
+}
