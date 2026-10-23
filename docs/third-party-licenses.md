@@ -15,7 +15,7 @@ engineering inventory, not legal clearance or a complete asset audit.
 | Crypto++ 8.9 | Boost Software License 1.0; License.txt, some historical files public domain |
 | zlib | zlib license; system zlib used by native build |
 | SQLite 3.54.1 | public domain, unmodified official sqlite3.c / sqlite3.h / sqlite3ext.h headers; see tests/standalone-sqlite-upgrade/README.md for source checksum and compatibility settings |
-| JsonCpp | MIT/public-domain options, bundled header |
+| JsonCpp 1.9.8 | MIT/public-domain options, bundled unmodified official amalgamation headers; commit 8519b8381f3c741ad1421f88237b1deda0b11412; see tests/standalone-jsoncpp-upgrade/README.md |
 | MathJax 2 | Apache-2.0, MathJax.js header |
 | Marked 17.0.5 | MIT; exact local browser distribution and full license in share/files/wizeditor/dependency/marked; used only for explicit theorem bodies |
 

@@ -1,3 +1,13 @@
+# 第215轮 JsonCpp关联检查与更新
+
+复核SQLite／QuaZip现有686项证据、214源码／包和207重要回退，未重跑套件。
+接入官方JsonCpp1.9.8未改动amalgamation，263份上游源和完整树核对，实际业务
+响应与文档／标签代码新旧库交叉验证六场景404项通过，主程序增量构建及非GUI
+启动通过。新版Unicode转义使输出字节不同，但合成值／JSON类型和跨版本读取
+保持；不改业务schema／字段／transport，未实际联网同步，不称完整客户端验收。
+语法检查／Qt／MathJax／现用App和真实笔记不动。214包仍不含JsonCpp新更新，
+没有覆盖、重新打包或安装。详见[组件记录](component-updates.md)。
+
 # 第214轮 组件更新测试候选
 
 已制作[build214独立测试包](release-14.4.25-build214-components-test.md)，纳入SQLite

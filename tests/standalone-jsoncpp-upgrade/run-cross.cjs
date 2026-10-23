@@ -1,0 +1,18 @@
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),cp=require('child_process');
+const[buildArg,outArg]=process.argv.slice(2);if(!buildArg||!outArg)throw Error('usage: node run-cross.cjs <build> <new-evidence-directory>');
+const build=path.resolve(buildArg),out=path.resolve(outArg),assert=(v,m)=>{if(!v)throw Error(m);},hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+assert(!fs.existsSync(out),'new evidence directory only');fs.mkdirSync(out,{recursive:true});
+const cache=fs.readFileSync(build+'/CMakeCache.txt','utf8');
+const cmake=cache.match(/^CMAKE_COMMAND:INTERNAL=(.+)$/m)?.[1];assert(cmake&&fs.existsSync(cmake),'configured CMake');
+const env={...process.env};for(const k of Object.keys(env))if(/^(DYLD_|QT_|WIZNOTE_)/.test(k))delete env[k];
+const result=cp.spawnSync(cmake,['--build',build,'--parallel','4'],{env,encoding:'utf8',timeout:120000});fs.writeFileSync(out+'/build.log',(result.stdout||'')+(result.stderr||''));assert(result.status===0,'build failed: never run stale executables');
+const repo=path.resolve(__dirname,'../..'),inputs=['wrapper.cpp','CMakeLists.txt','run-cross.cjs'].map(p=>__dirname+'/'+p).concat(['WizRequest.cpp','WizRequest.h','WizObject.cpp','WizObject.h'].map(p=>repo+'/src/share/'+p));
+for(const v of ['old','new']){const vendor=cache.match(new RegExp('^WIZ_JSONCPP_'+v.toUpperCase()+'_DIR:PATH=(.+)$','m'))?.[1];assert(vendor,'vendor path');for(const p of ['jsoncpp.cpp','json/json.h','json/json-forwards.h'])inputs.push(vendor+'/'+p);for(const unit of ['WizObject','WizRequest'])assert(hash(repo+'/src/share/'+unit+'.cpp')===hash(build+'/'+v+'-overlay/'+unit+'.cpp'),'unchanged production source '+unit);inputs.push(build+'/jsoncpp-wrapper-'+v);}
+const before=inputs.map(p=>({path:p,sha256:hash(p)}));
+for(const p of ['old-created','new-created']){fs.mkdirSync(out+'/'+p);fs.writeFileSync(out+'/'+p+'/.wiz-synthetic-jsoncpp-upgrade','synthetic-only\n');}
+const rounds=[['old','create','old-created'],['new','check','old-created'],['old','check','old-created'],['new','create','new-created'],['old','check','new-created'],['new','check','new-created']],reports=[];
+for(let i=0;i<rounds.length;i++){const[v,mode,folder]=rounds[i],r=cp.spawnSync(build+'/jsoncpp-wrapper-'+v,[mode,out+'/'+folder+'/fixture.json'],{env,encoding:'utf8',timeout:20000});const log=(r.stdout||'')+(r.stderr||'');fs.writeFileSync(out+'/'+(i+1)+'-'+v+'-'+mode+'.log',log);assert(r.status===0,'case '+i+' failed');const report=JSON.parse(log.split('\n').find(s=>s.startsWith('REPORT '))?.slice(7)||'null');assert(report?.accepted&&report.version===(v==='old'?'1.8.0':'1.9.8')&&report.actualRequestAndObjectMethods&&!report.transportInvoked,'reported expected build and coverage');reports.push(report);}
+for(const f of before)assert(hash(f.path)===f.sha256,'input/program drift '+f.path);
+const a=fs.readFileSync(out+'/old-created/fixture.json'),b=fs.readFileSync(out+'/new-created/fixture.json');
+const summary={accepted:true,cases:reports.length,checks:reports.reduce((n,r)=>n+r.checks,0),reports,inputs:before,versions:['1.8.0','1.9.8'],crossReadValuesAndJsonTypesPreserved:true,integralSignednessMayNormalizeAsInOriginal:true,writerBytesIdentical:a.equals(b),writerDifference:a.equals(b)?null:'Inspect before production import: semantically equivalent output may still change wire bytes.',actualRequestAndObjectMethods:true,transportInvoked:false,normalAccountOrNotesAccessed:false};
+fs.writeFileSync(out+'/summary.json',JSON.stringify(summary,null,2)+'\n');console.log(JSON.stringify({accepted:true,cases:summary.cases,checks:summary.checks,writerBytesIdentical:summary.writerBytesIdentical}));

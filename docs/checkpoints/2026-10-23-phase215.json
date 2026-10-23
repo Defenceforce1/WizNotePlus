@@ -1,0 +1,56 @@
+{
+  "phase": 215,
+  "date": "2026-10-23",
+  "kind": "component-candidate-review-and-jsoncpp-upgrade",
+  "branch": "improve/component-updates-20261023",
+  "predecessor": "ecedee6bf6cdd08dd2b0d49b5a49215a6e183918",
+  "candidate214Reviewed": {
+    "mappedSourceFilesVerified": 488,
+    "appEntriesVerified": 1701,
+    "inheritedSQLiteAssertions": 450,
+    "inheritedQuaZipAssertions": 236,
+    "associatedSuitesRepeated": false,
+    "important207AndCandidate214Unchanged": true,
+    "userFeedback": "No problem observed yet; not full-client acceptance"
+  },
+  "component": {
+    "name": "JsonCpp",
+    "oldVersion": "1.8.0",
+    "newVersion": "1.9.8",
+    "upstreamCommit": "8519b8381f3c741ad1421f88237b1deda0b11412",
+    "upstreamTree": "b2b54358d63493c3ea3d3e3c32719e8172c7035a",
+    "upstreamFilesVerified": 263,
+    "archiveSha256": "51828cf3574281d2b79ec2a1c56a9e4c20cc1103711321ea96384cffb8d2d904",
+    "officialAmalgamationUnmodified": true,
+    "businessAPIsOrRequestFieldsChanged": false,
+    "serializedBytesIdentical": false,
+    "serializationDifference": "Default non-ASCII output uses Unicode escapes; tested values, JSON types and cross-version reads remain equivalent. Positive integer storage signedness may normalize in both old and new libraries."
+  },
+  "validation": {
+    "crossVersionCases": 6,
+    "assertions": 404,
+    "actualWizRequestAndWizObjectMethodsRecompiledPerVersion": true,
+    "writerAPIs": ["FastWriter", "StyledWriter", "StreamWriterBuilder"],
+    "largeSyntheticFieldBytes": 1048576,
+    "syntheticListItems": 1000,
+    "transportInvoked": false,
+    "incrementalMainBuildPassed": true,
+    "mainExecutableSha256": "3b4513e49c11f42c6fd72342a74a1fc1df6b1c6248057b07376c185c541d3ff1",
+    "nonGuiStartupPassed": true,
+    "testsAndRecoveryOff": true,
+    "fullClientAcceptanceClaimed": false
+  },
+  "grammarFeatureChanged": false,
+  "qtMathJaxOrEditorChanged": false,
+  "installedAppOrRealNotesChanged": false,
+  "packageCreatedOrOverwritten": false,
+  "latestTestPackageStill214WithoutNewJsonCpp": true,
+  "binariesOrPrivateRawLogsForGitHub": false,
+  "automationPaused": true,
+  "remaining": [
+    "Future test package may include JsonCpp; do not retroactively claim build214 includes it.",
+    "Real service and full-client acceptance are not replaced by local synthetic tests.",
+    "Qt/WebEngine matching final source and SDK gate from phase213 remains; no beta substitution.",
+    "MathJax major update remains separate; preserve current rendering and export behavior."
+  ]
+}
