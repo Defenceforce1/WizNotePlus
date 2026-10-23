@@ -18,6 +18,8 @@ engineering inventory, not legal clearance or a complete asset audit.
 | JsonCpp 1.9.8 | MIT/public-domain options, bundled unmodified official amalgamation headers; commit 8519b8381f3c741ad1421f88237b1deda0b11412; see tests/standalone-jsoncpp-upgrade/README.md |
 | MathJax 2.7.8 | Apache-2.0; unmodified retained upstream resources at 85e47d7801b2dea6c15878ac7b3dcf62cfd659b5; full LICENSE in build/osx/licenses/MathJax-2.7.8-Apache-2.0.txt |
 | Marked 17.0.5 | MIT; exact local browser distribution and full license in share/files/wizeditor/dependency/marked; used only for explicit theorem bodies |
+| Welcome jQuery UI 1.14.2 | MIT; official CDN bytes verified against published SRI; full license in share/files/welcomepage/js/jquery-ui-dist-LICENSE.txt |
+| Welcome i18next 26.4.2 | MIT; official npm UMD bytes/integrity; full license in share/files/welcomepage/js/i18next-LICENSE.txt; see tests/standalone-reader-opening/welcome-i18n.md |
 
 The original web editor, templates, fonts, images, plugins and further JS
 dependencies retain upstream files and notices. Their full redistribution audit

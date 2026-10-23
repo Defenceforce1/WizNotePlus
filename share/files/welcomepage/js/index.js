@@ -46,24 +46,10 @@ const zh_CN = {
     "Title": "欢迎使用为知笔记"
 }
 
-const zh_TW = {
-    "labelOverview": "近期概況",
-    "labelNews": "為知動態",
-    "labelRecentDocuments": "近期筆記",
-    "labelRecentAccessedDocuments": "近期閲讀",
-    "labelUnreadDocuments": "未讀筆記",
-    "labelTodo": "待辦事項",
-    "todoAdd": "新增",
-    "todoSave": "新增",
-    "todoCancel": "取消",
-    "todoTitle": "待辦標題",
-    "todoDate": "日期",
-    "todoEdit": "儲存",
-    "todoDone": "完成",
-    "todoEmpty": "暫無待辦",
-    "todoFailed": "儲存失敗，請重試。",
-    "todoPartial": "筆記已建立，日期儲存失敗；請重試，不會重複建立筆記。",
-    "Title": "歡迎使用為知筆記"
+function welcomeUiLocale(locale) {
+    // Match the native UI policy: Chinese uses Simplified; all other UI uses
+    // English. Legacy locale preferences are not rewritten or restored.
+    return /^zh(?:[-_]|$)/i.test(String(locale || "")) ? "zh_CN" : "en_US";
 }
 
 function dateToStr(dt) {
@@ -365,7 +351,7 @@ $(document).ready(function() {
         objApp = WizExplorerApp;
         objDatabase = WizExplorerApp.Database;
         // Localize html
-        const lang = await objApp.Locale();
+        const lang = welcomeUiLocale(await objApp.Locale());
         const t = await i18next.init({
             lng: lang,
             resources: {
@@ -374,9 +360,6 @@ $(document).ready(function() {
                 },
                 "zh_CN": {
                     translation: zh_CN
-                },
-                "zh_TW": {
-                    translation: zh_TW
                 }
             }
         });
@@ -395,7 +378,9 @@ $(document).ready(function() {
             }
         }
         $('#datepicker').datepicker(
-            $.datepicker.regional[lang.replace(/_/, "-")]
+            'option',
+            Object.assign({}, $.datepicker.regional[lang.replace(/_/, "-")] || $.datepicker.regional[""],
+                {dateFormat: 'yy-mm-dd', prevText: '', nextText: ''})
         );
 
         objDatabase.documentCreated.connect(listDocuments);
