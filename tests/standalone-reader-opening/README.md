@@ -1,5 +1,23 @@
 # PDF设置文案检查与Markdown打开时序诊断
 
+新增`retention-attribution KIND`，KIND为editor-full、editor-digest、static-digest、
+prose-digest，或单次补充editor-observe／prose-observe。前三类编辑路径用公开API，
+静态对照不加载编辑器。默认24次、三批空闲；同profile逐阶段返回事件循环。
+输出ATTRIBUTION_SAMPLE与REPORT，以及精确阶段的OBSERVER标记。父驱动取得
+自己的诊断PID／页面公开renderer PID，获取只读VM摘要后才向标记的临时ack文件
+写确认；无确认15秒超时，不能裸跑后冒充完整通过。严禁把任意PID注入该协议。
+
+原生采样器枚举默认等malloc分区和自己的子进程，通过proc_pidpath验证helper完整
+路径，回传RSS与footprint并区分。`attribution-sampler-control`使用自有sleep子进程
+核对计数语义及UTF16摘要，避免将proc_listchildpids的PID数量误当字节数。完整
+正文组逐字比较；摘要组的长度和32位FNV不是逐字比较的等强替代。补充观察仅取
+标准DOM／粗粒度JS堆和自有渲染进程VM摘要，不读取受限编辑器内部或内存正文。
+
+四组同一程序96次／560项，另第二程序两次／16项补充单列。初始漏计helper的
+24次探索排除；Helpers链接与规范路径的守卫差异留证并按realpath核对。当前
+主进程堆驻留和打开时渲染进程大头分开记录，未解决高水位，详见
+[详细定位](../../docs/webengine-memory-attribution-2026-10-26.md)。诊断绝不进入主程序。
+
 第235轮增加`reader-opening FILES ordinary-opening OUTPUT gated|ungated`。
 OUTPUT须已有`.wiz-synthetic-ordinary-opening`标记，内容`synthetic-only`加换行。
 使用真实common公开初始化、与原生相同默认CSS注入、同一生产呈现准入函数，

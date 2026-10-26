@@ -50,6 +50,7 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "stress.h"
 #include "retention.h"
 #include "staged-retention.h"
+#include "native-attribution.h"
 #include "mathjax-upgrade.h"
 #include "math-references.h"
 #include "mathjax-benchmark.h"
@@ -71,6 +72,10 @@ int main(int argc,char**argv){
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
+#ifdef Q_OS_MAC
+    if(kind=="attribution-sampler-control"&&argc==3)return runAttributionSamplerControl();
+    if(kind=="retention-attribution"&&argc==4)return runNativeAttribution(root,resources,QString::fromLocal8Bit(argv[3]));
+#endif
     if(kind=="save-state"&&argc==4)return runSaveState(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="todo-welcome"&&argc==4)return runTodoWelcome(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="welcome-components"&&argc==5)return runWelcomeComponents(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
