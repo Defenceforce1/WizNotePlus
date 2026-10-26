@@ -2,7 +2,9 @@
 """Read-only arm64/dependency audit. This is not a GUI or notarization test."""
 import os
 import pathlib
+import json
 import re
+import runpy
 import subprocess
 import sys
 
@@ -14,6 +16,19 @@ frameworks = app / "Contents/Frameworks"
 main_dir = app / "Contents/MacOS"
 if not app.is_dir() or not frameworks.is_dir() or not (main_dir / "WizNotePlus").is_file():
     print(f"Invalid or incomplete application bundle: {app}", file=sys.stderr)
+    sys.exit(1)
+component_build = pathlib.Path(__file__).resolve().parents[1]
+component_lock = json.loads((component_build / 'components.lock.json').read_text())
+component_api = runpy.run_path(str(component_build / 'verify-components.py'))
+try:
+    qt_version = component_api['qt_framework_version'](frameworks / 'QtCore.framework')
+    component_errors, _ = component_api['verify'](
+        component_lock, resource_root=app / 'Contents/Resources/files', qt_version=qt_version)
+except (OSError, ValueError) as error:
+    component_errors = ['Component metadata unavailable: {}'.format(error)]
+if component_errors:
+    for error in component_errors:
+        print(error, file=sys.stderr)
     sys.exit(1)
 magic = {bytes.fromhex(v) for v in ("feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
 seen = set()

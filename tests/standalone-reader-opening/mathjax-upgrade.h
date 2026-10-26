@@ -3,6 +3,9 @@
 #include "WizNotePresentation.h"
 #include "share/WizDocumentAsync.h"
 #include <QWebEngineScript>
+#include <QQuickWidget>
+#include <QQuickWindow>
+#include <QSGRendererInterface>
 
 static QVariant mathjaxApplicationValue(QWebEnginePage* page,const QString& code){
  struct State{bool ready=false;QVariant value;};auto s=std::make_shared<State>();
@@ -26,7 +29,7 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
    "\\begin{align}a&=b\\\\c&=d\\label{component:align}\\end{align}\n\n"
    "\\begin{gather}u=v\\\\w=z\\label{component:gather}\\end{gather}\n\n"
    "\\begin{multline}a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s+t\\\\=u+v\\label{component:multline}\\end{multline}\n\n"
-   "\\begin{theorem}\\label{component:theorem}\nFor every $x$, $x^2\\ge0$.\n\\begin{equation}y=x^2\\label{component:nested}\\end{equation}\n\\end{theorem}\n\n"
+   "\\begin{theorem}\\label{component:theorem}\nFor every $x$, $x^2\\ge0$. See \\ref{component:equation}.\n\\begin{equation}y=x^2\\label{component:nested}\\end{equation}\n\\end{theorem}\n\n"
    "$$\\vphantom{\\frac{1}{2}}x+\\int_0^1 t\\,dt$$\n\n"
    "```latex\n\\begin{equation}code_only\\end{equation}\n```\n\n"
    "Reference \\eqref{component:equation}, \\eqref{component:align}, \\eqref{component:multline}, \\ref{component:theorem}.\n");
@@ -44,6 +47,9 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
   "if(window.MathJax&&MathJax.Hub)await new Promise(resolve=>MathJax.Hub.Queue(resolve));WizApplyNoteStyle();");
  page->runJavaScript(initialize);
  if(!check(wait([&]{return js(page,"window.WizNativeEditorSetup?.state==='ready'").toBool();}),"actual bridge and formula initialization completes"))return 7;
+ const auto quickWidgets=view.findChildren<QQuickWidget*>();bool nativeMetal=!quickWidgets.isEmpty();
+ for(auto* widget:quickWidgets)nativeMetal&=widget->quickWindow()->rendererInterface()->graphicsApi()==QSGRendererInterface::Metal;
+ check(nativeMetal,"actual hidden Cocoa view uses native Metal");
  if(output.endsWith("serialization-only")){
   QFile saved(output+"/synthetic-serialized.html");if(!saved.open(QIODevice::WriteOnly|QIODevice::NewOnly))return 8;saved.write(js(page,"WizEditor.getContentHtml()").toString().toUtf8());profile.setUrlRequestInterceptor(nullptr);return 0;
  }
@@ -80,7 +86,7 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
   const QString name=mode==WizPdfExport::Mode::A4?"a4":"reading";auto done=std::make_shared<bool>(false);auto bytes=std::make_shared<QByteArray>();
   auto paperSamples=std::make_shared<QJsonArray>();QTimer paperProbe;paperProbe.setInterval(20);
   QObject::connect(&paperProbe,&QTimer::timeout,[paperSamples,&view]{for(auto* widget:QApplication::allWidgets())if(auto* candidate=qobject_cast<QWebEngineView*>(widget);candidate&&candidate!=&view&&candidate->page()->property("wizPdfPaperBoundsRequired").toBool()){
-   candidate->page()->runJavaScript("(()=>{const d=document.documentElement,b=document.body;return {bounds:globalThis.__wizPaperBounds,links:globalThis.__wizPdfSvgLinks?.status(),width:d.clientWidth,scroll:d.scrollWidth,roots:[d,b].map(e=>{const s=getComputedStyle(e);return {tag:e.tagName,rect:e.getBoundingClientRect().toJSON(),padding:s.padding,margin:s.margin,boxSizing:s.boxSizing,width:s.width};}),overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>d.clientWidth+1).slice(0,8).map(e=>({tag:e.tagName,cls:e.className?.baseVal||e.className,id:e.id,rect:e.getBoundingClientRect().toJSON()}))};})()",QWebEngineScript::ApplicationWorld,[paperSamples](const QVariant& value){if(paperSamples->size()>=2)paperSamples->removeFirst();paperSamples->append(QJsonObject::fromVariantMap(value.toMap()));});
+   candidate->page()->runJavaScript("(()=>{const d=document.documentElement,b=document.body;if(!d||!b)return null;return {bounds:globalThis.__wizPaperBounds,links:globalThis.__wizPdfSvgLinks?.status(),width:d.clientWidth,scroll:d.scrollWidth,roots:[d,b].map(e=>{const s=getComputedStyle(e);return {tag:e.tagName,rect:e.getBoundingClientRect().toJSON(),padding:s.padding,margin:s.margin,boxSizing:s.boxSizing,width:s.width};}),overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>d.clientWidth+1).slice(0,8).map(e=>({tag:e.tagName,cls:e.className?.baseVal||e.className,id:e.id,rect:e.getBoundingClientRect().toJSON()}))};})()",QWebEngineScript::ApplicationWorld,[paperSamples](const QVariant& value){if(paperSamples->size()>=2)paperSamples->removeFirst();paperSamples->append(QJsonObject::fromVariantMap(value.toMap()));});
   }});paperProbe.start();
   operations.printWithMode(page,[]{return true;},0,QMarginsF(10,10,10,10),mode,[done,bytes](const QByteArray& data){*bytes=data;*done=true;},[]{return true;},QUrl::fromLocalFile(resources+"wizeditor/dependency/mathjax/MathJax.js"));
   const bool completed=wait([done]{return *done;},55000);paperProbe.stop();qInfo()<<"Component PDF callback"<<name<<completed<<bytes->size()<<QJsonDocument(*paperSamples).toJson(QJsonDocument::Compact);check(completed&&bytes->startsWith("%PDF-"),"actual product PDF mode completes");
@@ -89,7 +95,7 @@ static int runMathjaxUpgrade(QTemporaryDir& root,const QString& resources,
   check(js(page,valid).toBool(),"reader remains rendered after printing");pdfs.append(QJsonObject{{"mode",name},{"bytes",bytes->size()}});
  }
  check(local.blocked.load()==0,"no remote requests during rendering or PDF export");check(!view.windowHandle()||!view.windowHandle()->isExposed(),"native test window never exposed");
- const auto report=QJsonObject{{"checks",checks},{"failures",failures},{"mathJaxVersion",version},{"qtVersion",qVersion()},{"sourceIntact",original==source},{"pdfs",pdfs},{"blockedExternalRequests",local.blocked.load()},{"jaxCount",js(page,"MathJax.Hub.getAllJax().length").toInt()},{"svgCount",js(page,"document.querySelectorAll('.MathJax_SVG svg').length").toInt()},{"source",source}};
+ const auto report=QJsonObject{{"checks",checks},{"failures",failures},{"mathJaxVersion",version},{"qtVersion",qVersion()},{"nativeMetal",nativeMetal},{"sourceIntact",original==source},{"pdfs",pdfs},{"blockedExternalRequests",local.blocked.load()},{"jaxCount",js(page,"MathJax.Hub.getAllJax().length").toInt()},{"svgCount",js(page,"document.querySelectorAll('.MathJax_SVG svg').length").toInt()},{"source",source}};
  QFile result(output+"/runtime.json");if(!result.open(QIODevice::WriteOnly|QIODevice::NewOnly))return 8;result.write(QJsonDocument(report).toJson(QJsonDocument::Indented));
  profile.setUrlRequestInterceptor(nullptr);qInfo().noquote()<<"COMPONENT_REPORT"<<QJsonDocument(report).toJson(QJsonDocument::Compact);return failures?9:0;
 }

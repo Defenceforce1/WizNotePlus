@@ -1,0 +1,501 @@
+{
+  "schema": 1,
+  "scope": "Reviewed default component set; change only with a version/content review and affected-path validation.",
+  "qt_version": "6.11.3",
+  "mathjax_font_version": "4.1.3",
+  "provenance": "Locally verified242 component distribution; engine/font archive hashes remain in MathJax inputs.json. No network fetch is required.",
+  "components": [
+    {
+      "name": "MathJax",
+      "version": "4.1.3",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/MathJax.js",
+          "sha256": "b11bc1c5e097e84badbe7dc098044c8398603bb4ce9eda5c0bbc8b1080103c51",
+          "resource": "wizeditor/dependency/mathjax/MathJax.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/inputs.json",
+          "sha256": "18a4a5f47f855517c6beb352ca94b5c79ff2e6c23b3f8d049b0a01d88560f988",
+          "resource": "wizeditor/dependency/mathjax/inputs.json"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/tex-font/Apache-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "resource": "wizeditor/dependency/mathjax/tex-font/Apache-2.0.txt"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/tex-font/package.json",
+          "sha256": "86d89ab67ecdf67f642b0fc5fc249e7fcdf26ea6531ee8fa3eaba9a0378000a3",
+          "resource": "wizeditor/dependency/mathjax/tex-font/package.json"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/tex-font/svg.js",
+          "sha256": "ed5c78819c63883579fb8a4bcec97a2a2fe32e8a0a7f504273aeece0ca396a33",
+          "resource": "wizeditor/dependency/mathjax/tex-font/svg.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "resource": "wizeditor/dependency/mathjax/v4/LICENSE"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/action.js",
+          "sha256": "7c46fc1ef8118723bf2f386d704ab289e5dd683471e0ad4e1e717244959b565b",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/action.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/ams.js",
+          "sha256": "6ff85ab489da04ec533a22b9b93d5d5d51f9f51ef02c723439734e65d9257d14",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/ams.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/amscd.js",
+          "sha256": "81d6115aa4358a98da5e6d477ac4198cbc11c2c2752745b3529a8b6e2761202f",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/amscd.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/autoload.js",
+          "sha256": "8da941fdea660944fc6a4434823dce9cf369b88cb6c0ab50b00700b7a92dbf0c",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/autoload.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/bbm.js",
+          "sha256": "fb780f6e8ca565439b3c6dc78f3e42b525905fd43c5e15471994a2a1da914ca8",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/bbm.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/bboldx.js",
+          "sha256": "772503b34ac5b7c56e56c7698403bad6ff3ea3fd1882c22b4e1ef518e6ef86c5",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/bboldx.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/bbox.js",
+          "sha256": "9d9ff6d1c592d2a4fe728412d2d5ec29379f4721bfa3b8356ad2045eb939b848",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/bbox.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/begingroup.js",
+          "sha256": "0f606d5a71301992e92d8697ccbf8318736110691d8a94303f3f254cd589421a",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/begingroup.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/boldsymbol.js",
+          "sha256": "baaabd9fb430fe4fdbfa9db74aa60b118dd650a68239280368abfd1bc30a0e10",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/boldsymbol.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/braket.js",
+          "sha256": "d401832d91ca89fc8f76cf1ea67ce25b21c4a2b1d9da0db605204f262c8d69ee",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/braket.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/bussproofs.js",
+          "sha256": "87451074cc17e2c8064d630b91cc56171182cc5a46c1313006014f56c498d8d4",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/bussproofs.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/cancel.js",
+          "sha256": "9ff91ff84d9776606cdb66da62ffe9bb39cfdfabcf070f214d35e553689ffece",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/cancel.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/cases.js",
+          "sha256": "6805d481aaee3f78d82bb9f0b6b9ac47b0804c30f10253394724459d95d41a8c",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/cases.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/centernot.js",
+          "sha256": "e3c08e96d11f020027a9b325e7b8661f08940babba218b786ac29d50d822dfba",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/centernot.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/color.js",
+          "sha256": "f569ebbf53726afeb3f7a7803500ac2088aada400a2000394879d0b503311b17",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/color.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/colortbl.js",
+          "sha256": "dff289abcff30d0e109eb51a6f6be2d09e46b7e1db5bc881719f9f1bf483ab8f",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/colortbl.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/colorv2.js",
+          "sha256": "434397a8b307ee5e824b065ecf3145ce8ffae58f465e054b3d9b853f5f904baf",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/colorv2.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/configmacros.js",
+          "sha256": "5a7b6e7b7980f8d3425ddbcbbe21299da5b1254d5702e91bdbb9d04f487f4664",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/configmacros.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/dsfont.js",
+          "sha256": "74a9961b43c43644c28c582fc14031b7f42bac0b771140a5d80af383415ea978",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/dsfont.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/empheq.js",
+          "sha256": "028e775eca9919375d3397a947d6086383ec99a501a5080b2833ffda5d578a14",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/empheq.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/enclose.js",
+          "sha256": "5301d91e2e7d6f86a29c13c1b9726b7476b9de9b1745011886c914372fab4cf3",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/enclose.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/extpfeil.js",
+          "sha256": "2d1f82bf22acefe6c358e3a3dca293cc2fda338f2db4fd147befc75122c41841",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/extpfeil.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/fontsizev3.js",
+          "sha256": "0e8fe554424a274d5809efc11f3a48602713bb7d2b2280ae4fcac04181f128f2",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/fontsizev3.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/gensymb.js",
+          "sha256": "cd5cb8a68719acc0c215f4377e4d37eb35d4f49bab26c7e46efff5e4dbc7f6d3",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/gensymb.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/html.js",
+          "sha256": "a647d13d009d5ecee4239cfe681ef831f2bd0f2a91033b922ae6bf3481d156e0",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/html.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/mathtools.js",
+          "sha256": "0a403d24ff0fbb698cb0efd1cfe8569bfb47e492165204170481e7e6619a1dcc",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/mathtools.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/mhchem.js",
+          "sha256": "7447710d9804aea68b4491e8fde752d69a905e0d27a8a39705c535f64cfa7fdc",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/mhchem.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/newcommand.js",
+          "sha256": "27bc6df0fc8567eaff5153e679e5de53e9cf0918aae714d8dd72fd3a40ca2293",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/newcommand.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/noerrors.js",
+          "sha256": "479c00d274f7f38e25d44a13e407bf8adeb83b02dd05639a302ca7c0db3d4cc2",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/noerrors.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/noundefined.js",
+          "sha256": "d29d871d8d38802cc1581f6e4f5d673c357a8bf9802114ea57f51a53d0a0fef3",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/noundefined.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/physics.js",
+          "sha256": "3a1d1b0ab203b446a2c04d9f5a0bf59e6225c83a27aea0b2403f28293aadb79a",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/physics.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/require.js",
+          "sha256": "6ccbfb7f9a6e627fabdc39ce034f99355172b9778891cce33243844501098130",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/require.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/setoptions.js",
+          "sha256": "756100054a264bcfd47c1b5c03b7e4dcdd7cca679b78b693a6926e887ab59c39",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/setoptions.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/tagformat.js",
+          "sha256": "9da0f12949eb209f8cfa06fd88ddce12bf6b8880d29c067a7ad08f42164a3a57",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/tagformat.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/texhtml.js",
+          "sha256": "6269dda09c28b4291cd4d95e880c9dc053cc95b41c644ce057bab5640cb83113",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/texhtml.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/textcomp.js",
+          "sha256": "d085215c2d77df0c8dbf460b991c59efa9e69cbd7e1f6e94bf5cbb363aa1c69c",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/textcomp.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/textmacros.js",
+          "sha256": "12a52659988472d8f160a96a774e970f89153a0f2e329d2a1d0e318d4ab9bdab",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/textmacros.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/unicode.js",
+          "sha256": "bf1ddc9fe506f782c0e9271c0c52c4b258f9e4eac3d2905274d0c5d239e2a2b3",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/unicode.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/units.js",
+          "sha256": "25278814cbc050fcd4e8849c014c238cf6801e00405e0acaf5d98924fd1e26a7",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/units.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/upgreek.js",
+          "sha256": "0f4c96104699aeada37446dfb3d50438efec4e11c58982abaa2ff781d42d3667",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/upgreek.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/input/tex/extensions/verb.js",
+          "sha256": "b2290ff1be4d33c57dd476d87d1753d4cde0a5991612b4a24db881a15c85a250",
+          "resource": "wizeditor/dependency/mathjax/v4/input/tex/extensions/verb.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/tex-mml-svg-nofont.js",
+          "sha256": "6e3de521e59192b219277f1247cdc03538c5c757ae1b5062d5f9cdb87d2fe33e",
+          "resource": "wizeditor/dependency/mathjax/v4/tex-mml-svg-nofont.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/mathjax/v4/ui/safe.js",
+          "sha256": "ddd5b5eb3076bdf71c9b0508c58fae095b441a22b7bf2ff2e1ad5ace389f49b2",
+          "resource": "wizeditor/dependency/mathjax/v4/ui/safe.js"
+        }
+      ]
+    },
+    {
+      "name": "Marked",
+      "version": "18.1.1",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/marked/marked.umd.js",
+          "sha256": "b82b9334406d8bdd16b6236c08de1cb65b2a859873ca9503d9cc0b292ca3c12a",
+          "resource": "wizeditor/dependency/marked/marked.umd.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/marked/LICENSE.md",
+          "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+          "resource": "wizeditor/dependency/marked/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "name": "CodeMirror",
+      "version": "5.65.21",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/codemirror/codemirror.js",
+          "sha256": "e98aac5ffa07bae58acd4ff07c4293059f8921c0ae0eba506929d8c6f41c9288",
+          "resource": "wizeditor/dependency/codemirror/codemirror.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/codemirror/LICENSE.txt",
+          "sha256": "168a4becc968f5001e2ee2e0291b6e4daabafc1894a11ade1e11d56e96096e07",
+          "resource": "wizeditor/dependency/codemirror/LICENSE.txt"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/codemirror/addon/edit/matchbrackets.js",
+          "sha256": "9d23a177f1e4d07e3acc37c210ffbe4c1c2eb4d55bbe54c16d3e7ad3d04d0401",
+          "resource": "wizeditor/dependency/codemirror/addon/edit/matchbrackets.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/codemirror/addon/mode/simple.js",
+          "sha256": "400f49309b31197c0c4ec76519c93647b494ab80f59f96d7f051463e0aa37eb0",
+          "resource": "wizeditor/dependency/codemirror/addon/mode/simple.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/codemirror/addon/selection/active-line.js",
+          "sha256": "3afbcf78835c9bdc342e3992c53d9b74286722613bb1a8adc9d140edc8737ee8",
+          "resource": "wizeditor/dependency/codemirror/addon/selection/active-line.js"
+        }
+      ]
+    },
+    {
+      "name": "Welcome jQuery",
+      "version": "4.0.0",
+      "files": [
+        {
+          "source": "share/files/welcomepage/js/jquery-4.0.0.min.js",
+          "sha256": "39a546ea9ad97f8bfaf5d3e0e8f8556adb415e470e59007ada9759dce472adaa",
+          "resource": "welcomepage/js/jquery-4.0.0.min.js"
+        },
+        {
+          "source": "share/files/welcomepage/js/jquery-LICENSE.txt",
+          "sha256": "d4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d",
+          "resource": "welcomepage/js/jquery-LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "name": "Welcome jQuery UI",
+      "version": "1.14.2",
+      "files": [
+        {
+          "source": "share/files/welcomepage/js/jquery-ui-1.14.2.min.js",
+          "sha256": "99b95259f6d8cdaabf7fee1a93232113a5c42c2a2ee236e480fbfe2503c44763",
+          "resource": "welcomepage/js/jquery-ui-1.14.2.min.js"
+        },
+        {
+          "source": "share/files/welcomepage/js/jquery-ui-dist-LICENSE.txt",
+          "sha256": "f649025cf65c8dcd8588b0937883ba7a52bdb6d35129464a36a1602eb00250f1",
+          "resource": "welcomepage/js/jquery-ui-dist-LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "name": "i18next",
+      "version": "26.4.2",
+      "files": [
+        {
+          "source": "share/files/welcomepage/js/i18next.min.js",
+          "sha256": "eb0dd6d72e8f756b90faf864853af2a17870fe97b54473b7c34494870c65901c",
+          "resource": "welcomepage/js/i18next.min.js"
+        },
+        {
+          "source": "share/files/welcomepage/js/i18next-LICENSE.txt",
+          "sha256": "1cd0a2b02a6cc40ef8ee16310d13eeffdd7b5de4a562fd3ee7c921d8eb54f60a",
+          "resource": "welcomepage/js/i18next-LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "name": "Editor standalone jQuery",
+      "version": "3.7.1",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/jquery-3.3.1.js",
+          "sha256": "fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a",
+          "resource": "wizeditor/dependency/jquery-3.3.1.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/jquery-LICENSE.txt",
+          "sha256": "d4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d",
+          "resource": "wizeditor/dependency/jquery-LICENSE.txt"
+        }
+      ],
+      "role": "Legacy loader URL retained; contents are the reviewed3.7.1 distribution."
+    },
+    {
+      "name": "Underscore",
+      "version": "1.13.8",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/underscore.js",
+          "sha256": "89e99999dfa83ee9fb88e58beb7820961dbfcf391cee2f361ffd4a3489309c69",
+          "resource": "wizeditor/dependency/underscore.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/underscore-LICENSE.txt",
+          "sha256": "92905fb54f5d168a27e6d5dc7c2197020add11842be4c70689d084bae3bfe37a",
+          "resource": "wizeditor/dependency/underscore-LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "name": "Raphael",
+      "version": "2.3.0",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/raphael.js",
+          "sha256": "4da6e9aca75e3576d27ac0962ccadc6d6483cd486901d70d3dee50e77ae7f588",
+          "resource": "wizeditor/dependency/raphael.js"
+        },
+        {
+          "source": "share/files/wizeditor/dependency/raphael-LICENSE.txt",
+          "sha256": "4cafcc8112392ea76caa7e4362c7aa557bcc613b9730a897828b2c858e857f1f",
+          "resource": "wizeditor/dependency/raphael-LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "name": "SQLite",
+      "version": "3.54.1",
+      "files": [
+        {
+          "source": "src/database/sqlite3.c",
+          "sha256": "0c657666d819f261cc4007526ad57e1669de9949df7a8ea847aa284a2bf0ee52"
+        },
+        {
+          "source": "src/database/sqlite3.h",
+          "sha256": "d6c84557261893439b341d2e6c35187ae3ea24fbfd843ad94616f72d89242b8c"
+        },
+        {
+          "source": "src/database/sqlite3ext.h",
+          "sha256": "48963abfefb41ac329ef9d706acb5eadba952a99a748285c9ded6b5e0942721b"
+        }
+      ]
+    },
+    {
+      "name": "JsonCpp",
+      "version": "1.9.8",
+      "files": [
+        {
+          "source": "src/share/jsoncpp/json/json-forwards.h",
+          "sha256": "c11b43c29e5d9e99aba3f7a99774c4d29458367463ebff9148dffc29b06d97eb"
+        },
+        {
+          "source": "src/share/jsoncpp/json/json.h",
+          "sha256": "dd534a7d4cd8b4165b94d09f893d02fd011e3c55d9d97b3c24f5b27371ff45a6"
+        },
+        {
+          "source": "src/share/jsoncpp/jsoncpp.cpp",
+          "sha256": "fef22501f7be036556abe04c12ce6bd38e92135449e7dd5e505687dfab772e62"
+        }
+      ]
+    },
+    {
+      "name": "QuaZip",
+      "version": "1.7.2",
+      "files": [
+        {
+          "source": "src/libs/3rdparty/quazip/CMakeLists.txt",
+          "sha256": "010a284e7183931b074140fc66678d7e99bdc4975252f10cb7a9264c6771fe66"
+        },
+        {
+          "source": "src/libs/3rdparty/quazip/COPYING",
+          "sha256": "b455b21b0d31d6e51993f1fb7e0694c75fa0eb0519a9ea62e4815fcf48b140b0"
+        }
+      ]
+    },
+    {
+      "name": "FramelessHelper",
+      "version": "reviewed Qt6 compatibility revision",
+      "files": [
+        {
+          "source": "src/libs/3rdparty/framelesshelper/CMakeLists.txt",
+          "sha256": "d2c2743056655dfe20468b6b199cea6ae0cb56612c352298c1103fe78684270c"
+        },
+        {
+          "source": "src/libs/3rdparty/framelesshelper/LICENSE",
+          "sha256": "b616d0578ea6253fdfdba5dfcf712e85cfe2a12e4d4a0a29c3fe9e9eb63082a5"
+        }
+      ]
+    },
+    {
+      "name": "Retained editor compatibility library",
+      "version": "1.11.3",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/jquery-1.11.3.js",
+          "sha256": "5754102721422f50adbe094ed53092272379773ee8e699a5b682a7c5adb14aa5",
+          "resource": "wizeditor/dependency/jquery-1.11.3.js"
+        }
+      ],
+      "role": "Intentional compatibility resource retained from242; restricted editor not inspected or changed. Not an accidental fallback for standalone3.7.1 or welcome4.0.0."
+    },
+    {
+      "name": "Retained flowchart",
+      "version": "1.11.3",
+      "files": [
+        {
+          "source": "share/files/wizeditor/dependency/flowchart.js",
+          "sha256": "4fedc99cc68cd4338ea396a202ccc9876c4f124c6bce74d9a57ba97f1266014b",
+          "resource": "wizeditor/dependency/flowchart.js"
+        }
+      ],
+      "role": "Reviewed baseline retained because the attempted newer release had a visual regression; no unverified upgrade."
+    }
+  ],
+  "forbidden_resource_paths": [
+    "wizeditor/dependency/mathjax/config",
+    "wizeditor/dependency/mathjax/extensions",
+    "wizeditor/dependency/mathjax/jax",
+    "wizeditor/dependency/mathjax/localization",
+    "welcomepage/js/jquery-1.11.3.min.js",
+    "welcomepage/js/jquery-ui-1.12.1.custom.js",
+    "welcomepage/js/jquery-3.7.1.min.js"
+  ]
+}

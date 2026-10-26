@@ -69,7 +69,7 @@ function WizMarkdownEnvironmentBlocks(source) {
   return blocks;
 }
 
-function WizProtectMarkdownEquationReferences(source) {
+function WizProtectMarkdownEquationReferences(source, readSource) {
   if (!/\\(?:eqref|ref)\{/.test(source)) return source;
   var code = WizMarkdownEnvironmentCodePositions(source), math = WizMathProtectedPositions(source);
   // Plain \ref also needs the supplemental pass when there is no $ math to
@@ -80,7 +80,8 @@ function WizProtectMarkdownEquationReferences(source) {
     if (!mathLabels) {
       // Eqref is unconditional; only an eligible plain ref needs raw labels.
       // Keep this lookup local to the call so changed notes never reuse labels.
-      var raw = WizEditor.getMarkdownSrc({unEscapeHtml:true});
+      var raw = typeof readSource === 'function' ? readSource()
+        : WizEditor.getMarkdownSrc({unEscapeHtml:true});
       var rawCode = WizMarkdownEnvironmentCodePositions(raw);
       mathLabels = new Set();
       var environments = /\\begin\{((?:equation|align|gather|multline|alignat)\*?)\}[\s\S]*?\\end\{\1\}/g, environment, label;
@@ -122,13 +123,24 @@ function WizConfigureMarkdownEnvironments(options) {
   var original = plugins.customBlockGamut;
   plugins.customBlockGamut = function (source) {
     if (original) source = original(source);
-    if (!/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof|equation|align|gather|multline|alignat)\*?\}/.test(source)) return WizProtectMarkdownEquationReferences(source);
+    // Share only this synchronous hook's authoritative snapshot. The callback
+    // never retains it, so later hooks/notes/mode changes always read afresh.
+    // In particular, keep custom callbacks outside this snapshot's lifetime.
+    var rawSource, hasRawSource = false;
+    function originalSource() {
+      if (!hasRawSource) {
+        rawSource = WizEditor.getMarkdownSrc({unEscapeHtml:true});
+        hasRawSource = true;
+      }
+      return rawSource;
+    }
+    if (!/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof|equation|align|gather|multline|alignat)\*?\}/.test(source)) return WizProtectMarkdownEquationReferences(source, originalSource);
     if (/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*\}/.test(source)) {
       var markerCode = WizMarkdownEnvironmentCodePositions(source);
       source = source.replace(/\\(?:begin|end)\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)\*\}/g,
         function (marker, offset) { return markerCode[offset] ? marker : marker.replace('*', '&#42;'); });
     }
-    if (!/\\begin\{(?:equation|align|gather|multline|alignat)\*?\}/.test(source)) return WizProtectMarkdownEquationReferences(source);
+    if (!/\\begin\{(?:equation|align|gather|multline|alignat)\*?\}/.test(source)) return WizProtectMarkdownEquationReferences(source, originalSource);
     // The old reader doubles the first TeX row separator before this hook.
     // Recover each exact block from its public source getter instead of
     // treating that transient parser representation as authoritative text.
@@ -141,7 +153,7 @@ function WizConfigureMarkdownEnvironments(options) {
       // Fetch/build the original-byte lookup only for a renderable candidate.
       if (!originals) {
         originals = new Map();
-        WizMarkdownEnvironmentBlocks(WizEditor.getMarkdownSrc({unEscapeHtml:true})).forEach(function (candidate) {
+        WizMarkdownEnvironmentBlocks(originalSource()).forEach(function (candidate) {
           // Keep first-match order, including legacy doubled-row collisions.
           if (!originals.has(candidate)) originals.set(candidate, candidate);
           var expanded = candidate.replace('\\\\','\\\\\\\\');
@@ -155,7 +167,7 @@ function WizConfigureMarkdownEnvironments(options) {
       // breaks opaque through the remaining inline parser and HTML filter.
       var encoded = WizMarkdownEnvironmentEntities(originalTex);
       return newline + '<div class="wiz-bare-math-environment">' + encoded + '</div>\n';
-    }));
+    }), originalSource);
   };
   return options;
 }

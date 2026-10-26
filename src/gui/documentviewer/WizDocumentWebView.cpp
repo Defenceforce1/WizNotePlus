@@ -2044,10 +2044,6 @@ bool WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode, WizDocument
         return false;
     }
     //
-    QString strHtml;
-    bool ret = WizLoadUnicodeTextFromFile(strFileName, strHtml);
-    if (!preparing() || !ret) return false;
-
     // Both readers initialize the editor before applying their final layout.
     // Presenting common HTML in between exposes the same raw/body/style jumps
     // as Markdown. Reuse the bounded, source-free presentation bootstrap only
@@ -2055,6 +2051,8 @@ bool WizDocumentWebView::loadDocumentInWeb(WizEditorMode editorMode, WizDocument
     // their existing behavior.
     const QString noteType = getNoteType();
     const bool prepareReader = WizReaderOpeningPresentation::shouldPrepare(editorMode == modeEditor, noteType);
+    // Preparation owns the checked file read; an outer copy would be unused
+    // and remain alive while the same complete HTML is read and decorated.
     if (!preparing() || !addDefaultScriptsToDocumentHtml(strFileName, prepareReader) || !preparing()) return false;
 
     WizEditorMode oldMode = m_currentEditorMode;

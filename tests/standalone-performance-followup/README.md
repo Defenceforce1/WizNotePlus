@@ -1,5 +1,21 @@
 # 第二组十轮性能与内存对照
 
+第248轮`theorem-source.cjs <before目录> <新结果JSON> prototype|product`以真实
+离线DOM／marked和合成公开getter，先在内存原型验证，再要求产品源码逐字
+匹配原型。16类投影、8次新原文、前置回调、解析／getter错误及恢复、直接
+辅助接口回退共86项；三个正文重复getter 3→0，顶层回调含必要读取4→1。
+真实getter与双PDF另测，不把DOM替身当原生内存证明。新输出拒绝覆盖，项目
+阶段before上级须有preflight.json指定新建隔离根，浏览器HOME／临时profile
+在该根内，沙箱保持、所有外部请求拒绝。初次向marked只读导出赋值未成功
+注入异常的夹具失败单列保留；最终替换合成页全局parser，恢复原值于finally。
+
+第247轮增量`source-snapshot.cjs <before目录> <新结果JSON>`仅比较自有同步
+转换回调。快照目录需markdownEnvironments.js和latexTheorems.js；不读取受限
+编辑器，以公开getter模拟器验证26类逐字输出、8次原文变化、异常／恢复、
+自定义原回调改变原文、另一次回调必须新读、惰性和独立引用接口不变，共79项。
+裸公式加普通ref的同次getter 2→1。只复用该次调用局部变量，不跨回调或笔记；
+真实公开接口及必要双PDF关联另在reader-opening检查，不以此VM结果替代。
+
 本组以第一组十轮完成后的源码为基线，逐项验证新的惰性准备、DOM遍历及通知
 合并，不把上一组实现重新计为十轮。只读取自有扩展与测试，不解析捆绑编辑器。
 

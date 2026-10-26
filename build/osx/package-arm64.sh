@@ -14,6 +14,9 @@ if [[ ! -f "$cache" ]]; then
     echo "A configured CMake build directory is required." >&2
     exit 1
 fi
+# Fail before copying or signing if source/build components have regressed.
+python3 "$source_dir/build/verify-components.py" --source-root "$source_dir" \
+    --resource-root "$build_dir/bin/WizNotePlus.app/Contents/Resources/files" --qt-prefix "$qt_prefix"
 if ! /usr/bin/grep -q '^WIZNOTE_BUILD_COMPAT_TESTS:BOOL=OFF$' "$cache"; then
     if [[ ${WIZNOTE_PACKAGE_DIAGNOSTIC:-0} != 1 ]] ||
        ! /usr/bin/grep -q '^WIZNOTE_BUILD_COMPAT_TESTS:BOOL=ON$' "$cache"; then
@@ -38,6 +41,7 @@ fi
 mkdir -p "$output_dir"
 ditto "$build_dir/bin/WizNotePlus.app" "$app"
 ditto "$source_dir/share" "$app/Contents/Resources"
+python3 "$source_dir/build/verify-components.py" --resource-root "$app/Contents/Resources/files"
 licenses="$app/Contents/Resources/licenses"
 mkdir -p "$licenses"
 cp "$source_dir/LICENSE" "$licenses/WizNotePlus-GPL-3.0.txt"

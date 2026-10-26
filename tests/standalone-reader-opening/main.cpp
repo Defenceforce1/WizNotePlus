@@ -27,7 +27,7 @@ class Bridge final:public QObject {
     Q_PROPERTY(QString userGuid READ guid CONSTANT)
     Q_PROPERTY(QString userAlias READ alias CONSTANT)
     Q_PROPERTY(QString userAvatarFilePath READ avatar CONSTANT)
-    Q_PROPERTY(QString currentNoteHtml READ html CONSTANT)
+    Q_PROPERTY(QString currentNoteHtml READ html NOTIFY currentHtmlChanged)
     Q_PROPERTY(bool isPersonalDocument READ allowed CONSTANT)
     Q_PROPERTY(bool canEditNote READ allowed CONSTANT)
     Q_PROPERTY(bool hasEditPermissionOnCurrentNote READ allowed CONSTANT)
@@ -39,7 +39,7 @@ public:
     Q_INVOKABLE QString getLocalLanguage()const{return "zh-cn";}
     Q_INVOKABLE void onSelectionChange(const QString&){}Q_INVOKABLE void onMarkerUndoStatusChanged(const QString&){}
     Q_INVOKABLE void onMarkerInitiated(const QString&){}Q_INVOKABLE void onNoteLoadFinished(){}Q_INVOKABLE void setModified(bool){}
-signals:void clickingTodoCallBack(bool,bool);
+signals:void clickingTodoCallBack(bool,bool);void currentHtmlChanged();
 };
 class LocalOnly final:public QWebEngineUrlRequestInterceptor {
 public:std::atomic<int> blocked{0};void interceptRequest(QWebEngineUrlRequestInfo& r)override{if(!QStringList{"file","qrc","data","about","blob"}.contains(r.requestUrl().scheme())){++blocked;r.block(true);}}
@@ -51,6 +51,8 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "retention.h"
 #include "staged-retention.h"
 #include "native-attribution.h"
+#include "initialization-attribution.h"
+#include "reused-page-trend.h"
 #include "mathjax-upgrade.h"
 #include "math-references.h"
 #include "mathjax-benchmark.h"
@@ -68,11 +70,23 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "todo-welcome.h"
 int main(int argc,char**argv){
     if(argc<3||argc>5)return 4;
+    if(qEnvironmentVariableIsSet("WIZNOTE_SYNTHETIC_MAIN_STACK_LOG")){
+        if(argc!=4||QByteArray(argv[2])!="retention-attribution"||QByteArray(argv[3])!="main-heap-prose")return 4;
+        // libmalloc reads this at process startup; remove launch flags before
+        // QApplication/WebEngine can spawn any synthetic helper processes.
+        // The directory does not enable logging; retain it for deferred full
+        // logger setup so all generated stack files stay in the isolated root.
+        qunsetenv("MallocStackLogging");qunsetenv("WIZNOTE_SYNTHETIC_MAIN_STACK_LOG");
+        qInfo()<<"MAIN_TRACE_SCOPE native synthetic main only; child trace flags removed";
+    }
     QCoreApplication::setAttribute(Qt::AA_PluginApplication);
     QApplication app(argc,argv);app.setQuitOnLastWindowClosed(false);QTemporaryDir root;if(!root.isValid())return 2;
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
 #ifdef Q_OS_MAC
+    if(kind=="reused-page-trend"&&argc==3)return runReusedPageTrend(root,resources);
+    if(kind=="reused-page-idle-attribution"&&argc==4&&(QByteArray(argv[3])=="plain"||QByteArray(argv[3])=="vm"))return runReusedPageIdleAttribution(root,resources,QByteArray(argv[3])=="vm");
+    if(kind=="initialization-attribution"&&argc==4)return runInitializationAttribution(root,resources,QString::fromLocal8Bit(argv[3]));
     if(kind=="attribution-sampler-control"&&argc==3)return runAttributionSamplerControl();
     if(kind=="retention-attribution"&&argc==4)return runNativeAttribution(root,resources,QString::fromLocal8Bit(argv[3]));
 #endif

@@ -1,5 +1,7 @@
 // Test-only macOS attribution. Public APIs and synthetic data only. No allocator
-// intervention, stack logging, debugger, forced GC, cache purge or profile cycling.
+// intervention, debugger, forced GC, cache purge or profile cycling. Existing
+// variants do not trace stacks; main-heap-prose explicitly allows native-only
+// allocator metadata in the synthetic main process, never helper/JS internals.
 #ifdef Q_OS_MAC
 #include <libproc.h>
 #include <sys/resource.h>
@@ -56,7 +58,7 @@ static int runAttributionSamplerControl(){
 }
 class NativeAttribution final:public QObject {
     struct EditorContext {QWebChannel channel;Bridge editor,explorer;};
-    QTemporaryDir& root;QString resources,kind,source,current;const int rounds;
+    QTemporaryDir& root;QString resources,kind,source,current;const int rounds;std::array<qsizetype,3> trendSizes{};
     std::unique_ptr<QWebEngineProfile> profile;LocalOnly local;
     std::unique_ptr<EditorContext> context;std::unique_ptr<QWebEngineView> view;
     QPointer<QWebEnginePage> page;QSet<qint64> rendererPids;QJsonArray samples;
@@ -67,7 +69,8 @@ class NativeAttribution final:public QObject {
     bool check(bool ok,const char* label){++checks;failures+=!ok;qInfo().noquote()<<(ok?"PASS":"FAIL")<<label;return ok;}
     void sample(const QString& phase){
         QJsonObject s{{"phase",phase},{"round",round},{"elapsedMs",elapsed.elapsed()},{"roundMs",roundElapsed.isValid()?roundElapsed.elapsed():0},{"profileLive",bool(profile)},{"profileObjects",profile?profile->findChildren<QObject*>().size():0},{"memory",attributionMemory(rendererPids)}};
-        samples.append(s);qInfo().noquote()<<"ATTRIBUTION_SAMPLE"<<QString::fromUtf8(QJsonDocument(s).toJson(QJsonDocument::Compact));
+        if(kind!="prose-trend")samples.append(s);
+        qInfo().noquote()<<"ATTRIBUTION_SAMPLE"<<QString::fromUtf8(QJsonDocument(s).toJson(QJsonDocument::Compact));
     }
     void stop(const char* message){if(stopped)return;check(false,message);stopped=true;QObject::disconnect(loadedConnection);view.reset();context.reset();if(profile)profile->setUrlRequestInterceptor(nullptr);profile.reset();finished(12);}
     void read(const QString& code,std::function<void(const QVariant&)> next){if(!page){stop("live page for attribution callback");return;}page->runJavaScript(code,[this,next=std::move(next)](const QVariant& value){if(stopped)return;if(!page){stop("callback remains bound to a live synthetic page");return;}next(value);});}
@@ -107,12 +110,13 @@ class NativeAttribution final:public QObject {
         if(!check(metal&&!windows.isEmpty()&&(!view->windowHandle()||!view->windowHandle()->isExposed()),"hidden Cocoa Metal workload without pixel grabs")){stop("native backend");return;}
         QPointer<QWebEnginePage> weakPage=page;QPointer<QWebEngineView> weakView=view.get();QObject::disconnect(loadedConnection);view.reset();context.reset();current.clear();
         later(300,[this,weakPage,weakView,windows]{bool gone=weakPage.isNull()&&weakView.isNull();for(auto w:windows)gone&=w.isNull();if(!check(gone&&profile->findChildren<QObject*>().isEmpty(),"page, view, Quick windows and profile-owned children gone")){stop("object teardown");return;}sample("closed");++round;
-            if(round%8==0||round==rounds){later(10000,[this]{sample(QString("profile-live-batch-%1-idle-10s").arg(round/8));if(round==rounds)observeLive();else later(0,[this]{beginRound();});});}
+            const int batch=kind=="prose-trend"?16:8;
+            if(round%batch==0||round==rounds){later(10000,[this,batch]{sample(QString("profile-live-batch-%1-idle-10s").arg(round/batch));if(round==rounds)observeLive();else later(0,[this]{beginRound();});});}
             else later(50,[this]{beginRound();});
         });
     }
     void beginRound(){
-        roundElapsed.restart();current=source+QString("\nSynthetic document instance %1.\n").arg(round);
+        roundElapsed.restart();current=(kind=="prose-trend"?source.left(trendSizes[round%3==0?2:round%3==1?1:0]):source)+QString("\nSynthetic document instance %1.\n").arg(round);
         QString html="<!doctype html><html><head><meta charset='utf-8'></head><body>"+current.toHtmlEscaped().replace("\n","<br>")+"</body></html>";
         if(editorCase){context=std::make_unique<EditorContext>();context->editor.original=html;QString tags;
             for(const auto& f:QStringList{"webengine/wizwebchannel.js","wizeditor/wizEditorForMac.js","wizeditor/dependency/marked/marked.umd.js","wizeditor/latexTheorems.js","wizeditor/markdownEnvironments.js","wizeditor/editorHelper.js"})tags+="<script src=\""+QUrl::fromLocalFile(resources+f).toString().toHtmlEscaped()+"\" name='wiz_inner_script' wiz_style='unsave'></script>";
@@ -125,7 +129,7 @@ class NativeAttribution final:public QObject {
     }
     void waitForObserver(const QString& phase,std::function<void()> next,qint64 rendererPid=0){
         const QString ack=root.filePath(phase+".ack");qInfo().noquote()<<"ATTRIBUTION_OBSERVER"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"phase",phase},{"pid",getpid()},{"rendererPid",rendererPid},{"ack",ack},{"profileLive",bool(profile)}}).toJson(QJsonDocument::Compact));
-        auto* poller=new QTimer(this);poller->setInterval(50);const QDeadlineTimer deadline(15000);
+        auto* poller=new QTimer(this);poller->setInterval(50);const QDeadlineTimer deadline(kind=="main-heap-prose"?30000:15000);
         QObject::connect(poller,&QTimer::timeout,this,[this,ack,deadline,poller,next=std::move(next)]{if(QFile::exists(ack)){poller->stop();poller->deleteLater();later(0,next);}else if(deadline.hasExpired()){poller->stop();poller->deleteLater();stop("exact-phase observer acknowledged before timeout");}});poller->start();
     }
     void observeLive(){
@@ -134,18 +138,18 @@ class NativeAttribution final:public QObject {
     }
     void finish(){
         check(local.blocked.load()==0,"synthetic attribution made no external requests");
-        qInfo().noquote()<<"ATTRIBUTION_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"kind",kind},{"rounds",rounds},{"paragraphs",6000},{"formulaCount",formulaCase?128:0},{"fullSourceReturned",fullResult},{"sourceBytes",source.toUtf8().size()},{"checks",checks},{"failures",failures},{"externalRequests",local.blocked.load()},{"samples",samples},{"productionCodeChanged",false},{"forcedCollectionOrCachePurge",false}}).toJson(QJsonDocument::Compact));stopped=true;finished(failures?12:0);
+        qInfo().noquote()<<"ATTRIBUTION_REPORT"<<QString::fromUtf8(QJsonDocument(QJsonObject{{"schema",1},{"kind",kind},{"rounds",rounds},{"paragraphs",6000},{"paragraphBands",kind=="prose-trend"?QJsonArray{60,600,6000}:QJsonArray{6000}},{"formulaCount",formulaCase?128:0},{"fullSourceReturned",fullResult},{"sourceBytes",source.toUtf8().size()},{"checks",checks},{"failures",failures},{"externalRequests",local.blocked.load()},{"samples",samples},{"samplesStreamed",kind=="prose-trend"},{"productionCodeChanged",false},{"forcedCollectionOrCachePurge",false}}).toJson(QJsonDocument::Compact));stopped=true;finished(failures?12:0);
     }
 public:
-    NativeAttribution(QTemporaryDir& root,const QString& resources,const QString& kind,std::function<void(int)> done):root(root),resources(resources),kind(kind),rounds(kind.endsWith("-observe")?1:24),finished(std::move(done)),editorCase(kind!="static-digest"),formulaCase(kind=="editor-full"||kind=="editor-digest"||kind=="editor-observe"),fullResult(kind=="editor-full") {
+    NativeAttribution(QTemporaryDir& root,const QString& resources,const QString& kind,std::function<void(int)> done):root(root),resources(resources),kind(kind),rounds(kind=="prose-trend"?48:kind=="main-heap-prose"?3:kind.endsWith("-observe")?1:24),finished(std::move(done)),editorCase(kind!="static-digest"),formulaCase(kind=="editor-full"||kind=="editor-digest"||kind=="editor-observe"),fullResult(kind=="editor-full") {
         QWebEngineProfileBuilder builder;builder.setPersistentStoragePath(root.filePath("profile")).setCachePath(root.filePath("cache"));profile.reset(builder.createProfile(QStringLiteral("SyntheticAttribution245")));if(!profile)qFatal("synthetic profile construction");profile->setUrlRequestInterceptor(&local);
-        source="# Synthetic large document\n\n";for(int i=0;i<6000;++i)source+=QString("Paragraph %1: Synthetic academic prose with **emphasis**, a local list of concepts, and punctuation. 合成正文，仅用于离线大文档测试；不来自任何真实笔记。\n\n").arg(i);
+        source="# Synthetic large document\n\n";for(int i=0;i<6000;++i){source+=QString("Paragraph %1: Synthetic academic prose with **emphasis**, a local list of concepts, and punctuation. 合成正文，仅用于离线大文档测试；不来自任何真实笔记。\n\n").arg(i);if(i==59)trendSizes[0]=source.size();if(i==599)trendSizes[1]=source.size();}trendSizes[2]=source.size();
         if(formulaCase){for(int i=0;i<128;++i)source+=QString("\\begin{equation}\\label{retention:%1}\na_{%1}+b=c\n\\end{equation}\n\n").arg(i);source+="See \\eqref{retention:0} and \\eqref{retention:127}.\n";}
     }
-    void start(){elapsed.start();sample("baseline");later(0,[this]{beginRound();});}
+    void start(){elapsed.start();sample("baseline");if(kind=="main-heap-prose")waitForObserver("main-baseline",[this]{beginRound();});else later(0,[this]{beginRound();});}
 };
 static int runNativeAttribution(QTemporaryDir& root,const QString& resources,const QString& kind){
-    if(QGuiApplication::platformName()!="cocoa"||!QStringList{"editor-full","editor-digest","static-digest","prose-digest","editor-observe","prose-observe"}.contains(kind))return 4;int status=0;
+    if(QGuiApplication::platformName()!="cocoa"||!QStringList{"editor-full","editor-digest","static-digest","prose-digest","editor-observe","prose-observe","main-heap-prose","prose-trend"}.contains(kind))return 4;int status=0;
     NativeAttribution probe(root,resources,kind,[&](int result){status=result;QCoreApplication::quit();});QTimer::singleShot(0,&probe,[&]{probe.start();});QCoreApplication::exec();return status;
 }
 #endif

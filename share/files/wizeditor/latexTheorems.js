@@ -88,11 +88,11 @@ function WizLatexTheoremOverlaps(spans, start, end) {
   return low < spans.length && spans[low].start < end;
 }
 
-function WizLatexTheoremBody(source, depth) {
+function WizLatexTheoremBody(source, depth, readSource) {
   if (depth > 16) throw new Error('Theorem nesting exceeds the supported limit');
   source = WizLatexTheoremReplaceSpans(source, WizLatexTheoremRecords(source).reverse().map(function (record) {
     return {start:record.start, end:record.end,
-      html:'\n\n' + WizLatexTheoremHtml(record, depth + 1) + '\n\n'};
+      html:'\n\n' + WizLatexTheoremHtml(record, depth + 1, readSource) + '\n\n'};
   }));
   var code = null, spans = [], match;
   // Plain prose still goes through the same Markdown parser. Prepare math
@@ -134,18 +134,18 @@ function WizLatexTheoremBody(source, depth) {
   source = WizLatexTheoremReplaceSpans(source, spans);
   // Use the same known-math-label rule for plain \ref inside theorem prose;
   // theorem-to-theorem references remain ordinary text for the block decorator.
-  source = WizProtectMarkdownEquationReferences(source);
+  source = WizProtectMarkdownEquationReferences(source, readSource);
   if (!window.marked || typeof marked.parse !== 'function') throw new Error('Local theorem Markdown parser unavailable');
   return marked.parse(source, {async:false, gfm:true, breaks:true});
 }
 
-function WizLatexTheoremHtml(record, depth) {
+function WizLatexTheoremHtml(record, depth, readSource) {
   var kind = record.name.replace(/\*$/, ''), starred = /\*$/.test(record.name);
   var title = WizLatexTheoremNames[kind] + (record.title ? '（' + record.title + '）' : '');
   return '<blockquote class="wiz-latex-theorem' + (starred ? ' wiz-latex-unnumbered' : '') + '">'
     + '<p><strong>' + WizLatexTheoremEntities(title) + '</strong>'
     + (record.label ? ' \\label{' + record.label + '}' : '') + '</p>'
-    + WizLatexTheoremBody(record.body, depth || 0) + '</blockquote>';
+    + WizLatexTheoremBody(record.body, depth || 0, readSource) + '</blockquote>';
 }
 
 function WizLatexTheoremTextPosition(entries, offset) {
@@ -194,7 +194,10 @@ function WizRenderLatexTheorems(html, source) {
   })) return html;
   // Construct all replacements before changing DOM: a parse failure retains the
   // entire original preview instead of leaving a partly translated environment.
-  var replacements = records.map(function (record) { return WizLatexTheoremHtml(record, 0); });
+  // Reuse only the authoritative source already supplied to this synchronous
+  // projection tree. Nothing is retained across renders or editor callbacks.
+  function originalSource() { return source; }
+  var replacements = records.map(function (record) { return WizLatexTheoremHtml(record, 0, originalSource); });
   matches.reverse().forEach(function (item, reversedIndex) {
     var range = template.content.ownerDocument.createRange();
     range.setStart(item.start.node, item.start.offset); range.setEnd(item.end.node, item.end.offset);

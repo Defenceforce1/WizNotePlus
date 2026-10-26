@@ -636,6 +636,12 @@ qt_add_translation(wiznote_QM ${wiznote_TRANSLATIONS})
 
 message("WizNotePlus whill compiling as ${CMAKE_BUILD_TYPE}, use Qt: ${QT_VERSION}")
 
+include(VerifyComponentVersions)
+wiznote_verify_source_components()
+# A reconfigured development bundle may still contain the previous engine's
+# directory tree. Recreate only this generated component before copying source.
+file(REMOVE_RECURSE "${WIZNOTE_RESOURCE_DIR}/files/wizeditor/dependency/mathjax")
+
 # Monitor file content changes in share directory
 file(GLOB_RECURSE share_files LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/share/**/*)
 foreach(filename IN LISTS share_files)
@@ -759,6 +765,7 @@ else()
 endif()
 
 qt_use_modules(WizNotePlus)
+wiznote_add_component_check(WizNotePlus)
 # Keep ON/OFF moc output separate: changing only the option may leave Ninja's
 # autogen timestamp current even when its generated configuration changed.
 # A filename AUTOGEN_TARGET_DEPENDS is only order-only with this Qt/Ninja setup.

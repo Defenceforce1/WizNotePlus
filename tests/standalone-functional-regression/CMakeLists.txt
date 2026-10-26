@@ -29,5 +29,44 @@ foreach(name document-async pdf-export-lifecycle pdf-paper-page)
   target_link_libraries(${name} PRIVATE Qt6::WebEngineCore Qt6::WebEngineWidgets)
 endforeach()
 wiz_unit(login-window-recovery login-window-recovery.cpp)
+
+# Narrow initial-load check: compile the actual producer/orchestrator bodies,
+# with real temporary I/O and small recording collaborators; no client linkage.
+function(wiz_initial_load_target name source expected_reads)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
+  file(READ "${source}" text)
+  string(REPLACE "\r\n" "\n" text "${text}")
+  set(implementation "")
+  foreach(pair
+      "bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(;bool WizDocumentWebView::loadDocumentInWeb("
+      "bool WizDocumentWebView::loadDocumentInWeb(;void WizDocumentWebView::onNoteLoadFinished("
+      "QString WizDocumentWebView::getCurrentNoteHtml(;void copyFileToFolder(")
+    list(GET pair 0 first)
+    list(GET pair 1 last)
+    string(FIND "${text}" "${first}" begin)
+    string(FIND "${text}" "${last}" end)
+    if(begin LESS 0 OR end LESS begin)
+      message(FATAL_ERROR "Cannot locate actual note-load body ${first}")
+    endif()
+    math(EXPR length "${end} - ${begin}")
+    string(SUBSTRING "${text}" ${begin} ${length} body)
+    string(APPEND implementation "${body}\n")
+  endforeach()
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${name}-under-test.inc" "${implementation}")
+  file(SHA256 "${source}" source_sha)
+  add_executable(${name} initial-note-load.cpp)
+  target_include_directories(${name} PRIVATE "${root}/src" "${CMAKE_CURRENT_BINARY_DIR}")
+  target_compile_features(${name} PRIVATE cxx_std_17)
+  target_compile_definitions(${name} PRIVATE
+    WIZ_INITIAL_NOTE_LOAD_IMPL="${name}-under-test.inc"
+    WIZ_INITIAL_NOTE_LOAD_SOURCE_SHA="${source_sha}"
+    WIZ_INITIAL_NOTE_LOAD_EXPECTED_READS=${expected_reads})
+  target_link_libraries(${name} PRIVATE Qt6::Core)
+endfunction()
+wiz_initial_load_target(initial-note-load "${root}/src/gui/documentviewer/WizDocumentWebView.cpp" 1)
+set(WIZ_INITIAL_NOTE_LOAD_BASELINE "" CACHE FILEPATH "Optional pre-change owned source for a focused control")
+if(WIZ_INITIAL_NOTE_LOAD_BASELINE)
+  wiz_initial_load_target(initial-note-load-before "${WIZ_INITIAL_NOTE_LOAD_BASELINE}" 2)
+endif()
 # Explicit whitelist only: no network/security/Keychain/real-session test or
 # normal client startup target is imported from the historical compat project.

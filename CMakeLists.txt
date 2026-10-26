@@ -49,6 +49,7 @@ endif()
 option(WIZNOTE_BUILD_COMPAT_TESTS "Build isolated Qt/data compatibility smoke tests" OFF)
 option(WIZNOTE_ENABLE_MARKDOWN_RECOVERY "Experimental same-target Markdown recovery App wiring" OFF)
 option(WIZNOTE_RELEASE_DEAD_STRIP "Remove unreachable native code from macOS Release executables" ON)
+option(WIZNOTE_UPDATE_SUBMODULES "Explicitly update pinned submodules during configuration" OFF)
 
 # Set default build type to Release
 if(NOT CMAKE_BUILD_TYPE)
@@ -160,7 +161,7 @@ macro(git_submodule)
     endforeach()
 endmacro()
 
-if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+if(WIZNOTE_UPDATE_SUBMODULES AND GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     git_submodule(
         src/libs/3rdparty/framelesshelper
         src/libs/3rdparty/quazip

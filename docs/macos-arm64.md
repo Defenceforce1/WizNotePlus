@@ -285,3 +285,14 @@ template uses standard Markdown `>` blocks and applies through the existing loca
 global stylesheet, without source conversion or new theorem syntax. The original
 PDF export is unchanged. See [note-presentation.md](note-presentation.md) and
 [inline-search.md](inline-search.md) for verification and remaining limitations.
+# 当前组件构建约定（2026-10-27）
+
+默认源码现在直接包含已验MathJax4.1.3与TeX字体，不依赖从历史App补拷组件。
+需要可用Python3进行离线组件核对；清单为build/components.lock.json。
+CMake配置／默认目标及打包检查会拒绝旧版、缺失或混合资源，Qt按完整版本
+6.11.3核对；短显示版本6.11不用于判断补丁版本。检查不会进入主程序运行时。
+
+配置默认不执行Git子模块更新（WIZNOTE_UPDATE_SUBMODULES=OFF）。初次准备或
+明确更新依赖时须选择清单对应的已验源；未满足依赖时应修正输入，不能关闭
+组件检查来继续。源码和打包应使用同一清单。此约定替代历史版本的额外资源
+覆盖步骤；现有回退包及其原验证记录保持，不用当前清单重新定义历史验收。
