@@ -52,6 +52,8 @@ QString literal(const QString& s){return QString::fromUtf8(QJsonDocument(QJsonAr
 #include "staged-retention.h"
 #include "native-attribution.h"
 #include "initialization-attribution.h"
+#include "source-cost.h"
+#include "getter-width.h"
 #include "reused-page-trend.h"
 #include "mathjax-upgrade.h"
 #include "math-references.h"
@@ -84,6 +86,8 @@ int main(int argc,char**argv){
     const QString resources=QDir(QString::fromLocal8Bit(argv[1])).absolutePath()+"/",kind=QString::fromLocal8Bit(argv[2]);
     const bool gated=argc>=4&&QString::fromLocal8Bit(argv[3])=="gated";
 #ifdef Q_OS_MAC
+    if(kind=="getter-cases"&&argc==5)return runGetterCases261(root,resources,QString::fromLocal8Bit(argv[3]),QString::fromLocal8Bit(argv[4]));
+    if(kind=="source-cost"&&(argc==4||argc==5))return runSourceCost(root,resources,QString::fromLocal8Bit(argv[3]).toInt(),argc==5?QString::fromLocal8Bit(argv[4]):QStringLiteral("entity"));
     if(kind=="reused-page-trend"&&argc==3)return runReusedPageTrend(root,resources);
     if(kind=="reused-page-idle-attribution"&&argc==4&&(QByteArray(argv[3])=="plain"||QByteArray(argv[3])=="vm"))return runReusedPageIdleAttribution(root,resources,QByteArray(argv[3])=="vm");
     if(kind=="initialization-attribution"&&argc==4)return runInitializationAttribution(root,resources,QString::fromLocal8Bit(argv[3]));
