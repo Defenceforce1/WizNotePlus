@@ -1,21 +1,22 @@
 # MathJax 4 isolated candidate
 
-This is an experimental resource overlay, not the production renderer and not
-a general MathJax 2 replacement library. Production resources remain 2.7.8.
+This directory retains the reproducible MathJax 4 assembly fixture and owned
+compatibility bridge. MathJax 4.1.3 is the default production renderer since
+phase255; this bridge is not a general MathJax 2 replacement library.
 Build220 remains the protected daily-use rollback. Do not install this overlay
-into an existing App, import real notes, or modify the proprietary editor.
+into an existing App, import real notes, or modify editor internals from this test.
 
 ## Public compatibility seam
 
-The unchanged editor loads `mathjax/MathJax.js`. In an isolated candidate copy,
-that file is our bridge to real MathJax 4.1.3. It implements the used public
+The existing editor loads `mathjax/MathJax.js`. This default resource is our
+bridge to real MathJax 4.1.3; the fixture here is kept byte-identical. It implements the used public
 queue/configuration/input-object seam, retains TeX input scripts for the existing
 private-paper exporter, and normalizes generated equation links to the existing
 document-local namespace. It does not reproduce every MathJax 2 API.
 
 The owned Markdown/theorem extensions, code exclusion, original source getters,
 mode-change cancellation, PDF FIFO/restore guards and two export modes stay in
-place. Only the test copy receives the overlay. The native executable, frameworks,
+place. Assembly creates only a new isolated overlay. The native executable, frameworks,
 database, encryption, accounts, current App and real notes are not changed.
 
 Use the TeX font family to retain the established glyph style. Speech, semantic
@@ -49,3 +50,37 @@ long-term memory behavior or universal pagination.
 
 Font-only timings must not be presented as whole-App performance. See the
 phase221 checkpoint and MathJax4 candidate report for results and limitations.
+
+## Current lifecycle regression
+
+`lifetime-regression.js` runs only in a synthetic, initialized editor page.
+Observe `WizMathLifetimeRegression.done`, then require zero `failures`, not merely
+process exit 0. Fourteen actual-engine assertions cover Process/Typeset stability,
+scoped Reprocess/Rerender, explicit Remove and reconstruction, disconnected scope
+retirement, repeated DOM replacement, original SVG/source preservation, queue
+order and the 256-entry recent-operation trace. It creates no production account
+and must not be injected into a real note.
+
+Phase267 independently validates this fixture with current locked components.
+The bridge keys retained script/placeholder metadata by stable MathItem identity
+and retires engine items for fully disconnected source/output pairs. Engine/font
+files, source syntax and PDF layout algorithms are unchanged. This bounds specific
+owned records; it does not establish that WebEngine resident high-water is resolved.
+
+## Editing transition retirement
+
+`editing-retirement-regression.js` is another synthetic-page-only test. The
+independent native driver supplies the expected source and the actual save
+producer scripts from `WizDocumentAsync.h`. Require `WizEditing269.done` and zero
+failures. Its 23 assertions cover queued retirement after the editor callback,
+connected-reader preservation, detached scan roots, current unsaved DOM, capture
+failure retention, reader reconstruction, references and delayed cleanup while
+switching back to reading.
+
+`Hub.WizRetireDisconnected()` uses the existing math queue. It retires only
+records with disconnected input and output, and disconnected completed scan
+scopes. The owned note-style callback invokes it for an editable body. It does
+not render, reset labels, clear current source or alter connected output.
+The native mode-change callbacks already apply note styling after transition.
+Known references are retired earlier; this is not measured physical-memory
+savings or proof that every old DOM owner has gone away.
