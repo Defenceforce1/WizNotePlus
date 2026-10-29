@@ -1,0 +1,27 @@
+{
+  "phase": 323,
+  "date": "2026-10-29",
+  "operation": "One user-authorized source snapshot and progress synchronization while optimization stays paused",
+  "sourceThroughPhase": 292,
+  "investigationThroughPhase": 322,
+  "highMemoryResolved": false,
+  "lastNativeTypeGroups": {
+    "phase": 320,
+    "groups": 2,
+    "controls": 84,
+    "sourceChecks": 16,
+    "knownPayloadPercent": 2.4982022547762535
+  },
+  "latestCatalogueAttempt": {
+    "phase": 322,
+    "buildFailedAtLinkage": true,
+    "nativeGroups": 0
+  },
+  "newPackageProduced": false,
+  "existingAppOrRealDataChanged": false,
+  "oneTimeOnly": true,
+  "ongoingSyncAutomaticallyResumed": false,
+  "rawEvidenceAndIndependentEngineExcluded": true,
+  "report": "docs/github-sync-2026-10-29.md",
+  "remoteReceiptKeptLocally": true
+}
