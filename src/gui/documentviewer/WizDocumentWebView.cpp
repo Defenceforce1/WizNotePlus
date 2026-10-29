@@ -847,6 +847,9 @@ void WizDocumentWebView::clear()
     m_loadSequence.next();
     const auto opening = invalidateDocumentCallbacks();
     if (!self || !WizDocumentCallbackEpoch::current(opening)) return;
+    // The old page is being abandoned. Queued saves own their snapshot copies.
+    m_currentNoteHtml.clear();
+    m_currentNoteHtmlDocument = {};
     load(QUrl("about:blank"));
 }
 
@@ -907,7 +910,8 @@ void WizDocumentWebView::onDocumentReady(const QString kbGUID, const QString str
     if (!m_dbMgr.db(kbGUID).documentFromGuid(strGUID, doc)) return;
     if (!self || !current || !current() || !read.current()
         || !m_loadSequence.accepts(this, requester, sequence)) return;
-    m_mapFile.insert(strGUID, strFileName);
+    // Only the accepted current note needs an index entry. In-flight saves own paths.
+    m_mapFile = {{strGUID, strFileName}};
     WizDocumentCallbackEpoch::Ticket navigation;
     const bool dispatched = loadDocumentInWeb(editorMode, &navigation);
     // After navigation dispatch the DOM belongs to the renderer, even when a
