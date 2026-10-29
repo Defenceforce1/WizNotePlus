@@ -1,0 +1,76 @@
+{
+  "phase": 264,
+  "date": "2026-10-27",
+  "scope": "Explicit about:blank navigation retires the previous native original-HTML snapshot after existing owner/epoch checks",
+  "predecessor": 263,
+  "baseline": {
+    "sourceFilesVerifiedBeforeWork": 746,
+    "editorJsSha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+    "prior261And262FixesRetained": true
+  },
+  "change": {
+    "file": "src/gui/documentviewer/WizDocumentWebView.cpp",
+    "sha256": "13dd023549d3f95983e02cee7a5fe04646e5cf491d2bb9da38056d8f52a29269",
+    "onlyProductDelta": "clear m_currentNoteHtml and reset its document identity before existing about:blank dispatch, after existing current-owner/epoch guard",
+    "saveWorkAndUnsavedDomNotCanceled": true,
+    "ordinaryLockAndCallbackInvalidationNotChanged": true,
+    "saveFailureCallerGuardUnchanged": true,
+    "queuedSaverOwnsIndependentQString": true,
+    "newNotificationOrReentrancyEntryAdded": false
+  },
+  "validation": {
+    "finalAssociatedAssertions": 27,
+    "usesActualExtractedCurrentClear": true,
+    "usesActualExtractedSaverHandoff": true,
+    "onlyClassNameSubstitution": true,
+    "realQtQueuedSnapshotOwnership": true,
+    "reentrantNewDocumentPreserved": true,
+    "destroyedOwnerGuardPreserved": true,
+    "ordinaryInvalidationRetainsCache": true,
+    "sourceIdentityPathFlagsAndNotifyPreserved": true,
+    "actualProductTranslationUnitCompiled": true,
+    "wholeProgramLinked": false,
+    "compilerWarningsRetained": 19,
+    "currentComponentsGroups": 15,
+    "currentComponentFiles": 80,
+    "qtVersion": "6.11.3",
+    "prototype24NotCountedAgain": true,
+    "formulaPdfOrOldMatricesRepeated": false,
+    "fullMainWindowOrDiskSaveAccepted": false
+  },
+  "measurement": {
+    "syntheticSnapshotUtf16Bytes": 16777216,
+    "soleReferenceActiveMallocBytesReleased": 16793360,
+    "footprintBytesBeforeAfter": [
+      19923520,
+      19923520
+    ],
+    "rssBytesBeforeAfter": [
+      28950528,
+      28950528
+    ],
+    "queuedOwnerRetainsBytesUntilCompletion": true,
+    "equalPhysicalMemoryReclamationClaimed": false,
+    "allocatorIntervention": false,
+    "mainWebEngineHighWaterResolved": false
+  },
+  "boundaries": {
+    "githubAccess": false,
+    "githubSynchronization": false,
+    "githubWrites": false,
+    "normalAccountOrRealNotesAccess": false,
+    "agentsAccess": false,
+    "installedAppOrFrozenArtifactsChanged": false,
+    "newPackageOrSigning": false,
+    "localCommitOrStaging": false,
+    "automationRecreated": false
+  },
+  "remaining": [
+    "Overall WebEngine renderer readiness and main-process resident/fragmentation high-water remain unresolved",
+    "Residual source getter around53-57ms remains not fully attributed",
+    "Only explicit blank-page snapshot lifetime has been fixed; no complete main-window/disk-save or long-term real-use acceptance",
+    "Local258/259/261/262/264 fixes remain unpackaged and unsynchronized"
+  ],
+  "finiteStageComplete": true,
+  "allMemoryIssuesResolved": false
+}

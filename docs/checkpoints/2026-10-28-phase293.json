@@ -1,0 +1,145 @@
+{
+  "phase": 293,
+  "date": "2026-10-28",
+  "report": "docs/source-clone-memory-experiments-2026-10-28.md",
+  "validation": {
+    "phase": 293,
+    "accepted": true,
+    "productChanged": false,
+    "allCandidatesRejected": true,
+    "memoryReductionPrimary": true,
+    "overallHighWaterResolved": false,
+    "hypotheses": 3,
+    "openingGroups": 7,
+    "openingChecksPerGroup": 13,
+    "shapeDiagnosticGroups": 1,
+    "shapeDiagnosticChecks": 13,
+    "shapeDiagnosticNotProductPeakEvidence": true,
+    "sameProfileRepeatGroups": 2,
+    "repeatRoundsPerGroup": 6,
+    "repeatChecksPerGroup": 71,
+    "repeatSamplesPerGroup": 28,
+    "sameBinaryAndCurrentComponents": true,
+    "shallowAndDirectTextPeakHigher": true,
+    "detachedContentsDisposalNoBenefit": true,
+    "noClaimedMemoryImprovement": true,
+    "newNativeBuildPerformed": false,
+    "newFunctionalPdfMatrixPerformed": false,
+    "unchangedPriorGetterFailuresRetained": true,
+    "automationActive": true,
+    "automationFrequencyMinutes": 20,
+    "noNetworkPackageSyncAppOrRealData": true,
+    "noAgentsAccess": true
+  },
+  "opening": {
+    "phase": 293,
+    "rows": [
+      {
+        "label": "reference-a",
+        "sampledPeakMiB": 278.6109085083008,
+        "lifePeakMiB": 279.0796585083008,
+        "checks": 13,
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      },
+      {
+        "label": "candidate-a",
+        "sampledPeakMiB": 289.2358627319336,
+        "lifePeakMiB": 290.0483627319336,
+        "checks": 13,
+        "coreSha256": "aa94e5aeea08d553bfaf5a0a77372018f0308e8288f37a8fad299968f7316cb0"
+      },
+      {
+        "label": "shallow-a",
+        "sampledPeakMiB": 288.0015335083008,
+        "lifePeakMiB": 288.0015335083008,
+        "checks": 13,
+        "coreSha256": "bf642e44eb5d0bb834e74fe5cd4cdabbbb64e97ee494217d512dcc59a56635bf"
+      },
+      {
+        "label": "shallow-b",
+        "sampledPeakMiB": 287.8921813964844,
+        "lifePeakMiB": 288.6734313964844,
+        "checks": 13,
+        "coreSha256": "bf642e44eb5d0bb834e74fe5cd4cdabbbb64e97ee494217d512dcc59a56635bf"
+      },
+      {
+        "label": "reference-b",
+        "sampledPeakMiB": 277.3296356201172,
+        "lifePeakMiB": 277.7983856201172,
+        "checks": 13,
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      },
+      {
+        "label": "dispose-a",
+        "sampledPeakMiB": 278.2671585083008,
+        "lifePeakMiB": 279.0640335083008,
+        "checks": 13,
+        "coreSha256": "ab7e71bc7f8ce8bba0d2fbee04718ce9aef6937a182a8630c9b488bf5cce52a4"
+      },
+      {
+        "label": "dispose-b",
+        "sampledPeakMiB": 277.8609085083008,
+        "lifePeakMiB": 278.4702835083008,
+        "checks": 13,
+        "coreSha256": "ab7e71bc7f8ce8bba0d2fbee04718ce9aef6937a182a8630c9b488bf5cce52a4"
+      }
+    ],
+    "flatAndShallowNotPromotedHigherPeak": true,
+    "disposeOpeningNoMeasuredBenefit": true,
+    "noNormalTimingOrQualityBenefitClaim": true
+  },
+  "repeat": {
+    "phase": 293,
+    "rows": [
+      {
+        "label": "six-rounds-reference",
+        "afterSmallMiB": [
+          278.13,
+          465.41,
+          474.16,
+          474.41,
+          475.92,
+          476.6
+        ],
+        "idleMiB": [
+          85.58,
+          82.36
+        ],
+        "lifetimePeakMiB": 538.7673645019531,
+        "checks": 71
+      },
+      {
+        "label": "six-rounds-dispose",
+        "afterSmallMiB": [
+          278.72,
+          467.35,
+          480.38,
+          478.78,
+          485.58,
+          487.36
+        ],
+        "idleMiB": [
+          86.75,
+          83.61
+        ],
+        "lifetimePeakMiB": 547.3610916137695,
+        "checks": 71
+      }
+    ],
+    "disposalNoMeaningfulMemoryBenefit": true,
+    "notPromoted": true
+  },
+  "remaining": [
+    "主目标仍是实际高内存：单次峰值约278MiB、连续六轮峰值约539–547MiB，不能当已修复。",
+    "三个候选均拒绝；更少克隆／解析或主动拆除自己临时树没有证明进程内存净收益，不继续为这些候选扩大功能矩阵。",
+    "首次必要原文、转换中整篇临时字符串与原生活动分配的对应关系仍需具体归因；JS used heap、RSS与footprint必须分开，短时高水位与持续泄漏不能混称。",
+    "已有2处严格DOM字符串检查失败及历史PDF跨次差异未在本轮修复，既有292源码保持。",
+    "暂不打包、联网或GitHub同步；现用App和真实笔记资料保持，未来包仍需重编289打印伴随逻辑。"
+  ],
+  "nextGate": "以后续高内存归因为主：先区分一次性打开与连续切换峰值是否同源，必要时重测源处理／数学输出／页面退休的配对阶段；再检查已核许可转换器中的整篇字符串展开／拼接复制，有证据才做候选。293已否定的平坦树重建、浅克隆和移除后拆树不反复空转。每条路线有限候选与完整工作量对照，不能交付跳过排版／读取等消融或用强制GC掩盖。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "ACTIVE",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true
+}

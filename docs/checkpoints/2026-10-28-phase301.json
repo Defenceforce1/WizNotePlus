@@ -1,0 +1,59 @@
+{
+  "phase": 301,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 301,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newProductMemoryImprovementClaimed": false,
+    "highCurrentProductTraceCaptured": true,
+    "sameCandidateUntracedHighReproduced": true,
+    "sameCandidateHighWithCompleteGcEventsCaptured": false,
+    "observerBiasRemainsMaterial": true,
+    "newValidMemoryGroups": 6,
+    "initialSetupFailurePreserved": true,
+    "nativeControls": 432,
+    "observerBarriers": 90,
+    "nativeSamples": 168,
+    "tracedGroups": 3,
+    "numericLogGroups": 2,
+    "unobservedControls": 1,
+    "tracingDataLoss": false,
+    "referenceTracedPeakMiB": 539.8298187255859,
+    "candidateTracedPeakMiB": [
+      349.0953063964844,
+      348.8921813964844
+    ],
+    "candidateUntracedPeakMiB": 539.8767166137695,
+    "candidateNumericLogPeakMiB": [
+      349.62660217285156,
+      348.62657928466797
+    ],
+    "traceMajorCounts": [
+      9,
+      15,
+      15
+    ],
+    "numericLogCompletenessClaimed": false,
+    "noForcedGcOrPressureOrCacheClear": true,
+    "noCandidatePromoted": true,
+    "fullClientOrLongTermAcceptance": false,
+    "automationStatus": "PAUSED"
+  },
+  "evidenceRoot": "outputs/exploration-20261028/phase301",
+  "report": "docs/gc-observer-bias-memory-2026-10-28.md",
+  "remaining": [
+    "实际高内存未修复，默认产品保持292；浅克隆仍拒绝合入，同码候选无追踪新对照约539.877MiB。",
+    "高峰参考组已取得同场自动GC事件：切小后没有major，下一大页抬高；候选高峰仍只有无追踪数值，不能将不同方法之间的GC对照当同码高峰因果证明。",
+    "同候选追踪349／349、无追踪540MiB，数值日志约350／349MiB；观察可能改变GC时序，不能把任何带诊断低值当净收益或断言全部低值均为诊断所致。",
+    "数值日志使用普通stdio，接收时刻不等于引擎事件时刻，尾部可丢失；不能从未收到某条日志断言没发生GC。进一步须先解决最低观察成本和完整性，再限定捕捉同码高低两组，不重复现有完整序列。",
+    "没有足够证据支持新的自有持有点／行为等价稳定降内存补丁；不强制GC／改阈值、清缓存或改上游，不进行老的无益候选／公式PDF大矩阵。",
+    "定时任务仍PAUSED，无打包／安装／同步、App或真实资料改动；未来打包仍须重编289打印伴随头文件。"
+  ],
+  "nextGate": "下一有界路线先核对仅major的公开数值日志及行缓冲输出契约，避免现有NVP格式化／额外日志和尾部缓冲；只在自有合成进程验证记录完整性与扰动，再至多做固定同码高低对照。不得用日志缺失推断GC缺席，不以更多相同六轮或更长循环替代具体证据。若仍观察即改变分布、没有新持有／分配归因则收口，保留高内存未修复，不改上游／堆阈值或强制回收，自动运行保持暂停。",
+  "productRemainsPhase": 292,
+  "sourceOnlyLocalDocumentation": true,
+  "githubSyncSuspended": true,
+  "noProductMemoryImprovementClaimed": true
+}

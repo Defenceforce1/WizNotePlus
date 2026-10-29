@@ -1,0 +1,231 @@
+{
+  "phase": 292,
+  "date": "2026-10-28",
+  "stage": "Normal temporary getter roots naturally collected; owned exception roots released without changing normal source paths",
+  "report": "docs/getter-temporary-root-lifetime-2026-10-28.md",
+  "validation": {
+    "phase": 292,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "twoReviewedGetterFunctionsExceptionCleanupOnly": true,
+    "frozenReferenceChecks": 61,
+    "actualPublicGetterChecks": 8,
+    "originalNestedExceptionRetriesAttachedRoots": [
+      2,
+      4,
+      6
+    ],
+    "candidateNestedExceptionRetriesAttachedRoots": [
+      0,
+      0,
+      0
+    ],
+    "normalTemporaryRootsNaturallyCollectedAt30Seconds": true,
+    "repeatRoundsEach": 6,
+    "repeatChecksEach": 71,
+    "repeatSamplesEach": 28,
+    "normalTimingDifferencePercent": 0.844,
+    "noNormalSpeedOrMemoryBenefitClaimed": true,
+    "getterCases": 14,
+    "getterStates": 56,
+    "getterChecksEach": 60,
+    "getterPassedEach": 58,
+    "sameExistingStrictDomFailuresEach": 2,
+    "allGetterRecordsExactIncludingFailures": true,
+    "pdfChecksPerGroup": 30,
+    "freshPdfGroups": 2,
+    "pdfModes": 2,
+    "pdfPixelsAndTargetsIdentical": true,
+    "historicalPdfVariationUnresolved": true,
+    "newDiagnosticRepeatDriverBuilt": true,
+    "initialDiagnosticBuildErrorRetained": true,
+    "newProductionBuild": false,
+    "upstreamEngineFontAndLockUnchanged": true,
+    "noForcedGcPressureCacheClearProfileCycling": true,
+    "noNetworkSyncPackageAppOrRealData": true
+  },
+  "memoryEvidence": {
+    "weakRootControls": [
+      {
+        "label": "roots-observed",
+        "observedTemporaryRoots": 2,
+        "samples": [
+          {
+            "ms": 0,
+            "temporaryAlive": 2,
+            "heapUsedMiB": 54.806,
+            "footprintMiB": 272.908,
+            "rssMiB": 371.016
+          },
+          {
+            "ms": 1000,
+            "temporaryAlive": 2,
+            "heapUsedMiB": 54.838,
+            "footprintMiB": 272.939,
+            "rssMiB": 371.047
+          },
+          {
+            "ms": 10000,
+            "temporaryAlive": 2,
+            "heapUsedMiB": 54.851,
+            "footprintMiB": 272.798,
+            "rssMiB": 370.953
+          },
+          {
+            "ms": 30000,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 23.077,
+            "footprintMiB": 133.111,
+            "rssMiB": 241.922
+          },
+          {
+            "ms": 50000,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 22.921,
+            "footprintMiB": 134.47,
+            "rssMiB": 242.609
+          }
+        ]
+      },
+      {
+        "label": "roots-idle-control",
+        "observedTemporaryRoots": 0,
+        "samples": [
+          {
+            "ms": 0,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 54.891,
+            "footprintMiB": 278.455,
+            "rssMiB": 376.953
+          },
+          {
+            "ms": 1000,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 54.923,
+            "footprintMiB": 278.47,
+            "rssMiB": 376.969
+          },
+          {
+            "ms": 10000,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 54.936,
+            "footprintMiB": 278.33,
+            "rssMiB": 376.875
+          },
+          {
+            "ms": 30000,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 23.08,
+            "footprintMiB": 137.314,
+            "rssMiB": 254.266
+          },
+          {
+            "ms": 50000,
+            "temporaryAlive": 0,
+            "heapUsedMiB": 22.919,
+            "footprintMiB": 135.767,
+            "rssMiB": 253.016
+          }
+        ]
+      }
+    ],
+    "repeatedProfile": [
+      {
+        "label": "six-rounds",
+        "rendererPid": 21257,
+        "sixSmallAfterReadFootprintMiB": [
+          291.83,
+          476.064,
+          487.908,
+          488.783,
+          488.549,
+          489.017
+        ],
+        "sameSmallDomNodes": 116,
+        "sameSmallMathItems": 2,
+        "historyEntries": [
+          3,
+          5,
+          7,
+          9,
+          11,
+          13
+        ],
+        "systemLifetimePeakMiB": 551.33,
+        "idleSamples": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 85.736,
+            "rssMiB": 219.641
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 82.689,
+            "rssMiB": 216.828
+          }
+        ],
+        "closedParentFootprintMiB": 75.861,
+        "closedParentMallocAllocatedMiB": 92.0,
+        "closedParentMallocInUseMiB": 19.715
+      },
+      {
+        "label": "six-rounds-candidate",
+        "rendererPid": 23296,
+        "sixSmallAfterReadFootprintMiB": [
+          278.705,
+          464.72,
+          471.752,
+          473.658,
+          480.455,
+          476.205
+        ],
+        "sameSmallDomNodes": 116,
+        "sameSmallMathItems": 2,
+        "historyEntries": [
+          3,
+          5,
+          7,
+          9,
+          11,
+          13
+        ],
+        "systemLifetimePeakMiB": 544.002,
+        "idleSamples": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 80.955,
+            "rssMiB": 216.203
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 78.392,
+            "rssMiB": 213.781
+          }
+        ],
+        "closedParentFootprintMiB": 68.845,
+        "closedParentMallocAllocatedMiB": 104.0,
+        "closedParentMallocInUseMiB": 19.782
+      }
+    ],
+    "normalTemporaryRootsNaturallyCollected": true,
+    "burstyNormalHighWaterNotResolvedByExceptionFix": true,
+    "twoPairsNotClaimedSystematicNormalMemoryBenefit": true,
+    "notAllDayLeakProof": true,
+    "parentAllocatedIsNotLiveBytes": true
+  },
+  "remaining": [
+    "正常路径短时高水位仍存在：六次大／小切换的系统生命周期峰值约544–551MiB；本轮异常清理不能解释或消除此峰值。",
+    "正常临时根在30秒观察时已自然回收；主进程关闭后的malloc已分配空间仍高于在用空间，具体产品分配点未确定。不能以观察到回落当全天无泄漏。",
+    "14类56状态与参考完全一致，但双方仍各2处原版既有严格DOM字符串失败；历史PDF跨次局部变化来源未定。",
+    "累计修正只在源码，未打包／同步／安装。未来包须重新编译289打印伴随逻辑；正常账号、真实笔记、长期／跨机器不由本轮代替。"
+  ],
+  "nextGate": "若继续，优先寻找正常连续切换峰值中的具体可减少的克隆／HTML重建中间分配；本轮已排除正常临时根永久强持有，不再凭RSS高或WeakRef短时存活断言泄漏。不采用强制GC、清缓存、重建profile或旧源快照；主进程驻留继续需要有可归属产品点的活动分配证据。",
+  "sourceOnly": true,
+  "githubSyncSuspended": true,
+  "noAppOrRealDataChange": true,
+  "noAgentsAccess": true,
+  "fullClientAccepted": false,
+  "newProductionCompilationRequired": true
+}

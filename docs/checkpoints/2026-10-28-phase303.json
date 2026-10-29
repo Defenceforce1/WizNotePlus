@@ -1,0 +1,50 @@
+{
+  "phase": 303,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 303,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newProductMemoryImprovementClaimed": false,
+    "callerScopeAudited": true,
+    "extraFixtureReadbacksPerFullGroup": 14,
+    "metadataCounterValid": false,
+    "metadataAttemptFailurePreserved": true,
+    "runtimeTotalPublicGetterCountClaimed": false,
+    "newValidMemoryGroups": 3,
+    "nativeMemoryControls": 202,
+    "metadataNativeControls": 9,
+    "metadataCallCounterAssertionPassed": false,
+    "observerBarriers": 45,
+    "nativeMemorySamples": 84,
+    "referencePeakMiB": [
+      537.1892166137695,
+      538.4079437255859
+    ],
+    "omittedVerificationDiagnosticPeakMiB": 512.9704437255859,
+    "highPeakRemainsWithoutExtraFixtureVerification": true,
+    "differentWorkloadNotProductBenefit": true,
+    "noProductCandidatePromoted": true,
+    "newGcLoggingOrCdpPerformed": false,
+    "noAllClientOrLongTermAcceptance": true,
+    "automationStatus": "ACTIVE",
+    "remainingFiniteRoutes": 2
+  },
+  "evidenceRoot": "outputs/exploration-20261028/phase303",
+  "report": "docs/opening-source-read-workload-2026-10-28.md",
+  "remaining": [
+    "实际高内存未修复；去掉独立夹具附加14次原文校验的诊断仍达512.970MiB，不能仅归因于额外回读。",
+    "普通打开所审自有native代码未发现那条固定全量校验；数学兼容hook仍有必要原文读取，且现有同钩子快照只限同步生命周期，不扩大为跨笔记缓存。",
+    "一个公开getter计数包装未能覆盖已知调用，计数[0,0]无效并保留失败；不声称已统计编辑器全部内部调用，也不扩大私有读取或重复计数尝试。",
+    "剩余第二路线先审查已授权217外层getter首个临时DOM构造与506／529持有，保守输入分类必须先证明语义等价，不假定内部readonly源已经是纯Markdown，不重复293内层候选。",
+    "第三路线仅在自有native桥接／序列化发现具体大复制或持有后再做有界验证，无点即收口。",
+    "任务保持20分钟ACTIVE；无产品／仓库测试／组件变化、打包／安装／外网／GitHub或App／真实资料操作。"
+  ],
+  "nextGate": "有限路线1已收口：夹具是打开加全量原文校验，不是纯打开基准；减掉校验只作不同工作量归因，不能称产品修复。下一先读已核许可217外层getter的精确创建临时DOM逻辑及506／529所列方法，寻找区别于293内层浅克隆的新保守机会。没有合法范围、参考函数等价与实际原文保持证据不得做快路径；不读新增私有状态、不修改上游、不继续轮换GC观察器。路线3自有native桥接持有审计仍待证据。",
+  "followupPlanPath": "outputs/exploration-20261028/phase303/remaining-finite-plan.json",
+  "productRemainsPhase": 292,
+  "sourceOnlyLocalDocumentation": true,
+  "githubSyncSuspended": true,
+  "noProductMemoryImprovementClaimed": true
+}

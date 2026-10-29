@@ -1,0 +1,95 @@
+{
+  "phase": 309,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 309,
+    "productRemainsPhase": 292,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "sourceRoutesCompleted": 2,
+    "ownedCandidateCount": 1,
+    "candidateRejected": true,
+    "reason": "No observed lifecycle peak reduction; do not infer stable regression from a single pair",
+    "memoryGroups": [
+      {
+        "label": "memory-reference-a",
+        "lifetimePeakMiB": 534.4861145019531,
+        "thirdLargeFootprintMiB": 472.98609161376953,
+        "thirdLargeRssMiB": 585.046875,
+        "idle": {
+          "small-idle-10s": {
+            "footprintMiB": 475.07984161376953,
+            "rssMiB": 585.671875
+          },
+          "small-idle-30s": {
+            "footprintMiB": 78.34544372558594,
+            "rssMiB": 209.6875
+          }
+        }
+      },
+      {
+        "label": "memory-candidate-a",
+        "lifetimePeakMiB": 536.6735687255859,
+        "thirdLargeFootprintMiB": 482.62669372558594,
+        "thirdLargeRssMiB": 587.40625,
+        "idle": {
+          "small-idle-10s": {
+            "footprintMiB": 484.12669372558594,
+            "rssMiB": 588.515625
+          },
+          "small-idle-30s": {
+            "footprintMiB": 74.50169372558594,
+            "rssMiB": 207.046875
+          }
+        }
+      }
+    ],
+    "memoryGroupsExecuted": 2,
+    "nativeControlsPerMemoryGroup": 42,
+    "exactSourceChecksPerMemoryGroup": 8,
+    "additionalPlannedMemoryGroupsSkippedAfterNoBenefit": 2,
+    "smallIdleDifferenceNotClaimedAsNetBenefit": true,
+    "initialBehaviourGroupsFailedSameAssertion": true,
+    "initialBehaviourAssertionCountPerGroup": 15,
+    "otherAssertionsPassedPerGroup": 14,
+    "behaviourRowsAndAssertionOutcomesEqual": true,
+    "controlledMutationRecordsReference": [
+      2,
+      2,
+      2
+    ],
+    "controlledMutationRecordsCandidate": [
+      0,
+      0,
+      0
+    ],
+    "additionalEligibilityGroupPassed": true,
+    "eligibilityNativeControls": 11,
+    "fullBehaviourAcceptanceClaimed": false,
+    "route2NewCandidateFound": false,
+    "noFullPdfMatrixOrNewNativeCompilation": true,
+    "actualHelperPathsVerified": true,
+    "coreFingerprintAndFrameworkEnvironmentPinned": true,
+    "newMappedLibrarySnapshotCaptured": false,
+    "defaultResourcesVerified": 196,
+    "newRuntimeGroupsMaximumWas4": true,
+    "noRemainingOwnedRuntimeLease": true,
+    "sourceHeadIndexTrackedStatusAndInstalledAppPreserved": true,
+    "externalNetworkGithubPackagingInstallationOrRealDataAccessed": false,
+    "finiteAuthorizedSourcePlanComplete": true,
+    "allPossibleOptimizationsCompleteClaimed": false,
+    "nextGate": "Expanded independent native vector-use classification beyond authorized7 files, or equivalent lawful allocation evidence",
+    "automationStatus": "PAUSED",
+    "automationFrequencyMinutesRetained": 20
+  },
+  "report": "docs/owned-container-memory-closeout-2026-10-28.md",
+  "evidenceRoot": "outputs/exploration-20261028/phase309",
+  "productRemainsPhase": 292,
+  "remaining": [
+    "实际约500MiB高峰未修复。",
+    "进一步原生用途细分超出现有精确7文件诊断范围，需新范围或等价证据。"
+  ],
+  "existingUnrelatedFailure": "Dynamic inserted code spelling assertion fails equally on both; retained, not fixed",
+  "finiteAuthorizedPlanComplete": true,
+  "automationPaused": true
+}

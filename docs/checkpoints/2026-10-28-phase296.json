@@ -1,0 +1,274 @@
+{
+  "phase": 296,
+  "date": "2026-10-28",
+  "report": "docs/math-parser-renewal-memory-2026-10-28.md",
+  "validation": {
+    "phase": 296,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "offlineSameVersionPublicStartupApiVerified": true,
+    "upstreamEngineAndFontBytesUnchanged": true,
+    "macroIsolationGroupsPassed": 3,
+    "macroChecksPerGroup": 4,
+    "validMemoryGroups": 7,
+    "sixCycleSourceOutputChecksPerMemoryGroup": 20,
+    "nativeChecksPerValidGroup": 6,
+    "invalidCounterGroupRetained": 1,
+    "fullComponentRebuildRejectedNoBenefit": true,
+    "narrowParserDocumentRebuildRejectedOverlappingPeaks": true,
+    "narrowReferencePeakMiB": [
+      625.377,
+      649.049
+    ],
+    "narrowCandidatePeakMiB": [
+      634.767,
+      633.252
+    ],
+    "narrowCandidateWorkCompleteFootprintHigher": true,
+    "noPrivateRuntimeRegistryOrMacroTableUsed": true,
+    "newNativeBuildPerformed": false,
+    "pdfOrFullMatrixPerformed": false,
+    "automationActive": true,
+    "automationFrequencyMinutes": 20,
+    "noNetworkSyncPackageAppOrRealData": true
+  },
+  "memory": {
+    "phase": 296,
+    "groups": [
+      {
+        "label": "six-renew-a",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "peakUntilOperationCompleteMiB": 690.721,
+        "operationCompleteFootprintMiB": 654.471,
+        "operationCompleteRssMiB": 756.141,
+        "readerModeMs": [
+          613.3000000007451,
+          641.7000000029802,
+          634.9000000022352,
+          613.6999999992549,
+          616.9000000022352,
+          612.1000000014901
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      },
+      {
+        "label": "six-renew-b",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "peakUntilOperationCompleteMiB": 699.518,
+        "operationCompleteFootprintMiB": 650.627,
+        "operationCompleteRssMiB": 753.281,
+        "readerModeMs": [
+          625.8999999985099,
+          627.0999999977648,
+          626,
+          608.3000000007451,
+          604.4000000022352,
+          612.5999999977648
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      },
+      {
+        "label": "six-reference-b",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "peakUntilOperationCompleteMiB": 680.939,
+        "operationCompleteFootprintMiB": 590.033,
+        "operationCompleteRssMiB": 700.75,
+        "readerModeMs": [
+          741.0999999977648,
+          747.3999999985099,
+          699.5,
+          721,
+          713.1999999992549,
+          719.1000000014901
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      },
+      {
+        "label": "held-reference-a",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "peakUntilOperationCompleteMiB": 625.377,
+        "operationCompleteFootprintMiB": 559.142,
+        "operationCompleteRssMiB": 668.266,
+        "readerModeMs": [
+          710.3000000007451,
+          702.8000000007451,
+          711.3000000007451,
+          727.6000000014901,
+          717.6999999992549,
+          709.6000000014901
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "cf874b7d0e2cdc950a74e94cb39f1dd69ddf9d362f5b911504db309fbb4d213e"
+      },
+      {
+        "label": "held-parser-a",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "peakUntilOperationCompleteMiB": 634.767,
+        "operationCompleteFootprintMiB": 572.33,
+        "operationCompleteRssMiB": 673.859,
+        "readerModeMs": [
+          548.5,
+          544.1999999992549,
+          536.5999999977648,
+          537,
+          535.5,
+          536.1000000014901
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "cf874b7d0e2cdc950a74e94cb39f1dd69ddf9d362f5b911504db309fbb4d213e"
+      },
+      {
+        "label": "held-parser-b",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "peakUntilOperationCompleteMiB": 633.252,
+        "operationCompleteFootprintMiB": 571.783,
+        "operationCompleteRssMiB": 672.25,
+        "readerModeMs": [
+          551.1000000014901,
+          546.3000000007451,
+          539.7999999970198,
+          542.6000000014901,
+          535.5,
+          552.6000000014901
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "cf874b7d0e2cdc950a74e94cb39f1dd69ddf9d362f5b911504db309fbb4d213e"
+      },
+      {
+        "label": "held-reference-b",
+        "sixModeChanges": true,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "peakUntilOperationCompleteMiB": 649.049,
+        "operationCompleteFootprintMiB": 564.127,
+        "operationCompleteRssMiB": 673.906,
+        "readerModeMs": [
+          723,
+          703.3000000007451,
+          726,
+          709.5999999977648,
+          708.5,
+          706.5
+        ],
+        "exeSha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "cf874b7d0e2cdc950a74e94cb39f1dd69ddf9d362f5b911504db309fbb4d213e"
+      }
+    ],
+    "sameBinary": true,
+    "excludedCounterExitRaceGroup": "six-reference-a",
+    "fullComponentSeriesIncompleteABBAControlsNotInflated": true,
+    "narrowParserSeriesValidABBA": true,
+    "narrowReferenceMeanPeakMiB": 637.213,
+    "narrowCandidateMeanPeakMiB": 634.0095,
+    "rangesOverlapNoStableMemoryBenefit": true,
+    "candidateOperationCompleteFootprintHigherThanBothReferences": true,
+    "noCandidatePromoted": true,
+    "nativeCountersReadAtWorkCompleteBefore2SecondTailNotFinalWholeProcessPeak": true,
+    "noComparativeBenefitAgainstDifferentPhaseOrInput": true
+  },
+  "macroIsolation": {
+    "phase": 296,
+    "groups": [
+      {
+        "label": "macro-reference",
+        "checks": 4,
+        "definedText": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        A\n        +\n        B\n      \n    \n  \n",
+        "removedText": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        \\WizSyntheticMacro\n        +\n        B\n      \n    \n  \n"
+      },
+      {
+        "label": "macro-renew",
+        "checks": 4,
+        "definedText": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        A\n        +\n        B\n      \n    \n  \n",
+        "removedText": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        \\WizSyntheticMacro\n        +\n        B\n      \n    \n  \n"
+      },
+      {
+        "label": "macro-parser",
+        "checks": 4,
+        "definedText": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        A\n        +\n        B\n      \n    \n  \n",
+        "removedText": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        \\WizSyntheticMacro\n        +\n        B\n      \n    \n  \n"
+      }
+    ],
+    "sameSupportedDefRemovedMacroMatchesFreshEngine": true,
+    "publicInputConstructorAndDocumentInitializationIsolationInThisCase": true,
+    "notEveryMacroOrFullResetAcceptance": true,
+    "noPrivateTablesMutated": true
+  },
+  "remaining": [
+    "实际高内存未修复。296两种公开状态重建候选都没有证明同工作量进程净收益，均不合入，产品保持292。",
+    "295直接复用的较低峰值有旧宏污染，296通过宏删除反例但峰值优势消失；不能把两个实验跨阶段相减或称已完成内存修复。",
+    "下一个已授权可执行重点仅为529外层转换器整篇字符串中间分配：保留回调时序、原文、复杂宏和完整数学工作，有限候选同二进制对照。",
+    "旧引擎／MathDocument会自然回收；主进程活动分配与可复用驻留仍无具体自有分配点，不以强制GC、缓存／profile重建或质量下降掩盖。",
+    "原2处严格DOM字符串失败与历史PDF跨次变化保持；本轮未重跑PDF或全矩阵、未打包／联网／同步／安装或访问真实资料。"
+  ],
+  "nextGate": "不继续微调同文档公式引擎复用／宏重置参数；295直接复用不正确、296两种正确性原型未证内存收益，路线收口。接下来只沿已核许可529外层转换器整篇字符串规范化／拼接中间分配设不超过三条有证据假设；保持实际必要getter和自定义回调顺序，不用更早旧源、少做数学或私有TeX表。若该有限清单也无具体可改点或只余上游／额外授权门槛，应停用自动任务集中报告，不继续无限小修补。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "ACTIVE",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true
+}

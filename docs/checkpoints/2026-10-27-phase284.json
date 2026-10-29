@@ -1,0 +1,125 @@
+{
+  "phase": 284,
+  "date": "2026-10-27",
+  "validation": {
+    "phase": 284,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "associatedChecks": 210,
+    "baselineScopeOracleChecks": 60,
+    "geometry": {
+      "accepted": true,
+      "priorControlPhase": 283,
+      "sameBinaryAndEngine": true,
+      "stages": 2,
+      "containersEach": 130,
+      "geometrySvgAndSourcePreserved": true,
+      "referencePrefilterCoveredBySeparateDomAndPdfCases": true
+    },
+    "unresolvedBenchmark": {
+      "inputUtf16Units": 1012968,
+      "protection": [
+        {
+          "bytes": 976890,
+          "contexts": 6000,
+          "fragments": 6000,
+          "requested": 6000,
+          "variant": "baseline"
+        },
+        {
+          "bytes": 0,
+          "contexts": 0,
+          "fragments": 0,
+          "requested": 0,
+          "variant": "candidate"
+        }
+      ],
+      "localTimingRows": [
+        {
+          "ms": 29.700000047683716,
+          "variant": "baseline"
+        },
+        {
+          "ms": 8.900000035762787,
+          "variant": "candidate"
+        },
+        {
+          "ms": 9.100000023841858,
+          "variant": "candidate"
+        },
+        {
+          "ms": 26.80000001192093,
+          "variant": "baseline"
+        }
+      ]
+    },
+    "mixedBenchmark": {
+      "inputUtf16Units": 1012992,
+      "protection": [
+        {
+          "bytes": 976908,
+          "contexts": 6001,
+          "fragments": 6001,
+          "requested": 6001,
+          "variant": "baseline"
+        },
+        {
+          "bytes": 18,
+          "contexts": 1,
+          "fragments": 1,
+          "requested": 1,
+          "variant": "candidate"
+        }
+      ],
+      "localTimingRows": [
+        {
+          "ms": 29,
+          "variant": "baseline"
+        },
+        {
+          "ms": 9.199999988079071,
+          "variant": "candidate"
+        },
+        {
+          "ms": 9.199999988079071,
+          "variant": "candidate"
+        },
+        {
+          "ms": 27,
+          "variant": "baseline"
+        }
+      ],
+      "validLinkRetainedAllSixPasses": true
+    },
+    "savingsPerSyntheticPass": {
+      "protectionBytes": 976890,
+      "scopes": 6000,
+      "temporaryFragments": 6000
+    },
+    "fullLogicalScopeTextPreserved": true,
+    "newLongTermCache": false,
+    "fullClientPerformanceClaimed": false,
+    "processPeakMemoryReductionClaimed": false,
+    "nativeGroups": 3,
+    "outerJsChecks": [
+      11,
+      12,
+      12
+    ],
+    "nativeChecksEach": 6,
+    "pdfChecks": 30,
+    "pdfModes": 2,
+    "pdfPixelsAndLinksUnchanged": true,
+    "upstreamComponentsOrLockChanged": false,
+    "noNativeBuildPackageNetworkSync": true
+  },
+  "remaining": [
+    "整体WebEngine高水位、主进程长期驻留和必要原文读取仍未全部归因。",
+    "同一大逻辑段落中有有效引用时仍需完整保护范围，不用省略未请求文本来掩盖成本。",
+    "累计修正尚未打包／同步，继续按用户要求暂停。"
+  ],
+  "nextGate": "仅在新的具体分配或调用证据下继续；不重复无效布局／同值写入／旧矩阵，本轮筛选保持完整逻辑文本契约。",
+  "productChanged": true
+}

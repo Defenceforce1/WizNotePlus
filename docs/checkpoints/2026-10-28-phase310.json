@@ -1,0 +1,246 @@
+{
+  "phase": 310,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 310,
+    "productRemainsPhase": 292,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "boundedFourGroupPlanCompleted": true,
+    "groups": 4,
+    "nativeControlsPerGroup": 42,
+    "exactSourceChecksPerGroup": 8,
+    "sourceWorkloadFactorsOnlyIndependentFixture": true,
+    "newEngineBuildPerformed": false,
+    "newFixtureBuildSeconds": 8.380152708999999,
+    "sameFixtureBinarySha256": "eb60877f8d3071fc5a11399099992bd60da4decebce7ae05c5b6b7b3211e0dba",
+    "nativeImagesHelperAndStartupResourcesVerified": true,
+    "defaultResourceFilesVerified": 196,
+    "poolSubtotalsAndPageCountsValidated": true,
+    "unknownPoolBytes": 0,
+    "rows": [
+      {
+        "label": "short-few",
+        "paragraphs": 6,
+        "equations": 1,
+        "beforeDetailedLifetimePeakMiB": 109.31396484375,
+        "beforeDetailedFootprintMiB": 109.37646484375,
+        "afterDetailedFootprintMiB": 119.29833984375,
+        "beforeDetailedRssMiB": 215.234375,
+        "afterDetailedRssMiB": 225.609375,
+        "afterDetailedLifetimePeakMiB": 119.29833984375,
+        "blinkCommittedMiB": 8.125,
+        "blinkAllocatedObjectsMiB": 6.82568359375,
+        "poolMiB": 0.0,
+        "poolByLastSpaceMiB": {},
+        "unknownPoolBytes": 0,
+        "liveQuerySelectorNodes": 116,
+        "aggregateDomCounters": {
+          "documents": 14,
+          "nodes": 4142,
+          "jsEventListeners": 3017
+        },
+        "layoutObjects": 1360,
+        "jsUsedMiB": 32.26802444458008,
+        "jsTotalMiB": 59.9375,
+        "mathItems": 2,
+        "sourceUnits": 892,
+        "parentFootprintMiBAtThirdSource": 122.86072540283203,
+        "parentRssMiBAtThirdSource": 173.625,
+        "parentMallocInUseMiBAtThirdSource": 19.300689697265625,
+        "parentMallocAllocatedMiBAtThirdSource": 80.0,
+        "idle": {
+          "small-idle-10s": {
+            "footprintMiB": 122.75146484375,
+            "rssMiB": 229.171875
+          },
+          "small-idle-30s": {
+            "footprintMiB": 73.9702377319336,
+            "rssMiB": 195.296875
+          }
+        }
+      },
+      {
+        "label": "long-many",
+        "paragraphs": 6000,
+        "equations": 128,
+        "beforeDetailedLifetimePeakMiB": 529.5798873901367,
+        "beforeDetailedFootprintMiB": 470.2048873901367,
+        "afterDetailedFootprintMiB": 478.5174102783203,
+        "beforeDetailedRssMiB": 596.625,
+        "afterDetailedRssMiB": 605.359375,
+        "afterDetailedLifetimePeakMiB": 529.5798873901367,
+        "blinkCommittedMiB": 282.8982620239258,
+        "blinkAllocatedObjectsMiB": 75.6898193359375,
+        "poolMiB": 185.625,
+        "poolByLastSpaceMiB": {
+          "CustomSpace0": 72.0,
+          "CustomSpace1": 1.125,
+          "CustomSpace2": 26.25,
+          "CustomSpace3": 0.625,
+          "CustomSpace4": 9.25,
+          "NormalPageSpace0": 4.875,
+          "NormalPageSpace1": 12.75,
+          "NormalPageSpace2": 39.625,
+          "NormalPageSpace3": 19.125
+        },
+        "unknownPoolBytes": 0,
+        "liveQuerySelectorNodes": 18358,
+        "aggregateDomCounters": {
+          "documents": 1,
+          "nodes": 84193,
+          "jsEventListeners": 462
+        },
+        "layoutObjects": 56955,
+        "jsUsedMiB": 27.048316955566406,
+        "jsTotalMiB": 98.578125,
+        "mathItems": 129,
+        "sourceUnits": 792799,
+        "parentFootprintMiBAtThirdSource": 151.26695251464844,
+        "parentRssMiBAtThirdSource": 193.3125,
+        "parentMallocInUseMiBAtThirdSource": 23.881454467773438,
+        "parentMallocAllocatedMiBAtThirdSource": 88.0,
+        "idle": {
+          "small-idle-10s": {
+            "footprintMiB": 480.7674102783203,
+            "rssMiB": 605.78125
+          },
+          "small-idle-30s": {
+            "footprintMiB": 88.01741027832031,
+            "rssMiB": 233.53125
+          }
+        }
+      },
+      {
+        "label": "long-few",
+        "paragraphs": 6000,
+        "equations": 1,
+        "beforeDetailedLifetimePeakMiB": 477.9861373901367,
+        "beforeDetailedFootprintMiB": 413.2048873901367,
+        "afterDetailedFootprintMiB": 421.0955123901367,
+        "beforeDetailedRssMiB": 539.984375,
+        "afterDetailedRssMiB": 548.3125,
+        "afterDetailedLifetimePeakMiB": 477.9861373901367,
+        "blinkCommittedMiB": 242.33133697509766,
+        "blinkAllocatedObjectsMiB": 60.280357360839844,
+        "poolMiB": 165.0,
+        "poolByLastSpaceMiB": {
+          "CustomSpace0": 69.75,
+          "CustomSpace1": 1.625,
+          "CustomSpace2": 20.0,
+          "CustomSpace3": 0.125,
+          "CustomSpace4": 3.625,
+          "NormalPageSpace0": 4.875,
+          "NormalPageSpace1": 10.0,
+          "NormalPageSpace2": 34.875,
+          "NormalPageSpace3": 20.125
+        },
+        "unknownPoolBytes": 0,
+        "liveQuerySelectorNodes": 12104,
+        "aggregateDomCounters": {
+          "documents": 1,
+          "nodes": 72396,
+          "jsEventListeners": 460
+        },
+        "layoutObjects": 48121,
+        "jsUsedMiB": 23.595909118652344,
+        "jsTotalMiB": 93.71875,
+        "mathItems": 2,
+        "sourceUnits": 785014,
+        "parentFootprintMiBAtThirdSource": 146.61070251464844,
+        "parentRssMiBAtThirdSource": 193.171875,
+        "parentMallocInUseMiBAtThirdSource": 23.862823486328125,
+        "parentMallocAllocatedMiBAtThirdSource": 96.0,
+        "idle": {
+          "small-idle-10s": {
+            "footprintMiB": 423.1423873901367,
+            "rssMiB": 548.46875
+          },
+          "small-idle-30s": {
+            "footprintMiB": 79.72048950195312,
+            "rssMiB": 222.859375
+          }
+        }
+      },
+      {
+        "label": "short-many",
+        "paragraphs": 6,
+        "equations": 128,
+        "beforeDetailedLifetimePeakMiB": 174.54840850830078,
+        "beforeDetailedFootprintMiB": 171.28278350830078,
+        "afterDetailedFootprintMiB": 182.09528350830078,
+        "beforeDetailedRssMiB": 283.25,
+        "afterDetailedRssMiB": 294.5,
+        "afterDetailedLifetimePeakMiB": 182.09528350830078,
+        "blinkCommittedMiB": 39.131134033203125,
+        "blinkAllocatedObjectsMiB": 15.134918212890625,
+        "poolMiB": 9.125,
+        "poolByLastSpaceMiB": {
+          "CustomSpace0": 0.375,
+          "CustomSpace2": 1.875,
+          "CustomSpace3": 0.25,
+          "CustomSpace4": 1.375,
+          "NormalPageSpace0": 0.375,
+          "NormalPageSpace1": 2.125,
+          "NormalPageSpace2": 0.5,
+          "NormalPageSpace3": 2.25
+        },
+        "unknownPoolBytes": 0,
+        "liveQuerySelectorNodes": 6370,
+        "aggregateDomCounters": {
+          "documents": 1,
+          "nodes": 11595,
+          "jsEventListeners": 458
+        },
+        "layoutObjects": 8599,
+        "jsUsedMiB": 13.906917572021484,
+        "jsTotalMiB": 73.6875,
+        "mathItems": 129,
+        "sourceUnits": 8677,
+        "parentFootprintMiBAtThirdSource": 129.04822540283203,
+        "parentRssMiBAtThirdSource": 175.375,
+        "parentMallocInUseMiBAtThirdSource": 19.668853759765625,
+        "parentMallocAllocatedMiBAtThirdSource": 76.0,
+        "idle": {
+          "small-idle-10s": {
+            "footprintMiB": 181.97028350830078,
+            "rssMiB": 294.0625
+          },
+          "small-idle-30s": {
+            "footprintMiB": 79.28278350830078,
+            "rssMiB": 198.375
+          }
+        }
+      }
+    ],
+    "mainFinding": "For this workload, long prose co-varies more strongly with high-water and vector pool than equation count",
+    "longProseFewEquationsStillHigh": true,
+    "formulaCostRemains": true,
+    "exactAllocationFunctionIdentified": false,
+    "textExtractionVsDisplayLayoutSeparated": false,
+    "singleCellDifferentGcTimingAndDiagnosticObserverLimitationsRetained": true,
+    "shortFewAggregateDocuments": 14,
+    "contrastsNotExactComponentCostsOrProductBenefit": true,
+    "allOwnRenderersExited": true,
+    "newProductCandidateAccepted": false,
+    "noFullPdfFormulaComponentMatrixRerun": true,
+    "headIndexBranchTrackedStatusAndInstalledAppPreserved": true,
+    "externalNetworkGithubPackageInstallationOrRealDataAccessed": false,
+    "automationStatus": "PAUSED",
+    "manualContinuationComplete": true,
+    "nextDirection": "Separate long-prose canonical source extraction, temporary DOM conversion and display layout; require concrete new call-site evidence before a candidate",
+    "noAutomaticOldCandidateRestorationOrUpstreamScopeExpansion": true,
+    "allPossibleOptimizationsCompleteClaimed": false,
+    "longTermLeakFreedomClaimed": false
+  },
+  "productRemainsPhase": 292,
+  "report": "docs/prose-math-factorial-attribution-2026-10-28.md",
+  "evidenceRoot": "outputs/exploration-20261028/phase310",
+  "remaining": [
+    "本场景约530MiB高峰尚未修复。",
+    "长正文的规范原文提取与显示布局尚未分离归因，具体自有分配点未确认。"
+  ],
+  "boundedFourGroupTaskComplete": true,
+  "automationRemainsPaused": true,
+  "ordinarySourceAuditDoesNotRequireRoutineApproval": true
+}

@@ -1,0 +1,536 @@
+{
+  "phase": 295,
+  "date": "2026-10-28",
+  "report": "docs/math-engine-reuse-memory-2026-10-28.md",
+  "validation": {
+    "phase": 295,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "oldEnginePermanentHandlerRetentionHypothesisRejected": true,
+    "oldEngineWeakGroupsPassed": 3,
+    "weakChecksPerGroup": 12,
+    "weakNativeChecksPerGroup": 6,
+    "oldEngineCollectedBy30Seconds": true,
+    "terminalHandlerCleanupRejectedNoMemoryBenefit": true,
+    "modeMemoryGroups": 8,
+    "threeCycleChecksPerGroup": 11,
+    "sixCycleChecksPerGroup": 20,
+    "sameBinaryAndWorkloadEachPair": true,
+    "threeCycleRangesOverlap": true,
+    "sixCyclePeakReferenceMiB": [
+      778.596,
+      653.783
+    ],
+    "sixCyclePeakReuseMiB": [
+      635.564,
+      634.924
+    ],
+    "reuseMemoryPotentialButRejectedMacroSemantics": true,
+    "macroReferenceChecksPassed": 4,
+    "macroCandidateChecksPassed": 3,
+    "macroCandidateFailed": 1,
+    "wholeClientAccepted": false,
+    "newPdfOrFullMatrixPerformed": false,
+    "newNativeBuildPerformed": false,
+    "automationActive": true,
+    "automationFrequencyMinutes": 20,
+    "noNetworkPackageSyncAppOrRealData": true,
+    "initialObserverAndMacroTestErrorsRetained": true
+  },
+  "memory": {
+    "phase": 295,
+    "groups": [
+      {
+        "label": "memory-reference-a",
+        "modeCycles": 3,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "operationCompleteFootprintMiB": 500.767,
+        "operationCompleteRssMiB": 602.984,
+        "lifetimePeakUntilOperationCompleteMiB": 578.752,
+        "readerModeMs": [
+          693.6000000014901,
+          689.0999999977648,
+          700.0999999977648
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "68356b6ffbbc75f5cb4e5a49271a81a9a4f95f3cc114fc0c5b867742167cba2c"
+      },
+      {
+        "label": "memory-reuse-a",
+        "modeCycles": 3,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "operationCompleteFootprintMiB": 524.627,
+        "operationCompleteRssMiB": 629.375,
+        "lifetimePeakUntilOperationCompleteMiB": 528.783,
+        "readerModeMs": [
+          548.2999999970198,
+          554.5,
+          545
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "68356b6ffbbc75f5cb4e5a49271a81a9a4f95f3cc114fc0c5b867742167cba2c"
+      },
+      {
+        "label": "memory-reuse-b",
+        "modeCycles": 3,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "operationCompleteFootprintMiB": 525.283,
+        "operationCompleteRssMiB": 630.719,
+        "lifetimePeakUntilOperationCompleteMiB": 528.939,
+        "readerModeMs": [
+          550.5,
+          555.1000000014901,
+          554.5
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "68356b6ffbbc75f5cb4e5a49271a81a9a4f95f3cc114fc0c5b867742167cba2c"
+      },
+      {
+        "label": "memory-reference-b",
+        "modeCycles": 3,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "operationCompleteFootprintMiB": 409.502,
+        "operationCompleteRssMiB": 524.438,
+        "lifetimePeakUntilOperationCompleteMiB": 516.455,
+        "readerModeMs": [
+          722.7000000029802,
+          736.2000000029802,
+          737.5999999977648
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "68356b6ffbbc75f5cb4e5a49271a81a9a4f95f3cc114fc0c5b867742167cba2c"
+      },
+      {
+        "label": "six-reference-a",
+        "modeCycles": 6,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "operationCompleteFootprintMiB": 684.096,
+        "operationCompleteRssMiB": 803.875,
+        "lifetimePeakUntilOperationCompleteMiB": 778.596,
+        "readerModeMs": [
+          722.6000000014901,
+          716.7000000029802,
+          719.5999999977648,
+          716.1000000014901,
+          733,
+          695.5999999977648
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      },
+      {
+        "label": "six-reuse-a",
+        "modeCycles": 6,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "operationCompleteFootprintMiB": 575.08,
+        "operationCompleteRssMiB": 675.469,
+        "lifetimePeakUntilOperationCompleteMiB": 635.564,
+        "readerModeMs": [
+          546.3999999985099,
+          552.5,
+          542.5999999977648,
+          535.9000000022352,
+          544.9000000022352,
+          543.0999999977648
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      },
+      {
+        "label": "six-reuse-b",
+        "modeCycles": 6,
+        "engineIdentities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "operationCompleteFootprintMiB": 574.174,
+        "operationCompleteRssMiB": 674.688,
+        "lifetimePeakUntilOperationCompleteMiB": 634.924,
+        "readerModeMs": [
+          551.2999999970198,
+          551.8000000007451,
+          544.6999999992549,
+          546.3000000007451,
+          542.1999999992549,
+          541.8999999985099
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      },
+      {
+        "label": "six-reference-b",
+        "modeCycles": 6,
+        "engineIdentities": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "operationCompleteFootprintMiB": 584.674,
+        "operationCompleteRssMiB": 691.672,
+        "lifetimePeakUntilOperationCompleteMiB": 653.783,
+        "readerModeMs": [
+          714.1999999992549,
+          715.8000000007451,
+          732.5,
+          717.3999999985099,
+          744.4000000022352,
+          718.8999999985099
+        ],
+        "sameBinary": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+        "scriptSha256": "704f0abcceebc45ab7d7a7371ec8e18997195d2db27a32b3ae4181406f6693aa"
+      }
+    ],
+    "threeCycleRangesOverlapNoStableGainClaim": true,
+    "sixCycleReferenceMeanMiB": 716.1895,
+    "sixCycleCandidateMeanMiB": 635.2439999999999,
+    "sixCycleMeanDifferenceMiB": 80.94550000000004,
+    "sixCycleMeanDifferencePercent": 11.30224612340729,
+    "referencePeakVariabilityRetained": true,
+    "nativeCounterAtOperationCompleteNotAfterShutdown": true,
+    "notCrossNavigationComparisonWithPhase294": true,
+    "notProductOrFullMemoryAcceptance": true
+  },
+  "weakLifetimes": {
+    "phase": 295,
+    "groups": [
+      {
+        "label": "weak-reference-final",
+        "transitions": [
+          {
+            "engine": 7,
+            "round": 1
+          },
+          {
+            "engine": 13,
+            "round": 2
+          },
+          {
+            "engine": 19,
+            "round": 3
+          }
+        ],
+        "samples": [
+          {
+            "ms": 0,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 3,
+            "oldMathDocumentsAlive": 3,
+            "allControlsCollected": false,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": true,
+                "errorHandler": true,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 548.096,
+            "rssMiB": 657.141,
+            "operationToObservationLifetimePeakMiB": 582.814,
+            "heapUsedMiB": 71.571
+          },
+          {
+            "ms": 10000,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 2,
+            "oldMathDocumentsAlive": 2,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": true,
+                "errorHandler": true,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 462.752,
+            "rssMiB": 590.281,
+            "operationToObservationLifetimePeakMiB": 582.814,
+            "heapUsedMiB": 28.558
+          },
+          {
+            "ms": 30000,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": true,
+                "errorHandler": true,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 158.908,
+            "rssMiB": 321.547,
+            "operationToObservationLifetimePeakMiB": 582.814,
+            "heapUsedMiB": 21.716
+          },
+          {
+            "ms": 35000,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": true,
+                "errorHandler": true,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 174.549,
+            "rssMiB": 333.828,
+            "operationToObservationLifetimePeakMiB": 582.814,
+            "heapUsedMiB": 21.769
+          }
+        ]
+      },
+      {
+        "label": "weak-candidate-final",
+        "transitions": [
+          {
+            "engine": 7,
+            "round": 1
+          },
+          {
+            "engine": 13,
+            "round": 2
+          },
+          {
+            "engine": 19,
+            "round": 3
+          }
+        ],
+        "samples": [
+          {
+            "ms": 0,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 3,
+            "oldMathDocumentsAlive": 3,
+            "allControlsCollected": false,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": false,
+                "errorHandler": false,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 453.595,
+            "rssMiB": 580.547,
+            "operationToObservationLifetimePeakMiB": 580.627,
+            "heapUsedMiB": 71.508
+          },
+          {
+            "ms": 10000,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 2,
+            "oldMathDocumentsAlive": 2,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": false,
+                "errorHandler": false,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 453.517,
+            "rssMiB": 580.5,
+            "operationToObservationLifetimePeakMiB": 580.627,
+            "heapUsedMiB": 28.571
+          },
+          {
+            "ms": 30000,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": false,
+                "errorHandler": false,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 167.064,
+            "rssMiB": 325.922,
+            "operationToObservationLifetimePeakMiB": 580.627,
+            "heapUsedMiB": 21.702
+          },
+          {
+            "ms": 35000,
+            "currentEngine": 19,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [
+              {
+                "id": 25,
+                "loadHandler": false,
+                "errorHandler": false,
+                "connected": true
+              }
+            ],
+            "footprintMiB": 182.189,
+            "rssMiB": 337.438,
+            "operationToObservationLifetimePeakMiB": 580.627,
+            "heapUsedMiB": 21.731
+          }
+        ]
+      },
+      {
+        "label": "weak-reuse",
+        "transitions": [
+          {
+            "engine": 1,
+            "round": 1
+          },
+          {
+            "engine": 1,
+            "round": 2
+          },
+          {
+            "engine": 1,
+            "round": 3
+          }
+        ],
+        "samples": [
+          {
+            "ms": 0,
+            "currentEngine": 1,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": false,
+            "connectedLoadScripts": [],
+            "footprintMiB": 383.377,
+            "rssMiB": 511.234,
+            "operationToObservationLifetimePeakMiB": 530.642,
+            "heapUsedMiB": 72.621
+          },
+          {
+            "ms": 10000,
+            "currentEngine": 1,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [],
+            "footprintMiB": 383.299,
+            "rssMiB": 511.172,
+            "operationToObservationLifetimePeakMiB": 530.642,
+            "heapUsedMiB": 24.678
+          },
+          {
+            "ms": 30000,
+            "currentEngine": 1,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [],
+            "footprintMiB": 155.049,
+            "rssMiB": 302.625,
+            "operationToObservationLifetimePeakMiB": 530.642,
+            "heapUsedMiB": 21.501
+          },
+          {
+            "ms": 35000,
+            "currentEngine": 1,
+            "oldEngineInstancesAlive": 0,
+            "oldMathDocumentsAlive": 0,
+            "allControlsCollected": true,
+            "connectedLoadScripts": [],
+            "footprintMiB": 169.799,
+            "rssMiB": 314.156,
+            "operationToObservationLifetimePeakMiB": 530.642,
+            "heapUsedMiB": 21.551
+          }
+        ]
+      }
+    ],
+    "oldEnginesAndMathDocumentsNaturallyCollected": true,
+    "terminalLoadHandlersNotProvenPermanentRetentionSource": true,
+    "clearingHandlersNoMemoryBenefit": true,
+    "weakTargetsNotStoredStrongly": true,
+    "sameDocumentModeReplacementNotCrossNavigationWindowLivenessProof": true,
+    "initial50SecondObservationExceededNativeDeadlineRetained": true,
+    "noForcedGcOrCacheOrQualityChange": true
+  },
+  "macroCounterexample": {
+    "phase": 295,
+    "referencePassChecks": 4,
+    "candidatePassChecks": 3,
+    "candidateSemanticFailures": 1,
+    "sourceEditedThroughSyntheticEditableDomOnly": true,
+    "definitionSupportedInBoth": true,
+    "referenceVisibleTextAfterDefinitionRemoved": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        \\WizSyntheticMacro\n        +\n        B\n      \n    \n  \n",
+    "candidateVisibleTextAfterDefinitionRemoved": "\n  \n    \n      \n        (\n        1\n        )\n      \n      \n        A\n        +\n        B\n      \n    \n  \n",
+    "originalSourceStringsPreservedInBoth": true,
+    "definedMacroPersistsDespiteExistingTexResetAndReprocess": true,
+    "candidateRejected": true,
+    "noRegexMacroBlacklistOrPrivateEngineResetAdded": true,
+    "initialGdefUnsupportedAndPredicateErrorRetained": true
+  },
+  "remaining": [
+    "实际高内存未修复；已排除旧引擎被加载回调永久持有的解释，不能将暂时WeakRef存活称泄漏。",
+    "同一文档重复引擎启动是有潜力的分配因素：六次读编候选峰值635MiB，参考654–779MiB；但直接复用污染已删除宏定义，明确拒绝，不能交付或宣称产品已省80MiB。",
+    "若沿引擎复用继续，必须先证明公开API能将用户TeX解析／宏状态恢复为新引擎语义且不改默认引擎／字体／保存，缺少契约不得读写私有引擎表或以黑名单兜底。",
+    "另有已核许可转换器整篇字符串中间分配可执行定位；不得无证据反复293／294路线或更换profile／强制GC。",
+    "产品保持292、组件锁与现用App／资料不变；两个既有严格DOM失败和历史PDF跨次差异保留，未打包／同步／安装。"
+  ],
+  "nextGate": "先限定一条可核实的公开TeX状态初始化／重置契约，目标是保留已加载资源并重新建立等价解析状态，不是保留旧宏的直接复用；若现有离线公开资料不足则记为门槛，不动私有表，不扩大上游修改。与此同时，继续已核许可529外层转换器的整篇字符串规范化／拼接中间分配一条有界路线；每条最多少数有证据候选，同工作量进程峰值和完整功能决定合入，全部可执行项收敛后停用自动任务。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "ACTIVE",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true
+}

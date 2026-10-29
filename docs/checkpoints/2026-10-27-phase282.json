@@ -1,0 +1,114 @@
+{
+  "phase": 282,
+  "date": "2026-10-27",
+  "validation": {
+    "phase": 282,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "redundantWriteHypothesisRejected": true,
+    "changedWritesEachPass": 1408,
+    "noopWritesEachPass": 0,
+    "actualIdentityComparisonsBeforeAt130": 8385,
+    "actualIdentityInputs": 130,
+    "regression": {
+      "accepted": true,
+      "contexts": 309,
+      "cases": 103,
+      "countInput": 4096,
+      "counts": [
+        {
+          "comparisons": 8386560,
+          "lookups": 0,
+          "inserts": 0,
+          "records": 4096
+        },
+        {
+          "comparisons": 0,
+          "lookups": 4096,
+          "inserts": 4096,
+          "records": 4096
+        }
+      ],
+      "identityDuplicatePartialDisconnectedAndRepeatedPasses": true,
+      "fullClientPerformanceClaimed": false,
+      "noMemoryBenefitClaimed": true,
+      "testSha256": "ececf806a6d8c95a155294e0b3350e06999763048051425c08a27b689ece289e"
+    },
+    "stubbedRegistration": {
+      "accepted": true,
+      "contexts": 309,
+      "cases": 103,
+      "countInput": 4096,
+      "counts": [
+        {
+          "comparisons": 8386560,
+          "lookups": 0,
+          "inserts": 0,
+          "records": 4096
+        },
+        {
+          "comparisons": 0,
+          "lookups": 4096,
+          "inserts": 4096,
+          "records": 4096
+        }
+      ],
+      "timings": [
+        {
+          "variant": "baseline",
+          "ms": 59.66737500000002
+        },
+        {
+          "variant": "candidate",
+          "ms": 2.8609170000000006
+        },
+        {
+          "variant": "candidate",
+          "ms": 2.455083000000002
+        },
+        {
+          "variant": "baseline",
+          "ms": 56.63420899999997
+        }
+      ],
+      "stubbedRegistrationOnly": true,
+      "fullClientPerformanceClaimed": false,
+      "noMemoryBenefitClaimed": true
+    },
+    "geometry": {
+      "phase": 282,
+      "accepted": true,
+      "stages": 2,
+      "containersEach": 130,
+      "svgStyleAndGeometryExact": true,
+      "sourceExactChecksPassed": true,
+      "candidateNoCounterProbe": true
+    },
+    "nativeGeometryGroups": 3,
+    "nativeChecksEach": 6,
+    "jsChecksEach": 12,
+    "pdfChecks": 30,
+    "pdfModes": 2,
+    "pdfPagesPixelIdentical": true,
+    "allPdfPagesViewed": true,
+    "componentGroups": 15,
+    "componentFiles": 150,
+    "newMemoryComparisonPerformed": false,
+    "newMemoryBenefitClaimed": false,
+    "fullClientPerformanceClaimed": false,
+    "indexLifetime": "new invocation-only Set; released before fit and before retained callbacks can outlive current registration",
+    "upstreamComponentsChanged": false,
+    "productionNativeCodeChanged": false,
+    "noPackageOrSyncOrRealData": true
+  },
+  "remaining": [
+    "WebEngine整体剩余高水位及主进程长期驻留未全部归因。",
+    "公式fit顺序相关布局与必要原文临时处理仍有成本，既有失败路线不重跑。",
+    "近期累计源码修正尚未打包或同步，依用户要求继续暂停。"
+  ],
+  "nextGate": "下一步仅在新的明确分配证据或保持现有几何的具体局部算法出现后继续；不要重复样式无命中、批量几何、containment或旧长期矩阵。",
+  "productChanged": true,
+  "noPackageOrSync": true
+}

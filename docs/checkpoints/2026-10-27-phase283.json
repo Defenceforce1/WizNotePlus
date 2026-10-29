@@ -1,0 +1,73 @@
+{
+  "phase": 283,
+  "date": "2026-10-27",
+  "validation": {
+    "phase": 283,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "targetTrace": {
+      "phase": 283,
+      "geometryExact": true,
+      "baselineVisits": 151964,
+      "candidateVisits": 0,
+      "baselineContextCalls": 7,
+      "candidateContextCalls": 0,
+      "baselineFlags": 0,
+      "candidateFlags": 0
+    },
+    "initialTraceTargetNotHit": true,
+    "realGeometryAndSourceChecksPassed": true,
+    "decorationChecks": 75,
+    "mathBoundaryChecks": 35,
+    "newReferenceTargetChecks": 40,
+    "associatedChecks": 150,
+    "syntheticReferenceScope": {
+      "inputUtf16Units": 1012890,
+      "baselineProtectionBytes": 976890,
+      "candidateProtectionBytes": 0,
+      "baselineScopes": 6000,
+      "candidateScopes": 0
+    },
+    "decorationOnlyTimingRows": [
+      {
+        "ms": 28.899999976158142,
+        "variant": "baseline"
+      },
+      {
+        "ms": 0.3999999761581421,
+        "variant": "candidate"
+      },
+      {
+        "ms": 0.2999999523162842,
+        "variant": "candidate"
+      },
+      {
+        "ms": 27.400000035762787,
+        "variant": "baseline"
+      }
+    ],
+    "samePageSameQtAndDomWorkload": true,
+    "wholeClientPerformanceClaimed": false,
+    "processPeakMemoryReductionClaimed": false,
+    "nativeGeometryGroups": 4,
+    "checksPerGeometryGroup": 12,
+    "nativeChecksPerGroup": 6,
+    "benchmarkOuterChecks": 9,
+    "pdfChecks": 30,
+    "pdfModes": 2,
+    "pdfPixelsAndLinksUnchanged": true,
+    "componentLockUnchanged": true,
+    "upstreamComponentsChanged": false,
+    "newNativeBuildOrPackage": false,
+    "githubAccess": false
+  },
+  "remaining": [
+    "WebEngine整体高水位、主进程可复用驻留和长期实际使用未全部归因。",
+    "必要原文读取和公式顺序相关布局仍有成本；既有失败候选不重跑。",
+    "本地累计源码修正未打包／同步，继续按用户要求暂停。"
+  ],
+  "nextGate": "继续仅针对新的具体分配或重复工作证据；本轮无目标引用扫描已经验收，不重复该夹具或旧布局／长期矩阵。",
+  "productChanged": true
+}

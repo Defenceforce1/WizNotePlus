@@ -1,0 +1,104 @@
+{
+  "phase": 262,
+  "date": "2026-10-27",
+  "scope": "Continue authorized exact official editor independent-copy analysis; avoid unnecessary MathML capability layout and review bounded lifecycle paths",
+  "predecessor": 261,
+  "officialSource": {
+    "repository": "WizTeam/WizQTClient",
+    "commit": "7067bcfc421edce932aa3144ef2d1d631f27595a",
+    "originalSha256": "4c53a7a385d1f4b3142dcd4b4c21cb8e5938bbebca40479c69e4f94201f064f3",
+    "permissionAndFileNoticeReviewInheritedFrom": 261,
+    "completeDependencyLicenseAudit": false,
+    "embeddedDependenciesModified": false
+  },
+  "change": {
+    "file": "share/files/wizeditor/wizEditorForMac.js",
+    "sha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+    "executableDelta": "getBodyTxt skips temporary MathML innerText probe only if the current document has zero math elements",
+    "previousScratchMaxContentWidthPreserved": true,
+    "mathMLPresentOriginalFallbackPreserved": true,
+    "currentDocumentCheckedEveryCall": true,
+    "sourceOrCapabilityCacheAdded": false,
+    "sourceSavingAndFailurePreservationUnchanged": true,
+    "datedModificationNoticeAdded": true
+  },
+  "performance": {
+    "inputBytes": 720052,
+    "utf16Units": 720046,
+    "paragraphs": 6000,
+    "domNodes": 6029,
+    "order": "ABBA",
+    "sameBinary": true,
+    "actualHiddenCocoaMetal": true,
+    "normalTopLevelEventLoop": true,
+    "unmodifiedCurrentOtherComponents": true,
+    "beforeGetterMs": [
+      121.8,
+      125.3
+    ],
+    "afterGetterMs": [
+      53.4,
+      56.5
+    ],
+    "getterReductionPercent": 55.5,
+    "pairedNativeAssertions": 48,
+    "newStableMemoryPeakReductionProven": false,
+    "readyMemoryAndNaturalReclamationVary": true,
+    "forcedGCOrCachePurgeUsed": false
+  },
+  "validation": {
+    "functionalCases": 11,
+    "readEditPhases": 44,
+    "dynamicMathMLCasesPerMode": 5,
+    "dynamicMathMLCases": [
+      "absent",
+      "visible",
+      "hidden-by-css",
+      "visible-again",
+      "absent-again"
+    ],
+    "prePostOutputsExactlyEqual": true,
+    "currentProductNativeCases": 48,
+    "currentProductFormulaReferenceSourceSaveDualPdf": 30,
+    "currentProductNativeAssertions": 78,
+    "pdfModes": 2,
+    "pdfPages": 2,
+    "pixelIdenticalToRetainedBaseline": true,
+    "normalProsePt": 12,
+    "goToLinks": 5,
+    "namedTargets": 4,
+    "prototypeAndPilotExcludedFromFinalCounts": true,
+    "fullClientAccepted": false
+  },
+  "lifecycleReview": {
+    "exactOfficialModules": [
+      217,
+      218
+    ],
+    "markdownSourceSlotResetPerDo": true,
+    "liveAuthoritativeSourceNotCleared": true,
+    "noUnboundedCollectionFoundInReviewedPath": true,
+    "normalGetterScratchRemoved": true,
+    "mainProcessRetentionResolved": false,
+    "rendererExitNotProofOfNoNativeLeak": true
+  },
+  "remaining": [
+    "Residual getter about53-57ms and renderer readiness footprint not fully attributed",
+    "Main-process heap retention after page closure remains unresolved; no new allocator or owner attribution",
+    "No full rebuildable legacy editor project/source map or complete legacy API contract found",
+    "Local258/259/261/262 changes remain unpackaged and unsynchronized"
+  ],
+  "boundaries": {
+    "githubAccess": false,
+    "githubSynchronization": false,
+    "githubWrites": false,
+    "installedAppChanged": false,
+    "realAccountOrNotesAccessed": false,
+    "agentsAccessed": false,
+    "newPackageOrSigning": false,
+    "localCommitOrStaging": false,
+    "automationRecreated": false
+  },
+  "finiteStageComplete": true,
+  "allMemoryIssuesResolved": false
+}

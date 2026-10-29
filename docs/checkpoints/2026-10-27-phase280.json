@@ -1,0 +1,199 @@
+{
+  "phase": 280,
+  "date": "2026-10-27",
+  "validation": {
+    "phase": 280,
+    "accepted": true,
+    "productChanged": false,
+    "candidatePromoted": false,
+    "candidateDecision": "Reject: paired screen differs by less than one percent; no demonstrated worthwhile benefit. No reverse pair or PDF expansion justified.",
+    "memory": {
+      "rows": [
+        {
+          "label": "baseline-screen",
+          "variant": "resources",
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "sampledPeakMiB": 379.07975006103516,
+          "systemLifetimePeakMiB": 380.14225006103516,
+          "systemSnapshotFootprintMiB": 372.54850006103516,
+          "systemSnapshotRssMiB": 473.78125,
+          "checks": 13
+        },
+        {
+          "label": "candidate-screen",
+          "variant": "candidate-resources",
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "sampledPeakMiB": 377.01720428466797,
+          "systemLifetimePeakMiB": 378.39220428466797,
+          "systemSnapshotFootprintMiB": 372.79845428466797,
+          "systemSnapshotRssMiB": 471.421875,
+          "checks": 13
+        }
+      ],
+      "systemPeakDifferenceMiB": 1.7500457763671875,
+      "systemPeakDifferencePercent": 0.4603660277399322,
+      "notAConfirmedBenefit": true,
+      "rssNotFootprint": true
+    },
+    "stageBoundaries": [
+      {
+        "stage": "html-navigation",
+        "elapsedMs": 685,
+        "footprintBytes": 57492848,
+        "rssBytes": 152223744
+      },
+      {
+        "stage": "html-loaded",
+        "elapsedMs": 841,
+        "footprintBytes": 92374408,
+        "rssBytes": 188678144
+      },
+      {
+        "stage": "setup-requested",
+        "elapsedMs": 841,
+        "footprintBytes": 92554632,
+        "rssBytes": 188858368
+      },
+      {
+        "stage": "before-init",
+        "elapsedMs": 842,
+        "footprintBytes": 92603784,
+        "rssBytes": 188907520
+      },
+      {
+        "stage": "after-init",
+        "elapsedMs": 851,
+        "footprintBytes": 96191880,
+        "rssBytes": 192495616
+      },
+      {
+        "stage": "before-reader-off",
+        "elapsedMs": 851,
+        "footprintBytes": 96257416,
+        "rssBytes": 192561152
+      },
+      {
+        "stage": "public-source-enter",
+        "elapsedMs": 1051,
+        "footprintBytes": 168854992,
+        "rssBytes": 267272192
+      },
+      {
+        "stage": "public-source-exit",
+        "elapsedMs": 1107,
+        "footprintBytes": 207259112,
+        "rssBytes": 305741824
+      },
+      {
+        "stage": "typeset-enter",
+        "elapsedMs": 1607,
+        "footprintBytes": 237536840,
+        "rssBytes": 348504064
+      },
+      {
+        "stage": "typeset-exit",
+        "elapsedMs": 1736,
+        "footprintBytes": 261195336,
+        "rssBytes": 371720192
+      },
+      {
+        "stage": "finish-wrap",
+        "elapsedMs": 1736,
+        "footprintBytes": 261195336,
+        "rssBytes": 371720192
+      },
+      {
+        "stage": "finish-fit",
+        "elapsedMs": 1738,
+        "footprintBytes": 261375560,
+        "rssBytes": 371900416
+      },
+      {
+        "stage": "finish-links",
+        "elapsedMs": 2061,
+        "footprintBytes": 353846904,
+        "rssBytes": 462372864
+      },
+      {
+        "stage": "finish-end",
+        "elapsedMs": 2062,
+        "footprintBytes": 353912440,
+        "rssBytes": 462438400
+      },
+      {
+        "stage": "after-reader-off",
+        "elapsedMs": 2063,
+        "footprintBytes": 353928824,
+        "rssBytes": 462454784
+      },
+      {
+        "stage": "after-style",
+        "elapsedMs": 2064,
+        "footprintBytes": 353945208,
+        "rssBytes": 462471168
+      },
+      {
+        "stage": "ready-settled",
+        "elapsedMs": 2462,
+        "footprintBytes": 356025976,
+        "rssBytes": 464502784
+      },
+      {
+        "stage": "public-source-enter",
+        "elapsedMs": 2473,
+        "footprintBytes": 356173432,
+        "rssBytes": 464650240
+      },
+      {
+        "stage": "public-source-exit",
+        "elapsedMs": 2552,
+        "footprintBytes": 396248720,
+        "rssBytes": 499695616
+      }
+    ],
+    "stageObservations": {
+      "initialPublicGetterObservedMs": 56,
+      "initialPublicGetterFootprintDeltaMiB": 36.625,
+      "fitBoundaryObservedMs": 323,
+      "fitBoundaryFootprintDeltaMiB": 88.188,
+      "laterPublicGetterObservedMs": 79,
+      "laterPublicGetterFootprintDeltaMiB": 38.219,
+      "consoleIpcAndSamplingDelayAcknowledged": true,
+      "boundaryDeltaNotAllocationAttribution": true
+    },
+    "geometry": {
+      "phase": 280,
+      "accepted": true,
+      "pairs": 2,
+      "formulasPerStage": 130,
+      "svgAndNormalizedContainerStyleAndRectanglesExact": true,
+      "differences": [],
+      "unrelatedSourceTestsPassed": true,
+      "candidatePromoted": false,
+      "memoryMeasurementNotPerformedByThisGeometryProbe": true
+    },
+    "runtimeGroups": 3,
+    "stateChecksPerGroup": 13,
+    "geometryGroups": 2,
+    "jsGeometryChecksEach": 12,
+    "nativeGeometryChecksEach": 6,
+    "componentGroups": 15,
+    "componentFiles": 150,
+    "allCurrentComponents": true,
+    "fullPdfMatrixRepeated": false,
+    "overallHighWaterResolved": false,
+    "longTermLeakFreedomClaimed": false,
+    "noNativeProductionBuild": true,
+    "noNetworkOrGithubAccess": true,
+    "noPackageOrInstall": true
+  },
+  "remaining": [
+    "WebEngine剩余约380MiB合成首开峰值尚无下一具体可改分配点。",
+    "必要原文读取临时容器仍有成本，既有负候选不重试。",
+    "主进程可复用驻留、碎片及长期实际使用未完成全面归因。",
+    "近期累计修正仍未打包或同步；依用户要求保持暂停。"
+  ],
+  "nextGate": "只在自有fit或必要getter获得新的具体分配／调用证据后提出下一最小修正；现有局部containment候选拒绝，不重跑旧矩阵。",
+  "productChanged": false,
+  "githubSynchronization": false
+}

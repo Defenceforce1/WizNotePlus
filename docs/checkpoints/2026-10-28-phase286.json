@@ -1,0 +1,149 @@
+{
+  "phase": 286,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 286,
+    "accepted": true,
+    "productChanged": false,
+    "candidatePromoted": false,
+    "overallHighWaterResolved": false,
+    "stageResults": [
+      {
+        "name": "few-large-parts",
+        "nodeValueReads": 44,
+        "observerStageNotForTiming": {
+          "flagsBytes": 155005,
+          "joinMs": 0.10000000009313226,
+          "parts": 22,
+          "scanMs": 12,
+          "units": 1240033,
+          "walkMs": 0.2999999998137355
+        },
+        "stage": {
+          "flagsBytes": 155005,
+          "joinMs": 0.10000000009313226,
+          "parts": 22,
+          "scanMs": 6.800000000279397,
+          "units": 1240033,
+          "walkMs": 0.09999999962747097
+        }
+      },
+      {
+        "name": "many-inline-parts",
+        "nodeValueReads": 12000,
+        "observerStageNotForTiming": {
+          "flagsBytes": 98116,
+          "joinMs": 0.20000000018626451,
+          "parts": 6000,
+          "scanMs": 6,
+          "units": 784925,
+          "walkMs": 13.5
+        },
+        "stage": {
+          "flagsBytes": 98116,
+          "joinMs": 0.2999999998137355,
+          "parts": 6000,
+          "scanMs": 4.5,
+          "units": 784925,
+          "walkMs": 12.300000000279397
+        }
+      }
+    ],
+    "snapshotResults": [
+      {
+        "counts": [
+          {
+            "flagsBytes": 155005,
+            "reads": 44,
+            "requested": 2,
+            "variant": "baseline"
+          },
+          {
+            "flagsBytes": 155005,
+            "reads": 22,
+            "requested": 2,
+            "variant": "candidate"
+          }
+        ],
+        "name": "few-large-parts",
+        "timings": [
+          {
+            "ms": 7.2000000001862645,
+            "variant": "baseline"
+          },
+          {
+            "ms": 7,
+            "variant": "candidate"
+          },
+          {
+            "ms": 7.100000000093132,
+            "variant": "candidate"
+          },
+          {
+            "ms": 7.100000000093132,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "counts": [
+          {
+            "flagsBytes": 98116,
+            "reads": 12000,
+            "requested": 2,
+            "variant": "baseline"
+          },
+          {
+            "flagsBytes": 98116,
+            "reads": 6000,
+            "requested": 2,
+            "variant": "candidate"
+          }
+        ],
+        "name": "many-inline-parts",
+        "timings": [
+          {
+            "ms": 16,
+            "variant": "baseline"
+          },
+          {
+            "ms": 15.899999999906868,
+            "variant": "candidate"
+          },
+          {
+            "ms": 16.100000000093132,
+            "variant": "candidate"
+          },
+          {
+            "ms": 16.199999999720603,
+            "variant": "baseline"
+          }
+        ]
+      }
+    ],
+    "decisions": {
+      "joinRedesign": "Rejected: observed join 0.1-0.3ms, no evidence justifying a new streaming parser or broken cross-node contract.",
+      "singleNodeValueRead": "Not promoted: native read count halved, but unprobed ABBA approximately flat and no allocation saving proven."
+    },
+    "onlySyntheticLocalDom": true,
+    "denseAndPackedContextDataPreserved": true,
+    "sourcePreserved": true,
+    "nativeGroups": 2,
+    "jsChecksEach": [
+      4,
+      16
+    ],
+    "nativeChecksEach": 6,
+    "pdfOrWholeFormulaMatrixRepeated": false,
+    "componentLockAndAllProductCodeUnchanged": true,
+    "newPerformanceOrMemoryBenefitClaimed": false,
+    "noNetworkPackageOrSync": true
+  },
+  "remaining": [
+    "整体WebEngine高水位、主进程长期驻留和必要原文读取仍未全部归因。",
+    "大量行内片段的DOM遍历／选择器与扫描成本，只有新证据才继续；本轮join与getter候选不重试。",
+    "累计源码修正仍未打包／同步，继续按用户要求暂停。"
+  ],
+  "nextGate": "只针对新的实际DOM遍历／匹配命中或明确分配点继续；不要重复本轮join、单次getter或旧完整矩阵。",
+  "productChanged": false
+}

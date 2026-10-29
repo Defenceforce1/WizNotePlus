@@ -1,0 +1,41 @@
+{
+  "phase": 311,
+  "date": "2026-10-29",
+  "validation": {
+    "phase": 311,
+    "clientDate": "2026-10-29",
+    "timeZone": "Asia/Shanghai",
+    "automationResumedByExplicitUserRequest": true,
+    "automationStatus": "ACTIVE",
+    "frequencyMinutes": 20,
+    "sameExistingAutomationAndTargetThread": true,
+    "promptReadbackVerified": true,
+    "sourceReviewComplete": true,
+    "newDirection": "Validate a strict text-only preserving-whitespace guard before avoiding rendered-text layout reads in reviewed506",
+    "onlyStaticSourceEvidenceNotRuntimeAttribution": true,
+    "newRuntimeGroups": 0,
+    "newCandidatePrepared": false,
+    "productChanged": false,
+    "productRemainsPhase": 292,
+    "highMemoryResolved": false,
+    "maximumSourceHypotheses": 2,
+    "maximumCandidatesPerHypothesis": 1,
+    "maximumQualificationGroupsPerHypothesis": 1,
+    "maximumMatchedMemoryGroupsPerHypothesis": 2,
+    "noAutomaticRepeat310OrReviveRejectedCandidates": true,
+    "normalSourceQualificationNeedsNoRoutineApproval": true,
+    "externalNetworkGithubPackagingInstallationOrRealDataAccessed": false,
+    "headIndexTrackedStatusAndInstalledAppPreserved": true,
+    "newEngineOrUpstreamModification": false,
+    "stopAndPauseAfterFiniteWorkOrNewScopeGate": true
+  },
+  "report": "docs/long-prose-investigation-resume-2026-10-29.md",
+  "evidenceRoot": "outputs/exploration-20261029/phase311",
+  "plan": "outputs/exploration-20261029/phase311/finite-plan.json",
+  "remaining": [
+    "严格纯文本／空白／CSS守卫尚未证明等价或实际命中。",
+    "实际内存收益尚未测试，高内存仍未修复。"
+  ],
+  "productRemainsPhase": 292,
+  "newRoutineApprovalRequired": false
+}

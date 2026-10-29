@@ -1,0 +1,286 @@
+{
+  "phase": 288,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 288,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "scannerRegression": {
+      "accepted": true,
+      "sourceCases": 492,
+      "positionComparisons": 1337434,
+      "defaultDenseApiPreserved": true,
+      "everyPackedPositionMatchesReference": true,
+      "unusedPaddingBitsZero": true,
+      "wholeClientAccepted": false,
+      "testSha256": "b17a0f21ae646ae1c4ed60f57fec04a47402fe2db892eeb70ddcc58e2db50210"
+    },
+    "actualDecorationCases": [
+      {
+        "name": "plain-long",
+        "observations": [
+          {
+            "bytes": 112503,
+            "units": 900017,
+            "variant": "baseline",
+            "zeroEligible": true
+          },
+          {
+            "bytes": 112503,
+            "units": 900017,
+            "variant": "candidate",
+            "zeroEligible": true
+          }
+        ],
+        "timings": [
+          {
+            "ms": 6.699999999254942,
+            "variant": "baseline"
+          },
+          {
+            "ms": 0.7999999998137355,
+            "variant": "candidate"
+          },
+          {
+            "ms": 0.7999999998137355,
+            "variant": "candidate"
+          },
+          {
+            "ms": 5.5,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "name": "plain-inline",
+        "observations": [
+          {
+            "bytes": 77114,
+            "units": 616908,
+            "variant": "baseline",
+            "zeroEligible": true
+          },
+          {
+            "bytes": 77114,
+            "units": 616908,
+            "variant": "candidate",
+            "zeroEligible": true
+          }
+        ],
+        "timings": [
+          {
+            "ms": 11.899999999441206,
+            "variant": "baseline"
+          },
+          {
+            "ms": 7.8999999994412065,
+            "variant": "candidate"
+          },
+          {
+            "ms": 8,
+            "variant": "candidate"
+          },
+          {
+            "ms": 11.199999999254942,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "name": "dollar-fallback",
+        "observations": [
+          {
+            "bytes": 150004,
+            "units": 1200031,
+            "variant": "baseline",
+            "zeroEligible": false
+          },
+          {
+            "bytes": 150004,
+            "units": 1200031,
+            "variant": "candidate",
+            "zeroEligible": false
+          }
+        ],
+        "timings": [
+          {
+            "ms": 8.700000000186265,
+            "variant": "baseline"
+          },
+          {
+            "ms": 8.299999999813735,
+            "variant": "candidate"
+          },
+          {
+            "ms": 7,
+            "variant": "candidate"
+          },
+          {
+            "ms": 7,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "name": "environment-fallback",
+        "observations": [
+          {
+            "bytes": 150007,
+            "units": 1200053,
+            "variant": "baseline",
+            "zeroEligible": false
+          },
+          {
+            "bytes": 150007,
+            "units": 1200053,
+            "variant": "candidate",
+            "zeroEligible": false
+          }
+        ],
+        "timings": [
+          {
+            "ms": 7.7999999998137355,
+            "variant": "baseline"
+          },
+          {
+            "ms": 7.900000000372529,
+            "variant": "candidate"
+          },
+          {
+            "ms": 6.2999999998137355,
+            "variant": "candidate"
+          },
+          {
+            "ms": 6.2999999998137355,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "name": "late-unclosed-fallback",
+        "observations": [
+          {
+            "bytes": 112504,
+            "units": 900030,
+            "variant": "baseline",
+            "zeroEligible": false
+          },
+          {
+            "bytes": 112504,
+            "units": 900030,
+            "variant": "candidate",
+            "zeroEligible": false
+          }
+        ],
+        "timings": [
+          {
+            "ms": 5.599999999627471,
+            "variant": "baseline"
+          },
+          {
+            "ms": 7.6000000005587935,
+            "variant": "candidate"
+          },
+          {
+            "ms": 5.6000000005587935,
+            "variant": "candidate"
+          },
+          {
+            "ms": 5.7000000001862645,
+            "variant": "baseline"
+          }
+        ]
+      }
+    ],
+    "lateFallbackConfirmation": [
+      {
+        "name": "late-unclosed-fallback",
+        "observations": [
+          {
+            "bytes": 112504,
+            "units": 900030,
+            "variant": "baseline",
+            "zeroEligible": false
+          },
+          {
+            "bytes": 112504,
+            "units": 900030,
+            "variant": "candidate",
+            "zeroEligible": false
+          }
+        ],
+        "timings": [
+          {
+            "ms": 6.7000000001862645,
+            "variant": "baseline"
+          },
+          {
+            "ms": 6.900000000372529,
+            "variant": "candidate"
+          },
+          {
+            "ms": 5.3999999994412065,
+            "variant": "candidate"
+          },
+          {
+            "ms": 6,
+            "variant": "baseline"
+          }
+        ]
+      }
+    ],
+    "relatedDomChecks": 210,
+    "thresholdUtf16Units": 4096,
+    "arrayPayloadSizesUnchanged": true,
+    "noStateMachineGrammarOrScopeChange": true,
+    "wholeClientPerformanceClaimed": false,
+    "processPeakMemoryReductionClaimed": false,
+    "geometry": {
+      "accepted": true,
+      "priorControlPhase": 287,
+      "sameBinaryAndEngine": true,
+      "stages": 2,
+      "containersEach": 130,
+      "geometrySvgAndSourcePreserved": true,
+      "fastBranchCoveredByActualLongPlainDecorationCases": true
+    },
+    "nativeGroups": 3,
+    "nativeChecksEach": 6,
+    "pdfChecks": 30,
+    "pdfModes": 2,
+    "pdfPixelsAndLinksUnchanged": true,
+    "upstreamComponentsOrLockChanged": false,
+    "batchStatus": {
+      "phase": 288,
+      "inspectionCompletedAtPhase": 281,
+      "record": "work/WizNotePlus/docs/math-fit-read-write-2026-10-27.md",
+      "recordSha256": "7ce3f9525b4f43d68dfc271628e86261992215c6f34fdc98bbe27b77042e5781",
+      "fullBatchFitMsBefore": [
+        298.8,
+        306.0
+      ],
+      "fullBatchFitMsAfter": [
+        104.6,
+        101.2
+      ],
+      "fullBatchRejectedForGeometryDifferences": true,
+      "bboxOnlyBatchFitMs": [
+        301.9,
+        311.0
+      ],
+      "bboxOnlyRejectedForNoGain": true,
+      "safeBatchOptimizationImplemented": false,
+      "batchTestsRepeatedThisPhase": false
+    },
+    "noNativeBuildPackageNetworkSync": true
+  },
+  "remaining": [
+    "整体WebEngine高水位、主进程长期驻留、必要原文及公式布局仍未全部归因。",
+    "公式读写批处理检测281已完成，但无同时满足原几何与提速的合入方案，不重复该矩阵。",
+    "累计修正尚未打包或同步，继续按用户要求暂停。"
+  ],
+  "nextGate": "保留无入口快速返回和全部原规则回退；后续只按新的具体分配／调用证据继续，不把局部装饰优化当高水位修复或批处理合入。",
+  "productChanged": true
+}

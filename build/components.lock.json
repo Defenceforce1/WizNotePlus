@@ -11,7 +11,7 @@
       "files": [
         {
           "source": "share/files/wizeditor/dependency/mathjax/MathJax.js",
-          "sha256": "b11bc1c5e097e84badbe7dc098044c8398603bb4ce9eda5c0bbc8b1080103c51",
+          "sha256": "f7544d8f025bb9a17cc7aa8ff14acf59207918bc5c4b0c7e99bd077e4ddb9b07",
           "resource": "wizeditor/dependency/mathjax/MathJax.js"
         },
         {

@@ -1,0 +1,58 @@
+{
+  "phase": 302,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 302,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newProductMemoryImprovementClaimed": false,
+    "completedLineDeliveryValidated": true,
+    "syntheticCBufferCalibrationPassed": true,
+    "ownRendererPtyBindingProven": true,
+    "newValidMemoryGroups": 3,
+    "nativeControls": 216,
+    "observerBarriers": 45,
+    "nativeSamples": 84,
+    "loggedMajorCounts": [
+      14,
+      14
+    ],
+    "loggedLateReduceCounts": [
+      2,
+      2
+    ],
+    "loggedPeakMiB": [
+      351.59532928466797,
+      345.56410217285156
+    ],
+    "unloggedPtyPeakMiB": 347.5953063964844,
+    "receiptSpreadMs": [
+      0.656,
+      0.695
+    ],
+    "candidateHighWithMajorLogCaptured": false,
+    "allEngineEventsOrLongTermAcceptanceClaimed": false,
+    "noCandidatePromoted": true,
+    "automationStatus": "ACTIVE",
+    "automationFrequencyMinutes": 20,
+    "automationReadbackVerified": true,
+    "noForcedGcPressureOrCacheClear": true
+  },
+  "evidenceRoot": "outputs/exploration-20261028/phase302",
+  "report": "docs/major-gc-line-delivery-2026-10-28.md",
+  "remaining": [
+    "实际高内存未修复，产品仍292；历史无日志候选510／539和301无追踪540MiB仍有效，浅克隆未合入。",
+    "本轮仅major摘要的已完成行传递经合成C校准和真实renderer stdout绑定核实，两日志组各14摘要、2尾部reduce，结束无半行；这不证明所有引擎事件或长期无泄漏。",
+    "同码三组352／348／346MiB都低峰，关闭日志也低；不能断言之前所有低值只由日志造成，也不能外推稳定产品收益。",
+    "不继续轮换日志格式或重复六轮。按remaining-finite-plan先审查测试与真实产品源码调用链，再仅以新证据检查具体临时DOM／字符串持有及native桥接大复制。",
+    "用户已恢复20分钟自动任务ACTIVE；GitHub仍暂停，新增权限／上游／人工门槛集中说明，有限可执行路线耗尽后停用，不反复空转。",
+    "无产品重编／包／安装、现用App或真实资料操作；未来打包仍须重编289打印伴随头文件。"
+  ],
+  "nextGate": "自动任务承接remaining-finite-plan.json三条有限路线；先核对独立夹具每次全量原文验证与当前产品打开／阅读调用链是否同工作量，再决定是否值得实验。差异负载消融只做归因，不当产品收益。需要实际文档身份、修改代次、原文／未保存及迟到结果证据，才可减少自有冗余调用；没有具体新分配／持有点不重跑已否定候选，不继续仅完善观察器。",
+  "followupPlanPath": "outputs/exploration-20261028/phase302/remaining-finite-plan.json",
+  "productRemainsPhase": 292,
+  "sourceOnlyLocalDocumentation": true,
+  "githubSyncSuspended": true,
+  "noProductMemoryImprovementClaimed": true
+}

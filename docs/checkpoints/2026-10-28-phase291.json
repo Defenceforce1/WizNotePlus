@@ -1,0 +1,190 @@
+{
+  "phase": 291,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 291,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "singleChange": "Childless uppercase BR returns after preserving isInA options state; no-op parent/tag checks removed",
+    "styleQueriesPerMeasuredTextWalk": 3,
+    "stageAttributionOnly": {
+      "initialWholeSourceHtmlConversionMs": [
+        10.9,
+        19.2
+      ],
+      "longTextWalkMs": [
+        17.2,
+        21.8
+      ],
+      "extraGeometryQueries": false
+    },
+    "timing": {
+      "phase": 291,
+      "acceptedTimingBenefit": true,
+      "sameBinary": true,
+      "orderedRows": [
+        {
+          "label": "timing-original-b",
+          "variant": "timing-resources",
+          "converterSourceMs": 52.69999999925494,
+          "finalSourceMs": 77.5,
+          "peakMiB": 283.07970428466797,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a"
+        },
+        {
+          "label": "br-screen",
+          "variant": "br-timing-resources",
+          "converterSourceMs": 45.90000000037253,
+          "finalSourceMs": 72.30000000074506,
+          "peakMiB": 276.8921127319336,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a"
+        },
+        {
+          "label": "br-confirm",
+          "variant": "br-timing-resources",
+          "converterSourceMs": 46.09999999962747,
+          "finalSourceMs": 72,
+          "peakMiB": 277.5640106201172,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a"
+        },
+        {
+          "label": "timing-original-final",
+          "variant": "timing-resources",
+          "converterSourceMs": 53,
+          "finalSourceMs": 81.30000000074506,
+          "peakMiB": 280.9077835083008,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a"
+        }
+      ],
+      "converterSourceBeforeMs": 52.84999999962747,
+      "converterSourceAfterMs": 46.0,
+      "finalSourceBeforeMs": 79.40000000037253,
+      "finalSourceAfterMs": 72.15000000037253,
+      "lowFrequencyWrapperOverheadPresentEqually": true,
+      "noWholeClientTimingClaim": true,
+      "noMajorHighWaterFixClaim": true
+    },
+    "memory": {
+      "phase": 291,
+      "rows": [
+        {
+          "label": "baseline",
+          "peakMiB": 284.4234313964844,
+          "systemLifetimePeakMiB": 285.4078063964844,
+          "stage": "ready-settled",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 251.89218139648438,
+              "jsUsedMiB": 41.14551544189453
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 284.4859313964844,
+              "jsUsedMiB": 60.523738861083984
+            }
+          ]
+        },
+        {
+          "label": "final-source-a",
+          "peakMiB": 276.7983856201172,
+          "systemLifetimePeakMiB": 277.4546356201172,
+          "stage": "before-reader-off",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 250.8452606201172,
+              "jsUsedMiB": 41.17434501647949
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 275.1265106201172,
+              "jsUsedMiB": 54.85013771057129
+            }
+          ]
+        },
+        {
+          "label": "final-source-b",
+          "peakMiB": 276.7827606201172,
+          "systemLifetimePeakMiB": 277.1890106201172,
+          "stage": "before-reader-off",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 250.81403350830078,
+              "jsUsedMiB": 41.118035316467285
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 273.9390335083008,
+              "jsUsedMiB": 54.793686866760254
+            }
+          ]
+        },
+        {
+          "label": "final-reference",
+          "peakMiB": 281.0640563964844,
+          "systemLifetimePeakMiB": 282.1265563964844,
+          "stage": "ready-settled",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 251.11093139648438,
+              "jsUsedMiB": 41.20222187042236
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 281.2203063964844,
+              "jsUsedMiB": 60.57968997955322
+            }
+          ]
+        }
+      ],
+      "sampledPeakBeforeRangeMiB": [
+        284.4234313964844,
+        281.0640563964844
+      ],
+      "sampledPeakCandidateRangeMiB": [
+        276.7983856201172,
+        276.7827606201172
+      ],
+      "noMajorHighWaterResolutionClaimed": true,
+      "noLongTermOrAllNotesBenefitClaim": true,
+      "jsUsedHeapNotEquivalentToLiveAllocations": true,
+      "noTimingOrInternalProbesInFinalSourceGroups": true
+    },
+    "frozenReferenceBrowserChecks": 22,
+    "getterCases": 14,
+    "getterStates": 56,
+    "allGetterCaseRecordsMatchReference": true,
+    "getterChecksEach": 60,
+    "getterChecksPassedEach": 58,
+    "existingStrictDomFailuresEach": 2,
+    "sameBaselineFailuresNotClaimedFixed": true,
+    "pdfRuntimeChecksPerGroup": 30,
+    "pdfRuntimeGroups": 2,
+    "pdfModes": 2,
+    "pdfPixelsMatchFreshCurrentReference": true,
+    "historicalPdfVariationUnresolved": true,
+    "coreOnlyConditionAndModificationNoticeChanged": true,
+    "upstreamEngineFontAndComponentLockUnchanged": true,
+    "newNativeBuildPackageNetworkOrSync": false,
+    "rejectedCandidates": [
+      "inner-wrapper layout containment: no peak benefit",
+      "inner-wrapper content-visibility:auto: no peak benefit",
+      "typed computed styles: matched public getter timing unchanged; no promotion"
+    ],
+    "noSourceSnapshotCachingOrReadTimingRelocation": true
+  },
+  "remaining": [
+    "整体大文档峰值仍约277MiB，临时HTML重建／长文本样式提取及原生驻留未全部解决，不能把局部提速当主要高水位已解决。",
+    "getter两处严格DOM字符串变化在原版也存在，候选全部56状态记录一致；保留初期失败，不宣称全部60检查通过。",
+    "历史PDF与本轮原版存在跨次局部版式变化，原因未定；本轮候选与同期原版两模式逐像素一致，不作历史完全一致承诺。",
+    "未打包／同步；未来打包仍需重编289打印伴随逻辑。"
+  ],
+  "nextGate": "后续只沿临时HTML重建／长文本提取的具体分配证据继续；已排除三次样式读取缓存、内部容器containment／content-visibility:auto及TypedOM替换，不重复这些路线。历史PDF跨次变化作为独立限制保留，不混成当前BR分支回归或擅自扩大修复。",
+  "productChanged": true,
+  "newProductionCompilationRequired": true
+}

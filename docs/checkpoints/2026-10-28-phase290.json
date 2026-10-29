@@ -1,0 +1,511 @@
+{
+  "phase": 290,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 290,
+    "accepted": true,
+    "productChanged": false,
+    "candidatePromoted": false,
+    "documentationOnly": true,
+    "overallHighWaterResolved": false,
+    "previous289FixPreserved": true,
+    "keyFindings": [
+      "Actual math typesetting ablated but same-input peak still275.22MiB; substantial cost precedes or is independent of actual math output.",
+      "Owned bare-environment processing invokes canonical public Markdown getter during block conversion, rebuilding full-source temporary DOM.",
+      "Using earlier converter text in diagnostic-only scope lowers controlled peak to259–261MiB with130-output geometry unchanged, but custom callback source mutation is a confirmed rendering counterexample.",
+      "Moving the actual canonical getter earlier with identity/mutation invalidation leaves282.22MiB peak, so no benefit and no promotion.",
+      "Internal text-wrapper max-content retry remains282.72MiB; no evidence to promote."
+    ],
+    "attribution": {
+      "phase": 290,
+      "sameBinaryRows": [
+        {
+          "label": "current",
+          "variant": "resources",
+          "sampledPeakMiB": 281.2359085083008,
+          "systemLifetimePeakMiB": 282.6577835083008,
+          "peakStage": "ready-settled",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 251.75153350830078,
+              "usedJsHeapMiB": 41.139662742614746,
+              "mathItems": 129,
+              "domNodes": 18358
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 281.4859085083008,
+              "usedJsHeapMiB": 60.51803112030029,
+              "mathItems": 129,
+              "domNodes": 18358
+            }
+          ]
+        },
+        {
+          "label": "no-engine",
+          "variant": "no-engine-resources",
+          "sampledPeakMiB": 275.2202377319336,
+          "systemLifetimePeakMiB": 277.5639877319336,
+          "peakStage": "before-reader-off",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 225.3452377319336,
+              "usedJsHeapMiB": 23.69047451019287,
+              "mathItems": 0,
+              "domNodes": 12168
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 242.6421127319336,
+              "usedJsHeapMiB": 43.03268623352051,
+              "mathItems": 0,
+              "domNodes": 12168
+            }
+          ]
+        },
+        {
+          "label": "no-hook",
+          "variant": "no-hook-resources",
+          "sampledPeakMiB": 244.23583984375,
+          "systemLifetimePeakMiB": 244.53271484375,
+          "peakStage": "after-style",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 197.81396484375,
+              "usedJsHeapMiB": 12.080911636352539,
+              "mathItems": 0,
+              "domNodes": 12413
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 216.54833984375,
+              "usedJsHeapMiB": 31.59260654449463,
+              "mathItems": 0,
+              "domNodes": 12413
+            }
+          ]
+        },
+        {
+          "label": "inner-width-screen",
+          "variant": "inner-width-resources",
+          "sampledPeakMiB": 282.7202835083008,
+          "systemLifetimePeakMiB": 283.4234085083008,
+          "peakStage": "ready-settled",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 253.18903350830078,
+              "usedJsHeapMiB": 41.07799434661865,
+              "mathItems": 129,
+              "domNodes": 18358
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 282.8296585083008,
+              "usedJsHeapMiB": 60.45640850067139,
+              "mathItems": 129,
+              "domNodes": 18358
+            }
+          ]
+        },
+        {
+          "label": "provider-screen",
+          "variant": "provider-resources",
+          "sampledPeakMiB": 259.4233627319336,
+          "systemLifetimePeakMiB": 259.4233627319336,
+          "peakStage": "ready-settled",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 235.7671127319336,
+              "usedJsHeapMiB": 27.313522338867188,
+              "mathItems": 129,
+              "domNodes": 18358
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 259.4233627319336,
+              "usedJsHeapMiB": 46.860660552978516,
+              "mathItems": 129,
+              "domNodes": 18358
+            }
+          ]
+        },
+        {
+          "label": "provider-confirm",
+          "variant": "provider-resources",
+          "sampledPeakMiB": 260.82958984375,
+          "systemLifetimePeakMiB": 260.82958984375,
+          "peakStage": "ready-settled",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 237.32958984375,
+              "usedJsHeapMiB": 27.3076171875,
+              "mathItems": 129,
+              "domNodes": 18358
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 260.82958984375,
+              "usedJsHeapMiB": 46.857032775878906,
+              "mathItems": 129,
+              "domNodes": 18358
+            }
+          ]
+        },
+        {
+          "label": "canonical-screen",
+          "variant": "canonical-resources",
+          "sampledPeakMiB": 282.2202835083008,
+          "systemLifetimePeakMiB": 282.9859085083008,
+          "peakStage": "ready-settled",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 253.06403350830078,
+              "usedJsHeapMiB": 41.15232753753662,
+              "mathItems": 129,
+              "domNodes": 18358
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 282.3140335083008,
+              "usedJsHeapMiB": 60.52875804901123,
+              "mathItems": 129,
+              "domNodes": 18358
+            }
+          ]
+        },
+        {
+          "label": "current-confirm",
+          "variant": "resources",
+          "sampledPeakMiB": 280.1890335083008,
+          "systemLifetimePeakMiB": 281.0952835083008,
+          "peakStage": "ready-settled",
+          "nativeChecks": 13,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "samples": [
+            {
+              "phase": "reading-before-source",
+              "footprintMiB": 251.84528350830078,
+              "usedJsHeapMiB": 41.17005443572998,
+              "mathItems": 129,
+              "domNodes": 18358
+            },
+            {
+              "phase": "reading-after-source",
+              "footprintMiB": 280.2984085083008,
+              "usedJsHeapMiB": 60.54827404022217,
+              "mathItems": 129,
+              "domNodes": 18358
+            }
+          ]
+        }
+      ],
+      "instrumentedStages": {
+        "html-navigation": {
+          "firstMiB": 54.70447540283203,
+          "maximumMiB": 76.14197540283203,
+          "lastMiB": 76.14197540283203
+        },
+        "html-loaded": {
+          "firstMiB": 88.70449829101562,
+          "maximumMiB": 88.70449829101562,
+          "lastMiB": 88.70449829101562
+        },
+        "setup-requested": {
+          "firstMiB": 88.70449829101562,
+          "maximumMiB": 88.70449829101562,
+          "lastMiB": 88.70449829101562
+        },
+        "before-init": {
+          "firstMiB": 88.76699829101562,
+          "maximumMiB": 88.76699829101562,
+          "lastMiB": 88.76699829101562
+        },
+        "after-init": {
+          "firstMiB": 92.17324829101562,
+          "maximumMiB": 92.17324829101562,
+          "lastMiB": 92.17324829101562
+        },
+        "before-reader-off": {
+          "firstMiB": 92.20449829101562,
+          "maximumMiB": 141.4076690673828,
+          "lastMiB": 141.4076690673828
+        },
+        "makeHtml": {
+          "firstMiB": 153.6889419555664,
+          "maximumMiB": 218.4546127319336,
+          "lastMiB": 218.4546127319336
+        },
+        "converter-detab": {
+          "firstMiB": 153.6889419555664,
+          "maximumMiB": 153.6889419555664,
+          "lastMiB": 153.6889419555664
+        },
+        "converter-hook-preConversion": {
+          "firstMiB": 153.6889419555664,
+          "maximumMiB": 153.6889419555664,
+          "lastMiB": 153.6889419555664
+        },
+        "converter-unescape": {
+          "firstMiB": 153.6264419555664,
+          "maximumMiB": 215.4546127319336,
+          "lastMiB": 215.4546127319336
+        },
+        "converter-block-gamut": {
+          "firstMiB": 153.6264419555664,
+          "maximumMiB": 212.0796127319336,
+          "lastMiB": 212.0796127319336
+        },
+        "converter-strip-link-definitions": {
+          "firstMiB": 153.6264419555664,
+          "maximumMiB": 155.1576919555664,
+          "lastMiB": 155.1576919555664
+        },
+        "converter-hash-html": {
+          "firstMiB": 153.6264419555664,
+          "maximumMiB": 155.1576919555664,
+          "lastMiB": 155.1576919555664
+        },
+        "converter-hook-postNormalization": {
+          "firstMiB": 153.6264419555664,
+          "maximumMiB": 153.6264419555664,
+          "lastMiB": 153.6264419555664
+        },
+        "public-source": {
+          "firstMiB": 163.1576919555664,
+          "maximumMiB": 285.20470428466797,
+          "lastMiB": 285.20470428466797
+        },
+        "converter-hook-postConversion": {
+          "firstMiB": 215.4546127319336,
+          "maximumMiB": 215.4546127319336,
+          "lastMiB": 215.4546127319336
+        },
+        "editor-work": {
+          "firstMiB": 218.6421127319336,
+          "maximumMiB": 299.51720428466797,
+          "lastMiB": 291.81407928466797
+        },
+        "typeset": {
+          "firstMiB": 283.1421585083008,
+          "maximumMiB": 316.20470428466797,
+          "lastMiB": 300.36095428466797
+        },
+        "finish-output": {
+          "firstMiB": 296.39220428466797,
+          "maximumMiB": 299.06407928466797,
+          "lastMiB": 299.06407928466797
+        },
+        "reader-completed": {
+          "firstMiB": 299.51720428466797,
+          "maximumMiB": 299.51720428466797,
+          "lastMiB": 299.51720428466797
+        },
+        "after-reader-off": {
+          "firstMiB": 299.51720428466797,
+          "maximumMiB": 299.51720428466797,
+          "lastMiB": 299.51720428466797
+        },
+        "after-style": {
+          "firstMiB": 299.51720428466797,
+          "maximumMiB": 299.51720428466797,
+          "lastMiB": 274.61095428466797
+        },
+        "ready-settled": {
+          "firstMiB": 274.61095428466797,
+          "maximumMiB": 274.61095428466797,
+          "lastMiB": 274.61095428466797
+        }
+      },
+      "instrumentedPublicScalarMarkers": [
+        {
+          "label": "converter-hook-preConversion",
+          "ms": 0,
+          "heapUsed": 7714125,
+          "heapTotal": 11242061
+        },
+        {
+          "label": "converter-detab",
+          "ms": 0.19999999925494194,
+          "heapUsed": 7719361,
+          "heapTotal": 11242061
+        },
+        {
+          "label": "converter-hook-postNormalization",
+          "ms": 0.19999999925494194,
+          "heapUsed": 7733909,
+          "heapTotal": 11242061
+        },
+        {
+          "label": "converter-hash-html",
+          "ms": 0.599999999627471,
+          "heapUsed": 7759697,
+          "heapTotal": 11242061
+        },
+        {
+          "label": "converter-strip-link-definitions",
+          "ms": 0.6999999992549419,
+          "heapUsed": 7764109,
+          "heapTotal": 11242061
+        },
+        {
+          "label": "public-source",
+          "ms": 0.7000000011175871,
+          "heapUsed": 7974678,
+          "heapTotal": 11244678
+        },
+        {
+          "label": "converter-block-gamut",
+          "ms": 5.399999998509884,
+          "heapUsed": 8244605,
+          "heapTotal": 11509257
+        },
+        {
+          "label": "converter-unescape",
+          "ms": 5.5,
+          "heapUsed": 8573593,
+          "heapTotal": 11509257
+        },
+        {
+          "label": "converter-hook-postConversion",
+          "ms": 0.3999999985098839,
+          "heapUsed": 8313401,
+          "heapTotal": 11509257
+        },
+        {
+          "label": "makeHtml",
+          "ms": 6.300000000745058,
+          "heapUsed": 8314101,
+          "heapTotal": 11509257
+        },
+        {
+          "label": "finish-output",
+          "ms": 1.400000000372529,
+          "heapUsed": 19764229,
+          "heapTotal": 22943025
+        },
+        {
+          "label": "public-source",
+          "ms": 1.900000000372529,
+          "heapUsed": 15699941,
+          "heapTotal": 22671357
+        },
+        {
+          "label": "converter-hook-preConversion",
+          "ms": 0,
+          "heapUsed": 38632731,
+          "heapTotal": 45407283
+        },
+        {
+          "label": "converter-detab",
+          "ms": 0.900000000372529,
+          "heapUsed": 34825167,
+          "heapTotal": 45194283
+        },
+        {
+          "label": "converter-hook-postNormalization",
+          "ms": 0.599999999627471,
+          "heapUsed": 34839039,
+          "heapTotal": 45194283
+        },
+        {
+          "label": "converter-hash-html",
+          "ms": 1.700000001117587,
+          "heapUsed": 36425927,
+          "heapTotal": 46783531
+        },
+        {
+          "label": "converter-strip-link-definitions",
+          "ms": 2.200000001117587,
+          "heapUsed": 36433447,
+          "heapTotal": 46783531
+        },
+        {
+          "label": "public-source",
+          "ms": 54.80000000074506,
+          "heapUsed": 64422863,
+          "heapTotal": 71178975
+        },
+        {
+          "label": "converter-block-gamut",
+          "ms": 225.5,
+          "heapUsed": 50900890,
+          "heapTotal": 84427250
+        },
+        {
+          "label": "converter-unescape",
+          "ms": 225.7000000011176,
+          "heapUsed": 50901542,
+          "heapTotal": 84427250
+        },
+        {
+          "label": "converter-hook-postConversion",
+          "ms": 42,
+          "heapUsed": 61819638,
+          "heapTotal": 86868466
+        },
+        {
+          "label": "makeHtml",
+          "ms": 269.40000000037253,
+          "heapUsed": 61820070,
+          "heapTotal": 86868466
+        },
+        {
+          "label": "finish-output",
+          "ms": 139.90000000037253,
+          "heapUsed": 44954300,
+          "heapTotal": 83808264
+        },
+        {
+          "label": "public-source",
+          "ms": 80.5,
+          "heapUsed": 65307443,
+          "heapTotal": 101792267
+        }
+      ],
+      "instrumentedPeakIsNotAnUninstrumentedProductMeasurement": true,
+      "ablationProductQualityNotAccepted": true,
+      "providerProbeIsNotSafeProductOptimization": true,
+      "canonicalPrefetchPrototypeNotPromoted": true,
+      "earlyTextProviderControlledGeometryMatches": true,
+      "previous289SvgFixPreserved": true
+    },
+    "sourceProviderCounterexample": true,
+    "nativeRuntimeGroups": 9,
+    "nativeControlsEach": 13,
+    "sourceModeGeometryGroups": 1,
+    "sourceModeGeometryChecks": 12,
+    "sourceModeNativeControls": 6,
+    "newProductionOrDiagnosticCompilation": false,
+    "newPdfOrFullMatrixRun": false,
+    "noGitHubNetworkPackageInstallRealNotes": true
+  },
+  "remaining": [
+    "289已确认的约100MiB修正保持；剩余约280MiB峰值、首次必要原文临时DOM与原生驻留仍未完全解决。",
+    "不能将已有转换文本直接当规范原文；已确认回调修改原文时会漏渲染，且安全前移getter没有峰值收益。",
+    "本轮不打包／同步；289的打印伴随头文件仍需下次正式构建重编。"
+  ],
+  "nextGate": "只在新的实现级等价依据支持时，优化正式原文getter的解析／克隆／HTML重建与文本规范化临时分配；保留实际返回值、回调时序、未保存内容及同文档版本失效规则，不能以早期转换文本替代。不要重跑已否定的单改内部宽度或安全前移读取方案。",
+  "productChanged": false,
+  "newProductionCompilationRequired": true
+}

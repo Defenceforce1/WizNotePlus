@@ -1,0 +1,89 @@
+{
+  "phase": 265,
+  "date": "2026-10-27",
+  "scope": "Bound accepted current-note source-path index; preserve independent save ownership and existing load admission",
+  "predecessor": 264,
+  "baseline": {
+    "sourceFilesVerifiedBeforeWork": 753,
+    "editorJsSha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+    "prior261262And264FixesRetained": true
+  },
+  "change": {
+    "file": "src/gui/documentviewer/WizDocumentWebView.cpp",
+    "sha256": "7324810808421e2f3a81633ccae31e1cff0ce71ac9e684f40024c1617c5372b7",
+    "onlyProductDelta": "Replace historical map insertion with a one-entry map after accepted current onDocumentReady result",
+    "allThreeConsumersAudited": true,
+    "allSaveProducersAndPriorClearCodeByteIdentical": true,
+    "noFileDeletionOrSaveQueueDiscard": true
+  },
+  "validation": {
+    "finalAssociatedAssertions": 32,
+    "prototype29ExcludedFromFinalCount": true,
+    "actualExtractedMethods": [
+      "acceptsLoadResult",
+      "takeLoadResult",
+      "onDocumentReady",
+      "DocumentLoaderSaver::save",
+      "DocumentLoaderSaver::peekFirst"
+    ],
+    "onlyClassNamesChanged": true,
+    "realQtQueuedOldPathOwnership": true,
+    "wrongRequesterNoteSequenceAndReadPermissionPreserved": true,
+    "dbFailureAndReentrantDestroyedOwnerGuardsPreserved": true,
+    "sameNoteNewPathAndDuplicateResultHandlingPreserved": true,
+    "authorizationRetryPreserved": true,
+    "saverFifoAndOldTaskDataPreserved": true,
+    "actualChangedNativeTranslationUnitCompiled": true,
+    "wholeProgramLinked": false,
+    "compilerWarningsRetained": 19,
+    "qtVersion": "6.11.3",
+    "currentComponentsGroups": 15,
+    "currentComponentFiles": 80,
+    "fullMainWindowWorkerIoOrLongTermAcceptance": false,
+    "formulaPdfOrOldMemoryMatricesRepeated": false
+  },
+  "measurement": {
+    "syntheticAcceptedNotes": 4096,
+    "historicalEntriesAndMaximum": [
+      4096,
+      4096
+    ],
+    "currentEntriesAndMaximum": [
+      1,
+      1
+    ],
+    "historicalActiveMallocDeltaBytes": 2883712,
+    "currentActiveMallocDeltaBytes": 832,
+    "sameProcessSequentialSyntheticControl": true,
+    "ordinaryUserFixedSavingsClaimed": false,
+    "physicalMemoryReductionClaimed": false,
+    "overallWebEngineHighWaterResolved": false,
+    "allocatorIntervention": false
+  },
+  "saverReview": {
+    "completedQueueRemovalPreservesOnlyNecessaryQueuedAndInFlightOwnership": true,
+    "vectorCapacityNotEquatedWithLiveHtmlPayload": true,
+    "noNewSafePayloadDeletionPointFound": true,
+    "saverProductCodeChanged": false
+  },
+  "boundaries": {
+    "githubAccess": false,
+    "githubSynchronization": false,
+    "githubWrites": false,
+    "normalAccountOrNotesAccess": false,
+    "agentsAccess": false,
+    "installedAppOrFrozenArtifactsChanged": false,
+    "localCommitOrStaging": false,
+    "newPackageOrSigning": false,
+    "automationRecreated": false
+  },
+  "remaining": [
+    "Overall WebEngine readiness and main-process resident/fragmentation high-water not fully attributed",
+    "Residual source getter around53-57ms not further optimized in this stage",
+    "Local258/259/261/262/264/265 changes remain unpackaged and unsynchronized; full independent production build/combined acceptance still pending",
+    "No new confirmed high-value allocation owner found after bounded saver review"
+  ],
+  "recommendation": "Prioritize combined validation of confirmed changes before further open-ended exploration",
+  "finiteStageComplete": true,
+  "allMemoryIssuesResolved": false
+}

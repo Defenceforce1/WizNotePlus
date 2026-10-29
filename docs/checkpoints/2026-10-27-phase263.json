@@ -1,0 +1,95 @@
+{
+  "phase": 263,
+  "date": "2026-10-27",
+  "scope": "Bounded residual getter DOM exploration using the exact licensed official source; no product changes",
+  "predecessor": 262,
+  "sourceBaseline": {
+    "filesVerifiedBeforeWork": 744,
+    "editorSha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+    "officialSourceCommit": "7067bcfc421edce932aa3144ef2d1d631f27595a",
+    "prior261And262FixesRetained": true,
+    "embeddedDependencyCodeUnchanged": true
+  },
+  "results": {
+    "cloneShortcut": {
+      "guardedSinglePairMs": [
+        54.4,
+        52.3
+      ],
+      "materialGainProven": false,
+      "unconditionalCandidateRejected": true,
+      "customElementConstructorCallsBeforeAfter": [
+        12,
+        8
+      ],
+      "customElementModeDifferences": 6,
+      "plainSourceEqualityNotSufficient": true,
+      "productPatchApplied": false
+    },
+    "nestedWrapper": {
+      "sameBinaryAndInput": true,
+      "singlePairGetterMs": [
+        54,
+        53.7
+      ],
+      "materialGainProven": false,
+      "memoryAttributionNotEstablished": true,
+      "productPatchApplied": false
+    },
+    "measurementOverhead": {
+      "sameNativeBinaryAndInput": true,
+      "initialBodyHelperMsWithGeometryVsTimingOnly": [
+        1124.2,
+        20.3
+      ],
+      "laterDivHelperMsWithGeometryVsTimingOnly": [
+        162.2,
+        33.6
+      ],
+      "diagnosticRendererPeakMiBWithGeometryVsTimingOnly": [
+        855.6,
+        364.3
+      ],
+      "measurementForcesAvoidableLayout": true,
+      "geometryVariantExcludedFromNormalProductMetrics": true,
+      "notAProductMemoryFix": true
+    }
+  },
+  "validation": {
+    "controlledSourceCostRuns": 7,
+    "sourceCostBasicAssertions": 84,
+    "specialContentNativeControlRuns": 2,
+    "specialContentBasicAssertions": 32,
+    "specialContentCompatibilityDifferencesRetained": 6,
+    "newProductAcceptanceAssertions": 0,
+    "fullClientAccepted": false,
+    "formulaOrPdfMatrixRepeated": false,
+    "oldCloseOrLongMemoryMatrixRepeated": false,
+    "currentComponentsVerified": true,
+    "actualHiddenCocoaMetal": true,
+    "normalTopLevelEventLoop": true
+  },
+  "boundaries": {
+    "productCodeChanged": false,
+    "repositoryTestsChanged": false,
+    "independentDiagnosticCodeChanged": true,
+    "documentationChanged": true,
+    "githubAccess": false,
+    "githubSynchronization": false,
+    "githubWrites": false,
+    "localCommitOrStaging": false,
+    "installedAppChanged": false,
+    "realNotesAccessed": false,
+    "agentsAccessed": false,
+    "packagingOrSigning": false,
+    "automationRecreated": false
+  },
+  "remaining": [
+    "No new confirmed product allocation/owner responsible for main-process retention after renderer exit",
+    "Residual getter around53-57ms and renderer readiness footprint remain not fully attributed",
+    "Local258/259/261/262 fixes remain unpackaged and unsynchronized",
+    "Complete legacy rebuildable source project/source map/API contract not found"
+  ],
+  "finiteStageComplete": true,
+  "allMemoryIssuesResolved": false
+}

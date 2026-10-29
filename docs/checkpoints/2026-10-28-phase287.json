@@ -1,0 +1,191 @@
+{
+  "phase": 287,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 287,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "rejectedCandidates": [
+      "selector union",
+      "per-element classless inline bypass"
+    ],
+    "nativeConfirmation": [
+      {
+        "counts": [
+          {
+            "flagsBytes": 155005,
+            "matches": 4,
+            "requested": 2,
+            "variant": "baseline"
+          },
+          {
+            "flagsBytes": 155005,
+            "matches": 4,
+            "requested": 2,
+            "variant": "candidate"
+          }
+        ],
+        "name": "few-large-parts",
+        "timings": [
+          {
+            "ms": 6.900000000372529,
+            "variant": "baseline"
+          },
+          {
+            "ms": 6.599999999627471,
+            "variant": "candidate"
+          },
+          {
+            "ms": 6.5,
+            "variant": "candidate"
+          },
+          {
+            "ms": 6.2000000001862645,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "counts": [
+          {
+            "flagsBytes": 98116,
+            "matches": 12000,
+            "requested": 2,
+            "variant": "baseline"
+          },
+          {
+            "flagsBytes": 98116,
+            "matches": 0,
+            "requested": 2,
+            "variant": "candidate"
+          }
+        ],
+        "name": "many-inline-parts",
+        "timings": [
+          {
+            "ms": 16.100000000093132,
+            "variant": "baseline"
+          },
+          {
+            "ms": 6.399999999906868,
+            "variant": "candidate"
+          },
+          {
+            "ms": 6.2000000001862645,
+            "variant": "candidate"
+          },
+          {
+            "ms": 16.899999999906868,
+            "variant": "baseline"
+          }
+        ]
+      },
+      {
+        "counts": [
+          {
+            "flagsBytes": 3,
+            "matches": 2000,
+            "requested": 1000,
+            "variant": "baseline"
+          },
+          {
+            "flagsBytes": 3,
+            "matches": 2000,
+            "requested": 1000,
+            "variant": "candidate"
+          }
+        ],
+        "name": "many-small-scopes",
+        "timings": [
+          {
+            "ms": 2.8999999999068677,
+            "variant": "baseline"
+          },
+          {
+            "ms": 2.900000000372529,
+            "variant": "candidate"
+          },
+          {
+            "ms": 2.8999999999068677,
+            "variant": "candidate"
+          },
+          {
+            "ms": 2.8999999999068677,
+            "variant": "baseline"
+          }
+        ]
+      }
+    ],
+    "fallbackConfirmation": [
+      {
+        "counts": [
+          {
+            "flagsBytes": 98116,
+            "matches": 12001,
+            "requested": 2,
+            "variant": "baseline"
+          },
+          {
+            "flagsBytes": 98116,
+            "matches": 12001,
+            "requested": 2,
+            "variant": "candidate"
+          }
+        ],
+        "name": "many-inline-with-excluded",
+        "timings": [
+          {
+            "ms": 16.700000000186265,
+            "variant": "baseline"
+          },
+          {
+            "ms": 17.399999999906868,
+            "variant": "candidate"
+          },
+          {
+            "ms": 17.100000000093132,
+            "variant": "candidate"
+          },
+          {
+            "ms": 16.299999999813735,
+            "variant": "baseline"
+          }
+        ]
+      }
+    ],
+    "walkerChecks": 137,
+    "previousRelatedChecks": 210,
+    "finalUniqueDomChecks": 347,
+    "geometry": {
+      "accepted": true,
+      "priorControlPhase": 285,
+      "sameBinaryAndEngine": true,
+      "stages": 2,
+      "containersEach": 130,
+      "geometrySvgAndSourcePreserved": true,
+      "actualFastPathCoveredByWalkerDecoratorIntegrationCases": true
+    },
+    "scopeGuard": ">=64 direct child elements and no rejected descendant; otherwise original walker",
+    "noParserMaskOffsetSourceOrCacheChange": true,
+    "runtimeContextAndGeometryGroups": 7,
+    "nativeChecksEach": 6,
+    "pdfChecks": 30,
+    "pdfModes": 2,
+    "pdfPixelsAndLinksUnchanged": true,
+    "smallScopesNoObservedRegression": true,
+    "worstTestedFallbackOverheadMsApprox": 0.75,
+    "wholeClientPerformanceClaimed": false,
+    "processPeakMemoryReductionClaimed": false,
+    "upstreamComponentsOrLockChanged": false,
+    "noNativeBuildPackageNetworkSync": true
+  },
+  "remaining": [
+    "整体WebEngine高水位、主进程长期驻留和必要原文读取仍未全部归因。",
+    "原生快路径仅适用较大且无排除后代的作用域；回退检查有约0.75ms合成代价，不泛称所有文档提速。",
+    "累计源码修正尚未打包／同步，继续按用户要求暂停。"
+  ],
+  "nextGate": "本轮三个候选已收敛；保留原生作用域路径与全部原规则回退，后续只追新的明确分配／调用证据，不重复已有矩阵。",
+  "productChanged": true
+}

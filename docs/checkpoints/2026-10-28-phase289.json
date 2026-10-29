@@ -1,0 +1,103 @@
+{
+  "phase": 289,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 289,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "dominantOwnedTrigger": "Unconditionally freezing already-fitting native full-width v4 SVG output into pixel geometry",
+    "memory": {
+      "accepted": true,
+      "phase": 289,
+      "sequence": [
+        {
+          "label": "baseline-final",
+          "variant": "resources",
+          "peakMiB": 379.18912506103516,
+          "lifetimePeakMiB": 380.50162506103516,
+          "beforeSourceMiB": 339.67347717285156,
+          "afterSourceMiB": 380.03287506103516,
+          "seconds": 3.8313660621643066,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "checks": 13
+        },
+        {
+          "label": "final-candidate",
+          "variant": "candidate-resources",
+          "peakMiB": 280.3921813964844,
+          "lifetimePeakMiB": 281.5015563964844,
+          "beforeSourceMiB": 252.32968139648438,
+          "afterSourceMiB": 280.4859313964844,
+          "seconds": 3.6169021129608154,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "checks": 13
+        },
+        {
+          "label": "final-candidate-confirm",
+          "variant": "candidate-resources",
+          "peakMiB": 280.3296356201172,
+          "lifetimePeakMiB": 281.1890106201172,
+          "beforeSourceMiB": 252.3921356201172,
+          "afterSourceMiB": 280.4233856201172,
+          "seconds": 3.627833843231201,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "checks": 13
+        },
+        {
+          "label": "baseline-validation-post",
+          "variant": "resources",
+          "peakMiB": 381.92347717285156,
+          "lifetimePeakMiB": 381.92347717285156,
+          "beforeSourceMiB": 339.28282928466797,
+          "afterSourceMiB": 381.06410217285156,
+          "seconds": 3.8250229358673096,
+          "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+          "checks": 13
+        }
+      ],
+      "sameExecutable": true,
+      "baselineMeanPeakMiB": 380.55630111694336,
+      "candidateMeanPeakMiB": 280.3609085083008,
+      "reductionMiB": 100.19539260864258,
+      "reductionPercent": 26.328664724395917,
+      "baselineMeanLifetimePeakMiB": 381.21255111694336,
+      "candidateMeanLifetimePeakMiB": 281.3452835083008,
+      "samePreciseHeapFlagInAllGroups": true,
+      "allGroupsNativeLoggingOff": true,
+      "noPerformanceTimingBenefitClaimed": true,
+      "noLongTermResidencyImprovementClaimed": true,
+      "syntheticOnly": true
+    },
+    "newBridgeDecisionChecks": 23,
+    "sourceAndEditorGeometryChecks": 12,
+    "nativeGeometryControls": 6,
+    "finalPdfRuntimeChecks": 30,
+    "finalPdfModes": 2,
+    "finalPdfPixelsTargetsLinksProseUnchanged": true,
+    "printOnlyLazyFreezeAndExactRestoreValidated": true,
+    "nativeAllocationLoggingGroups": 2,
+    "nativeControlsPerLoggingGroup": 20,
+    "nativeMaps": 6,
+    "nativeResidencyImprovementClaimed": false,
+    "nativeDirtyCategoryNotSpecificObjectOwnership": "App-Specific Tag16 large snapshot288.41 to208.92MiB under logging; not a per-object allocation stack or uninstrumented benchmark",
+    "nativeLongTermAfterSmallFootprintsMiB": [
+      118.47028350830078,
+      119.54843139648438
+    ],
+    "upstreamEngineFontCoreEditorUnchanged": true,
+    "componentLockOwnedBridgeDigestOnlyChanged": true,
+    "noNetworkPackageSyncInstallOrRealNotes": true,
+    "newNativeDiagnosticCompiled": true,
+    "newProductionCompilationPerformed": false
+  },
+  "remaining": [
+    "大文档仍约280MiB采样／281MiB系统生命周期峰值，首次必要原文getter及其余渲染分配尚未全部归因。",
+    "切回小文档30秒后的驻留没有改善证据，不能将峰值修正说成长时间无泄漏或主进程驻留修复。",
+    "累计源码未打包／同步；新打印伴随逻辑需下次正式构建重新编译，现用App未修改。"
+  ],
+  "nextGate": "后续围绕剩余必要原文getter临时DOM／序列化分配与切小后的具体存活分配新证据继续；不要重复已确认的正常公式冻结ABBA或以局部毫秒替代主要内存归因。",
+  "productChanged": true,
+  "newProductionCompilationRequired": true
+}

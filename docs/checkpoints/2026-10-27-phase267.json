@@ -1,0 +1,84 @@
+{
+  "phase": 267,
+  "date": "2026-10-27",
+  "predecessor": 266,
+  "scope": "Bounded current-component MathJax compatibility lifetime investigation and confirmed own-source fixes",
+  "sourceFilesVerifiedBefore": 760,
+  "sourceFilesAfter": 763,
+  "sourceChanges": [
+    "Stable MathItem WeakMap key for retained original script and placeholder",
+    "Retire engine items before pruning fully disconnected script/frame records",
+    "Bound recent-operation trace256"
+  ],
+  "finalAdapterSha256": "509a4974017f88771596f95b875a88347fe222c29f3a4795a35ac6156d8b7f64",
+  "upstreamEngineAndEditorCoreChanged": false,
+  "validation": {
+    "accepted": true,
+    "phase": 267,
+    "finalLifecycleAssertions": 31,
+    "finalEngineApiAssertions": 14,
+    "finalMathSourceSavePdfAssertions": 30,
+    "totalFinalAssociatedAssertions": 75,
+    "failures": 0,
+    "oldApiNegativeControlFailedAssertions": 9,
+    "prototypeFirstApiCandidateFailedAssertions": 5,
+    "prototypeAndHistoricalControlsExcluded": true,
+    "finalAdapterSha256": "509a4974017f88771596f95b875a88347fe222c29f3a4795a35ac6156d8b7f64",
+    "sameBinaryApiNegativeControl": true,
+    "sameBinaryFirstStageObservation": true,
+    "finalBroadMemoryBeforeAfterComparisonClaimed": false,
+    "perPhaseFinalMemoryObservationOnly": true,
+    "smallIdle10sFinalRendererMiB": 596.4237976074219,
+    "largeFinalSampledPeakMiB": 828.0645370483398,
+    "detachedFragmentsBeforeAfter": [
+      8,
+      0
+    ],
+    "repeatedApiDomReplacementFinalCount": [
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3
+    ],
+    "repeatedTypesetScopeLiveBeforeAfter": [
+      2,
+      1
+    ],
+    "traceObservedBeforeAfter": [
+      1035,
+      256
+    ],
+    "normalModeMathItemsDoNotAccumulate": true,
+    "normalEditingStillRetainsDetachedItemsUntilNextRender": 129,
+    "overallHighWaterResolved": false,
+    "newStablePhysicalMemoryBenefitClaimed": false,
+    "coreEditorAndUpstreamEngineFilesChanged": false,
+    "normalAccountOrNotesAccessed": false,
+    "githubAccess": false,
+    "newPackageProduced": false,
+    "remaining": "Peak and post-large-small residency still high; no exact owner of bulk resident/fragmentation found; editing retains current129 formula objects until next render, not yet proven safely removable"
+  },
+  "physicalMemoryImprovementClaimed": false,
+  "fullClientAccepted": false,
+  "finiteStageComplete": true,
+  "remaining": [
+    "Overall WebEngine/readiness and main-process residency/fragmentation are not fully attributed",
+    "Current129 formula items remain during editing until next render; no safe immediate destruction established",
+    "Source phases258/259/261/262/264/265/267 remain unpackaged and unsynchronized by user instruction",
+    "Real main-window disk-save-worker and long-term use not accepted"
+  ],
+  "recommendation": "Keep bounded confirmed fixes and evidence; no full matrix repeat, speculative cleanup or open-ended expansion",
+  "boundaries": {
+    "agentsAccessed": false,
+    "networkOrGithubAccess": false,
+    "newPackageOrSigning": false,
+    "normalAccountOrNotesAccess": false,
+    "installedAppChanged": false,
+    "localCommitOrStaging": false,
+    "automationRecreated": false
+  }
+}

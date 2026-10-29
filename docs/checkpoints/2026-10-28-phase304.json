@@ -1,0 +1,53 @@
+{
+  "phase": 304,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 304,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newProductMemoryImprovementClaimed": false,
+    "candidateCount": 1,
+    "frozenChecks": 348,
+    "frozenCases": 42,
+    "initialFrozenProcessAcceptancePassed": false,
+    "initialFrozenExitSignal": "SIGSEGV",
+    "initialFailurePreserved": true,
+    "currentFrozenFixtureNativeControls": 11,
+    "currentFrozenFixtureExitedNormally": true,
+    "branchProbeNativeControls": 9,
+    "branchCounter": [
+      0,
+      0
+    ],
+    "branchTargetExerciseAssertionPassed": false,
+    "candidateRejectedNotPromoted": true,
+    "fullMemoryGroupsRun": 0,
+    "privateSourceShapeNotReadOrAssumed": true,
+    "nativeOwnerSourceAuditComplete": true,
+    "confirmedUnnecessaryNativeOwnerFound": false,
+    "authorizedFiniteRoutesClosed": true,
+    "detailedScopeRuntimeExecuted": false,
+    "fullClientOrLongTermAccepted": false,
+    "automationStatus": "PAUSED",
+    "frequencyMinutesRetained": 20,
+    "explicitPermissionPending": true
+  },
+  "evidenceRoot": "outputs/exploration-20261028/phase304",
+  "report": "docs/outer-source-dom-native-owner-closeout-2026-10-28.md",
+  "remaining": [
+    "实际高内存尚未修复，产品仍292；没有可验证收益或已证明命中的候选，不合入、不打包。",
+    "所列授权内三条有限路线已经收口，不能称完成所有可能探索或长期无泄漏。现有聚合值／源码不足以确定下一处可安全改动的分配持有点。",
+    "新一步是同版提供者的详细类型／空间／freelist聚合统计，但现有指令明确未授权详细dump；已向用户询问，未执行。该接口会完成已有清扫并重置分配缓冲，可能影响时序；类型名统计依赖编译支持。",
+    "新的许可应仅限新建合成进程、已核静态类名及聚合字节／对象数；不保存正文／地址／对象关系／私有JS栈，不主动请求新GC或改上游。先一小资格探针，无类名或有不合要求的行为则停止。",
+    "旧独立验证工具退出SIGSEGV仍是保留的工具限制，当前夹具复核退出正常不等于修好了旧工具或验收了现用App；本轮未打开真实账号／笔记。",
+    "定时任务已通过管理工具暂停并回读，20分钟配置保留，等待必要新授权，不重复空跑；GitHub仍暂停，无安装、重签名、外网或现用App／真实资料修改。"
+  ],
+  "nextGate": "等待用户对next-authorization-proposal.json中的详细聚合分类范围明确同意。未同意时不得把既有light权限扩展为detailed，或通过更多旧试验代替新证据。若同意，先审查同版全部相关提供者不主动请求GC／HeapProfiler快照，再只跑一份小合成资格探针，记录同步完成已有清扫的观察效应和静态类型支持；可用才计划有界高阶段分类，不能把统计后的下降当产品收益。",
+  "followupPlanPath": "outputs/exploration-20261028/phase304/remaining-finite-plan.json",
+  "permissionProposalPath": "outputs/exploration-20261028/phase304/next-authorization-proposal.json",
+  "productRemainsPhase": 292,
+  "sourceOnlyLocalDocumentation": true,
+  "githubSyncSuspended": true,
+  "noProductMemoryImprovementClaimed": true
+}

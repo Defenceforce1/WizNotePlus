@@ -1,0 +1,145 @@
+{
+  "phase": 275,
+  "date": "2026-10-27",
+  "predecessor": 274,
+  "scope": "Public converter boundary attribution, own factory lookalike rejection, bounded scanner negative control",
+  "sourceFilesBefore": 779,
+  "sourceFilesAfter": 781,
+  "productCodeChanged": false,
+  "repositoryTestCodeChanged": false,
+  "validation": {
+    "accepted": true,
+    "phase": 275,
+    "finiteStageComplete": true,
+    "productCodeChanged": false,
+    "repositoryTestCodeChanged": false,
+    "documentationOnlyInRepository": true,
+    "sameCurrentResourcesAs271": true,
+    "publicBoundary": "Converter.makeHtml inside the legally reviewed same official editor-owned factory",
+    "embeddedConverterImportId": 529,
+    "embeddedImplementationReadOrModified": false,
+    "exactConverterPackageVersionOrLicenseResolved": false,
+    "observedInputUnits": 786587,
+    "observedOutputCount": 6130,
+    "finalOwnCandidateHitControls": 19,
+    "finalPublicConverterBoundaryControls": 19,
+    "nativeCandidatePairControls": [
+      20,
+      20
+    ],
+    "earlySuccessfulScopeProbeControlsExcludedFromFinalSum": [
+      19,
+      19,
+      19
+    ],
+    "failedReadonlyPublicExportProbePreserved": true,
+    "earlyScopePublicationAndLogForwardingLimitsPreserved": true,
+    "boundaryChecks": 6,
+    "candidateTokenEquivalenceCases": 1809,
+    "candidateOwnedExpressionHitCount": 0,
+    "candidatePromoted": false,
+    "candidateRejected": true,
+    "earlierStaticCallsiteInferenceCorrected": true,
+    "candidateEquivalentTokensNotProofOfExecutionOrBenefit": true,
+    "nativeCandidatePair": [
+      {
+        "label": "memory-baseline",
+        "coreSha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+        "runtimeChecks": 20,
+        "stages": [
+          {
+            "phase": "fresh-small",
+            "footprint": "Physical footprint:         68.2M",
+            "regexEmptyDirtyMiB": 0.0,
+            "regexDirtyMiB": 0.0,
+            "defaultZone": "DefaultMallocZone_0x1021d8000      57.2M      22.0M      22.0M         0K      32291      7418K      14.8M     68%      18"
+          },
+          {
+            "phase": "large-after-source",
+            "footprint": "Physical footprint:         498.7M",
+            "regexEmptyDirtyMiB": 39.8125,
+            "regexDirtyMiB": 39.8125,
+            "defaultZone": "DefaultMallocZone_0x1021d8000     117.2M      85.1M      85.1M         0K      48413      12.4M      72.7M     86%      33"
+          },
+          {
+            "phase": "post-large-small-30s",
+            "footprint": "Physical footprint:         164.5M",
+            "regexEmptyDirtyMiB": 39.8125,
+            "regexDirtyMiB": 39.8125,
+            "defaultZone": "DefaultMallocZone_0x1021d8000     117.2M      85.6M      85.6M         0K      42192      8860K      76.9M     90%      33"
+          }
+        ]
+      },
+      {
+        "label": "memory-candidate",
+        "coreSha256": "58689e988627d79256054bfac441a7af65eaa18989c156b02bc3f6fa52ab92cf",
+        "runtimeChecks": 20,
+        "stages": [
+          {
+            "phase": "fresh-small",
+            "footprint": "Physical footprint:         67.8M",
+            "regexEmptyDirtyMiB": 0.0,
+            "regexDirtyMiB": 0.0,
+            "defaultZone": "DefaultMallocZone_0x106900000      57.2M      21.7M      21.7M         0K      32189      7396K      14.4M     67%      18"
+          },
+          {
+            "phase": "large-after-source",
+            "footprint": "Physical footprint:         499.2M",
+            "regexEmptyDirtyMiB": 36.0,
+            "regexDirtyMiB": 38.921875,
+            "defaultZone": "DefaultMallocZone_0x106900000     117.2M      84.7M      84.7M         0K      48801      12.4M      72.3M     86%      33"
+          },
+          {
+            "phase": "post-large-small-30s",
+            "footprint": "Physical footprint:         163.2M",
+            "regexEmptyDirtyMiB": 36.0,
+            "regexDirtyMiB": 38.96875,
+            "defaultZone": "DefaultMallocZone_0x106900000     117.2M      85.2M      85.2M         0K      42373      8727K      76.6M     90%      33"
+          }
+        ]
+      }
+    ],
+    "extraReverseMemoryConfirmationsPerformed": false,
+    "reasonNoMoreMemoryGroups": "Candidate never hits observed workload; initial pair shows no target-path benefit, so further repetitions are not justified",
+    "nativeDiagnosticExeSha256": "caa03f07d6d995961bae1e3c39495ee4200965ed69cb906e5e3c28a50a4bf0c8",
+    "scalarDiagnosticExeSha256": "82766d50a44c9799842d6d281baa3ed9e250fcc80599ba31d3360f659fceed27",
+    "coreCurrentSha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+    "candidateCoreSha256": "58689e988627d79256054bfac441a7af65eaa18989c156b02bc3f6fa52ab92cf",
+    "adapterSha256": "0d89f000a0c91be18d2b98e0d85cb8c777f63fca6698bc17e630da89af115098",
+    "componentLockSha256": "e8901885b145ef1a713f6b4bd8cd80c04bba2b81b23567bd5bc557cde8f1e41d",
+    "noRuntimeSourceRegexTextOrPrivateJsStackHeap": true,
+    "staticOwnDelimiterReadUnderExistingOfficialLicenseGate": true,
+    "noOldComponentUsedAsRuntime": true,
+    "oldOfficialSourceUsedForScopeMetadataOnly": true,
+    "normalAccountOrNotesAccessed": false,
+    "githubOrNetworkAccess": false,
+    "newPackageProduced": false,
+    "noForcedGcHistoryCacheOrProfileClear": true,
+    "newPerformanceOrPhysicalMemoryBenefitClaimed": false,
+    "overallHighWaterResolved": false,
+    "currentAppOrSigningPolicyChanged": false,
+    "previousFixesThrough271Preserved": true,
+    "noFullFormulaPdfOrLongMatrixRepeated": true,
+    "remaining": [
+      "The786587-unit split producing6130items is now enclosed by the public Converter.makeHtml call; embedded converter import module529 still lacks exact standalone package/version/license identification in the reviewed local metadata",
+      "The same owned module math-preprocessor split was a static lookalike, executes zero times on the observed input, and its scanner candidate is rejected; token equivalence does not prove target-path execution or memory benefit",
+      "Physical peak and other residency remain unresolved; instrumented pair is not normal-client performance and does not justify allocator/global builtin or embedded dependency modifications",
+      "Product fixes through271 remain local/unpackaged and GitHub sync suspended; no real-client/worker/long-term acceptance performed"
+    ]
+  },
+  "finiteStageComplete": true,
+  "overallMemoryHighWaterResolved": false,
+  "agentsAccessed": false,
+  "githubOrNetworkAccess": false,
+  "normalAccountOrNotesAccessed": false,
+  "newPackageOrSigning": false,
+  "localCommitOrStaging": false,
+  "automationRecreated": false,
+  "remaining": [
+    "The786587-unit split producing6130items is now enclosed by the public Converter.makeHtml call; embedded converter import module529 still lacks exact standalone package/version/license identification in the reviewed local metadata",
+    "The same owned module math-preprocessor split was a static lookalike, executes zero times on the observed input, and its scanner candidate is rejected; token equivalence does not prove target-path execution or memory benefit",
+    "Physical peak and other residency remain unresolved; instrumented pair is not normal-client performance and does not justify allocator/global builtin or embedded dependency modifications",
+    "Product fixes through271 remain local/unpackaged and GitHub sync suspended; no real-client/worker/long-term acceptance performed"
+  ],
+  "recommendation": "Next identify exact source/license/version of embedded converter import529, then its paragraph split implementation under verified permission; do not repeat own math scanner or total-memory controls"
+}

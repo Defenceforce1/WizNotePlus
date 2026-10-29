@@ -1,0 +1,396 @@
+{
+  "phase": 299,
+  "date": "2026-10-28",
+  "report": "docs/blink-pool-memory-attribution-2026-10-28.md",
+  "validation": {
+    "phase": 299,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newLightCategoryScalarPathWorking": true,
+    "exactProtocolSchemaVerifiedLocally": true,
+    "explicitNoGcLightModeOnly": true,
+    "noJsStackSamplingOrObjectHeapSnapshot": true,
+    "categoryGroups": 3,
+    "sixRoundCategoryChecksEach": 71,
+    "categoryBarriersPerGroup": 6,
+    "noDebugMemoryGroups": 6,
+    "noDebugChecksEach": 71,
+    "candidateMemoryVarianceRetained": true,
+    "candidateNotPromotedForUnstableWorstCase": true,
+    "frozenDomCases": 141,
+    "frozenDomStates": 562,
+    "frozenDomChecks": 1686,
+    "getterCases": 14,
+    "getterStates": 56,
+    "getterPassedEach": 58,
+    "getterExistingStrictDomFailuresEach": 2,
+    "pdfChecksPerGroup": 30,
+    "pdfModes": 2,
+    "pdfPixelsAndTargetsMatchFreshReference": true,
+    "originalSingleOpenRegressionStillRelevant": true,
+    "onlyMetadataDriverNewlyBuilt": true,
+    "newNativeProductBuild": false,
+    "newPackageOrInstallOrSync": false,
+    "loopbackNumbersPreviouslyAuthorized": true,
+    "externalNetworkAccess": false,
+    "automationStatus": "PAUSED"
+  },
+  "lightCategoryAttribution": {
+    "phase": 299,
+    "groups": [
+      {
+        "label": "category-observation",
+        "peakMiB": 539.439,
+        "points": [
+          {
+            "phase": "fresh-small",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.305,
+              "committed_size": 2.125,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 55.533,
+            "rssMiB": 147.641,
+            "categories": 101
+          },
+          {
+            "phase": "large-after-source-1",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 109.723,
+              "committed_size": 120.249,
+              "pooled_size": 6.375
+            },
+            "footprintMiB": 274.189,
+            "rssMiB": 374.031,
+            "categories": 101
+          },
+          {
+            "phase": "small-round-1",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 110.649,
+              "committed_size": 120.249,
+              "pooled_size": 5.375
+            },
+            "footprintMiB": 277.173,
+            "rssMiB": 376.469,
+            "categories": 101
+          },
+          {
+            "phase": "large-after-source-6",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 87.508,
+              "committed_size": 283.203,
+              "pooled_size": 154.875
+            },
+            "footprintMiB": 483.095,
+            "rssMiB": 594.484,
+            "categories": 101
+          },
+          {
+            "phase": "small-round-6",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 88.639,
+              "committed_size": 283.203,
+              "pooled_size": 154.75
+            },
+            "footprintMiB": 485.064,
+            "rssMiB": 594.922,
+            "categories": 101
+          },
+          {
+            "phase": "post-large-small-30s",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.093,
+              "committed_size": 5.75,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 80.689,
+            "rssMiB": 215.266,
+            "categories": 93
+          }
+        ],
+        "noForcedGcOrStacksOrObjectSnapshot": true,
+        "sameNativeDriverSha256": "ef05058b41a72b198f67ecab7d2ff86e787fbb73c3d29f89d9406e1dd2adc527"
+      },
+      {
+        "label": "category-shallow",
+        "peakMiB": 354.017,
+        "points": [
+          {
+            "phase": "fresh-small",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.316,
+              "committed_size": 2.125,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 55.079,
+            "rssMiB": 147.203,
+            "categories": 101
+          },
+          {
+            "phase": "large-after-source-1",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 128.518,
+              "committed_size": 135.397,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 286.377,
+            "rssMiB": 383.953,
+            "categories": 101
+          },
+          {
+            "phase": "small-round-1",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.655,
+              "committed_size": 131.0,
+              "pooled_size": 125.25
+            },
+            "footprintMiB": 258.423,
+            "rssMiB": 369.047,
+            "categories": 101
+          },
+          {
+            "phase": "large-after-source-6",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 99.355,
+              "committed_size": 135.477,
+              "pooled_size": 25.75
+            },
+            "footprintMiB": 324.361,
+            "rssMiB": 427.203,
+            "categories": 101
+          },
+          {
+            "phase": "small-round-6",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.679,
+              "committed_size": 135.25,
+              "pooled_size": 128.375
+            },
+            "footprintMiB": 299.142,
+            "rssMiB": 412.609,
+            "categories": 101
+          },
+          {
+            "phase": "post-large-small-30s",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.009,
+              "committed_size": 5.0,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 79.877,
+            "rssMiB": 197.969,
+            "categories": 93
+          }
+        ],
+        "noForcedGcOrStacksOrObjectSnapshot": true,
+        "sameNativeDriverSha256": "ef05058b41a72b198f67ecab7d2ff86e787fbb73c3d29f89d9406e1dd2adc527"
+      },
+      {
+        "label": "category-reference-confirm",
+        "peakMiB": 539.22,
+        "points": [
+          {
+            "phase": "fresh-small",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.305,
+              "committed_size": 2.125,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 54.517,
+            "rssMiB": 146.594,
+            "categories": 101
+          },
+          {
+            "phase": "large-after-source-1",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 109.722,
+              "committed_size": 120.249,
+              "pooled_size": 6.375
+            },
+            "footprintMiB": 273.423,
+            "rssMiB": 372.516,
+            "categories": 101
+          },
+          {
+            "phase": "small-round-1",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 110.648,
+              "committed_size": 120.249,
+              "pooled_size": 5.375
+            },
+            "footprintMiB": 273.173,
+            "rssMiB": 374.656,
+            "categories": 101
+          },
+          {
+            "phase": "large-after-source-6",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 74.249,
+              "committed_size": 283.086,
+              "pooled_size": 174.125
+            },
+            "footprintMiB": 475.799,
+            "rssMiB": 588.594,
+            "categories": 101
+          },
+          {
+            "phase": "small-round-6",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 75.204,
+              "committed_size": 283.086,
+              "pooled_size": 174.125
+            },
+            "footprintMiB": 476.658,
+            "rssMiB": 588.781,
+            "categories": 101
+          },
+          {
+            "phase": "post-large-small-30s",
+            "blinkMainHeapMiB": {
+              "allocated_objects_size": 1.144,
+              "committed_size": 11.0,
+              "pooled_size": 0.0
+            },
+            "footprintMiB": 82.924,
+            "rssMiB": 219.828,
+            "categories": 93
+          }
+        ],
+        "noForcedGcOrStacksOrObjectSnapshot": true,
+        "sameNativeDriverSha256": "ef05058b41a72b198f67ecab7d2ff86e787fbb73c3d29f89d9406e1dd2adc527"
+      }
+    ],
+    "exactlyOneHeapPathNotSummingParentAndChild": true,
+    "providerReportedPoolNotDirectlyLeakedOrImmediatelyReturnableBytes": true,
+    "sameBinary": true,
+    "observedRetestPotentialNotProductAcceptance": true
+  },
+  "noDebugMemory": {
+    "phase": 299,
+    "groups": [
+      {
+        "label": "unobserved-reference-a",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "lifetimePeakMiB": 538.627,
+        "smallAfterReadMiB": [
+          276.877,
+          466.58,
+          475.986,
+          477.252,
+          477.377,
+          478.361
+        ],
+        "idle30sMiB": 80.892
+      },
+      {
+        "label": "unobserved-shallow-a",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "bf642e44eb5d0bb834e74fe5cd4cdabbbb64e97ee494217d512dcc59a56635bf",
+        "lifetimePeakMiB": 353.642,
+        "smallAfterReadMiB": [
+          258.877,
+          285.173,
+          292.33,
+          297.439,
+          297.705,
+          297.877
+        ],
+        "idle30sMiB": 79.048
+      },
+      {
+        "label": "unobserved-shallow-b",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "bf642e44eb5d0bb834e74fe5cd4cdabbbb64e97ee494217d512dcc59a56635bf",
+        "lifetimePeakMiB": 510.08,
+        "smallAfterReadMiB": [
+          257.47,
+          302.127,
+          455.736,
+          455.283,
+          463.908,
+          457.986
+        ],
+        "idle30sMiB": 80.595
+      },
+      {
+        "label": "unobserved-reference-b",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "lifetimePeakMiB": 538.017,
+        "smallAfterReadMiB": [
+          276.08,
+          464.377,
+          473.939,
+          475.095,
+          475.392,
+          477.252
+        ],
+        "idle30sMiB": 79.564
+      },
+      {
+        "label": "unobserved-shallow-c",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "faffe57c06d42723d93db899fecfce25e8195116a4319a0625f2eec1f707a617",
+        "lifetimePeakMiB": 539.408,
+        "smallAfterReadMiB": [
+          258.705,
+          300.47,
+          448.361,
+          460.236,
+          487.361,
+          493.252
+        ],
+        "idle30sMiB": 80.314
+      },
+      {
+        "label": "unobserved-reference-c",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "lifetimePeakMiB": 538.095,
+        "smallAfterReadMiB": [
+          279.127,
+          464.439,
+          471.642,
+          472.47,
+          475.22,
+          481.439
+        ],
+        "idle30sMiB": 78.861
+      }
+    ],
+    "referencePeaksMiB": [
+      538.627,
+      538.017,
+      538.095
+    ],
+    "candidatePeaksMiB": [
+      353.642,
+      510.08,
+      539.408
+    ],
+    "sameBinaryAndWorkload": true,
+    "referenceMeanMiB": 538.2463333333334,
+    "candidateMeanMiB": 467.71,
+    "notUsingMeanToHideFailedWorstCase": true,
+    "finalCandidateNoticeAndResourcePathDifferNotProvenCauseOfVariance": true,
+    "noDebugPortTraceGcOrCacheReset": true,
+    "notStableWorstCaseReductionCandidateRejected": true
+  },
+  "remaining": [
+    "实际高内存未修复；本轮直接取得BlinkGC主堆已提交／池化类别数值，但不能把池化字节直接称泄漏或保证可立即归还OS。",
+    "浅克隆重试在部分连续序列有显著收益，但无诊断最终峰值539.408MiB接近参考538MiB，且先前首开略高；不稳定最坏峰值未通过，候选未合入。",
+    "下一值得核对Blink/cppgc同版公开源码中pool和committed统计含义、回收保留策略及真正的可改触发；缺少匹配来源则保留门槛，不改私有对象或以主动GC／清缓存减数值。",
+    "当前本机诊断范围仅自有合成进程类别数值；轻量非deterministic统计明确禁用强制GC、JS栈采样和系统追踪，不扩大为对象内容、HeapProfiler快照／栈或其它App。",
+    "产品／仓库测试／锁文件保持292，原严格DOM2失败和历史PDF跨次变化保留；无打包／同步／安装或真实资料操作，定时任务仍PAUSED。"
+  ],
+  "nextGate": "下一只在已合法可读、与当前引擎匹配的本地Blink/cppgc来源中核对主堆pooled_size／committed_size及回收保留语义，判断是否存在新的自有触发点；没有精确来源／可重复收益则止步，不泛化为所有Blink泄漏、不重复浅克隆参数扫描，不用更小堆阈值／强制GC／清缓存或低质量制造下降。上游代码修改和超出现有本机类别数值范围的采集不自动执行，自动运行保持暂停。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "PAUSED",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true,
+  "localAggregateNumbersOnly": true
+}

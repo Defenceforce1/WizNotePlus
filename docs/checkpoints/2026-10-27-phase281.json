@@ -1,0 +1,110 @@
+{
+  "phase": 281,
+  "date": "2026-10-27",
+  "validation": {
+    "phase": 281,
+    "accepted": true,
+    "productChanged": false,
+    "candidatePromoted": false,
+    "overallHighWaterResolved": false,
+    "runtimeGroups": 3,
+    "nativeChecksEach": 6,
+    "jsBehaviorChecksEach": 11,
+    "inheritedProbeChecksWithLimitedMeaningEach": 1,
+    "readCountsPreserved": true,
+    "timingProbeRows": [
+      {
+        "label": "trace-baseline",
+        "fitPasses": [
+          {
+            "bbox": 128,
+            "count": 128,
+            "ms": 298.80000001192093,
+            "rects": 128
+          },
+          {
+            "bbox": 128,
+            "count": 128,
+            "ms": 306,
+            "rects": 128
+          }
+        ],
+        "readerRebuildMs": 956.6000000238419
+      },
+      {
+        "label": "trace-candidate",
+        "fitPasses": [
+          {
+            "bbox": 128,
+            "count": 128,
+            "ms": 104.60000002384186,
+            "rects": 128
+          },
+          {
+            "bbox": 128,
+            "count": 128,
+            "ms": 101.19999998807907,
+            "rects": 128
+          }
+        ],
+        "readerRebuildMs": 725.3000000119209
+      },
+      {
+        "label": "trace-narrow",
+        "fitPasses": [
+          {
+            "bbox": 128,
+            "count": 128,
+            "ms": 301.89999997615814,
+            "rects": 128
+          },
+          {
+            "bbox": 128,
+            "count": 128,
+            "ms": 311,
+            "rects": 128
+          }
+        ],
+        "readerRebuildMs": 961.6999999880791
+      }
+    ],
+    "comparisons": {
+      "full": {
+        "initialGeometry": {
+          "equal": false,
+          "changedRecords": 127
+        },
+        "finalGeometry": {
+          "equal": false,
+          "changedRecords": 127
+        }
+      },
+      "narrow": {
+        "initialGeometry": {
+          "equal": true,
+          "changedRecords": 0
+        },
+        "finalGeometry": {
+          "equal": true,
+          "changedRecords": 0
+        }
+      }
+    },
+    "fullBatchRejectedForGeometryChange": true,
+    "narrowBatchRejectedForNoTimingGain": true,
+    "instrumentationFreePerformanceClaimed": false,
+    "newMemoryComparisonPerformed": false,
+    "newMemoryBenefitClaimed": false,
+    "pdfMatrixRepeated": false,
+    "networkAccess": false,
+    "packageCreated": false,
+    "sourceAndSaveLogicUnchanged": true
+  },
+  "remaining": [
+    "剩余公式fit顺序相关布局成本已确认；两个批处理候选未同时满足几何与收益条件。",
+    "必要原文临时处理、WebEngine整体高水位及主进程长期驻留未全部解决。",
+    "近期累计修正仅保存在本地源码；依要求不打包或同步。"
+  ],
+  "nextGate": "只有保持顺序相关SVG几何的具体算法或新的布局分配证据才继续；全批处理与仅BBox批处理均不合入，不重跑该矩阵。",
+  "productChanged": false
+}

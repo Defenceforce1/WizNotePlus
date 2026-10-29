@@ -1,0 +1,39 @@
+{
+  "phase": 307,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 307,
+    "acceptedHarnessPreparation": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newEngineBuildStarted": false,
+    "existingOwnedBuildStillPending": true,
+    "defaultResourcesVerified": 196,
+    "matchedNativeMetadataAndImageGuardPrepared": true,
+    "collectorSyntaxChecked": true,
+    "preReadyGuardDeferredWithNoRenderer": true,
+    "fixedNativeOutputsAndNoRawTraceOrUnknownStderrPersistence": true,
+    "serializedCoordinatorAndRuntimeLeasesPrepared": true,
+    "oneOffDirectoryEventWaiterActiveAtSnapshot": true,
+    "existingBuildUntouched": true,
+    "maximumValidRuntimeGroups": 2,
+    "newRendererGroupsAtSnapshot": 0,
+    "nativeCounterValidatedAtSnapshot": false,
+    "automationStatus": "ACTIVE",
+    "noGithubPackageInstallationOrRealData": true
+  },
+  "stageKind": "validation-harness-preparation-not-runtime-acceptance",
+  "evidenceRoot": "outputs/exploration-20261028/phase307",
+  "designBackground": "docs/pool-origin-engine-preparation-2026-10-28.md",
+  "nextSteps": [
+    "Wait for existing306 full engine result; no duplicate build or validation coordinator",
+    "Event waiter invokes native metadata qualification then exactly one small and one bounded high aggregate group",
+    "Only after positive native counter and source evidence consider one owned allocation point; no product gain from diagnostic engine values"
+  ],
+  "remaining": [
+    "完整引擎编译仍未完成；未进行新renderer测试。",
+    "实际计数和高位来源尚未验证；高内存未修复。"
+  ],
+  "noFurtherRoutineUserApprovalRequired": true,
+  "productRemainsPhase": 292
+}

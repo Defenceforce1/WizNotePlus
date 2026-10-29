@@ -1,0 +1,128 @@
+{
+  "phase": 285,
+  "date": "2026-10-27",
+  "validation": {
+    "phase": 285,
+    "accepted": true,
+    "productChanged": true,
+    "candidatePromoted": true,
+    "overallHighWaterResolved": false,
+    "scannerRegression": {
+      "accepted": true,
+      "sourceCases": 478,
+      "positionComparisons": 1253069,
+      "defaultDenseApiPreserved": true,
+      "everyPackedPositionMatchesReference": true,
+      "unusedPaddingBitsZero": true,
+      "wholeClientAccepted": false,
+      "testSha256": "5d001cd2e2b5da7887b9136e929d0056a685bf47d0023cf1542d37843a4408a2"
+    },
+    "associatedDomChecks": 210,
+    "sparseMathCase": {
+      "inputUtf16Units": 1240140,
+      "nativeContextPositions": 1240034,
+      "protection": [
+        {
+          "buffers": 1,
+          "bytes": 1240034,
+          "fragments": 2,
+          "requested": 2,
+          "variant": "baseline"
+        },
+        {
+          "buffers": 1,
+          "bytes": 155005,
+          "fragments": 2,
+          "requested": 2,
+          "variant": "candidate"
+        }
+      ],
+      "localTimingRows": [
+        {
+          "ms": 9.699999988079071,
+          "variant": "baseline"
+        },
+        {
+          "ms": 7.300000011920929,
+          "variant": "candidate"
+        },
+        {
+          "ms": 6.899999976158142,
+          "variant": "candidate"
+        },
+        {
+          "ms": 8.199999988079071,
+          "variant": "baseline"
+        }
+      ]
+    },
+    "denseMathCase": {
+      "inputUtf16Units": 1200138,
+      "nativeContextPositions": 1200032,
+      "protection": [
+        {
+          "buffers": 1,
+          "bytes": 1200032,
+          "fragments": 2,
+          "requested": 2,
+          "variant": "baseline"
+        },
+        {
+          "buffers": 1,
+          "bytes": 150004,
+          "fragments": 2,
+          "requested": 2,
+          "variant": "candidate"
+        }
+      ],
+      "localTimingRows": [
+        {
+          "ms": 7.599999964237213,
+          "variant": "baseline"
+        },
+        {
+          "ms": 7.200000047683716,
+          "variant": "candidate"
+        },
+        {
+          "ms": 7.399999976158142,
+          "variant": "candidate"
+        },
+        {
+          "ms": 7,
+          "variant": "baseline"
+        }
+      ]
+    },
+    "oneInitialTimingGroupExcludedForOverlap": true,
+    "exclusiveDenseConfirmationPassed": true,
+    "defaultDenseApiPreserved": true,
+    "fullScopeAndParsingRulesPreserved": true,
+    "longTermCacheAdded": false,
+    "wholeClientPerformanceClaimed": false,
+    "processPeakMemoryReductionClaimed": false,
+    "geometry": {
+      "accepted": true,
+      "priorControlPhase": 284,
+      "sameBinaryAndEngine": true,
+      "stages": 2,
+      "containersEach": 130,
+      "geometrySvgAndSourcePreserved": true,
+      "protectionSemanticsCoveredSeparatelyAtAllPositions": true
+    },
+    "nativeGroups": 4,
+    "nativeChecksEach": 6,
+    "pdfChecks": 30,
+    "pdfModes": 2,
+    "pdfPixelsAndLinksUnchanged": true,
+    "upstreamComponentsOrLockChanged": false,
+    "newNativeBuildPackageNetworkSync": false
+  },
+  "remaining": [
+    "整体WebEngine高水位、主进程长期驻留、必要原文读取仍未全部归因。",
+    "长逻辑段落仍读取完整文本、拼接字符串；本轮只压缩保护标记，不减少这些工作。",
+    "累计修正尚未打包或同步，继续按用户要求暂停。"
+  ],
+  "nextGate": "下一步仅追踪新的明确分配点；保留完整逻辑段落和默认密集API，不重跑位图、布局或旧长期矩阵。",
+  "productChanged": true
+}

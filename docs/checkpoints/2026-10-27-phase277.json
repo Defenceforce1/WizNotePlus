@@ -1,0 +1,92 @@
+{
+  "phase": 277,
+  "date": "2026-10-27",
+  "productChanged": true,
+  "validation": {
+    "phase": 277,
+    "accepted": true,
+    "productCodeChanged": true,
+    "onlyRuntimeChange": "Module529 paragraph LF-run split expression, plus upstream license notice",
+    "exactUpstreamModuleAnchored": true,
+    "unmodifiedPagedownReleaseClaimed": false,
+    "licenseGatePassedForNarrowPersonalSourceWork": true,
+    "coreBeforeSha256": "561ef4f9bd8b6be79ed32986ffcf0d65857576f4637497c452cdf1e74d13429f",
+    "coreAfterSha256": "4ce91533cbac94df151f5dccd5d14e2fa6b4a1090f171982e769a115d0527224",
+    "prototypeEquivalence": {
+      "accepted": true,
+      "phase": 277,
+      "splitCases": 3133,
+      "fullConverterCases": 254,
+      "reusedConverterEachCaseTwice": true,
+      "splitReturnsSameElementsIncludingEmptyAndLfRuns": true,
+      "wholeConverterHtmlIdentical": true,
+      "noProductPromotion": true,
+      "notRuntimeMemoryAcceptance": true
+    },
+    "repositoryRegression": {
+      "accepted": true,
+      "splitCases": 3133,
+      "fullConverterCases": 247,
+      "repeatedConversion": true,
+      "browserOrRealDataUsed": false
+    },
+    "nativeBoundaryControls": [
+      19,
+      19
+    ],
+    "instrumentedRuntimeGroups": 4,
+    "instrumentedControlsEach": 20,
+    "instrumentedPostSmallFootprintBeforePrintedM": 164.05,
+    "instrumentedPostSmallFootprintAfterPrintedM": 121.45,
+    "uninstrumentedRuntimeGroups": 2,
+    "uninstrumentedControlsEach": 20,
+    "uninstrumentedPostSmallFootprintBeforeMiB": 113.76725006103516,
+    "uninstrumentedPostSmallFootprintAfterMiB": 70.50167083740234,
+    "uninstrumentedReductionMiB": 43.26557922363281,
+    "uninstrumentedReductionPercent": 38.02990684966122,
+    "noNativeStackLoggingInOrdinaryPair": true,
+    "allGroupsSameNativeBinaryAndCurrentResourcesExceptTargetExpression": true,
+    "allActualCocoaMetalAndTopLevelEventLoop": true,
+    "defaultQt": "6.11.3",
+    "defaultMathJax": "4.1.3",
+    "font": "TeX unchanged",
+    "semanticEnrichmentDisabled": true,
+    "componentsVerified": {
+      "groups": 15,
+      "files": 150
+    },
+    "associatedAssertions": 67,
+    "association": {
+      "api": 14,
+      "unsavedSnapshotRetirementLateOrder": 23,
+      "formulaReferenceDualPdf": 30
+    },
+    "pdfModes": 2,
+    "pdfPages": 2,
+    "pdfPixelsDestinationsAndLinksIdenticalToRetained255": true,
+    "allPagesVisuallyReviewed": true,
+    "overallHighWaterResolved": false,
+    "mainProcessResidencyResolved": false,
+    "longTermOrNormalAccountAccepted": false,
+    "noGcCacheHistoryOrProfileClear": true,
+    "nativeEngineOrAllocatorChanged": false,
+    "diagnosticsAddedToProduct": false,
+    "newPackageProduced": false,
+    "realNotesOrAccountUsed": false,
+    "officialReadOnlyNetworkResearch": true,
+    "githubSynchronizationPerformed": false,
+    "githubRemoteWritesPerformed": false,
+    "remaining": [
+      "大文档首次打开的约0.9GiB采样瞬时峰值仍高；各一次的峰值降低不等于已完成全部峰值归因。",
+      "主进程空闲／碎片及其它渲染资源驻留未全部解决，不能外推所有笔记或长期无泄漏。",
+      "累计修正仅保存在源码，当前未打包／安装或同步，现用App不含本轮修改。"
+    ]
+  },
+  "remaining": [
+    "大文档首次打开的约0.9GiB采样瞬时峰值仍高；各一次的峰值降低不等于已完成全部峰值归因。",
+    "主进程空闲／碎片及其它渲染资源驻留未全部解决，不能外推所有笔记或长期无泄漏。",
+    "累计修正仅保存在源码，当前未打包／安装或同步，现用App不含本轮修改。"
+  ],
+  "nextGate": "New attributable evidence for remaining initial transient peak or main/other renderer residency; do not repeat confirmed paragraph allocation matrix",
+  "githubSyncSuspended": true
+}

@@ -1,0 +1,126 @@
+{
+  "phase": 271,
+  "date": "2026-10-27",
+  "predecessor": 270,
+  "scope": "Own finishOutput wrapper-layout attribution and one conservative batching patch; no native allocator or component update",
+  "sourceFilesBefore": 771,
+  "sourceFilesAfter": 773,
+  "productCodeChanged": true,
+  "repositoryTestAssemblyChanged": true,
+  "validation": {
+    "accepted": true,
+    "phase": 271,
+    "finiteStageComplete": true,
+    "productCodeChanged": true,
+    "repositoryTestAssemblyChanged": true,
+    "ownCompatibilityBridgeOnly": true,
+    "coreEditorAndThirdPartyEngineFontsChanged": false,
+    "sameBinarySha256": "86c9f55a46829d3af10def06e4998f554f884e0fd39f72d1aaa28ac9cb536d85",
+    "paragraphs": 6000,
+    "equations": 128,
+    "references": 2,
+    "sourceLengthUtf16": 372939,
+    "performance": {
+      "rows": [
+        {
+          "label": "timing-baseline",
+          "readerRebuildMs": 1198.8999999761581,
+          "checks": 12,
+          "failures": 0,
+          "geometrySame": true
+        },
+        {
+          "label": "timing-batched",
+          "readerRebuildMs": 1146.300000011921,
+          "checks": 12,
+          "failures": 0,
+          "geometrySame": true
+        },
+        {
+          "label": "timing-batched-confirm",
+          "readerRebuildMs": 1180.800000011921,
+          "checks": 12,
+          "failures": 0,
+          "geometrySame": true
+        },
+        {
+          "label": "timing-baseline-confirm",
+          "readerRebuildMs": 1235.7000000476837,
+          "checks": 12,
+          "failures": 0,
+          "geometrySame": true
+        }
+      ],
+      "meanBaselineMs": 1217.300000011921,
+      "meanCandidateMs": 1163.550000011921,
+      "relativeDecreasePercent": 4.41550973461543,
+      "sameBinaryAllFour": true,
+      "uninstrumented": true,
+      "memoryBenefitMeasured": false,
+      "doesNotProveAllNotesGain": true
+    },
+    "uninstrumentedRepeatedAssertions": 48,
+    "uninstrumentedComparisons": 4,
+    "allInitialAndRebuiltSvgMarkupIdenticalAcrossFourRuns": true,
+    "attributionControls": {
+      "initialInterleavedFinishMs": 350.10000002384186,
+      "wrapBatchFinishMs": 287.10000002384186,
+      "fullyBatchedIoFinishMs": 104.90000003576279,
+      "instrumentedAndNotUsedAsEndToEndSpeedGuarantee": true,
+      "fullyBatchedIoChangedSvg": 103,
+      "fullyBatchedIoPromoted": false
+    },
+    "association": {
+      "api": 14,
+      "unsavedSnapshotRetirementLateOrder": 23,
+      "formulaReferenceDualPdf": 30,
+      "total": 67,
+      "failures": 0,
+      "nativeOuterChecksExcludedFromSum": true
+    },
+    "pdfs": 2,
+    "pdfPages": 2,
+    "pdfBothModesPixelIdenticalToRetained255": true,
+    "pdfNormalProsePt": 12,
+    "pdfLinksPerMode": 5,
+    "pdfTargetsPerMode": 4,
+    "allPngsVisuallyReviewed": true,
+    "finalComponents": {
+      "reviewedGroups": 15,
+      "sourceAndActualResources": 150,
+      "qt": "6.11.3",
+      "mathjax": "4.1.3",
+      "TeXFontUnchanged": true,
+      "semanticEnrichmentDisabled": true
+    },
+    "adapterAfterSha256": "0d89f000a0c91be18d2b98e0d85cb8c777f63fca6698bc17e630da89af115098",
+    "componentLockSha256": "e8901885b145ef1a713f6b4bd8cd80c04bba2b81b23567bd5bc557cde8f1e41d",
+    "newPhysicalMemoryBenefitMeasured": false,
+    "overallHighWaterResolved": false,
+    "newPackageProduced": false,
+    "normalClientOrRealNotesUsed": false,
+    "noPrivateHeapOrStack": true,
+    "noGcCacheHistoryOrProfileClear": true,
+    "githubOrNetworkAccess": false,
+    "sourceSyncPending": true,
+    "remaining": [
+      "WebEngine residual allocator residency/fragmentation and initial large-document native peaks still lack a safe confirmed own allocation call site",
+      "Conservative wrapper batching improves this synthetic reader rebuild; physical memory benefit was not measured and aggressive batching was rejected for changed SVG geometry",
+      "Local fixes through271 remain unpackaged and unsynchronized; real client/worker and long-term acceptance remain unperformed"
+    ]
+  },
+  "finiteStageComplete": true,
+  "overallMemoryHighWaterResolved": false,
+  "agentsAccessed": false,
+  "githubOrNetworkAccess": false,
+  "normalAccountOrNotesAccessed": false,
+  "newPackageOrSigning": false,
+  "localCommitOrStaging": false,
+  "automationRecreated": false,
+  "remaining": [
+    "WebEngine residual allocator residency/fragmentation and initial large-document native peaks still lack a safe confirmed own allocation call site",
+    "Conservative wrapper batching improves this synthetic reader rebuild; physical memory benefit was not measured and aggressive batching was rejected for changed SVG geometry",
+    "Local fixes through271 remain unpackaged and unsynchronized; real client/worker and long-term acceptance remain unperformed"
+  ],
+  "recommendation": "Retain verified conservative wrapper batching, reject geometry-changing full batching; no further repeated matrices or high-water claims without new allocation evidence"
+}

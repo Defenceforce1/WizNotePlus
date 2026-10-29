@@ -1,0 +1,49 @@
+{
+  "phase": 300,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 300,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newProductMemoryImprovementClaimed": false,
+    "sameCodePriorReboundConfirmed": true,
+    "gcTimingPathWorking": true,
+    "localSourceVersionMatches": true,
+    "exactCompiledSourceTreeProven": false,
+    "newGroups": 3,
+    "nativeControls": 213,
+    "observerBarriers": 42,
+    "nativeSamples": 84,
+    "tracingDataLoss": false,
+    "observedMajorGcCounts": [
+      14,
+      14,
+      13
+    ],
+    "observedPeakMiB": [
+      347.64220428466797,
+      347.5015563964844,
+      352.98597717285156
+    ],
+    "naturalHighPeakReproducedUnderTracing": false,
+    "noForcedGcOrPressureOrCacheClear": true,
+    "noCandidatePromoted": true,
+    "fullClientOrLongTermAcceptance": false,
+    "automationStatus": "PAUSED"
+  },
+  "evidenceRoot": "outputs/exploration-20261028/phase300",
+  "report": "docs/gc-timing-rebound-2026-10-28.md",
+  "remaining": [
+    "实际高内存未修复；同码候选354→510MiB的反弹仍未有同场GC事件，不能将低峰三组称稳定改善。",
+    "旧数据的分叉先发生在第二次切小的已用堆，第三次大页才明显升高；最有力假设是自动回收时序与Blink页池保留，尚非对高峰的因果证明。",
+    "三组仅公开GC时序均低峰；诊断连接／追踪／屏障有观察成本，不能外推无诊断组。减少查询后第六小页再次出现高已用堆、少一次major，未出现后续大页，不能预测其必然冲高。",
+    "下一只考虑能降低观察干扰并合法仅保留数值的自然高峰事件捕捉；无新证据不重跑相同三组或调GC阈值，不清缓存、强制GC或改上游。",
+    "默认产品保持292；定时任务仍PAUSED，无外网／打包／同步／安装或App和真实资料操作。未来打包仍须重编289打印伴随头文件。"
+  ],
+  "nextGate": "需在不改变原有切换时序、仅保留自有合成renderer固定GC名称／时间／数值的条件下捕捉自然高峰；先核对同版公开记录契约及观察开销。当前高峰前后只有聚合堆数字，不能认定具体对象持有。没有新证据不无限重跑、强制回收、改阈值／上游或重新启用浅克隆。自动任务保持PAUSED。",
+  "productRemainsPhase": 292,
+  "sourceOnlyLocalDocumentation": true,
+  "githubSyncSuspended": true,
+  "noProductMemoryImprovementClaimed": true
+}

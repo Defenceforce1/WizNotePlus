@@ -1,0 +1,679 @@
+{
+  "phase": 298,
+  "date": "2026-10-28",
+  "report": "docs/public-dom-memory-attribution-2026-10-28.md",
+  "validation": {
+    "phase": 298,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newPublicScalarAttributionPathWorking": true,
+    "groups": 3,
+    "roundsEach": 6,
+    "nativeControlsEach": 71,
+    "observerBarriersEach": 14,
+    "totalScalarQueries": 143,
+    "documentCountAtEachLarge": 1,
+    "documentCountImmediatelyAfterSmall": 3,
+    "idleDocuments": 1,
+    "idleNodes": 369,
+    "idleLayoutObjects": 112,
+    "noEvidenceOfUnboundedCrossPageDomAccumulationInThisSequence": true,
+    "heapAggregateNotExactPhysicalOrSpecificAllocatorProof": true,
+    "loopbackExplicitlyAuthorized": true,
+    "externalInternetOrGitHubAccess": false,
+    "newIndependentDiagnosticBuildPerformed": true,
+    "productNativeBuildPerformed": false,
+    "newPackageOrPdfOrFullMatrix": false,
+    "automationStatus": "PAUSED",
+    "noAppOrRealDataChange": true
+  },
+  "attribution": {
+    "phase": 298,
+    "groups": [
+      {
+        "label": "scalar-observation",
+        "version": {
+          "protocolVersion": "1.3",
+          "product": "switch-retention/",
+          "jsVersion": "14.0.365.10"
+        },
+        "phases": [
+          {
+            "phase": "fresh-small",
+            "documents": 1,
+            "nodes": 435,
+            "jsEventListeners": 458,
+            "layoutObjects": 146,
+            "jsHeapUsedMiB": 9.766,
+            "jsHeapTotalMiB": 16.188,
+            "footprintMiB": 55.158,
+            "rssMiB": 146.812,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-1",
+            "documents": 1,
+            "nodes": 84199,
+            "jsEventListeners": 464,
+            "layoutObjects": 57595,
+            "jsHeapUsedMiB": 44.357,
+            "jsHeapTotalMiB": 81.828,
+            "footprintMiB": 274.033,
+            "rssMiB": 373.453,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-1",
+            "documents": 3,
+            "nodes": 84888,
+            "jsEventListeners": 967,
+            "layoutObjects": 57821,
+            "jsHeapUsedMiB": 30.955,
+            "jsHeapTotalMiB": 80.844,
+            "footprintMiB": 275.673,
+            "rssMiB": 374.547,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-2",
+            "documents": 1,
+            "nodes": 83541,
+            "jsEventListeners": 458,
+            "layoutObjects": 56566,
+            "jsHeapUsedMiB": 26.961,
+            "jsHeapTotalMiB": 100.828,
+            "footprintMiB": 461.517,
+            "rssMiB": 576.516,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-2",
+            "documents": 3,
+            "nodes": 84230,
+            "jsEventListeners": 961,
+            "layoutObjects": 56792,
+            "jsHeapUsedMiB": 38.151,
+            "jsHeapTotalMiB": 100.828,
+            "footprintMiB": 461.299,
+            "rssMiB": 577.062,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-3",
+            "documents": 1,
+            "nodes": 84193,
+            "jsEventListeners": 462,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 27.043,
+            "jsHeapTotalMiB": 99.578,
+            "footprintMiB": 473.049,
+            "rssMiB": 586.516,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-3",
+            "documents": 3,
+            "nodes": 84882,
+            "jsEventListeners": 965,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.158,
+            "jsHeapTotalMiB": 99.578,
+            "footprintMiB": 474.189,
+            "rssMiB": 586.203,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-4",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 27.011,
+            "jsHeapTotalMiB": 99.828,
+            "footprintMiB": 474.955,
+            "rssMiB": 587.609,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-4",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.202,
+            "jsHeapTotalMiB": 99.828,
+            "footprintMiB": 475.892,
+            "rssMiB": 587.094,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-5",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 26.979,
+            "jsHeapTotalMiB": 98.828,
+            "footprintMiB": 474.658,
+            "rssMiB": 587.844,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-5",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.181,
+            "jsHeapTotalMiB": 98.828,
+            "footprintMiB": 476.564,
+            "rssMiB": 588.266,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-6",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 26.975,
+            "jsHeapTotalMiB": 100.078,
+            "footprintMiB": 475.299,
+            "rssMiB": 587.75,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-6",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.176,
+            "jsHeapTotalMiB": 100.078,
+            "footprintMiB": 476.158,
+            "rssMiB": 587.906,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "post-large-small-30s",
+            "documents": 1,
+            "nodes": 369,
+            "jsEventListeners": 458,
+            "layoutObjects": 112,
+            "jsHeapUsedMiB": 10.129,
+            "jsHeapTotalMiB": 11.438,
+            "footprintMiB": 82.189,
+            "rssMiB": 214.547,
+            "publicHeapUsageMiB": {}
+          }
+        ],
+        "lifetimePeakMiB": 539.252,
+        "onlyOwnLoopbackVerified": true,
+        "targetBoundByQtDevToolsId": true,
+        "commands": 43,
+        "exeSha256": "ef05058b41a72b198f67ecab7d2ff86e787fbb73c3d29f89d9406e1dd2adc527",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      },
+      {
+        "label": "scalar-confirmation",
+        "version": {
+          "protocolVersion": "1.3",
+          "product": "switch-retention/",
+          "jsVersion": "14.0.365.10"
+        },
+        "phases": [
+          {
+            "phase": "fresh-small",
+            "documents": 1,
+            "nodes": 435,
+            "jsEventListeners": 458,
+            "layoutObjects": 146,
+            "jsHeapUsedMiB": 9.768,
+            "jsHeapTotalMiB": 17.188,
+            "footprintMiB": 55.173,
+            "rssMiB": 146.812,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-1",
+            "documents": 1,
+            "nodes": 84199,
+            "jsEventListeners": 464,
+            "layoutObjects": 57595,
+            "jsHeapUsedMiB": 44.466,
+            "jsHeapTotalMiB": 80.578,
+            "footprintMiB": 272.986,
+            "rssMiB": 372.359,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-1",
+            "documents": 3,
+            "nodes": 84888,
+            "jsEventListeners": 967,
+            "layoutObjects": 57821,
+            "jsHeapUsedMiB": 30.939,
+            "jsHeapTotalMiB": 81.094,
+            "footprintMiB": 276.158,
+            "rssMiB": 374.953,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-2",
+            "documents": 1,
+            "nodes": 83541,
+            "jsEventListeners": 458,
+            "layoutObjects": 56566,
+            "jsHeapUsedMiB": 26.962,
+            "jsHeapTotalMiB": 100.828,
+            "footprintMiB": 462.22,
+            "rssMiB": 577.078,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-2",
+            "documents": 3,
+            "nodes": 84230,
+            "jsEventListeners": 961,
+            "layoutObjects": 56792,
+            "jsHeapUsedMiB": 38.151,
+            "jsHeapTotalMiB": 100.828,
+            "footprintMiB": 462.299,
+            "rssMiB": 577.922,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-3",
+            "documents": 1,
+            "nodes": 84193,
+            "jsEventListeners": 462,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 27.01,
+            "jsHeapTotalMiB": 98.328,
+            "footprintMiB": 471.095,
+            "rssMiB": 584.5,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-3",
+            "documents": 3,
+            "nodes": 84882,
+            "jsEventListeners": 965,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.19,
+            "jsHeapTotalMiB": 98.328,
+            "footprintMiB": 473.236,
+            "rssMiB": 585.203,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-4",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 27.011,
+            "jsHeapTotalMiB": 99.078,
+            "footprintMiB": 473.752,
+            "rssMiB": 586.359,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-4",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.203,
+            "jsHeapTotalMiB": 99.078,
+            "footprintMiB": 474.642,
+            "rssMiB": 586.531,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-5",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 26.981,
+            "jsHeapTotalMiB": 98.828,
+            "footprintMiB": 474.549,
+            "rssMiB": 587.688,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-5",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.182,
+            "jsHeapTotalMiB": 98.828,
+            "footprintMiB": 475.564,
+            "rssMiB": 588.156,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "large-after-source-6",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 26.979,
+            "jsHeapTotalMiB": 100.828,
+            "footprintMiB": 475.174,
+            "rssMiB": 587.516,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "small-round-6",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.171,
+            "jsHeapTotalMiB": 100.828,
+            "footprintMiB": 477.08,
+            "rssMiB": 587.938,
+            "publicHeapUsageMiB": {}
+          },
+          {
+            "phase": "post-large-small-30s",
+            "documents": 1,
+            "nodes": 369,
+            "jsEventListeners": 458,
+            "layoutObjects": 112,
+            "jsHeapUsedMiB": 10.127,
+            "jsHeapTotalMiB": 11.688,
+            "footprintMiB": 79.736,
+            "rssMiB": 213.062,
+            "publicHeapUsageMiB": {}
+          }
+        ],
+        "lifetimePeakMiB": 538.017,
+        "onlyOwnLoopbackVerified": true,
+        "targetBoundByQtDevToolsId": true,
+        "commands": 43,
+        "exeSha256": "ef05058b41a72b198f67ecab7d2ff86e787fbb73c3d29f89d9406e1dd2adc527",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      },
+      {
+        "label": "heap-attribution",
+        "version": {
+          "protocolVersion": "1.3",
+          "product": "switch-retention/",
+          "jsVersion": "14.0.365.10"
+        },
+        "phases": [
+          {
+            "phase": "fresh-small",
+            "documents": 1,
+            "nodes": 435,
+            "jsEventListeners": 458,
+            "layoutObjects": 146,
+            "jsHeapUsedMiB": 9.768,
+            "jsHeapTotalMiB": 16.688,
+            "footprintMiB": 54.564,
+            "rssMiB": 146.266,
+            "publicHeapUsageMiB": {
+              "usedSize": 9.768,
+              "totalSize": 16.688,
+              "embedderHeapUsedSize": 1.305,
+              "backingStorageSize": 5.184
+            }
+          },
+          {
+            "phase": "large-after-source-1",
+            "documents": 1,
+            "nodes": 84199,
+            "jsEventListeners": 464,
+            "layoutObjects": 57595,
+            "jsHeapUsedMiB": 44.295,
+            "jsHeapTotalMiB": 81.078,
+            "footprintMiB": 276.908,
+            "rssMiB": 376.5,
+            "publicHeapUsageMiB": {
+              "usedSize": 44.295,
+              "totalSize": 81.078,
+              "embedderHeapUsedSize": 112.294,
+              "backingStorageSize": 10.497
+            }
+          },
+          {
+            "phase": "small-round-1",
+            "documents": 3,
+            "nodes": 84888,
+            "jsEventListeners": 967,
+            "layoutObjects": 57821,
+            "jsHeapUsedMiB": 30.287,
+            "jsHeapTotalMiB": 81.844,
+            "footprintMiB": 280.08,
+            "rssMiB": 378.875,
+            "publicHeapUsageMiB": {
+              "usedSize": 30.287,
+              "totalSize": 81.844,
+              "embedderHeapUsedSize": 113.267,
+              "backingStorageSize": 10.534
+            }
+          },
+          {
+            "phase": "large-after-source-2",
+            "documents": 1,
+            "nodes": 83541,
+            "jsEventListeners": 458,
+            "layoutObjects": 56566,
+            "jsHeapUsedMiB": 26.959,
+            "jsHeapTotalMiB": 101.328,
+            "footprintMiB": 467.674,
+            "rssMiB": 582.75,
+            "publicHeapUsageMiB": {
+              "usedSize": 26.959,
+              "totalSize": 101.328,
+              "embedderHeapUsedSize": 56.936,
+              "backingStorageSize": 10.978
+            }
+          },
+          {
+            "phase": "small-round-2",
+            "documents": 3,
+            "nodes": 84230,
+            "jsEventListeners": 961,
+            "layoutObjects": 56792,
+            "jsHeapUsedMiB": 38.149,
+            "jsHeapTotalMiB": 101.328,
+            "footprintMiB": 467.752,
+            "rssMiB": 583.578,
+            "publicHeapUsageMiB": {
+              "usedSize": 38.149,
+              "totalSize": 101.328,
+              "embedderHeapUsedSize": 58.14,
+              "backingStorageSize": 10.259
+            }
+          },
+          {
+            "phase": "large-after-source-3",
+            "documents": 1,
+            "nodes": 84193,
+            "jsEventListeners": 462,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 27.045,
+            "jsHeapTotalMiB": 99.078,
+            "footprintMiB": 475.689,
+            "rssMiB": 589.219,
+            "publicHeapUsageMiB": {
+              "usedSize": 27.045,
+              "totalSize": 99.078,
+              "embedderHeapUsedSize": 76.251,
+              "backingStorageSize": 10.981
+            }
+          },
+          {
+            "phase": "small-round-3",
+            "documents": 3,
+            "nodes": 84882,
+            "jsEventListeners": 965,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.159,
+            "jsHeapTotalMiB": 99.078,
+            "footprintMiB": 477.845,
+            "rssMiB": 589.891,
+            "publicHeapUsageMiB": {
+              "usedSize": 38.159,
+              "totalSize": 99.078,
+              "embedderHeapUsedSize": 77.347,
+              "backingStorageSize": 10.261
+            }
+          },
+          {
+            "phase": "large-after-source-4",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 27.009,
+            "jsHeapTotalMiB": 98.328,
+            "footprintMiB": 477.064,
+            "rssMiB": 589.734,
+            "publicHeapUsageMiB": {
+              "usedSize": 27.009,
+              "totalSize": 98.328,
+              "embedderHeapUsedSize": 74.271,
+              "backingStorageSize": 10.981
+            }
+          },
+          {
+            "phase": "small-round-4",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.203,
+            "jsHeapTotalMiB": 98.328,
+            "footprintMiB": 478.986,
+            "rssMiB": 590.203,
+            "publicHeapUsageMiB": {
+              "usedSize": 38.203,
+              "totalSize": 98.328,
+              "embedderHeapUsedSize": 75.238,
+              "backingStorageSize": 10.261
+            }
+          },
+          {
+            "phase": "large-after-source-5",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 26.982,
+            "jsHeapTotalMiB": 98.828,
+            "footprintMiB": 477.033,
+            "rssMiB": 590.219,
+            "publicHeapUsageMiB": {
+              "usedSize": 26.982,
+              "totalSize": 98.828,
+              "embedderHeapUsedSize": 74.535,
+              "backingStorageSize": 10.981
+            }
+          },
+          {
+            "phase": "small-round-5",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.184,
+            "jsHeapTotalMiB": 98.828,
+            "footprintMiB": 478.955,
+            "rssMiB": 590.688,
+            "publicHeapUsageMiB": {
+              "usedSize": 38.184,
+              "totalSize": 98.828,
+              "embedderHeapUsedSize": 75.487,
+              "backingStorageSize": 10.261
+            }
+          },
+          {
+            "phase": "large-after-source-6",
+            "documents": 1,
+            "nodes": 84191,
+            "jsEventListeners": 460,
+            "layoutObjects": 56955,
+            "jsHeapUsedMiB": 26.972,
+            "jsHeapTotalMiB": 99.578,
+            "footprintMiB": 477.689,
+            "rssMiB": 590.203,
+            "publicHeapUsageMiB": {
+              "usedSize": 26.972,
+              "totalSize": 99.578,
+              "embedderHeapUsedSize": 74.396,
+              "backingStorageSize": 10.976
+            }
+          },
+          {
+            "phase": "small-round-6",
+            "documents": 3,
+            "nodes": 84880,
+            "jsEventListeners": 963,
+            "layoutObjects": 57181,
+            "jsHeapUsedMiB": 38.166,
+            "jsHeapTotalMiB": 99.578,
+            "footprintMiB": 479.674,
+            "rssMiB": 590.672,
+            "publicHeapUsageMiB": {
+              "usedSize": 38.166,
+              "totalSize": 99.578,
+              "embedderHeapUsedSize": 75.389,
+              "backingStorageSize": 10.257
+            }
+          },
+          {
+            "phase": "post-large-small-30s",
+            "documents": 1,
+            "nodes": 369,
+            "jsEventListeners": 458,
+            "layoutObjects": 112,
+            "jsHeapUsedMiB": 10.127,
+            "jsHeapTotalMiB": 11.438,
+            "footprintMiB": 81.502,
+            "rssMiB": 215.984,
+            "publicHeapUsageMiB": {
+              "usedSize": 10.127,
+              "totalSize": 11.438,
+              "embedderHeapUsedSize": 1.125,
+              "backingStorageSize": 5.175
+            }
+          }
+        ],
+        "lifetimePeakMiB": 540.174,
+        "onlyOwnLoopbackVerified": true,
+        "targetBoundByQtDevToolsId": true,
+        "commands": 57,
+        "exeSha256": "ef05058b41a72b198f67ecab7d2ff86e787fbb73c3d29f89d9406e1dd2adc527",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      }
+    ],
+    "crossNavigationNodeLayoutCountsBoundedInObservedSixRounds": true,
+    "temporaryOldDocumentsRetireNaturallyBy30Seconds": true,
+    "notProofAllWorkloadsOrLongTermNoLeak": true,
+    "aggregateHeapCategoriesNotAdditiveOrFullPhysicalAllocationAttribution": true,
+    "debugAndObserverOverheadNotUsedForProductNetBenefit": true,
+    "noPrivateObjectGraphsStacksHeapSnapshotGcPressureOrContent": true,
+    "onlyExternalNetworkExcludedLocalLoopbackExplicitlyApproved": true
+  },
+  "remaining": [
+    "实际高内存未修复；298只增加了公开聚合计数的归因证据，没有新的产品修正或净收益声明。",
+    "本序列旧文档／DOM／布局对象会自然退役，不支持无限跨页DOM累积；不能据六轮断言所有窗口、所有工作量或长期无泄漏，也不能推断所有旧V8上下文已销毁。",
+    "高水位时JS／嵌入器堆已用数值只覆盖部分内存，统计口径不独立不可相加减；仍需更细的合法分配类别／持有证据，不能凭差值改上游或强制GC。",
+    "本机回环连接仅授权新建合成进程及公开标量；未授权外网、现用App、正文／对象内容、私有堆栈／堆快照、强制回收等，不擅自扩大命令范围。",
+    "默认源码保持292、原严格DOM2失败与历史PDF差异保留；未打包／同步／安装或访问真实资料，自动任务保持PAUSED。"
+  ],
+  "nextGate": "新公开标量路线已用两次复核及一次细分堆大小读数完成。若继续，应只沿更具体的合法分配类别统计／公开生命周期证据推进，不重复无限DOM持有假设，也不把Runtime.getHeapUsage的剩余物理差值当某分配器。公开诊断仍限新建合成进程的本机回环与数值，任何对象快照、堆栈、自动GC或上游改动另需明确范围；本轮不恢复已暂停自动任务。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "PAUSED",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true,
+  "localLoopbackOnlyExplicitUserApproval": true
+}

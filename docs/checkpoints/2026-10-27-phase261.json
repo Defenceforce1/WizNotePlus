@@ -1,0 +1,97 @@
+{
+  "phase": 261,
+  "date": "2026-10-27",
+  "scope": "Official identical legacy editor file-level notice review, independent-copy getter attribution, one scratch-layout change and necessary regressions",
+  "official": {
+    "repository": "WizTeam/WizQTClient",
+    "commit": "7067bcfc421edce932aa3144ef2d1d631f27595a",
+    "path": "share/files/wizeditor/wizEditorForMac.js",
+    "gitBlob": "6cb7a9927020f562b5749464cc28c68f16f7ed71",
+    "sha256": "4c53a7a385d1f4b3142dcd4b4c21cb8e5938bbebca40479c69e4f94201f064f3",
+    "bytes": 1196494,
+    "wholePackageDeclaration": "GPLv3-or-later",
+    "retainedFileDeclarations": [
+      "browser buffer MIT comment",
+      "elliptic 6.5.2 MIT metadata with dependency version ranges"
+    ],
+    "completeDependencyLicenseAudit": false
+  },
+  "change": {
+    "path": "share/files/wizeditor/wizEditorForMac.js",
+    "sha256": "7ad7d88f4db466d8b3a71e80ab737cbcda5c46b0e47f578c41ed8574973b9292",
+    "executableDelta": "Only getMarkdownSrcForEditor scratch-container width: 1px -> max-content",
+    "datedChangeNoticeAdded": true,
+    "embeddedDependencyCodeUnchanged": true,
+    "sourceReconstructionAndSavingUnchanged": true,
+    "staleSourceCacheIntroduced": false
+  },
+  "performance": {
+    "order": "ABBA",
+    "sameNativeBinary": true,
+    "currentComponents": true,
+    "normalTopLevelLoop": true,
+    "actualHiddenCocoaMetal": true,
+    "sourceBytes": 720052,
+    "utf16Units": 720046,
+    "paragraphs": 6000,
+    "domNodes": 6029,
+    "beforeGetterMs": [
+      774.9,
+      768.7
+    ],
+    "afterGetterMs": [
+      119,
+      119.9
+    ],
+    "getterTimeReductionPercent": 84.5,
+    "beforeRendererSampledPeakMiB": [
+      751.1,
+      766.5
+    ],
+    "afterRendererSampledPeakMiB": [
+      383.6,
+      382.8
+    ],
+    "rendererSampledPeakReductionPercent": 49.5,
+    "rendererPeakSamplePeriodMs": 50,
+    "pairedAssertions": 48,
+    "forcedGcOrCachePurgeUsed": false
+  },
+  "validation": {
+    "functionalCases": 10,
+    "phasesPerCase": 4,
+    "officialAndCandidateExactOutputDifferential": true,
+    "currentProductNativeCases": 44,
+    "currentProductFormulaSourceModesSaveAndDualPdf": 30,
+    "currentProductAssertions": 74,
+    "pdfModes": 2,
+    "pdfPages": 2,
+    "pixelIdenticalToRetainedBaseline": true,
+    "normalProsePt": 12,
+    "goToLinks": 5,
+    "destinationTargets": 4,
+    "initialPrototypeFailuresRetained": true,
+    "prototypeChecksNotCountedAsFinal": true,
+    "fullClientAccepted": false
+  },
+  "boundaries": {
+    "githubReadOnlyOfficialResearch": true,
+    "githubSynchronization": false,
+    "githubWrites": false,
+    "localCommitOrStaging": false,
+    "installedAppModified": false,
+    "realAccountOrNotesAccess": false,
+    "aggressiveGcOrQualityReduction": false,
+    "agentsContentAccess": false,
+    "newInstallerOrSigning": false,
+    "automationRecreated": false
+  },
+  "remaining": [
+    "Residual getter cost around120ms and renderer readiness footprint around337MiB not fully attributed",
+    "Main-process heap retention after page closure is not resolved or a confirmed continuous leak",
+    "No complete reconstructable legacy editor source project, source map or API contract identified",
+    "Local258/259/261 changes remain unpackaged and unsynchronized"
+  ],
+  "finiteStageComplete": true,
+  "allMemoryIssuesResolved": false
+}

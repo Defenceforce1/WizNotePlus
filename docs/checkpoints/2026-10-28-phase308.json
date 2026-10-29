@@ -1,0 +1,118 @@
+{
+  "phase": 308,
+  "date": "2026-10-28",
+  "validation": {
+    "phase": 308,
+    "nativeAggregateCounterValidated": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "newProductMemoryBenefitClaimed": false,
+    "qualifiedEngineSha256": "eca644c68cc4a90374dd7bc4ecd4b784d8bf22a3872e4fd84d2f649fd53fb401",
+    "sourceGetterChecks": 8,
+    "controlsSmall": 8,
+    "controlsHigh": 42,
+    "highScenarioAbove500MiBCaptured": true,
+    "diagnosticRendererLifetimePeakMiB": 536.7205352783203,
+    "beforeStatFootprintMiB": 475.7673873901367,
+    "afterStatFootprintMiB": 482.8299102783203,
+    "reportedPoolMiB": 183.125,
+    "originSubtotalMiB": 183.125,
+    "originCategories": [
+      {
+        "origin": "CustomSpace0",
+        "reportedPoolMiB": 77.625,
+        "pageCount": 621
+      },
+      {
+        "origin": "CustomSpace1",
+        "reportedPoolMiB": 1.625,
+        "pageCount": 13
+      },
+      {
+        "origin": "CustomSpace2",
+        "reportedPoolMiB": 24.875,
+        "pageCount": 199
+      },
+      {
+        "origin": "CustomSpace3",
+        "reportedPoolMiB": 0.625,
+        "pageCount": 5
+      },
+      {
+        "origin": "CustomSpace4",
+        "reportedPoolMiB": 6.75,
+        "pageCount": 54
+      },
+      {
+        "origin": "NormalPageSpace0",
+        "reportedPoolMiB": 4.75,
+        "pageCount": 38
+      },
+      {
+        "origin": "NormalPageSpace1",
+        "reportedPoolMiB": 12.875,
+        "pageCount": 103
+      },
+      {
+        "origin": "NormalPageSpace2",
+        "reportedPoolMiB": 39.5,
+        "pageCount": 316
+      },
+      {
+        "origin": "NormalPageSpace3",
+        "reportedPoolMiB": 14.5,
+        "pageCount": 116
+      }
+    ],
+    "sourceMeaning": "last owning allocation space of still-accounted pooled pages, not object type or allocation callstack",
+    "categoryBytesAlreadyIncludedInParentPool": true,
+    "categoryBytesNotExactOsRss": true,
+    "old528MiBPeakExactSourceEquivalenceNotAssumed": true,
+    "compilerAndCounterObservationCostsNotProductGain": true,
+    "noExtraRuntimeGroupsAutomaticallyPlanned": true,
+    "buildCacheOnlyLinkFix": true,
+    "originalFailedLinkPreserved": true,
+    "incrementalEngineBuildSeconds": 35.113003667,
+    "gnArgumentsUnchanged": true,
+    "newEngineImagesAndStartupResourcesQualified": true,
+    "defaultResourceFilesVerified": 196,
+    "groupsCompleted": 2,
+    "groupsClosedRendererChildren": 0,
+    "blinkCommittedMiBAtDetailedSample": 285.2030334472656,
+    "blinkAllocatedObjectMiBAtDetailedSample": 75.5519027709961,
+    "rssMiBBeforeDetailed": 601.71875,
+    "rssMiBAfterDetailed": 609.203125,
+    "idle": {
+      "small-idle-10s": {
+        "footprintMiB": 484.9705352783203,
+        "rssMiB": 609.96875
+      },
+      "small-idle-30s": {
+        "footprintMiB": 88.29863739013672,
+        "rssMiB": 234.546875
+      }
+    },
+    "unknownOriginBytes": 0,
+    "originalSevenInputsFivePinnedInputsSdkAndFrozenRuntimePreserved": true,
+    "headIndexBranchTrackedStatusAndInstalledAppPreserved": true,
+    "buildAndRuntimeProcessesFinished": true,
+    "wholeSourceOrCompilerOptionsEquivalenceClaimed": false,
+    "fullClientOrLongTermLeakFreedomClaimed": false,
+    "externalNetworkGithubPackagingInstallationOrRealDataAccessed": false,
+    "productRemainsPhase": 292,
+    "automationStatus": "ACTIVE"
+  },
+  "stageKind": "native-counter-attribution-not-product-memory-repair",
+  "evidenceRoot": "outputs/exploration-20261028/phase308",
+  "report": "docs/pool-origin-native-attribution-2026-10-28.md",
+  "nextSteps": [
+    "Owned whole-document selectors, DOM snapshots and batch traversal container lifetime",
+    "Exact authorized217/506/529/530 conversion boundaries and owned callers"
+  ],
+  "remaining": [
+    "具体自有分配点未确认，高内存未修复。",
+    "剩余两条有界源码归因尚未完成；诊断数值不能当产品收益。"
+  ],
+  "noFurtherRoutineUserApprovalRequired": true,
+  "productRemainsPhase": 292
+}

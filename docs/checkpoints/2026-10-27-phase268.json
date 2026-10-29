@@ -1,0 +1,347 @@
+{
+  "phase": 268,
+  "date": "2026-10-27",
+  "predecessor": 267,
+  "scope": "Calibrated public heap and native-region attribution for post-large document switch; weak reference-navigation root tracking",
+  "sourceFilesBefore": 763,
+  "sourceFilesAfter": 766,
+  "productPatch": {
+    "file": "share/files/wizeditor/editorHelper.js",
+    "sha256": "e4938daae7b155f32f6d47f4fb04134edf15c3b0e9222ad4ea16c6ec2029b3d5",
+    "change": "WeakSet membership replaces strong last-reference body root cache",
+    "sourceAndClickAndSerializationPreserved": true,
+    "physicalMemorySavingsMeasured": false
+  },
+  "validation": {
+    "accepted": true,
+    "phase": 268,
+    "productCodeChanged": true,
+    "repositoryTestCodeChanged": true,
+    "independentMemoryDiagnosticOnly": true,
+    "finalNecessaryAssertions": 107,
+    "failures": 0,
+    "sameDiagnosticExecutableSha256": "27cd4c30d5a72582fbf53c3043855cae06b46f8cebb8de4b6022bb5964feb955",
+    "counterCalibration": {
+      "accepted": true,
+      "sameBinary": "27cd4c30d5a72582fbf53c3043855cae06b46f8cebb8de4b6022bb5964feb955",
+      "knownArrayEntries": 1048576,
+      "knownArraySum": 31744,
+      "normalReadDeltaBytes": 0,
+      "preciseReadDeltaBytes": 4196090,
+      "normalCoarseCounterNotSuitableForShortPhaseDifference": true,
+      "preciseCounterObservesLiveAllocation": true,
+      "calibrationIsSeparateFromMainLifecycle": true,
+      "noGcOrCacheClear": true,
+      "diagnosticOnlyFlag": "--enable-precise-memory-info",
+      "noProductFlagChange": true
+    },
+    "currentComponentRuntimeOnly": true,
+    "matchedFlagControl": true,
+    "noPerformanceImprovementClaimed": true,
+    "noPhysicalMemoryFixClaimed": true,
+    "twoSequenceObservations": {
+      "switch-current": {
+        "precision": "precise",
+        "checks": 34,
+        "phases": [
+          {
+            "phase": "fresh-small",
+            "rendererFootprintBytes": 57148760,
+            "rendererRssBytes": 151797760,
+            "mainFootprintBytes": 136840464,
+            "mainMallocInUseBytes": 19863728,
+            "heap": {
+              "limit": 4294705152,
+              "total": 22918479,
+              "used": 15669055
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          },
+          {
+            "phase": "small-idle-10s",
+            "rendererFootprintBytes": 536643528,
+            "rendererRssBytes": 673054720,
+            "mainFootprintBytes": 114148624,
+            "mainMallocInUseBytes": 23461632,
+            "heap": {
+              "limit": 4294705152,
+              "total": 97892144,
+              "used": 16666776
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          },
+          {
+            "phase": "small-idle-30s",
+            "rendererFootprintBytes": 137660168,
+            "rendererRssBytes": 282542080,
+            "mainFootprintBytes": 114181392,
+            "mainMallocInUseBytes": 23491600,
+            "heap": {
+              "limit": 4294705152,
+              "total": 16876225,
+              "used": 16147917
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          },
+          {
+            "phase": "small-idle-60s",
+            "rendererFootprintBytes": 137660168,
+            "rendererRssBytes": 282542080,
+            "mainFootprintBytes": 114214160,
+            "mainMallocInUseBytes": 23517936,
+            "heap": {
+              "limit": 4294705152,
+              "total": 16878669,
+              "used": 16155321
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          }
+        ],
+        "historyIntact": true,
+        "bfcacheDisabledWithoutChangingSetting": true,
+        "oneRendererAcrossThreeNotes": true,
+        "smallCurrentRecordsNoDetachedNodes": true,
+        "regions": {
+          "freshSmall": {
+            "defaultMalloc": {
+              "virtualBytesRounded": 64172851.2,
+              "residentBytesRounded": 22229811.2,
+              "dirtyBytesRounded": 22229811.2,
+              "allocationCount": 32294,
+              "allocatedBytesRounded": 7523328.0,
+              "fragmentationBytesRounded": 14680064.0,
+              "fragmentationPercent": 67
+            },
+            "tagsUnassignedToSpecificAllocators": {
+              "14": {
+                "virtualBytesRounded": 11114905.6,
+                "residentBytesRounded": 9568256.0,
+                "dirtyBytesRounded": 0.0
+              },
+              "16": {
+                "virtualBytesRounded": 19608371.2,
+                "residentBytesRounded": 19503513.6,
+                "dirtyBytesRounded": 0.0
+              }
+            }
+          },
+          "afterLargeSmall60s": {
+            "defaultMalloc": {
+              "virtualBytesRounded": 148583219.2,
+              "residentBytesRounded": 103075020.8,
+              "dirtyBytesRounded": 103075020.8,
+              "allocationCount": 44497,
+              "allocatedBytesRounded": 9825280.0,
+              "fragmentationBytesRounded": 93218406.4,
+              "fragmentationPercent": 91
+            },
+            "tagsUnassignedToSpecificAllocators": {
+              "14": {
+                "virtualBytesRounded": 49912217.6,
+                "residentBytesRounded": 13841203.2,
+                "dirtyBytesRounded": 0.0
+              },
+              "16": {
+                "virtualBytesRounded": 25165824.0,
+                "residentBytesRounded": 14784921.6,
+                "dirtyBytesRounded": 0.0
+              }
+            }
+          }
+        },
+        "defaultZoneAllocatedGrowthMiBRounded": 2.1953125,
+        "defaultZoneFragmentationGrowthMiBRounded": 74.9,
+        "residualFootprintMiB": 76.78166198730469,
+        "largeSampledPeakMiB": 1015.3302307128906,
+        "rendererExitedAndObjectsGone": true,
+        "closedMainFootprintBytes": 77481232,
+        "closedMainMallocInUseBytes": 20423328
+      },
+      "switch-normal-control": {
+        "precision": "normal",
+        "checks": 34,
+        "phases": [
+          {
+            "phase": "fresh-small",
+            "rendererFootprintBytes": 57361776,
+            "rendererRssBytes": 151961600,
+            "mainFootprintBytes": 137757992,
+            "mainMallocInUseBytes": 19849952,
+            "heap": {
+              "limit": 3760000000,
+              "total": 23100000,
+              "used": 16100000
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          },
+          {
+            "phase": "small-idle-10s",
+            "rendererFootprintBytes": 557074424,
+            "rendererRssBytes": 691732480,
+            "mainFootprintBytes": 111510824,
+            "mainMallocInUseBytes": 23574160,
+            "heap": {
+              "limit": 3760000000,
+              "total": 23100000,
+              "used": 16100000
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          },
+          {
+            "phase": "small-idle-30s",
+            "rendererFootprintBytes": 142673768,
+            "rendererRssBytes": 283934720,
+            "mainFootprintBytes": 111510824,
+            "mainMallocInUseBytes": 23590432,
+            "heap": {
+              "limit": 3760000000,
+              "total": 23100000,
+              "used": 16100000
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          },
+          {
+            "phase": "small-idle-60s",
+            "rendererFootprintBytes": 142673768,
+            "rendererRssBytes": 283934720,
+            "mainFootprintBytes": 111510824,
+            "mainMallocInUseBytes": 23621632,
+            "heap": {
+              "limit": 3760000000,
+              "total": 23100000,
+              "used": 16100000
+            },
+            "domNodes": 116,
+            "mathItems": 2,
+            "nativeSourceUnits": 892,
+            "nativeOriginalHtmlUnits": 1025
+          }
+        ],
+        "historyIntact": true,
+        "bfcacheDisabledWithoutChangingSetting": true,
+        "oneRendererAcrossThreeNotes": true,
+        "smallCurrentRecordsNoDetachedNodes": true,
+        "regions": {
+          "freshSmall": {
+            "defaultMalloc": {
+              "virtualBytesRounded": 64172851.2,
+              "residentBytesRounded": 22544384.0,
+              "dirtyBytesRounded": 22544384.0,
+              "allocationCount": 32161,
+              "allocatedBytesRounded": 7494656.0,
+              "fragmentationBytesRounded": 15099494.4,
+              "fragmentationPercent": 67
+            },
+            "tagsUnassignedToSpecificAllocators": {
+              "14": {
+                "virtualBytesRounded": 11114905.6,
+                "residentBytesRounded": 9568256.0,
+                "dirtyBytesRounded": 0.0
+              },
+              "16": {
+                "virtualBytesRounded": 19398656.0,
+                "residentBytesRounded": 19398656.0,
+                "dirtyBytesRounded": 0.0
+              }
+            }
+          },
+          "afterLargeSmall60s": {
+            "defaultMalloc": {
+              "virtualBytesRounded": 152777523.2,
+              "residentBytesRounded": 107269324.8,
+              "dirtyBytesRounded": 107269324.8,
+              "allocationCount": 44995,
+              "allocatedBytesRounded": 9799680.0,
+              "fragmentationBytesRounded": 97517568.0,
+              "fragmentationPercent": 91
+            },
+            "tagsUnassignedToSpecificAllocators": {
+              "14": {
+                "virtualBytesRounded": 48024780.8,
+                "residentBytesRounded": 13526630.4,
+                "dirtyBytesRounded": 0.0
+              },
+              "16": {
+                "virtualBytesRounded": 24326963.2,
+                "residentBytesRounded": 15309209.6,
+                "dirtyBytesRounded": 0.0
+              }
+            }
+          }
+        },
+        "defaultZoneAllocatedGrowthMiBRounded": 2.1982421875,
+        "defaultZoneFragmentationGrowthMiBRounded": 78.6,
+        "residualFootprintMiB": 81.35985565185547,
+        "largeSampledPeakMiB": 973.9396057128906,
+        "rendererExitedAndObjectsGone": true,
+        "closedMainFootprintBytes": 74761512,
+        "closedMainMallocInUseBytes": 20543104
+      }
+    },
+    "inference": "Hundreds of MiB recede naturally while the calibrated current JS heap returns near fresh-small size. Most residual footprint growth is consistent with default-zone free/fragmentation residency rather than a confirmed self-owned old-document payload. This is a synthetic bounded attribution, not proof of all contexts collected, all allocators identified or long-term leak freedom.",
+    "unresolved": [
+      "Large document and read/edit transition transient peaks remain high",
+      "Post-large renderer/main-process allocator residency is not fully eliminated or tied to a safe product allocation call site",
+      "This does not accept real main-window/database-worker or long-term usage"
+    ],
+    "finiteMemoryAttributionComplete": true,
+    "ownedReferenceRootStrongDuringEditingConfirmed": true,
+    "forcedGcCacheClearHistoryClearProfileCyclingOrQualityChange": false,
+    "privateJsStackOrHeapDump": false,
+    "githubOrNetworkAccess": false,
+    "normalAccountOrRealNotesAccessed": false,
+    "newPackageProduced": false,
+    "memoryAndCalibrationAssertions": 86,
+    "referenceRootAssertions": 21,
+    "rootOuter9ExcludedFromCount": true,
+    "finiteStageComplete": true,
+    "productPatch": {
+      "file": "share/files/wizeditor/editorHelper.js",
+      "sha256": "e4938daae7b155f32f6d47f4fb04134edf15c3b0e9222ad4ea16c6ec2029b3d5",
+      "change": "WeakSet membership replaces strong last-reference body root cache",
+      "sourceAndClickAndSerializationPreserved": true,
+      "physicalMemorySavingsMeasured": false
+    },
+    "fullMemorySequencesWereBeforeSmallRootPatch": true,
+    "noFullMatrixOrPdfRerunForCacheOnlyChange": true
+  },
+  "defaultComponentGroups": 15,
+  "componentSourceAndResourceChecks": 150,
+  "nativeMainAppOrDiskWorkerAcceptance": false,
+  "normalAccountOrNotesAccessed": false,
+  "githubOrNetworkAccess": false,
+  "agentsAccessed": false,
+  "newPackageOrSigning": false,
+  "localCommitOrStaging": false,
+  "automaticTaskRecreated": false,
+  "currentFiniteStageComplete": true,
+  "overallMemoryHighWaterResolved": false,
+  "remaining": [
+    "Transient large-document/read-edit peaks remain high; no safe own allocation call site for bulk allocator residency",
+    "Observed renderer/default-zone and main-process residual residency not fully eliminated; no long-term full-client acceptance",
+    "Current MathJax items may still hold old reader roots during editing; no safe early destruction protocol established",
+    "Source phases258/259/261/262/264/265/267/268 remain unpackaged and unsynchronized by user instruction"
+  ],
+  "recommendation": "Retain confirmed weak-cache correction and calibrated evidence; require a concrete allocation or ownership point before further product memory policy changes"
+}

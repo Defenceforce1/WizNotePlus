@@ -1,0 +1,797 @@
+{
+  "phase": 294,
+  "date": "2026-10-28",
+  "report": "docs/repeated-math-memory-attribution-2026-10-28.md",
+  "validation": {
+    "phase": 294,
+    "accepted": true,
+    "productChanged": false,
+    "mathOutputOmissionDiagnosticOnly": true,
+    "fontCacheCandidateRejected": true,
+    "highMemoryResolved": false,
+    "acceptedMemoryGroups": 8,
+    "excludedMemoryGroups": 2,
+    "fullMathRepeatedPeakMiB": [
+      545.189,
+      546.502
+    ],
+    "noMathRepeatedPeakMiB": 397.423,
+    "unmarkedFontCachePeakMiB": [
+      546.674,
+      542.861
+    ],
+    "denseFontCachePeakMiB": [
+      456.345,
+      481.58
+    ],
+    "denseDomNodes": [
+      51490,
+      39984
+    ],
+    "firstVersusRepeatedPeakSourcesMustBeSeparated": true,
+    "mathCostNotPreciselyEqualToPeakDifference": true,
+    "newIndependentDiagnosticBuilds": 2,
+    "nativeProductBuild": false,
+    "getterRecordsIdenticalPriorTwoFailuresRetained": true,
+    "automationActive": true,
+    "automationFrequencyMinutes": 20,
+    "noNetworkSyncPackageAppOrRealData": true
+  },
+  "memory": {
+    "phase": 294,
+    "acceptedGroups": [
+      {
+        "label": "full-b",
+        "exeSha256": "a61b9313c41777cf6a37597836250079240ff340b7bc8392ab320886b05e8def",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 6,
+        "systemLifetimePeakMiB": 545.189,
+        "smallAfterReadMiB": [
+          275.845,
+          461.58,
+          471.924,
+          473.47,
+          479.095,
+          477.189
+        ],
+        "largeAfterReadMiB": [
+          272.752,
+          461.47,
+          469.892,
+          471.549,
+          477.752,
+          475.033
+        ],
+        "largeDomCounts": [
+          18358
+        ],
+        "largeMathItemCounts": [
+          129
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 80.892,
+            "rssMiB": 215.75,
+            "heapUsedMiB": 15.742
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 78.455,
+            "rssMiB": 213.484,
+            "heapUsedMiB": 15.305
+          }
+        ],
+        "peakByLargeRound": [
+          {
+            "round": 1,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 276.517,
+            "stagePeakMiB": {
+              "before-canonical-getter": 269.673,
+              "after-canonical-getter": 276.517,
+              "before-typeset": 241.58,
+              "after-typeset": 248.752,
+              "after-finish-output": 249.267,
+              "after-style": 249.517,
+              "ready-settled": 249.517,
+              "after-public-source": 272.658
+            }
+          },
+          {
+            "round": 2,
+            "stage": "after-style",
+            "sampledPeakMiB": 526.111,
+            "stagePeakMiB": {
+              "before-canonical-getter": 460.892,
+              "after-canonical-getter": 462.236,
+              "before-typeset": 475.892,
+              "after-typeset": 520.83,
+              "after-finish-output": 526.049,
+              "after-style": 526.111,
+              "ready-settled": 444.158,
+              "after-public-source": 461.314
+            }
+          },
+          {
+            "round": 3,
+            "stage": "after-typeset",
+            "sampledPeakMiB": 524.83,
+            "stagePeakMiB": {
+              "before-canonical-getter": 500.549,
+              "after-canonical-getter": 523.58,
+              "before-typeset": 521.908,
+              "after-typeset": 524.83,
+              "after-finish-output": 502.127,
+              "after-style": 502.33,
+              "ready-settled": 450.08,
+              "after-public-source": 469.892
+            }
+          },
+          {
+            "round": 4,
+            "stage": "after-finish-output",
+            "sampledPeakMiB": 531.174,
+            "stagePeakMiB": {
+              "before-canonical-getter": 508.361,
+              "after-canonical-getter": 528.814,
+              "before-typeset": 529.236,
+              "after-typeset": 530.845,
+              "after-finish-output": 531.174,
+              "after-style": 531.174,
+              "ready-settled": 455.017,
+              "after-public-source": 471.47
+            }
+          },
+          {
+            "round": 5,
+            "stage": "after-finish-output",
+            "sampledPeakMiB": 533.017,
+            "stagePeakMiB": {
+              "before-canonical-getter": 511.939,
+              "after-canonical-getter": 531.58,
+              "before-typeset": 531.236,
+              "after-typeset": 532.799,
+              "after-finish-output": 533.017,
+              "after-style": 533.017,
+              "ready-settled": 462.064,
+              "after-public-source": 477.752
+            }
+          },
+          {
+            "round": 6,
+            "stage": "after-finish-output",
+            "sampledPeakMiB": 545.033,
+            "stagePeakMiB": {
+              "before-canonical-getter": 517.189,
+              "after-canonical-getter": 541.283,
+              "before-typeset": 541.439,
+              "after-typeset": 544.674,
+              "after-finish-output": 545.033,
+              "after-style": 545.033,
+              "ready-settled": 458.627,
+              "after-public-source": 474.877
+            }
+          }
+        ]
+      },
+      {
+        "label": "no-typeset-b",
+        "exeSha256": "a61b9313c41777cf6a37597836250079240ff340b7bc8392ab320886b05e8def",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 6,
+        "systemLifetimePeakMiB": 397.423,
+        "smallAfterReadMiB": [
+          237.611,
+          330.22,
+          332.017,
+          331.252,
+          332.08,
+          332.845
+        ],
+        "largeAfterReadMiB": [
+          237.158,
+          330.736,
+          330.58,
+          331.877,
+          333.22,
+          333.283
+        ],
+        "largeDomCounts": [
+          12168
+        ],
+        "largeMathItemCounts": [
+          0
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 332.767,
+            "rssMiB": 441.25,
+            "heapUsedMiB": 43.247
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 65.814,
+            "rssMiB": 186.719,
+            "heapUsedMiB": 14.104
+          }
+        ],
+        "peakByLargeRound": [
+          {
+            "round": 1,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 274.58,
+            "stagePeakMiB": {
+              "before-canonical-getter": 235.923,
+              "after-canonical-getter": 274.58,
+              "before-typeset": 247.361,
+              "after-typeset": 247.361,
+              "after-finish-output": 247.361,
+              "after-style": 247.361,
+              "ready-settled": 219.767,
+              "after-public-source": 237.08
+            }
+          },
+          {
+            "round": 2,
+            "stage": "after-style",
+            "sampledPeakMiB": 390.064,
+            "stagePeakMiB": {
+              "before-canonical-getter": 324.173,
+              "after-canonical-getter": 384.002,
+              "before-typeset": 387.814,
+              "after-typeset": 387.814,
+              "after-finish-output": 387.83,
+              "after-style": 390.064,
+              "ready-settled": 312.486,
+              "after-public-source": 330.736
+            }
+          },
+          {
+            "round": 3,
+            "stage": "after-style",
+            "sampledPeakMiB": 391.314,
+            "stagePeakMiB": {
+              "before-canonical-getter": 370.127,
+              "after-canonical-getter": 389.783,
+              "before-typeset": 391.236,
+              "after-typeset": 391.236,
+              "after-finish-output": 391.236,
+              "after-style": 391.314,
+              "ready-settled": 314.923,
+              "after-public-source": 330.58
+            }
+          },
+          {
+            "round": 4,
+            "stage": "before-typeset",
+            "sampledPeakMiB": 391.439,
+            "stagePeakMiB": {
+              "before-canonical-getter": 372.736,
+              "after-canonical-getter": 390.455,
+              "before-typeset": 391.439,
+              "after-typeset": 391.439,
+              "after-finish-output": 391.439,
+              "after-style": 391.439,
+              "ready-settled": 315.111,
+              "after-public-source": 331.877
+            }
+          },
+          {
+            "round": 5,
+            "stage": "after-style",
+            "sampledPeakMiB": 391.064,
+            "stagePeakMiB": {
+              "before-canonical-getter": 384.548,
+              "after-canonical-getter": 391.048,
+              "before-typeset": 391.048,
+              "after-typeset": 391.048,
+              "after-finish-output": 391.048,
+              "after-style": 391.064,
+              "ready-settled": 316.173,
+              "after-public-source": 333.22
+            }
+          },
+          {
+            "round": 6,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 396.314,
+            "stagePeakMiB": {
+              "before-canonical-getter": 384.564,
+              "after-canonical-getter": 396.314,
+              "before-typeset": 393.642,
+              "after-typeset": 393.642,
+              "after-finish-output": 393.642,
+              "after-style": 393.642,
+              "ready-settled": 317.298,
+              "after-public-source": 333.283
+            }
+          }
+        ]
+      },
+      {
+        "label": "global-font-a",
+        "exeSha256": "a61b9313c41777cf6a37597836250079240ff340b7bc8392ab320886b05e8def",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 6,
+        "systemLifetimePeakMiB": 530.58,
+        "smallAfterReadMiB": [
+          277.345,
+          460.017,
+          466.033,
+          469.939,
+          467.064,
+          470.642
+        ],
+        "largeAfterReadMiB": [
+          274.345,
+          459.142,
+          466.127,
+          468.017,
+          467.455,
+          468.439
+        ],
+        "largeDomCounts": [
+          16975
+        ],
+        "largeMathItemCounts": [
+          129
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 470.564,
+            "rssMiB": 579.797,
+            "heapUsedMiB": 48.427
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 80.111,
+            "rssMiB": 209.891,
+            "heapUsedMiB": 15.308
+          }
+        ],
+        "peakByLargeRound": [
+          {
+            "round": 1,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 276.548,
+            "stagePeakMiB": {
+              "before-canonical-getter": 261.517,
+              "after-canonical-getter": 276.548,
+              "before-typeset": 242.47,
+              "after-typeset": 248.627,
+              "after-finish-output": 249.173,
+              "after-style": 249.205,
+              "ready-settled": 248.517,
+              "after-public-source": 274.345
+            }
+          },
+          {
+            "round": 2,
+            "stage": "after-style",
+            "sampledPeakMiB": 523.861,
+            "stagePeakMiB": {
+              "before-canonical-getter": 452.517,
+              "after-canonical-getter": 462.424,
+              "before-typeset": 474.845,
+              "after-typeset": 518.392,
+              "after-finish-output": 523.736,
+              "after-style": 523.861,
+              "ready-settled": 442.392,
+              "after-public-source": 459.142
+            }
+          },
+          {
+            "round": 3,
+            "stage": "after-reader-off",
+            "sampledPeakMiB": 522.642,
+            "stagePeakMiB": {
+              "before-canonical-getter": 508.408,
+              "after-canonical-getter": 520.158,
+              "before-typeset": 520.971,
+              "after-typeset": 521.814,
+              "after-finish-output": 522.627,
+              "after-style": 522.642,
+              "ready-settled": 448.689,
+              "after-public-source": 466.127
+            }
+          },
+          {
+            "round": 4,
+            "stage": "after-finish-output",
+            "sampledPeakMiB": 528.096,
+            "stagePeakMiB": {
+              "before-canonical-getter": 506.689,
+              "after-canonical-getter": 526.299,
+              "before-typeset": 526.314,
+              "after-typeset": 527.955,
+              "after-finish-output": 528.096,
+              "after-style": 528.096,
+              "ready-settled": 451.517,
+              "after-public-source": 468.017
+            }
+          },
+          {
+            "round": 5,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 527.752,
+            "stagePeakMiB": {
+              "before-canonical-getter": 516.002,
+              "after-canonical-getter": 527.752,
+              "before-typeset": 526.424,
+              "after-typeset": 526.564,
+              "after-finish-output": 527.424,
+              "after-style": 527.424,
+              "ready-settled": 450.877,
+              "after-public-source": 467.455
+            }
+          },
+          {
+            "round": 6,
+            "stage": "after-style",
+            "sampledPeakMiB": 528.424,
+            "stagePeakMiB": {
+              "before-canonical-getter": 521.971,
+              "after-canonical-getter": 526.799,
+              "before-typeset": 527.236,
+              "after-typeset": 528.08,
+              "after-finish-output": 528.408,
+              "after-style": 528.424,
+              "ready-settled": 452.986,
+              "after-public-source": 468.439
+            }
+          }
+        ]
+      },
+      {
+        "label": "full-c",
+        "exeSha256": "a61b9313c41777cf6a37597836250079240ff340b7bc8392ab320886b05e8def",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 6,
+        "systemLifetimePeakMiB": 546.502,
+        "smallAfterReadMiB": [
+          276.095,
+          462.205,
+          480.767,
+          475.174,
+          480.111,
+          481.111
+        ],
+        "largeAfterReadMiB": [
+          273.752,
+          461.705,
+          479.814,
+          475.564,
+          477.674,
+          479.408
+        ],
+        "largeDomCounts": [
+          18358
+        ],
+        "largeMathItemCounts": [
+          129
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 86.049,
+            "rssMiB": 224.203,
+            "heapUsedMiB": 15.744
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 82.486,
+            "rssMiB": 220.953,
+            "heapUsedMiB": 15.303
+          }
+        ],
+        "peakByLargeRound": [
+          {
+            "round": 1,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 275.705,
+            "stagePeakMiB": {
+              "before-canonical-getter": 269.908,
+              "after-canonical-getter": 275.705,
+              "before-typeset": 241.345,
+              "after-typeset": 248.627,
+              "after-finish-output": 249.283,
+              "after-style": 249.564,
+              "ready-settled": 249.564,
+              "after-public-source": 273.658
+            }
+          },
+          {
+            "round": 2,
+            "stage": "after-style",
+            "sampledPeakMiB": 526.049,
+            "stagePeakMiB": {
+              "before-canonical-getter": 456.127,
+              "after-canonical-getter": 461.705,
+              "before-typeset": 471.314,
+              "after-typeset": 509.58,
+              "after-finish-output": 524.97,
+              "after-style": 526.049,
+              "ready-settled": 445.002,
+              "after-public-source": 461.705
+            }
+          },
+          {
+            "round": 3,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 527.095,
+            "stagePeakMiB": {
+              "before-canonical-getter": 515.299,
+              "after-canonical-getter": 527.095,
+              "before-typeset": 525.064,
+              "after-typeset": 526.595,
+              "after-finish-output": 506.049,
+              "after-style": 506.877,
+              "ready-settled": 460.22,
+              "after-public-source": 479.814
+            }
+          },
+          {
+            "round": 4,
+            "stage": "after-finish-output",
+            "sampledPeakMiB": 546.08,
+            "stagePeakMiB": {
+              "before-canonical-getter": 519.533,
+              "after-canonical-getter": 542.22,
+              "before-typeset": 542.502,
+              "after-typeset": 545.877,
+              "after-finish-output": 546.08,
+              "after-style": 546.08,
+              "ready-settled": 459.017,
+              "after-public-source": 475.486
+            }
+          },
+          {
+            "round": 5,
+            "stage": "after-typeset",
+            "sampledPeakMiB": 537.424,
+            "stagePeakMiB": {
+              "before-canonical-getter": 518.595,
+              "after-canonical-getter": 536.408,
+              "before-typeset": 535.658,
+              "after-typeset": 537.424,
+              "after-finish-output": 513.955,
+              "after-style": 513.955,
+              "ready-settled": 462.017,
+              "after-public-source": 477.674
+            }
+          },
+          {
+            "round": 6,
+            "stage": "after-canonical-getter",
+            "sampledPeakMiB": 542.705,
+            "stagePeakMiB": {
+              "before-canonical-getter": 524.877,
+              "after-canonical-getter": 542.705,
+              "before-typeset": 538.642,
+              "after-typeset": 540.72,
+              "after-finish-output": 540.799,
+              "after-style": 540.799,
+              "ready-settled": 464.424,
+              "after-public-source": 479.408
+            }
+          }
+        ]
+      },
+      {
+        "label": "unobserved-reference",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 6,
+        "systemLifetimePeakMiB": 546.674,
+        "smallAfterReadMiB": [
+          276.22,
+          465.252,
+          473.439,
+          474.502,
+          480.83,
+          475.955
+        ],
+        "largeAfterReadMiB": [
+          274.002,
+          465.033,
+          471.299,
+          472.83,
+          479.845,
+          476.986
+        ],
+        "largeDomCounts": [
+          18358
+        ],
+        "largeMathItemCounts": [
+          129
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 82.892,
+            "rssMiB": 217.516,
+            "heapUsedMiB": 15.736
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 80.502,
+            "rssMiB": 215.438,
+            "heapUsedMiB": 15.298
+          }
+        ],
+        "peakByLargeRound": []
+      },
+      {
+        "label": "unobserved-global",
+        "exeSha256": "ca643b378d6541531473b0f53bf113cb5521f37c2dace05d4e1a78cc027d79f8",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 6,
+        "systemLifetimePeakMiB": 542.861,
+        "smallAfterReadMiB": [
+          273.97,
+          457.361,
+          473.142,
+          469.205,
+          480.267,
+          475.377
+        ],
+        "largeAfterReadMiB": [
+          270.142,
+          454.236,
+          470.939,
+          469.361,
+          478.799,
+          472.83
+        ],
+        "largeDomCounts": [
+          16975
+        ],
+        "largeMathItemCounts": [
+          129
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 83.502,
+            "rssMiB": 217.078,
+            "heapUsedMiB": 15.736
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 80.189,
+            "rssMiB": 213.797,
+            "heapUsedMiB": 15.299
+          }
+        ],
+        "peakByLargeRound": []
+      },
+      {
+        "label": "dense-reference",
+        "exeSha256": "d1fee6a23c17b232d7599941b971be76c3cf2d9ff5a1549a61c2532aee9aded4",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 2,
+        "systemLifetimePeakMiB": 456.345,
+        "smallAfterReadMiB": [
+          322.83,
+          436.095
+        ],
+        "largeAfterReadMiB": [
+          320.455,
+          437.095
+        ],
+        "largeDomCounts": [
+          51490
+        ],
+        "largeMathItemCounts": [
+          1001
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 436.017,
+            "rssMiB": 548.906,
+            "heapUsedMiB": 54.054
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 81.674,
+            "rssMiB": 226.734,
+            "heapUsedMiB": 15.766
+          }
+        ],
+        "peakByLargeRound": []
+      },
+      {
+        "label": "dense-global",
+        "exeSha256": "d1fee6a23c17b232d7599941b971be76c3cf2d9ff5a1549a61c2532aee9aded4",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636",
+        "rounds": 2,
+        "systemLifetimePeakMiB": 481.58,
+        "smallAfterReadMiB": [
+          300.377,
+          465.861
+        ],
+        "largeAfterReadMiB": [
+          297.048,
+          466.736
+        ],
+        "largeDomCounts": [
+          39984
+        ],
+        "largeMathItemCounts": [
+          1001
+        ],
+        "idle": [
+          {
+            "phase": "small-idle-10s",
+            "footprintMiB": 465.783,
+            "rssMiB": 573.469,
+            "heapUsedMiB": 51.211
+          },
+          {
+            "phase": "small-idle-30s",
+            "footprintMiB": 80.673,
+            "rssMiB": 209.328,
+            "heapUsedMiB": 15.77
+          }
+        ],
+        "peakByLargeRound": []
+      }
+    ],
+    "invalidGroupsExcluded": [
+      "full-a",
+      "no-typeset-a"
+    ],
+    "sameBinaryWithinEachPair": true,
+    "threeDifferentDiagnosticBinariesNotSubtractedAcrossPairs": true,
+    "mathAblationNotEqualWorkNotProductCandidate": true,
+    "globalFontCacheNotStableFullWorkloadMemoryBenefit": true,
+    "noProductPromotion": true,
+    "nativePhaseLabelsIncludeConsoleDeliveryDelay": true
+  },
+  "associated": {
+    "geometry": [
+      {
+        "stage": "initialGeometry",
+        "containers": 130,
+        "maximumCoordinateDifferencePx": 20.0,
+        "svgStringsExpectedDifferent": true
+      },
+      {
+        "stage": "finalGeometry",
+        "containers": 130,
+        "maximumCoordinateDifferencePx": 20.0,
+        "svgStringsExpectedDifferent": true
+      }
+    ],
+    "actualReadEditReadChecksPerGroup": 12,
+    "publicGlyphReferenceAndReprocessChecksPerGroup": 16,
+    "nativeOwnerChecksPerGroup": 6,
+    "glyphReferencesResolveBeforeAndAfterEditorAndReprocess": true,
+    "getterCases": 14,
+    "getterStates": 56,
+    "getterChecks": 60,
+    "passed": 58,
+    "baselineStrictDomFailures": 2,
+    "recordsExactlyMatchFrozen292SameCoreAndNativeBinary": true,
+    "cachedReferenceUsed": "outputs/exploration-20261028/phase292/getters-reference/cases.json",
+    "noFullClientOrPixelPdfAcceptanceClaim": true,
+    "noNewPdfBecauseMemoryCandidateRejected": true
+  },
+  "remaining": [
+    "实际高内存仍未修复。一次打开约275MiB与连续切换约545–547MiB不是同一个测量点／阶段，应分开归因。",
+    "省略实际数学输出后连续切换峰值约397MiB，说明数学工作对该高峰有影响；不代表精确150MiB属于MathJax或可省掉数学输出。",
+    "SVG全局字形缓存没有稳定完整流程内存优势，密集公式更高，拒绝；少1383／11506个DOM节点不当内存修复。",
+    "下一需要证据区分跨导航旧数学状态／文档持有、正常活动对象与V8／原生可复用驻留；只在确认自有持有点时考虑生命周期修正，不以清缓存或强制GC掩盖。",
+    "累计源码292保持；两个既有严格DOM字符串失败、历史PDF跨次差异未在本轮修复。未打包／同步／安装，现用App与真实资料保持。"
+  ],
+  "nextGate": "继续高内存主目标，优先核对跨页面的数学状态／文档退役与旧context存活，寻找有实际文档身份、终止时机及公开API证据的自有持有点；不能因新一轮before-typeset已有高值就断言旧对象仍被强引用。其次才回到已核许可转换器的整篇字符串中间分配。294全局字形缓存已否定，不无新证据重复。每条路线保留有限对照与失败，确认收益才修；不得把主动丢数学输出、强制GC或profile重建交付。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "ACTIVE",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true
+}

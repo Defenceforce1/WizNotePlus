@@ -1,0 +1,132 @@
+{
+  "phase": 297,
+  "date": "2026-10-28",
+  "report": "docs/converter-string-memory-closeout-2026-10-28.md",
+  "validation": {
+    "phase": 297,
+    "accepted": true,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "finiteHypothesesCompleted": 3,
+    "allCandidatesRejected": true,
+    "sourceCases": 266,
+    "semanticComparisonsPerCandidate": 1064,
+    "totalSemanticComparisons": 3192,
+    "hookOrderAndHtmlExact": true,
+    "memoryGroups": 5,
+    "memoryControlsEach": 13,
+    "attributionGroups": 1,
+    "attributionControls": 13,
+    "normalizationAndUnescapeNotTriggeredInTargetLoad": true,
+    "unhashNoMatchPassesAvoided": 6001,
+    "unhashPeakNotReduced": true,
+    "newNativeBuildPerformed": false,
+    "newPdfOrFullMatrixPerformed": false,
+    "currentProductPhase": 292,
+    "initialLiteralReplacementScopeErrorRetained": true,
+    "finiteAuthorizedPlanComplete": true,
+    "performanceIssueResolved": false,
+    "nextConcreteProductAllocationPointUnconfirmed": true,
+    "automationStatus": "PAUSED",
+    "automationFrequencyMinutes": 20,
+    "noNetworkSyncPackageAppOrRealData": true
+  },
+  "memory": {
+    "phase": 297,
+    "groups": [
+      {
+        "label": "reference-a",
+        "sampledPeakMiB": 276.173,
+        "systemLifetimePeakMiB": 276.673,
+        "stageAtSamplePeak": "before-reader-off",
+        "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      },
+      {
+        "label": "normalize-final",
+        "sampledPeakMiB": 278.252,
+        "systemLifetimePeakMiB": 278.97,
+        "stageAtSamplePeak": "ready-settled",
+        "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+        "coreSha256": "dab2cbe93bdc2e74021fa2050b1d08c2d65ff858166429cd939ffdef0697534a"
+      },
+      {
+        "label": "unescape-a",
+        "sampledPeakMiB": 278.72,
+        "systemLifetimePeakMiB": 279.08,
+        "stageAtSamplePeak": "before-reader-off",
+        "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+        "coreSha256": "33b74e76ec3f8c97efdee73ca883d7e9137973d2cfcf973af62bc62639dd1ad7"
+      },
+      {
+        "label": "unhash-a",
+        "sampledPeakMiB": 286.439,
+        "systemLifetimePeakMiB": 286.939,
+        "stageAtSamplePeak": "before-reader-off",
+        "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+        "coreSha256": "29be093b2d956a0eb9c1b2ced0ac8f36360076ca33ba00d8d5fc8370da8fdc32"
+      },
+      {
+        "label": "reference-b",
+        "sampledPeakMiB": 275.33,
+        "systemLifetimePeakMiB": 278.22,
+        "stageAtSamplePeak": "before-reader-off",
+        "exeSha256": "aef371b6f53379828e26b4670f399ce637ba7e1d3088ada04183629d4b740f3a",
+        "coreSha256": "f74cc6e899537c48696de6d30fd0f3d25481df9bda80e2c64a6b65c7eac09636"
+      }
+    ],
+    "sameBinaryAndCurrentComponentsAndWorkload": true,
+    "candidateNoneBelowReferenceRange": true,
+    "allCandidatesRejected": true,
+    "initialLiteralReplacementMeasurementExcluded": "normalize-a",
+    "notLongTermOrAllInputsMemoryAcceptance": true
+  },
+  "hitAttribution": {
+    "phase": 297,
+    "samples": [
+      {
+        "inputUnits": 892,
+        "tilde": 0,
+        "dollar": 0,
+        "cr": 0,
+        "outputDollar": 0,
+        "outputTilde": 0,
+        "paragraphs": 9,
+        "noHashPrefix": 7,
+        "unhashPasses": 11,
+        "unhashMatches": 2
+      },
+      {
+        "inputUnits": 792799,
+        "tilde": 0,
+        "dollar": 0,
+        "cr": 0,
+        "outputDollar": 0,
+        "outputTilde": 0,
+        "paragraphs": 6130,
+        "noHashPrefix": 6001,
+        "unhashPasses": 6259,
+        "unhashMatches": 129
+      }
+    ],
+    "normalizationAndUnescapeTargetsAbsentInRepresentativeHighWaterInput": true,
+    "unhashWouldAvoid6001NoMatchPassesButNoMemoryBenefit": true,
+    "onlyReviewed529SourceCounters": true,
+    "instrumentedRunNotUsedForBenefit": true,
+    "additionalLinearScanObserverCostAcknowledged": true
+  },
+  "remaining": [
+    "实际WebEngine高内存仍未解决；297三个候选均拒绝，产品保持292，不能把有限定位收口称全部优化完成。",
+    "单次约275–277MiB与连续跨页约545MiB／同页读编更高峰值分属不同工作量；正常空闲会回落，未证明所有场景无泄漏或精确活动对象归属。",
+    "仍需匹配当前Chromium/V8/Blink的对象级分配与持有证据，或明确合法上游改动范围；现有公开标量、区域标签／预留栈不足以确认下一产品点。",
+    "旧引擎自然回收、直接复用污染宏、公开解析状态重建无净收益、临时树／字形缓存／字符串候选无益等否定证据保持，不自动重复或清缓存／强制GC。",
+    "既有2处严格DOM字符串失败和历史PDF跨次变化未修复；累计源码未打包／同步／安装，现用App、真实资料及重要回退保持。"
+  ],
+  "nextGate": "本轮有限已授权定位清单收口，20分钟跟进已PAUSED。只有新的具体对象分配／持有证据、匹配上游诊断资料或用户明确的新范围才继续；不把区域RSS／footprint或更多无目标试验当新证据，不自动改上游、读私有编辑器状态或恢复自动运行。",
+  "automationId": "wiznoteplus",
+  "automationStatus": "PAUSED",
+  "automationFrequencyMinutes": 20,
+  "productAndTestsUnchanged": true,
+  "noAppOrRealDataChange": true,
+  "finiteAuthorizedPlanClosedNotWholeMemoryIssueSolved": true
+}
