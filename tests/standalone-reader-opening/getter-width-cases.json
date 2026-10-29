@@ -1,0 +1,47 @@
+[
+  {
+    "name": "paragraphs",
+    "source": "Alpha\n\nBeta  gamma\n  indented\n\n中文 α β 😀\n\n"
+  },
+  {
+    "name": "entities",
+    "source": "&amp; &lt; &#169; &quot; &nbsp; <tag>\nLiteral < and >, $x$\n"
+  },
+  {
+    "name": "code",
+    "source": "```tex\n\\begin{equation}code\\end{equation}\n```\n\n    indented\n\tTabbed\n"
+  },
+  {
+    "name": "lists",
+    "source": "- one\n- two **bold**\n  - nested\n\n1. first\n2. second\n"
+  },
+  {
+    "name": "html-layout",
+    "source": "<p>Paragraph <span>inline</span></p>\n<div style=\"display:none\">hidden</div>\n<pre>A\tB\nC</pre>\n"
+  },
+  {
+    "name": "links-images",
+    "source": "[Text](https://example.invalid/path)\n\n![Alt](data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%224%22%20height=%224%22%3E%3C/svg%3E)\n"
+  },
+  {
+    "name": "tables",
+    "source": "| A | B |\n|---|---|\n| cell | $x$ |\n\n<table><tr><td>one</td><td>two</td></tr></table>\n"
+  },
+  {
+    "name": "todos",
+    "source": "- [ ] pending\n- [x] complete\n\n<span class=\"wiz-todo-layer\"><input type=\"checkbox\" class=\"wiz-todo-checkbox\"> task</span>\n"
+  },
+  {
+    "name": "spacing",
+    "source": "Line with  double   spaces\n\n\nNew paragraph\n\t tab\n\nNBSP:   BOM: ﻿\n"
+  },
+  {
+    "name": "inline-css",
+    "source": "<div style=\"white-space:pre-wrap\">A  B\nC\tD</div>\n<div style=\"width:50%\">Percent <em>width</em></div>\n"
+  },
+  {
+    "name": "dynamic-mathml",
+    "source": "Synthetic MathML compatibility source 中文\n\nFresh source.\n",
+    "probeMathML": true
+  }
+]
