@@ -1,5 +1,21 @@
 # 第二组十轮性能与内存对照
 
+第259轮`theorem-candidates.cjs <before目录> <新结果JSON> prototype|product`
+验证自有投影器的惰性原文提供者：先复用既有HTML文本过滤和完整标记匹配，
+只有可处理的候选才读取当次权威原文；原有字符串参数接口不变。最终101项
+真实DOM／marked差分，10类代码／忽略HTML／非法结构少读一次，16类定理／星号、
+嵌套、引用、前置回调、错误／恢复及字符串接口输出逐字相同。无需访问私有引擎。
+before目录上级preflight.json指定本项目隔离根，浏览器临时目录在其runtime下；
+最终报告拒绝覆盖，不重复累计原型或以前阶段检查。
+
+第258轮`theorem-gate.cjs <before目录> <新结果JSON> prototype|product`仅核对
+自有beforeMarkdownRender的读取门槛，采用真实离线DOM／marked和合成公开getter。
+6类无定理／未知环境／代码字面量、8类定理及星号形式共16类、错误回退、自定义
+前置回调及恢复，最终103项差分检查。无受支持定理前缀时保留原HTML并不读原文；
+支持的定理仍新读一次，输出逐字一致，无跨回调缓存。真实getter的1→0及耗时
+由reader-opening的literal隔离场景单独确认，不把此DOM检查当作原生性能证明。
+before目录上级preflight.json必须指定本项目隔离根；已有结果文件拒绝覆盖。
+
 第248轮`theorem-source.cjs <before目录> <新结果JSON> prototype|product`以真实
 离线DOM／marked和合成公开getter，先在内存原型验证，再要求产品源码逐字
 匹配原型。16类投影、8次新原文、前置回调、解析／getter错误及恢复、直接
