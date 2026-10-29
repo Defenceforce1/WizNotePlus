@@ -15,7 +15,7 @@ inline QString source()
       'use strict';
       if(globalThis.__wizPdfSvgLinks)return;
       const svg='http://www.w3.org/2000/svg',xlink='http://www.w3.org/1999/xlink';
-      let links=[],targets=[],boxes=[],layouts=[],active=false,armed=false,prepares=0,restores=0,lastAdded=0,lastFitted=0,errors=0;
+      let links=[],targets=[],boxes=[],layouts=[],nativeFits=[],active=false,armed=false,prepares=0,restores=0,lastAdded=0,lastFitted=0,errors=0;
       function restore(){
         if(!active)return;
         for(const record of layouts){
@@ -49,7 +49,15 @@ inline QString source()
           try{if(record.node.getAttributeNS(null,'href')===record.applied)record.node.removeAttributeNS(null,'href');}
           catch(_){++errors;}
         }
-        links=[];targets=[];boxes=[];layouts=[];active=false;++restores;
+        for(const record of nativeFits){
+          try{
+            for(const [name,value] of record.attributes){
+              if(value===null)record.image.removeAttribute(name);else record.image.setAttribute(name,value);
+            }
+            if(record.rootStyle===null)record.root.removeAttribute('style');else record.root.setAttribute('style',record.rootStyle);
+          }catch(_){++errors;}
+        }
+        links=[];targets=[];boxes=[];layouts=[];nativeFits=[];active=false;++restores;
       }
       function fitMultlineRows(){
         // Pinned MathJax 2 SVG multline tables contain one body column. Keep
@@ -136,6 +144,23 @@ inline QString source()
             if(!(parseFloat(getComputedStyle(node).marginRight)<0))continue;
             boxes.push({node,hadStyle:node.hasAttribute('style'),style:node.getAttribute('style')});
             node.style.setProperty('margin-right','0','important');
+          }
+          // Reading keeps already-fitting v4 full-width SVGs native. Freeze
+          // only for this armed print, before number/layout helpers resize them.
+          // Their pixel-positioned groups cannot follow a later print viewport
+          // change without a viewBox. Restore every original attribute exactly.
+          for(const image of document.querySelectorAll('.MathJax_SVG_Display mjx-container > svg[data-mjx-viewBox]')){
+            if(image.viewBox.baseVal.width>0)continue;
+            const root=image.parentElement,ink=image.getBBox(),rect=image.getBoundingClientRect();
+            const width=Math.max(rect.width,ink.x+ink.width),height=Math.max(rect.height,ink.y+ink.height);
+            if(!(width>0&&height>0))continue;
+            nativeFits.push({image,root,rootStyle:root.getAttribute('style'),attributes:
+              ['viewBox','width','height','style','preserveAspectRatio','data-wiz-mjx4-ink-fit'].map(name=>[name,image.getAttribute(name)])});
+            image.setAttribute('viewBox',`0 0 ${width} ${height}`);
+            image.setAttribute('width',width+'px');image.setAttribute('height',height+'px');
+            image.style.width=width+'px';image.style.maxWidth='100%';image.style.minWidth='0';image.style.height='auto';
+            root.style.minWidth='0';root.style.maxWidth='100%';
+            image.setAttribute('preserveAspectRatio','xMidYMid meet');image.setAttribute('data-wiz-mjx4-ink-fit','');
           }
           const referenced=new Map();
           for(const node of document.querySelectorAll('.MathJax_SVG a')){
@@ -235,8 +260,8 @@ inline QString source()
           // every serialized print; addEventListener deduplicates intact ones.
           listen();armed=true;return true;
         },
-        finish:()=>{restore();armed=false;return !active&&!links.length&&!targets.length&&!boxes.length&&!layouts.length&&!errors;},
-        status:()=>({active,pending:links.length+targets.length+boxes.length+layouts.length,prepares,restores,lastAdded,lastFitted,errors})
+        finish:()=>{restore();armed=false;return !active&&!links.length&&!targets.length&&!boxes.length&&!layouts.length&&!nativeFits.length&&!errors;},
+        status:()=>({active,pending:links.length+targets.length+boxes.length+layouts.length+nativeFits.length,prepares,restores,lastAdded,lastFitted,errors})
       })});
     })())JS");
 }
