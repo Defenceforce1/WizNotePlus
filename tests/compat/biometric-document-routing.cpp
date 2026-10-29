@@ -2,6 +2,7 @@
 #include "share/WizDocumentReadPermit.h"
 #include "share/WizDocumentReadOutput.h"
 #include "share/WizDocumentReadSave.h"
+#include "share/WizReaderOpeningPresentation.h"
 #include "share/WizSessionAccess.h"
 #include "share/WizQuitUiGuard.h"
 #include "share/WizQuitSyncPolicy.h"
@@ -375,7 +376,7 @@ struct Web : InspectorShell {
     void focusOut(){++focusSignals;initialStage("focusOut");}
     void cancelMarkdownRecovery(){}
 #ifdef WIZNOTE_INITIAL_FIXED
-    bool addDefaultScriptsToDocumentHtml(QString);
+    bool addDefaultScriptsToDocumentHtml(QString, bool prepareReaderPresentation = false);
     WizDocumentCallbackEpoch::Ticket invalidateDocumentCallbacks();
     bool prepareInitial(const QString& path){return addDefaultScriptsToDocumentHtml(path);}
 #else
@@ -592,7 +593,7 @@ public:
     bool m_noteLoaded=false,m_bLocked=false;
     int m_editorMode=modeReader,downloads=0,threadWaits=0,closedSignals=0;
     Gate m_biometricGate;WizDocumentCallbackEpoch m_openEpoch;
-    quint64 m_openSequence=0;
+    quint64 m_openSequence=0,m_noteSwitchSequence=0;
     bool m_encryptedAccessEnabled=false,m_biometricPrepared=false,m_accessClosing=false,m_biometricReloadPending=false;
     // Per-request fixtures remain isolated; policy cases inject the same
     // production Session as the main host, without native subscriptions.
@@ -1117,8 +1118,8 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     submit(view);
     check(view.m_web->reloads==1&&!view.m_biometricReloadPending,"a requested reload resumes once only after fresh proof");
     const int previousLoads=view.m_web->loads;view.m_web->reply=false;view.viewNote(a,false);
-    check(view.note().strGUID==b.strGUID&&view.m_web->loads==previousLoads&&view.m_stack->currentWidget()==view.m_passwordView,
-          "save failure preserves the old note and conceals it without loading the requested note");
+    check(view.note().strGUID==b.strGUID&&view.m_web->loads==previousLoads&&view.m_stack->currentWidget()==view.m_docView,
+          "failed switch save preserves the old authorized note without retiring its initialization or loading the destination");
     view.m_web->reply=true;submit(view);view.m_web->defer=true;
     view.viewNote(a,false);view.viewNote(c,false);
     auto first=view.m_web->pending[0],second=view.m_web->pending[1];view.m_web->pending.clear();
@@ -3236,7 +3237,9 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         // window navigation and saver handoff are recording collaborators.
         seed();RoutingView success(explorer);prepare(success);web=success.m_web;const auto priorRead=web->noteReadPermit();web->body="unsaved initial DOM";const auto changes=web->m_contentChangeSequence;web->loadDocumentInWeb(0);
         QString result;WizLoadUnicodeTextFromFile(file,result);
-        check(result==original+"<!-- synthetic core --><!-- synthetic CSS -->"&&web->m_currentNoteHtml==original&&web->m_currentNoteHtmlDocument.strGUID==a.strGUID&&web->getCurrentNoteHtml()==original,"initial success writes only the decorated temporary page and keeps an owned raw-source cache");
+        QString expectedPrepared=original+"<!-- synthetic core --><!-- synthetic CSS -->";
+        WizHTMLAppendTextInHead(WizReaderOpeningPresentation::bootstrapHtml(),expectedPrepared);
+        check(result==expectedPrepared&&result.contains("id=\"wiz_reader_opening_bootstrap\"")&&web->m_currentNoteHtml==original&&web->m_currentNoteHtmlDocument.strGUID==a.strGUID&&web->getCurrentNoteHtml()==original,"initial success decorates only the temporary reader page with its opening gate and keeps the exact raw-source cache");
         check(web->initialLoadCalls==1&&web->initialNotifications==1&&web->initialUrls.size()==1&&web->initialUrls.first().adjusted(QUrl::RemoveQuery)==QUrl::fromLocalFile(file)&&!priorRead.current()&&web->noteReadPermit().current(),"own invalidation plus simulated loadStarted still permit exactly one load and legacy completion notification");
         check(web->body=="unsaved initial DOM"&&web->m_contentChangeSequence==changes&&db.getCertPassword()==password,"initial loading does not clear pending body native dirty generation or password save cache");
         for(const QString stage:{"publish","files","core","css"}){
@@ -3473,12 +3476,12 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
     // Phase154 failed-new-opening/save backout.
     {
         const auto prepare=[&](RoutingView& owner,const WIZDOCUMENTDATAEX& doc){owner.m_web->useActualLoader=true;owner.show();owner.viewNote(doc,true);if(doc.nProtected)submit(owner);};
-        RoutingView failed(explorer);prepare(failed,a);auto* target=failed.m_web;const auto old=target->requestedInitialSequence;
+        RoutingView failed(explorer);prepare(failed,a);auto* target=failed.m_web;const auto old=target->requestedInitialSequence;const auto retainedRead=failed.noteReadTicket();
         target->body="unsaved previous DOM";target->m_bContentsChanged=true;target->m_currentNoteHtml="previous save cache";target->reply=false;
         failed.viewNote(b,true);
-        check(failed.note().strGUID==a.strGUID&&target->initialLoaderRequests==1&&!failed.canReadCurrentNote(),"failed new-opening save retains the original protected note and asks for fresh authorization before any extraction");
-        submit(failed);const auto fresh=target->requestedInitialSequence;
-        check(target->initialLoaderRequests==2&&fresh>old&&target->requestedInitialDocument.strGUID==a.strGUID&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,fresh),"after failed navigation fresh authorization resumes the retained note's unfinished extraction");
+        check(failed.note().strGUID==a.strGUID&&target->initialLoaderRequests==2&&failed.canReadCurrentNote()&&failed.acceptsNoteRead(retainedRead),"failed new-opening save retains the original protected note and current authorization while resuming its unfinished extraction");
+        const auto fresh=target->requestedInitialSequence;
+        check(target->initialLoaderRequests==2&&fresh>old&&target->requestedInitialDocument.strGUID==a.strGUID&&target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,fresh),"failed navigation resumes only the retained note's new extraction sequence without an extra password submission");
         check(!target->acceptsLoadResult(a.strKbGUID,a.strGUID,target,old)&&target->body=="unsaved previous DOM"&&target->m_bContentsChanged&&target->m_currentNoteHtml=="previous save cache","failed-save backout never revives the old result or clears dirty DOM and cache");
 
         RoutingView plain(explorer);prepare(plain,c);target=plain.m_web;const auto plainOld=target->requestedInitialSequence;target->reply=QString("not a Bool");plain.viewNote(b,true);

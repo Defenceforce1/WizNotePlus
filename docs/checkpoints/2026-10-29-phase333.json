@@ -1,0 +1,33 @@
+{
+  "phase": 333,
+  "productSourcePhase": 333,
+  "purpose": "Lazy comment panel and coalesced queued tab refreshes",
+  "sourceHashes": {
+    "src/widgets/WizLocalProgressWebView.h": "8317e1f07cff331623aae7fba705dd7e634c8fce3cb49d08e468a1ce61b64483",
+    "src/widgets/WizLocalProgressWebView.cpp": "5936e6b3fa81e82197b505c27e615d8a0321aea7ab15071156e49ca4654eccfa",
+    "src/gui/documentviewer/WizDocumentView.h": "e2d460f1b1c66f175b2477b88c9feb5fd667750a11e6307663903ec56ba89fbb",
+    "src/gui/documentviewer/WizDocumentView.cpp": "71ef0e87f5ec80498e09aaa0c0e3e931bd3ee8151576574b34b1c98531f7d534",
+    "src/gui/documentviewer/WizTitleBar.cpp": "353219770481a9aa0d6f84c5871e76c971f04347a77e2bf8455f1646f9891d04",
+    "src/WizMainWindow.cpp": "4903afa9363c310a027f455c38cf13809729d285b0e7c84f6bd08ffa9b82ca28",
+    "src/gui/tabbrowser/WizMainTabBrowser.h": "91d72161102fef62f92017f4a3e680fb7a1f1bc198f6215b537f760ddb4a625a",
+    "src/gui/tabbrowser/WizMainTabBrowser.cpp": "62ea800524538aad7a41d05e5dbe9d18b3ff0dc7c6ee5fae85c9c72e18e8e534",
+    "tests/standalone-comment-focus/CMakeLists.txt": "dd3c710b7b4a34fa9f6cc28dcc9d8154a4e7b08d2d58ff249102ed38a8c532c5",
+    "tests/standalone-comment-focus/main.cpp": "874192b0a0e4f59f35f55f9fae33f0b22acad8e659ba8a7fd7d9fd2986e2878e",
+    "docs/performance-memory-plan.zh-CN.md": "0e08dd70c6b66e5828cce90d65045537c6d0356d59adb0f91874fb1a32c806b7",
+    "docs/on-demand-comments-tab-refresh-2026-10-29.md": "4ff3bd30b096840aae39df88c2263fe14361e02e0f35e9867e0a88c25c35dd58"
+  },
+  "accepted": [
+    "39 native targeted controls",
+    "27 actual edit-command route assertions",
+    "7 native save and archive-readback cycles",
+    "targeted own-object ASan no report",
+    "48 native bundle checks and740 current source resources"
+  ],
+  "memoryReductionAccepted": false,
+  "highWaterFixed": false,
+  "installerProduced": false,
+  "githubSynchronizationPaused": true,
+  "trialBuild": 333,
+  "rollback330Preserved": true,
+  "evidence": "outputs/exploration-20261029/phase333"
+}

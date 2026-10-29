@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.24)
+project(Readiness328 LANGUAGES CXX)
+find_package(Qt6 6.11.3 EXACT REQUIRED COMPONENTS Widgets WebEngineWidgets)
+add_executable(readiness main.cpp)
+target_include_directories(readiness PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../src")
+target_compile_features(readiness PRIVATE cxx_std_17)
+target_link_libraries(readiness PRIVATE Qt6::Widgets Qt6::WebEngineWidgets)

@@ -191,11 +191,45 @@ function WizPrepareNoteModeChange() {
 }
 
 // Temporary engine style: excluded from saved note HTML by the original editor.
+var WizNoteStyleApplications = new WeakMap();
+function WizNoteStyleAttributes(style) {
+  return JSON.stringify(Array.from(style.attributes, function (attribute) {
+    return [attribute.name, attribute.value];
+  }));
+}
+function WizNoteStyleHasFollowingSheet(style) {
+  for (var node = style.nextElementSibling; node; node = node.nextElementSibling) {
+    if (node.tagName === 'STYLE' || (node.tagName === 'LINK'
+        && /(^|\s)stylesheet(\s|$)/i.test(node.getAttribute('rel') || ''))) return true;
+  }
+  return false;
+}
 function WizApplyNoteStyle(css) {
   if (typeof css === 'string') window.WizNoteCss = css;
   if (!window.WizEditor || typeof WizEditor.insertCustomStyle !== 'function') return;
-  if (window.WizNoteCss) WizEditor.insertCustomStyle('wiz_tmp_style_note_presentation', window.WizNoteCss, true);
-  else WizEditor.removeStyleById('wiz_tmp_style_note_presentation');
+  var id = 'wiz_tmp_style_note_presentation';
+  if (window.WizNoteCss) {
+    var style = document.getElementById(id);
+    var applied = style && WizNoteStyleApplications.get(style);
+    // A replaced root, changed stylesheet/API or disabled sheet must reapply.
+    // Weak keys do not keep retired reader nodes or documents alive.
+    if (!applied || style.tagName !== 'STYLE' || style.parentNode !== document.head
+        || style.textContent !== window.WizNoteCss || style.disabled
+        || (style.sheet && style.sheet.disabled)
+        || WizNoteStyleHasFollowingSheet(style)
+        || applied.css !== window.WizNoteCss || applied.writer !== WizEditor.insertCustomStyle
+        || applied.attributes !== WizNoteStyleAttributes(style)) {
+      WizEditor.insertCustomStyle(id, window.WizNoteCss, true);
+      style = document.getElementById(id);
+      if (style && style.tagName === 'STYLE' && style.parentNode === document.head
+          && style.textContent === window.WizNoteCss && !style.disabled
+          && !(style.sheet && style.sheet.disabled)) {
+        WizNoteStyleApplications.set(style, {css: window.WizNoteCss,
+          writer: WizEditor.insertCustomStyle, attributes: WizNoteStyleAttributes(style)});
+      }
+    }
+  } else WizEditor.removeStyleById(id);
+  // New mathematical output still needs decoration even when CSS is unchanged.
   WizApplyMathEnvironments();
 }
 
@@ -411,6 +445,10 @@ function WizApplyMathEnvironments() {
     + '.markdown-body .wiz-latex-theorem.proof::after{content:"□";display:block;text-align:right;}', true);
   else WizEditor.removeStyleById('wiz_tmp_style_latex_theorems');
   WizMathInstallSerializationGuards();
+  // No quote means there can be no owned heading record or prose target.
+  // Reuse the first pass snapshot so notes with quotes gain no extra scan.
+  var quoteBlocks = body.querySelectorAll('blockquote');
+  if (!quoteBlocks.length) return;
   var names = { '定理':'theorem', '引理':'lemma', '命题':'proposition', '推论':'corollary',
     '定义':'definition', '例':'example', '例子':'example', '注':'remark', '注记':'remark', '证明':'proof',
     theorem:'theorem', lemma:'lemma', proposition:'proposition', corollary:'corollary',
@@ -449,7 +487,7 @@ function WizApplyMathEnvironments() {
   }
   // Markdown joins adjacent quoted paragraphs. Split only the rendered DOM at
   // explicit math headings; serialization restores the original node order.
-  body.querySelectorAll('blockquote').forEach(function (block) {
+  quoteBlocks.forEach(function (block) {
     if (!preset && !block.classList.contains('wiz-latex-theorem')) return;
     var children = Array.from(block.childNodes), created = [], current = block;
     var hasContent = false;

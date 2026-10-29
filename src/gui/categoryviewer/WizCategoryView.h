@@ -161,6 +161,7 @@ public:
 
     void loadShortcutState();
     Q_INVOKABLE void saveShortcutState();
+    void scheduleShortcutSave();
     void loadExpandState();
     void saveExpandState();
 
@@ -595,6 +596,7 @@ private:
     std::shared_ptr<QMenu> m_menuGroup;
     std::shared_ptr<QMenu> m_menuTrash;
     std::shared_ptr<QMenu> m_menuCustomSearch;
+    QPointer<QTimer> m_timerSaveShortcutState;
     QPointer<QTimer> m_timerUpdateFolderCount;
     QPointer<QTimer> m_timerUpdateTagCount;
     QMap<QString, QTimer*> m_mapTimerUpdateGroupCount;

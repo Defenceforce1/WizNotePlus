@@ -32,6 +32,23 @@ if(APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
     set(WIZNOTE_MAC_URL_TYPES "<array/>")
 endif()
 
+# A local trial must remain isolated even when launched by Finder or restarted
+# without the launcher's environment. Empty preserves the normal build identity.
+set(WIZNOTE_ISOLATED_TRIAL_ROOT "" CACHE PATH "Dedicated data root for an independent local trial")
+set(WIZNOTE_ISOLATED_TRIAL_ROOT_CPP "${WIZNOTE_ISOLATED_TRIAL_ROOT}")
+if(WIZNOTE_ISOLATED_TRIAL_ROOT)
+    if(NOT WIZNOTE_APPLE_SILICON_TRIAL OR NOT IS_ABSOLUTE "${WIZNOTE_ISOLATED_TRIAL_ROOT}")
+        message(FATAL_ERROR "Independent trial root requires an absolute path and Apple Silicon trial build")
+    endif()
+    set(WIZNOTE_MAC_DISPLAY_NAME "WizNotePlus 独立试用版")
+    set(WIZNOTE_MAC_BUNDLE_NAME "WizNotePlus 独立试用版")
+    set(WIZNOTE_MAC_BUNDLE_ID "io.github.defenceforce1.wiznoteplus.applesilicon.independent")
+    string(REPLACE "\\" "\\\\" WIZNOTE_ISOLATED_TRIAL_ROOT_CPP "${WIZNOTE_ISOLATED_TRIAL_ROOT_CPP}")
+    string(REPLACE "\"" "\\\"" WIZNOTE_ISOLATED_TRIAL_ROOT_CPP "${WIZNOTE_ISOLATED_TRIAL_ROOT_CPP}")
+    string(REPLACE "\n" "\\n" WIZNOTE_ISOLATED_TRIAL_ROOT_CPP "${WIZNOTE_ISOLATED_TRIAL_ROOT_CPP}")
+    string(REPLACE "\r" "\\r" WIZNOTE_ISOLATED_TRIAL_ROOT_CPP "${WIZNOTE_ISOLATED_TRIAL_ROOT_CPP}")
+endif()
+
 #============================================================================
 # Options and Variables
 #============================================================================

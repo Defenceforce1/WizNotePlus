@@ -67,7 +67,7 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     , m_app(app)
     , m_dbMgr(app.databaseManager())
     , m_userSettings(app.userSettings())
-    , m_commentWidget(new WizLocalProgressWebView(app.mainWindow()))
+    , m_commentWidget(new WizLocalProgressWebView(this, WizLocalProgressWebView::WebInitialization::OnDemand))
     , m_title(new WizTitleBar(app, this))
     , m_passwordView(new WizUserCipherForm(app, this))
     , m_defaultViewMode(app.userSettings().noteViewMode())
@@ -115,16 +115,21 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     m_stack->setCurrentWidget(m_blankView);
     m_stack->setBackgroundRole(QPalette::HighlightedText);
 
-    // Setup comment widget
-    m_comments = m_commentWidget->web();
-    WizWebEngineInjectObjectCollection objects = {{"WizExplorerApp", WizGlobal::mainWindow()->publicAPIsObject()}};
-    auto profile = createWebEngineProfile(objects, this);
-    auto webPage = new WizWebEnginePage(objects, profile, m_comments);
-    m_comments->setPage(webPage);
-    m_comments->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
-    m_comments->setAcceptDrops(false);
-    connect(m_comments, SIGNAL(loadFinishedEx(bool)), m_title, SLOT(onCommentPageLoaded(bool)));
-    connect(m_commentWidget, SIGNAL(widgetStatusChanged()), SLOT(on_commentWidget_statusChanged()));
+    // Keep the lightweight hidden panel, but defer its web/profile objects.
+    // Focus checks use existingCommentView() and never initialize this panel.
+    connect(m_commentWidget, &WizLocalProgressWebView::webCreated, this,
+            [this](WizWebEngineView* comments) {
+        m_comments = comments;
+        WizWebEngineInjectObjectCollection objects = {{"WizExplorerApp", WizGlobal::mainWindow()->publicAPIsObject()}};
+        auto* profile = createWebEngineProfile(objects, this);
+        auto* page = new WizWebEnginePage(objects, profile, comments);
+        comments->setPage(page);
+        comments->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+        comments->setAcceptDrops(false);
+        connect(comments, SIGNAL(loadFinishedEx(bool)), m_title, SLOT(onCommentPageLoaded(bool)));
+        connect(page, &WizWebEnginePage::linkClicked,
+                m_web, &WizDocumentWebView::onEditorLinkClicked);
+    });
     m_commentWidget->hide();
 
     // Editor Components
@@ -136,8 +141,6 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     m_editorBar->setDelegate(m_web);
     connect(m_web, &WizDocumentWebView::focusIn, this, &WizDocumentView::onEditorFocusIn);
     connect(m_web, &WizDocumentWebView::focusOut, this, &WizDocumentView::onEditorFocusOut);
-    connect(m_comments->getPage(), &WizWebEnginePage::linkClicked,
-            m_web, &WizDocumentWebView::onEditorLinkClicked);
 
     QVBoxLayout* layoutEditor = new QVBoxLayout(wgtEditor);
     layoutEditor->setSpacing(0);
@@ -168,6 +171,10 @@ WizDocumentView::WizDocumentView(WizExplorerApp& app, QWidget* parent)
     layoutMain->setContentsMargins(0, 0, 0, 0);
     setLayout(layoutMain);
     layoutMain->addWidget(m_stack);
+
+    // Initial hide can emit a status notification before the editor exists.
+    // Subscribe only after every widget used by this slot has been constructed.
+    connect(m_commentWidget, SIGNAL(widgetStatusChanged()), SLOT(on_commentWidget_statusChanged()));
 
     // 设置下载器
     WizMainWindow* mainWindow = qobject_cast<WizMainWindow *>(m_app.mainWindow());
@@ -556,11 +563,12 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
 {
     QPointer<WizDocumentView> self(this);
     const auto pendingLoad = m_web->pendingLoadSequence();
-    const auto requestSequence = ++m_openSequence;
+    const auto requestSequence = ++m_noteSwitchSequence;
     m_accessClosing = false;
-    revokeBiometricAccess(false,false,true);
-    if (!self || m_openSequence != requestSequence || m_accessClosing) return;
-    const auto opening = m_openEpoch.ticket();
+    // The old note is still current while its save is pending. Invalidating
+    // its opening here cancels first-load/editor setup, yet a failed snapshot
+    // then keeps that same note on screen with no live initializer to finish.
+    const auto saving = m_openEpoch.ticket();
     const bool hadLoadedNote = m_noteLoaded;
     m_web->cancelLinkInsert();
     m_web->cancelPdfExport();
@@ -569,14 +577,20 @@ void WizDocumentView::viewNote(const WIZDOCUMENTDATAEX& wizDoc, bool forceEdit)
     m_web->trySaveDocument(m_note, false, [=](const QVariant& ret){
         // The save always completes; only its stale UI continuation is dropped.
         // An unloaded password/blank page has no snapshot to save (false is normal).
-        if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
+        if (!self || m_noteSwitchSequence != requestSequence
+            || !WizDocumentCallbackEpoch::current(saving) || m_accessClosing) return;
         if (hadLoadedNote && (ret.userType() != QMetaType::Bool || !ret.toBool())) {
             m_web->continuePendingLoadAfterFailedOpen(pendingLoad);
-            if (!self || !WizDocumentCallbackEpoch::current(opening) || m_accessClosing) return;
-            if (m_encryptedAccessEnabled) prepareEncryptedAccess(m_dbMgr.db(m_note.strKbGUID));
             return;
         }
 
+        // Commit the switch only after the old snapshot is accepted. Pending
+        // requests still supersede one another without changing the live note.
+        const auto committedSequence = ++m_openSequence;
+        revokeBiometricAccess(false,false,true);
+        if (!self || m_noteSwitchSequence != requestSequence
+            || m_openSequence != committedSequence || m_accessClosing) return;
+        const auto opening = m_openEpoch.ticket();
         WIZDOCUMENTDATAEX data = dataTemp;
 
         if (m_dbMgr.db(m_note.strKbGUID).isGroup())
@@ -1541,7 +1555,8 @@ void WizDocumentView::handleDiscardChangesRequest()
 
 void WizDocumentView::on_loadComment_request(const QString& url)
 {
-    m_comments->load(url);
+    if (m_accessClosing) return;
+    commentView()->load(url);
 }
 
 void WizDocumentView::on_commentWidget_statusChanged()

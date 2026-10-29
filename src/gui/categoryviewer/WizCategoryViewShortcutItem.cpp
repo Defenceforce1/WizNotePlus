@@ -66,11 +66,9 @@ void WizCategoryViewShortcutRootItem::drop(const CWizDocumentDataArray& arrayDoc
 
     if (changed)
     {
-        QTimer::singleShot(200, [this]() {
-            WizCategoryView* categoryView = dynamic_cast<WizCategoryView*>(treeWidget());
-            Q_ASSERT(categoryView);
-            categoryView->saveShortcutState();
-        });
+        WizCategoryView* categoryView = dynamic_cast<WizCategoryView*>(treeWidget());
+        Q_ASSERT(categoryView);
+        if (categoryView) categoryView->scheduleShortcutSave();
     }
 }
 
@@ -86,7 +84,7 @@ void WizCategoryViewShortcutRootItem::drop(const WizCategoryViewItemBase* pItem)
     sortChildren(0, Qt::AscendingOrder);
 
     WizCategoryView* categoryView = dynamic_cast<WizCategoryView*>(treeWidget());
-    QTimer::singleShot(200, categoryView, SLOT(saveShortcutState()));
+    if (categoryView) categoryView->scheduleShortcutSave();
 }
 
 bool WizCategoryViewShortcutRootItem::acceptDrop(const WizCategoryViewItemBase* pItem) const

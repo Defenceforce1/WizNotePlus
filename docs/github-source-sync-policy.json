@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "restoredDate": "2026-10-29",
+  "repository": "Defenceforce1/WizNotePlus",
+  "visibility": "public",
+  "branch": "improve/component-updates-20261023",
+  "scope": "Reviewed source and sanitized project documentation at authorized development milestones",
+  "installerBinaryUploads": false,
+  "rawLogsCachesCredentialsOrUserDataUploads": false,
+  "scheduledAutomationChanged": false,
+  "preserveLocalHeadIndexAndBranch": true
+}

@@ -12,6 +12,7 @@ inline QString displayName() { return QStringLiteral("@WIZNOTE_MAC_DISPLAY_NAME@
 inline QString trialBuild() { return QStringLiteral("@WIZNOTE_COMPAT_TRIAL_BUILD@"); }
 inline QString appVersion() { return QStringLiteral("@WIZNOTE_MAC_BUNDLE_BUILD@"); }
 inline QString organizationName() { return QStringLiteral("@WIZNOTE_MAC_BUNDLE_ID@"); }
+inline QString isolatedTrialRoot() { return QString::fromUtf8("@WIZNOTE_ISOLATED_TRIAL_ROOT_CPP@"); }
 // v14.3 deliberately isolates the organization identity. Existing explicit
 // per-user INI files retain their keys/content; no applicationName-based move.
 inline void applyDisplayName() { QGuiApplication::setApplicationDisplayName(displayName()); }

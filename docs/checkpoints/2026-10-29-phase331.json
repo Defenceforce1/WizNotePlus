@@ -1,0 +1,33 @@
+{
+  "phase": 331,
+  "productSourcePhase": 330,
+  "documentationAndIndependentDiagnosticOnly": true,
+  "userGoal": "Improve daily experience and fluidity;reduce wasted resources",
+  "futureTrialUsesExistingFixedStore": true,
+  "cycles": 12,
+  "mainWindowSyntheticLifecycleCompleted": true,
+  "trackedDocumentViewsRetired": 12,
+  "trackedEditorViewsRetired": 12,
+  "trackedPagesRetired": 48,
+  "trackedProfilesRetired": 12,
+  "trackedThreadObjectsRetired": 24,
+  "matchedIdleFootprintMiB": [
+    105.439,
+    106.814,
+    108.501
+  ],
+  "furtherIdleFootprintMiB": 103.501,
+  "concreteRetainedProductOwnerConfirmed": false,
+  "sustainedUnrecoveredGrowthConfirmed": false,
+  "allLeaksRuledOut": false,
+  "memoryHighWaterFixed": false,
+  "productPatchApplied": false,
+  "installerProduced": false,
+  "githubAccessPerformed": false,
+  "automationRemainsPaused": true,
+  "trialAppInventoryEntriesUnchanged": 1083,
+  "userTrialStoreAccessed": false,
+  "syntheticRootsRetiredRecoverably": 6,
+  "evidence": "outputs/exploration-20261029/phase331",
+  "report": "docs/sustained-retention-main-window-2026-10-29.md"
+}

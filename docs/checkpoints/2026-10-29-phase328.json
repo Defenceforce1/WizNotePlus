@@ -1,0 +1,34 @@
+{
+  "phase": 328,
+  "productSourcePhase": 328,
+  "headerBeforeSha256": "ca8912a50de580e75c05122d6b157b00639ab49bc44ae3654884abfcea2c87ae",
+  "headerAfterSha256": "2281a82e010a02bff36420ca6aa57af4d9b37ad08c3d68aec7b1b141803ded75",
+  "queuedFirstProbeNotInline": true,
+  "pollFallbackIntervalMs": 25,
+  "readyReferenceMedianMs": 26.191667,
+  "readyCandidateMedianMs": 0.283979,
+  "readySamplesEach": 10,
+  "readyQueriesEach": 1,
+  "pendingSamplesEach": 2,
+  "pendingQueryCountsReference": [
+    4,
+    4
+  ],
+  "pendingQueryCountsCandidate": [
+    5,
+    5
+  ],
+  "nativeChecks": 50,
+  "nativeFailures": 0,
+  "sameExecutableAndTopLevelMeasurementLoop": true,
+  "firstVisiblePaintOrUserPerceptionClaimed": false,
+  "memoryBenefitClaimed": false,
+  "nativeMemoryRiskResolved": false,
+  "initialFixtureReentryFailurePreserved": true,
+  "smallFixtureOnlyCompiled": true,
+  "productionAppNotRecompiled": true,
+  "foregroundOrRealNotesAccessed": false,
+  "githubAccessPerformed": false,
+  "boundedExperienceRoutesComplete": true,
+  "remainingAcceptance": "Foreground isolated candidate trial and long-term real-use observation;not authorized for automatic packaging or foreground operations"
+}

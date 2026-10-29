@@ -58,7 +58,8 @@ public:
     WizDocumentWebView* web() const { return m_web; }
     quint64 noteOpenSequence() const { return m_openSequence; }
     void awaitScreenShotAuthorization();
-    WizWebEngineView* commentView() const;
+    WizWebEngineView* commentView() const; // Explicit request: may initialize the panel.
+    WizWebEngineView* existingCommentView() const { return m_comments; }
     WizLocalProgressWebView* commentWidget() const { return m_commentWidget; }
     WizDocumentTransitionView* transitionView() { return m_transitionView; }
     WizTitleBar* titleBar() { return m_title; }
@@ -105,6 +106,9 @@ private:
     WizBiometricNoteAccess::Gate m_biometricGate;
     WizDocumentCallbackEpoch m_openEpoch;
     quint64 m_openSequence = 0;
+    // A requested switch must not retire the current renderer before its
+    // save succeeds. Keep request supersession separate from document identity.
+    quint64 m_noteSwitchSequence = 0;
     bool m_encryptedAccessEnabled = false, m_biometricPrepared = false;
     bool m_accessClosing = false, m_biometricReloadPending = false;
     //

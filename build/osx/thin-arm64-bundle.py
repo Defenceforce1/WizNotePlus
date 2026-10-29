@@ -9,6 +9,7 @@ This is packaging, not a new main executable build or a notarization operation.
 import os
 import pathlib
 import plistlib
+import re
 import stat
 import subprocess
 import sys
@@ -17,6 +18,34 @@ import tempfile
 
 def run(*args):
     return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT)
+
+
+def configure_bundled_framework_search(output):
+    """Run only on a new owned copy, before its final signature/audit."""
+    root = output.resolve(strict=True)
+    binary = output / "Contents/MacOS/WizNotePlus"
+    if binary.is_symlink() or not binary.resolve(strict=True).is_relative_to(root):
+        raise SystemExit("Refusing runtime-path edits outside the owned bundle")
+    commands = run("otool", "-l", "-arch", "arm64", str(binary))
+    old = re.findall(r"cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset", commands)
+    canonical = "@executable_path/../Frameworks"
+    keep = []
+    for path in old:
+        if path == canonical:
+            continue
+        base = None
+        if path.startswith("@loader_path/"):
+            base = binary.parent / path[13:]
+        elif path.startswith("@executable_path/"):
+            base = binary.parent / path[17:]
+        if (base is not None and base.resolve().is_relative_to(root)) or path.startswith(("/System/Library/", "/usr/lib/")):
+            if path not in keep:
+                keep.append(path)
+    for path in dict.fromkeys(old):
+        run("install_name_tool", "-delete_rpath", path, str(binary))
+    for path in [canonical] + keep:
+        run("install_name_tool", "-add_rpath", path, str(binary))
+    return {"before": old, "after": [canonical] + keep}
 
 
 def prune_language_resources(output):
@@ -100,6 +129,7 @@ def main():
             binaries.append(binary)
     if not binaries:
         raise SystemExit("No Mach-O code found")
+    configure_bundled_framework_search(output)
     # App Info.plist declares English and Simplified Chinese. This is NOT a
     # blanket removal of files with unfamiliar suffixes: fonts, math, PDF,
     # spellchecking dictionaries, devtools and image plugins are all retained.

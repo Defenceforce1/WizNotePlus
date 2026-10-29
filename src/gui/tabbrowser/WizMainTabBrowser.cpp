@@ -43,7 +43,7 @@ WizMainTabBrowser::WizMainTabBrowser(WizExplorerApp& app, QWidget *parent)
     tabBar->setAttribute(Qt::WA_Hover);
     tabBar->installEventFilter(this);
     connect(tabBar, &QTabBar::tabMoved, this, [this] {
-        QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+        scheduleTabCloseButtonUpdate();
     });
 
     setElideMode(Qt::ElideRight);
@@ -59,12 +59,22 @@ WizMainTabBrowser::WizMainTabBrowser(WizExplorerApp& app, QWidget *parent)
 
 void WizMainTabBrowser::handleCurrentChanged(int index)
 {
-    QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+    scheduleTabCloseButtonUpdate();
     if (index != -1) {
         emit titleChanged(tabPage(index)->Title());
     } else {
         emit titleChanged(QString());
     }
+}
+
+void WizMainTabBrowser::scheduleTabCloseButtonUpdate()
+{
+    if (m_tabCloseUpdatePending) return;
+    m_tabCloseUpdatePending = true;
+    QTimer::singleShot(0, this, [this] {
+        m_tabCloseUpdatePending = false;
+        updateTabCloseButtons();
+    });
 }
 
 void WizMainTabBrowser::updateTabCloseButtons()
@@ -89,7 +99,7 @@ bool WizMainTabBrowser::eventFilter(QObject* watched, QEvent* event)
         case QEvent::HoverMove: case QEvent::HoverEnter: case QEvent::HoverLeave:
         case QEvent::Resize: case QEvent::Move: case QEvent::LayoutRequest:
         case QEvent::Show: case QEvent::Hide:
-            QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons); break;
+            scheduleTabCloseButtonUpdate(); break;
         default: break;
         }
     }
@@ -99,13 +109,13 @@ bool WizMainTabBrowser::eventFilter(QObject* watched, QEvent* event)
 void WizMainTabBrowser::tabInserted(int index)
 {
     QTabWidget::tabInserted(index);
-    QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+    scheduleTabCloseButtonUpdate();
 }
 
 void WizMainTabBrowser::tabRemoved(int index)
 {
     QTabWidget::tabRemoved(index);
-    QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+    scheduleTabCloseButtonUpdate();
 }
 
 /** Show menu when right clicked */
@@ -289,7 +299,7 @@ void WizMainTabBrowser::setupTab(int index)
         QMap<QString, QVariant> status;
         status["Locked"] = QVariant(false);
         tabBar()->setTabData(index, status);
-        QTimer::singleShot(0, this, &WizMainTabBrowser::updateTabCloseButtons);
+        scheduleTabCloseButtonUpdate();
     }
 }
 

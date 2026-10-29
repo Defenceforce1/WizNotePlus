@@ -45,6 +45,27 @@ for directory, _, names in os.walk(app):
         if subprocess.run(["lipo", str(binary), "-verify_arch", "arm64"], capture_output=True).returncode:
             failures.append(f"No arm64 slice: {binary.relative_to(app)}")
             continue
+        # Having a matching file in Frameworks does not prove dyld will load it.
+        # A fresh CMake executable can still prefer its absolute development SDK.
+        commands = subprocess.check_output(["otool", "-l", "-arch", "arm64", str(binary)], text=True)
+        rpaths = re.findall(r"cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset", commands)
+        bundled_search = False
+        for rpath in rpaths:
+            if rpath.startswith("@loader_path/"):
+                resolved = (binary.parent / rpath[13:]).resolve()
+            elif rpath.startswith("@executable_path/"):
+                resolved = (main_dir / rpath[17:]).resolve()
+            elif rpath.startswith(("/System/Library/", "/usr/lib/")):
+                continue
+            else:
+                failures.append(f"External/unsupported runtime search: {binary.relative_to(app)} -> {rpath}")
+                continue
+            if not resolved.is_relative_to(app):
+                failures.append(f"Runtime search escapes bundle: {binary.relative_to(app)} -> {rpath}")
+            if resolved == frameworks.resolve():
+                bundled_search = True
+        if binary == (main_dir / "WizNotePlus").resolve() and not bundled_search:
+            failures.append("Main executable does not search its bundled Frameworks")
         listing = subprocess.check_output(["otool", "-L", "-arch", "arm64", str(binary)], text=True)
         for line in listing.splitlines():
             match = re.match(r"\s+(.+?) \(compatibility version", line)

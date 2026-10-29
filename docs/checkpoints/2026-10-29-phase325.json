@@ -1,0 +1,15 @@
+{
+  "phase": 325,
+  "automationId": "wiznoteplus",
+  "kind": "heartbeat",
+  "status": "ACTIVE",
+  "intervalMinutes": 20,
+  "name": "WizNotePlus 性能与内存探索",
+  "existingTaskUpdatedNotDuplicated": true,
+  "sourceProductPhase": 324,
+  "githubSyncResumed": false,
+  "optimizationPriority": "experience, responsiveness and confirmed redundant work",
+  "nextRoute": "Repeated style updates and whole-document traversals;qualify before candidate",
+  "engineCatalogueRouteDeferred": true,
+  "newAppTestsBuildsOrPackageThisPhase": false
+}

@@ -1,0 +1,29 @@
+{
+  "phase": 336,
+  "kind": "Bounded UI idle-work optimization",
+  "qualification": {
+    "reference": {
+      "candidate": false,
+      "checks": 6,
+      "failures": 0,
+      "route": "shortcut",
+      "savesAfterImmediateFlush": 2,
+      "savesFor100Requests": 100,
+      "exitCode": 0
+    },
+    "candidate": {
+      "candidate": true,
+      "checks": 6,
+      "failures": 0,
+      "route": "shortcut",
+      "savesAfterImmediateFlush": 1,
+      "savesFor100Requests": 1,
+      "exitCode": 0
+    }
+  },
+  "finalProductSourcePhase": 336,
+  "cumulativeNativeQualificationInPhase336": true,
+  "wholeAppMemoryReductionProven": false,
+  "report": "docs/ui-idle-three-rounds-2026-10-29.md",
+  "evidence": "outputs/exploration-20261029/phase336"
+}

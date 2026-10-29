@@ -38,6 +38,8 @@ public:
 
 private:
     void updateTabCloseButtons();
+    void scheduleTabCloseButtonUpdate();
+    bool m_tabCloseUpdatePending = false;
     WizExplorerApp& m_app;
     WizDatabaseManager& m_dbMgr;
     QString m_strTheme;

@@ -1878,7 +1878,10 @@ void WizMainWindow::OpenURLInDefaultBrowser(const QString& strUrl)
  */
 void WizMainWindow::GetToken(const QString& strFunctionName)
 {
-    WizDocumentView* docView = currentDocumentView();
+    const QPointer<WizDocumentView> docView(currentDocumentView());
+    const QPointer<WizWebEngineView> comments(docView ? docView->existingCommentView() : nullptr);
+    if (!comments) return; // No hidden panel initialization for a token callback.
+    const auto opening = docView->noteOpenSequence();
     CString functionName(strFunctionName);
     ::WizExecuteOnThread(WIZ_THREAD_NETWORK, [=] {
         //
@@ -1888,9 +1891,10 @@ void WizMainWindow::GetToken(const QString& strFunctionName)
         //
         ::WizExecuteOnThread(WIZ_THREAD_MAIN, [=] {
 
+            if (!docView || !comments || docView->noteOpenSequence() != opening
+                || docView->existingCommentView() != comments) return;
             QString strExec = functionName + QString("('%1')").arg(strToken);
-            qDebug() << "cpp get token callled : " << strExec;
-            docView->commentView()->page()->runJavaScript(strExec);
+            comments->page()->runJavaScript(strExec);
         });
     });
 }
@@ -2794,9 +2798,9 @@ void WizMainWindow::on_actionEditingUndo_triggered()
     if (WizCodeEditorDialog::undo())
         return;
     //
-    if (docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::Undo);
+        comments->triggerPageAction(QWebEnginePage::Undo);
     }
     else
     {
@@ -2807,9 +2811,9 @@ void WizMainWindow::on_actionEditingUndo_triggered()
 void WizMainWindow::on_actionEditingRedo_triggered()
 {
     WizDocumentView* docView = currentDocumentView();
-    if (docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::Redo);
+        comments->triggerPageAction(QWebEnginePage::Redo);
     }
     else
     {
@@ -2823,9 +2827,9 @@ void WizMainWindow::on_actionEditingCut_triggered()
     if (WizCodeEditorDialog::cut())
         return;
     //
-    if (docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::Cut);
+        comments->triggerPageAction(QWebEnginePage::Cut);
     }
     else
     {
@@ -2839,9 +2843,9 @@ void WizMainWindow::on_actionEditingCopy_triggered()
     if (WizCodeEditorDialog::copy())
         return;
     //
-    if (docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::Copy);
+        comments->triggerPageAction(QWebEnginePage::Copy);
     }
     else
     {
@@ -2855,9 +2859,9 @@ void WizMainWindow::on_actionEditingPaste_triggered()
     if (WizCodeEditorDialog::paste())
         return;
     //
-    if (docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::Paste);
+        comments->triggerPageAction(QWebEnginePage::Paste);
     }
     else
     {
@@ -2870,9 +2874,9 @@ void WizMainWindow::on_actionEditingPastePlain_triggered()
     WizDocumentView* docView = currentDocumentView();
     if (!docView)
         return;
-    if (docView->commentView() && docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::Paste);
+        comments->triggerPageAction(QWebEnginePage::Paste);
     }
     else
     {
@@ -2886,9 +2890,9 @@ void WizMainWindow::on_actionEditingSelectAll_triggered()
     if (WizCodeEditorDialog::selectAll())
         return;
     //
-    if (docView->commentView()->hasFocus())
+    if (auto* comments = docView->existingCommentView(); comments && comments->hasFocus())
     {
-        docView->commentView()->triggerPageAction(QWebEnginePage::SelectAll);
+        comments->triggerPageAction(QWebEnginePage::SelectAll);
     }
     else
     {
@@ -4874,6 +4878,8 @@ void WizMainWindow::showCommentWidget()
 {
     //FIXME: 不能直接在m_doc上显示
     WizDocumentView* docView = currentDocumentView();
+    if (!docView) return;
+    docView->commentView(); // Explicit show request; establish the web size first.
     QWidget* commentWidget = docView->commentWidget();
     if (!commentWidget->isVisible())
     {

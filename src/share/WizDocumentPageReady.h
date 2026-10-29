@@ -86,8 +86,7 @@ inline void watch(QObject* owner, QWebEnginePage* page, const QString& expressio
         if(timer){timer->stop();timer->deleteLater();}
         if(allowed())finished(ready&&bool(target));
     };
-    QObject::connect(timer.data(),&QTimer::timeout,owner,
-        [state,target,expression,allowed,complete,timeoutMs] {
+    const auto poll = [state,target,expression,allowed,complete,timeoutMs] {
         if(state->done)return;
         const bool permitted=allowed();
         if(state->done)return;
@@ -104,8 +103,12 @@ inline void watch(QObject* owner, QWebEnginePage* page, const QString& expressio
             if(value.userType()!=QMetaType::QString||value.toString()=="failed")complete(false);
             else if(value.toString()=="ready")complete(true);
         });
-    });
+    };
+    QObject::connect(timer.data(),&QTimer::timeout,owner,poll);
     timer->start(25);
+    // Query already-complete pages without an unconditional first timer tick.
+    // Pending pages keep the same bounded, single-in-flight polling fallback.
+    QTimer::singleShot(0, owner, poll);
 }
 }
 #endif

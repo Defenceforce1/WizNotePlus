@@ -1,0 +1,15 @@
+{
+  "phase": 326,
+  "productSourcePhase": 326,
+  "actualBaselineStyleWritesPerReading": 3,
+  "actualCandidateStyleWritesPerReading": 2,
+  "guardCases": 17,
+  "finalNativeControls": 42,
+  "finalExactSourceChecks": 8,
+  "initialCandidateRejectedForCascadeOrdering": true,
+  "memoryBenefitClaimed": false,
+  "latencyGainPercentClaimed": false,
+  "coreEditorSha256": "943d4c6ee726ccf117771cfb77984f0f9d91c120f9eadf2885c00632d1b335f5",
+  "promotedHelperSha256": "d9b94ebc0aad605b344beb614300c8176de03c21c29f0a869f9d9a840ea64667",
+  "fullClientAcceptanceClaimed": false
+}

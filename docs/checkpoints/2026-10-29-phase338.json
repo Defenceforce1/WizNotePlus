@@ -1,0 +1,28 @@
+{
+  "phase": 338,
+  "productSourcePhase": 336,
+  "build": 338,
+  "installedReplacementName": "WizNotePlus Apple Silicon.app",
+  "bundleId": "io.github.defenceforce1.wiznoteplus.applesilicon",
+  "sameInstalledIdentity": true,
+  "fixedTrialRootRemoved": true,
+  "defaultDataRootPolicy": "~/Library/Application Support/WizNotePlus-AppleSilicon",
+  "actualUserDataAccessed": false,
+  "normalAccountStarted": false,
+  "dailyIdentitySyntheticSaveReadbackCycles": 7,
+  "sourceResources": 740,
+  "nativeFiles": 48,
+  "dmg": {
+    "file": "WizNotePlus-14.4.25-build338-macOS-arm64.dmg",
+    "sha256": "4ab636e987b1fd9f1af10f1e4c27f4f125a398c45adc06f70bd5077db2d5f39d",
+    "bytes": 122290819,
+    "readOnlyMountReadback": true,
+    "appEntries": 1083
+  },
+  "githubSourceSyncRestoredByUser": true,
+  "githubBinaryUpload": false,
+  "githubReceiptStoredLocally": true,
+  "automationRemainsPaused": true,
+  "oldTrialAndRollbackPreserved": true,
+  "memoryHighWaterFixed": false
+}

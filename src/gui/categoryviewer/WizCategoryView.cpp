@@ -2900,7 +2900,7 @@ void WizCategoryView::on_action_addToShortcuts()
     if (p && shortcutRoot)
     {
         shortcutRoot->addItemToShortcuts(p);
-        QTimer::singleShot(200, this, SLOT(saveShortcutState()));
+        scheduleShortcutSave();
     }
 }
 
@@ -3235,7 +3235,7 @@ void WizCategoryView::addDocumentToShortcuts(const WIZDOCUMENTDATA& doc)
     if (shortcutRoot)
     {
         shortcutRoot->addDocumentToShortcuts(doc);
-        QTimer::singleShot(200, this, SLOT(saveShortcutState()));
+        scheduleShortcutSave();
     }
 }
 
@@ -4521,8 +4521,22 @@ void WizCategoryView::loadShortcutState()
     }    
 }
 
+void WizCategoryView::scheduleShortcutSave()
+{
+    if (!m_timerSaveShortcutState) {
+        m_timerSaveShortcutState = new QTimer(this);
+        m_timerSaveShortcutState->setSingleShot(true);
+        connect(m_timerSaveShortcutState, &QTimer::timeout, this, &WizCategoryView::saveShortcutState);
+    }
+    // Bound the batch to the first request; continuous changes cannot starve it.
+    if (!m_timerSaveShortcutState->isActive())
+        m_timerSaveShortcutState->start(200);
+}
+
 void WizCategoryView::saveShortcutState()
 {
+    // An immediate save supersedes any pending delayed copy of the same state.
+    if (m_timerSaveShortcutState) m_timerSaveShortcutState->stop();
     WizCategoryViewItemBase *pShortcutRoot = findAllShortcutItem();
     QString strShortcutData = "";
 

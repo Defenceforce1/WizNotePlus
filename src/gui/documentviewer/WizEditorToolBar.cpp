@@ -843,13 +843,15 @@ public:
 
     void setText(const QString& strText)
     {
-        int index = findText(strText);
-        if (index != -1) {
+        const int index = findText(strText);
+        if (index != -1 && currentIndex() != index) {
             setCurrentIndex(index);
         }
 
-        m_strText = strText;
-        repaint();
+        if (m_strText != strText) {
+            m_strText = strText;
+            update();
+        }
     }
     //
     void setFontName(const QString& strFontName)
@@ -2155,17 +2157,22 @@ void WizEditorToolBar::on_delegate_markerInitiated(const QString& data)
 
 void WizEditorToolBar::on_delay_updateToolbar()
 {
-    if (m_currentStyle.isEmpty())
+    if (m_currentStyle.isEmpty() || 0 == m_lastUpdateUIRequest)
+    {
+        m_lastUpdateUIRequest = 0;
+        m_delayUpdateUITimer.stop();
         return;
-    if (0 == m_lastUpdateUIRequest)
-        return;
+    }
     //
     int delay = WizGetTickCount() - m_lastUpdateUIRequest;
     if (delay < 250)
         return;
     //
-    resetToolbar(m_currentStyle);
+    const QString style = m_currentStyle;
     m_lastUpdateUIRequest = 0;
+    m_delayUpdateUITimer.stop();
+    // A status notification emitted during reset must schedule its own update.
+    resetToolbar(style);
     //
 #ifdef QT_DEBUG
     qDebug() << "update editor toolbar ui";

@@ -19,19 +19,33 @@ WizLocalProgressWebView::WizLocalProgressWebView(QWidget *parent) : QWidget(pare
 }
 
 
-void WizLocalProgressWebView::init(const WizWebEngineInjectObjectCollection &objects)
+WizLocalProgressWebView::WizLocalProgressWebView(QWidget *parent, WebInitialization initialization)
+    : QWidget(parent)
+{
+    init({}, initialization == WebInitialization::OnDemand);
+}
+
+
+void WizLocalProgressWebView::init(const WizWebEngineInjectObjectCollection &objects, bool deferred)
 {
     setContentsMargins(0, 0, 0, 0);
-
-    m_web = new WizWebEngineView(objects, this);
-    m_web->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
 
     QVBoxLayout* layout = new QVBoxLayout;
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     setLayout(layout);
 
-    layout->addWidget(m_web);
+    if (!deferred) createWeb(objects);
+}
+
+
+void WizLocalProgressWebView::createWeb(const WizWebEngineInjectObjectCollection &objects)
+{
+    if (m_web) return;
+    m_web = new WizWebEngineView(objects, this);
+    m_web->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
+    layout()->addWidget(m_web);
+    emit webCreated(m_web);
 }
 
 
@@ -43,6 +57,7 @@ WizLocalProgressWebView::~WizLocalProgressWebView()
 
 WizWebEngineView* WizLocalProgressWebView::web()
 {
+    if (!m_web) createWeb({});
     return m_web;
 }
 
@@ -56,6 +71,7 @@ void WizLocalProgressWebView::hideEvent(QHideEvent* ev)
 
 void WizLocalProgressWebView::showEvent(QShowEvent* ev)
 {
+    web(); // A deferred panel is initialized only when requested or shown.
     emit willShow();
 
     QWidget::showEvent(ev);

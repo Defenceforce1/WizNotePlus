@@ -427,9 +427,15 @@ int mainCore(int argc, char *argv[], WizStandaloneStorage::Session* standaloneSe
 
 int main(int argc, char *argv[])
 {
+    // The independently packaged trial owns this path before any startup mode.
+    // This also covers Finder, direct executable launches and logout restarts.
+    if (WizBuildIdentity::appleSiliconTrial && !WizBuildIdentity::isolatedTrialRoot().isEmpty()) {
+        qputenv("WIZNOTE_DATA_STORE", WizBuildIdentity::isolatedTrialRoot().toUtf8());
+    }
     // This separately named user trial never falls back to the installed App's
     // store, including Finder launches or inherited data-store overrides.
-    if (WizBuildIdentity::appleSiliconTrial && QByteArray(argv[0]).endsWith("/WizNoteUserTrial")) {
+    if (WizBuildIdentity::appleSiliconTrial && WizBuildIdentity::isolatedTrialRoot().isEmpty()
+        && QByteArray(argv[0]).endsWith("/WizNoteUserTrial")) {
         qputenv("WIZNOTE_DATA_STORE", (WizStandaloneStorage::defaultRoot(QDir::homePath())
                                      + QStringLiteral("-UserTrial-186")).toUtf8());
     }

@@ -1,0 +1,18 @@
+{
+  "phase": 324,
+  "productSourcePhase": 324,
+  "previousProductSourcePhase": 292,
+  "goal": "Responsiveness and elimination of confirmed wasted work",
+  "completedWatchdogCleanup": true,
+  "lifecycleCases": 12,
+  "nativeControls": 42,
+  "exactSourceChecks": 8,
+  "nativeMemoryRiskResolved": false,
+  "latencyGainMeasured": false,
+  "initialPreparationFailureRetained": true,
+  "repeatedStyleWorkStatus": "review only;not fixed",
+  "engineDiagnosticRouteDeferred": true,
+  "githubSynchronized": false,
+  "packaged": false,
+  "automaticTaskResumed": false
+}

@@ -983,7 +983,10 @@ void WizTitleBar::onViewNoteLoaded(WizDocumentView* view, const WIZDOCUMENTDATAE
     }
 
     m_commentsBtn->setCount(0);
-    m_commentManager->queryCommentCount(note.strKbGUID, note.strGUID, true);
+    // Ordinary reading does not need a remote comment-count task. Explicit
+    // opening still queries below; an already-visible panel follows its note.
+    if (view->commentWidget()->isVisible())
+        m_commentManager->queryCommentCount(note.strKbGUID, note.strGUID, true);
 }
 
 void WizTitleBar::on_commentTokenAcquired(QString token)
