@@ -1,0 +1,49 @@
+{
+  "phase": 315,
+  "date": "2026-10-29",
+  "validation": {
+    "phase": 315,
+    "clientDate": "2026-10-29",
+    "newScopeAuthorized": true,
+    "ownedRenderSourceAndDomChainAudited": true,
+    "candidate": "Sequential P visibility geometry avoidance",
+    "candidateCount": 1,
+    "qualificationGatePassed": false,
+    "rejectedReason": "Actual paragraph callback and guard counter0 in real synthetic workload;41 browser cases cannot establish path relevance",
+    "browserCases": 41,
+    "browserCaseFailures": 0,
+    "browserFastParagraphChecks": 25,
+    "browserFallbackParagraphChecks": 20,
+    "nativeProcessNormalExit": true,
+    "nativeControls": 42,
+    "exactSourceChecks": 8,
+    "realParagraphAttempts": 0,
+    "actualLargeTargetFastHits": [
+      0,
+      0,
+      0
+    ],
+    "qualificationNotPassDespiteNativeExit0": true,
+    "memoryComparisonGroups": 0,
+    "noRelaxedGuardOrRepeatQualification": true,
+    "productChanged": false,
+    "productRemainsPhase": 292,
+    "highMemoryResolved": false,
+    "defaultResourcesVerifiedBeforeLaunch": 196,
+    "rendererPeakMiB": 472.9548645019531,
+    "notAProductBenefit": true,
+    "automationStatus": "ACTIVE",
+    "frequencyMinutes": 20,
+    "furtherScopeApprovalNeededForNextOwnedRoute": false,
+    "nextBoundedRoute": "Trace initial-current-source versus later public-source getter origin, existing whiteSpace branch and1px temporary layout;one bounded attribution then at most one evidence-based candidate and two matched memory groups",
+    "noExternalNetworkGithubPackageOrRealData": true,
+    "headIndexAndInstalledFingerprintsPreserved": true
+  },
+  "report": "docs/markdown-source-chain-audit-2026-10-29.md",
+  "evidenceRoot": "outputs/exploration-20261029/phase315",
+  "remaining": [
+    "高内存未修复；段落候选不覆盖实际工作量。",
+    "承接已授权的当前body／公开getter来源及临时布局有界归因。"
+  ],
+  "newUserApprovalRequired": false
+}

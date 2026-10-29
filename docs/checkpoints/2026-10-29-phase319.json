@@ -1,0 +1,42 @@
+{
+  "phase": 319,
+  "date": "2026-10-29",
+  "validation": {
+    "phase": 319,
+    "clientDate": "2026-10-29",
+    "productRemainsPhase": 292,
+    "productChanged": false,
+    "highMemoryResolved": false,
+    "publicSourceFilesReviewed": 19,
+    "proposalExistingEngineFiles": 3,
+    "fixedKnownTypes": 6,
+    "explicitRemainderCategories": 3,
+    "bins": 9,
+    "standaloneModelAssertions": 29,
+    "filterAssertions": 28,
+    "nativeAutomaticParentContainersIncludedInFilter": true,
+    "callsBytesAndMaxMustReconcilePerBinWith318": true,
+    "patchApplyCheckOnlyPassed": true,
+    "patchApplied": false,
+    "newEngineCompiled": false,
+    "nativeTypeRuntimeGroups": 0,
+    "nativeTypeCoverageQualified": false,
+    "futureRuntimeAttemptLimitIfAuthorized": 2,
+    "rawTypeIndicesAddressesContentNamesOrStacksSaved": false,
+    "typeMetadataRegistrationObserverCostAcknowledged": true,
+    "current318DiagnosticEngineImagesAndSourcesPreserved": true,
+    "currentComponentLockAndRepositorySourcePreserved": true,
+    "headIndexBranchAndInstalledFingerprintsPreserved": true,
+    "automationStatus": "PAUSED",
+    "automationFrequencyMinutes": 20,
+    "newTypeDiagnosticScopeAuthorizationPending": true,
+    "externalNetworkGithubPackagingInstallationOrRealDataAccessed": false
+  },
+  "report": "docs/native-type-attribution-preparation-2026-10-29.md",
+  "evidenceRoot": "outputs/exploration-20261029/phase319",
+  "remaining": [
+    "固定六类型诊断补丁尚未应用／编译／实测，新增用途需授权。",
+    "高内存仍未修复，尚无具体自有分配或持有修复点。"
+  ],
+  "sameOwnedMarkdownChainAuthorityContinues": true
+}
