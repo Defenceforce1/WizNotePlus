@@ -161,8 +161,11 @@ function WizLatexTheoremTextPosition(entries, offset) {
 }
 
 function WizRenderLatexTheorems(html, source) {
-  var records = WizLatexTheoremRecords(source);
-  if (!records.length) return html;
+  // A callback may supply the live source lazily. Reuse the existing filtered
+  // HTML matching pass first: code-only or invalid candidates need no source.
+  var readSource = typeof source === 'function' ? source : null;
+  var records = readSource ? null : WizLatexTheoremRecords(source);
+  if (records && !records.length) return html;
   var template = document.createElement('template'); template.innerHTML = html;
   var walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT, {acceptNode:function (node) {
     return node.parentElement && !node.parentElement.closest('pre,code,script,style,textarea')
@@ -188,6 +191,11 @@ function WizRenderLatexTheorems(html, source) {
       var open = stack.pop();
       if (!stack.length) matches.push({name:open.name, start:position(open.start), end:position(tokens.lastIndex)});
     }
+  }
+  if (readSource) {
+    if (!matches.length) return html;
+    source = readSource();
+    records = WizLatexTheoremRecords(source);
   }
   if (matches.length !== records.length || matches.some(function (item, index) {
     return item.name !== records[index].name || !item.start || !item.end;
