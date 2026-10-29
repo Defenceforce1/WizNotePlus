@@ -107,8 +107,11 @@ function WizConfigureMarkdownEnvironments(options) {
   var beforeRender = callbacks.beforeMarkdownRender, markdownRendered = callbacks.markdown;
   callbacks.beforeMarkdownRender = function (html) {
     if (beforeRender) html = beforeRender(html);
-    if (html.indexOf('\\begin{') < 0 || typeof WizRenderLatexTheorems !== 'function') return html;
-    try { return WizRenderLatexTheorems(html, WizEditor.getMarkdownSrc({unEscapeHtml:true})); }
+    if (!/\\begin\{(?:theorem|lemma|proposition|corollary|definition|example|remark|proof)/.test(html)
+        || typeof WizRenderLatexTheorems !== 'function') return html;
+    try { return WizRenderLatexTheorems(html, function () {
+      return WizEditor.getMarkdownSrc({unEscapeHtml:true});
+    }); }
     catch (error) { console.error('Theorem preview retained original text', error); return html; }
   };
   callbacks.markdown = function () {
