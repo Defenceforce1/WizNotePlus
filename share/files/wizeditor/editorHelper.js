@@ -203,11 +203,12 @@ function WizApplyNoteStyle(css) {
 // The preset marker is an explicit opt-in; normal quotes and code are untouched.
 var WizMathDecoration = { blocks: [], links: [], splits: [] };
 var WizMathReferenceNavigation = { timer: null, sequence: 0 };
-var WizMathReferenceRoot = null;
+// Tracking installed roots must not keep a replaced reader body alive.
+var WizMathReferenceRoots = new WeakSet();
 function WizInstallMathReferenceNavigation() {
   var root = document.body;
-  if (!root || root === WizMathReferenceRoot) return;
-  WizMathReferenceRoot = root;
+  if (!root || WizMathReferenceRoots.has(root)) return;
+  WizMathReferenceRoots.add(root);
   // The reader replaces body/document nodes, losing MathJax's per-node click
   // handlers. Delegate on each new root and handle SVG children as well as HTML.
   root.addEventListener('click', function (event) {
@@ -307,8 +308,14 @@ function WizClearMathEnvironments() {
 // Reference recognition must not consume TeX belonging to the original engine.
 // Protection flags are built once per logical text scope, before DOM changes;
 // their Maps/arrays live only for this decoration pass, not for the page lifetime.
-function WizMathProtectedPositions(source) {
-  var flags = new Uint8Array(source.length + 1);
+function WizMathProtectedPositions(source, packed) {
+  var flags = new Uint8Array(packed ? Math.ceil((source.length + 1) / 8) : source.length + 1);
+  // With no possible math opener, every protection flag is already zero.
+  // Limit the native precheck to long scopes; keep all original scan rules.
+  if (source.length >= 4096 && source.indexOf("$") < 0 &&
+      source.indexOf("\\(") < 0 &&
+      source.indexOf("\\[") < 0 &&
+      source.indexOf("\\begin{") < 0) return flags;
   var delimiter = null, braces = 0, environments = [];
   var environmentPattern = /\\(begin|end)\{([^{}]+)\}/y;
   for (var i = 0; i < source.length;) {
@@ -337,16 +344,22 @@ function WizMathProtectedPositions(source) {
       else if (delimiter === token && !braces) delimiter = null;
       length = token.length;
     }
-    flags[i] = before ? 1 : 0;
+    if (packed) { if (before) flags[i >>> 3] |= 1 << (i & 7); }
+    else flags[i] = before ? 1 : 0;
     // A delimiter's interior cannot start another inline-reference wrapper.
     var inside = before || delimiter !== null || environments.length !== 0;
-    for (var j = 1; j < length && i+j < source.length; ++j) flags[i+j] = inside ? 1 : 0;
+    for (var j = 1; j < length && i+j < source.length; ++j) {
+      if (packed) { if (inside) flags[(i+j) >>> 3] |= 1 << ((i+j) & 7); }
+      else flags[i+j] = inside ? 1 : 0;
+    }
     i += length;
   }
-  flags[source.length] = delimiter !== null || environments.length !== 0 ? 1 : 0;
+  if (packed) {
+    if (delimiter !== null || environments.length !== 0) flags[source.length >>> 3] |= 1 << (source.length & 7);
+  } else flags[source.length] = delimiter !== null || environments.length !== 0 ? 1 : 0;
   return flags;
 }
-function WizMathTextContexts(nodes, body) {
+function WizMathTextContexts(nodes, body, packed) {
   var contexts = new Map(), scopes = new Set(), requested = new Set(nodes);
   var selector = 'p,li,td,th,blockquote,h1,h2,h3,h4,h5,h6,div';
   var excluded = 'pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading';
@@ -355,17 +368,22 @@ function WizMathTextContexts(nodes, body) {
     if (scope.closest(excluded)) return;
     // An element-aware walker can reject whole nested scopes/code subtrees.
     // Text-only walkers still visit every descendant of those rejected areas.
-    var walker = document.createTreeWalker(scope, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {acceptNode:function (node) {
-      if (node.nodeType === Node.ELEMENT_NODE)
-        return node.matches(excluded) || node.matches(selector) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
-      return NodeFilter.FILTER_ACCEPT;
-    }});
+    // A large scope with no rejected descendants needs no JavaScript filter.
+    // Smaller scopes and any code/nested-block/math output keep the old walker.
+    var plainInline = scope.childElementCount >= 64 && !scope.querySelector(excluded + ',' + selector);
+    var walker = document.createTreeWalker(scope,
+      plainInline ? NodeFilter.SHOW_TEXT : (NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT),
+      plainInline ? null : {acceptNode:function (node) {
+        if (node.nodeType === Node.ELEMENT_NODE)
+          return node.matches(excluded) || node.matches(selector) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }});
     var parts = [], offsets = [], length = 0, node;
     while ((node = walker.nextNode())) {
       if (requested.has(node)) offsets.push({node:node, offset:length});
       parts.push(node.nodeValue); length += node.nodeValue.length;
     }
-    var protectedPositions = WizMathProtectedPositions(parts.join(''));
+    var protectedPositions = WizMathProtectedPositions(parts.join(''), packed);
     offsets.forEach(function (entry) { contexts.set(entry.node, {protectedPositions:protectedPositions, offset:entry.offset}); });
   });
   return contexts;
@@ -374,6 +392,9 @@ function WizApplyMathEnvironments() {
   WizInstallMathReferenceNavigation();
   WizClearMathEnvironments();
   var body = document.body;
+  if (body && body.isContentEditable && window.MathJax && MathJax.Hub
+      && typeof MathJax.Hub.WizRetireDisconnected === 'function')
+    MathJax.Hub.WizRetireDisconnected();
   var preset = window.WizNoteCss && window.WizNoteCss.indexOf('/* WizNotePlus scientific math environments v1 */') >= 0;
   if (!body || !body.classList.contains('markdown-body') || !body.classList.contains('wiz-readonly')
       || !preset && !body.querySelector('.wiz-latex-theorem')) {
@@ -488,16 +509,32 @@ function WizApplyMathEnvironments() {
       } else block.id = record.anchor;
     }
   });
+  // No theorem/definition target means this pass cannot create any prose link.
+  // Keep equation references with MathJax and avoid an unused body-wide scan.
+  if (!Object.keys(labels).some(function (key) {
+    return !duplicates[key] && !!labels[key].anchor;
+  })) return;
+  // Only request contexts for nodes that can link to a current target.
+  // Context construction still reads every text part in each requested scope,
+  // including skipped nodes that may open or close a math delimiter.
+  var referenceTargets = /\\ref\{([A-Za-z0-9_:.\/-]{1,128})\}/g;
   var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
     acceptNode: function (node) {
-      return node.nodeValue.indexOf('\\ref{') >= 0 && node.parentElement
-        && !node.parentElement.closest('pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading')
-        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      if (node.nodeValue.indexOf('\\ref{') < 0 || !node.parentElement
+          || node.parentElement.closest('pre,code,script,style,textarea,a,.MathJax,.MathJax_Display,.MathJax_SVG,.wiz-math-source-heading'))
+        return NodeFilter.FILTER_REJECT;
+      referenceTargets.lastIndex = 0;
+      var match;
+      while ((match = referenceTargets.exec(node.nodeValue))) {
+        var target = labels[match[1]];
+        if (target && !duplicates[match[1]] && target.anchor) return NodeFilter.FILTER_ACCEPT;
+      }
+      return NodeFilter.FILTER_REJECT;
     }
   });
   var nodes = [], node;
   while ((node = walker.nextNode())) nodes.push(node);
-  var mathContexts = WizMathTextContexts(nodes, body);
+  var mathContexts = WizMathTextContexts(nodes, body, true);
   nodes.forEach(function (text) {
     var source = text.nodeValue;
     var mathContext = mathContexts.get(text);
@@ -508,7 +545,8 @@ function WizApplyMathEnvironments() {
     while ((result = pattern.exec(source))) {
       var key = result[1] || result[2] || result[3], target = labels[key];
       if (!target || duplicates[key] || !target.anchor) continue;
-      if (!mathContext || mathContext.protectedPositions[mathContext.offset + result.index]) continue;
+      var protectedIndex = mathContext && mathContext.offset + result.index;
+      if (!mathContext || (mathContext.protectedPositions[protectedIndex >>> 3] & (1 << (protectedIndex & 7)))) continue;
       // Serializers clear and rebuild these links. Avoid accumulating two empty
       // text nodes per reference on every read/save/style refresh.
       if (result.index > offset) fragment.appendChild(document.createTextNode(source.slice(offset, result.index)));
