@@ -18,6 +18,11 @@ const executed=process.env.WIZNOTE_EXPLORE_BOUNDARY_CONTEXT?require('./math-boun
     await page.addScriptTag({content:executed});
     await page.addScriptTag({path:path.join(__dirname,'math-decoration-regression.js')});
     const result=await page.evaluate(()=>WizRunMathDecorationRegression());
+    await page.addScriptTag({path:path.join(__dirname,'math-reference-target-regression.js')});
+    result.targetRegression=await page.evaluate(()=>WizRunMathReferenceTargetRegression());
+    result.targetPrefilter=await page.evaluate(()=>WizRunMathReferencePrefilterRegression());
+    await page.addScriptTag({path:path.join(__dirname,'math-context-walker-regression.js')});
+    result.contextWalker=await page.evaluate(()=>WizRunMathContextWalkerRegression());
     if(process.env.WIZNOTE_EXPLORE_BOUNDARY_CONTEXT||process.env.WIZNOTE_REQUIRE_MATH_BOUNDARIES){
       await page.addScriptTag({path:path.join(__dirname,'math-boundary-regression.js')});
       result.boundaryRegression=await page.evaluate(()=>WizRunMathBoundaryRegression());
@@ -41,6 +46,9 @@ const executed=process.env.WIZNOTE_EXPLORE_BOUNDARY_CONTEXT?require('./math-boun
       boundary:result.boundaryRegression&&{passed:result.boundaryRegression.passed,failures:result.boundaryRegression.failures},
       microbenchmarks:result.microbenchmarks,pageErrors:errors}));
     process.exitCode=result.failures.length||errors.length||result.boundaryRegression?.failures.length
+      ||result.targetRegression.failures.length
+      ||result.targetPrefilter.failures.length
+      ||result.contextWalker.failures.length
       ||result.blockLookupBench?.some(record=>!record.sourceNumberAndDestinationSame)
       ||(result.mathRetention&&!result.mathRetention.passed)?1:0;
   }finally{await browser.close();}
