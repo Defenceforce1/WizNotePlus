@@ -17,6 +17,10 @@ main_dir = app / "Contents/MacOS"
 if not app.is_dir() or not frameworks.is_dir() or not (main_dir / "WizNotePlus").is_file():
     print(f"Invalid or incomplete application bundle: {app}", file=sys.stderr)
     sys.exit(1)
+offscreen = app / "Contents/PlugIns/platforms/libqoffscreen.dylib"
+if offscreen.exists() or offscreen.is_symlink():
+    print("Test-only offscreen platform plugin must not be in the daily-use bundle", file=sys.stderr)
+    sys.exit(1)
 component_build = pathlib.Path(__file__).resolve().parents[1]
 component_lock = json.loads((component_build / 'components.lock.json').read_text())
 component_api = runpy.run_path(str(component_build / 'verify-components.py'))

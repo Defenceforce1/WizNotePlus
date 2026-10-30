@@ -2,8 +2,9 @@
 """Copy our candidate, remove unused architecture slices, then re-sign ad-hoc.
 
 Never edits the input or the installed App. Retains the declared app languages
-and all rendering/editor/media resources; only explicit unused locales and the
-Intel V8 snapshot are omitted. No Qt module is deleted.
+and all rendering/editor/media resources; explicit unused locales, the Intel
+V8 snapshot and the offscreen test platform plugin are omitted. No Qt module
+is deleted.
 This is packaging, not a new main executable build or a notarization operation.
 """
 import os
@@ -46,6 +47,21 @@ def configure_bundled_framework_search(output):
     for path in [canonical] + keep:
         run("install_name_tool", "-add_rpath", path, str(binary))
     return {"before": old, "after": [canonical] + keep}
+
+
+def prune_test_platform_plugin(output):
+    """Remove only the test platform from a new owned copy before signing."""
+    root = output.resolve(strict=True)
+    plugin = output / "Contents/PlugIns/platforms/libqoffscreen.dylib"
+    if plugin.is_symlink():
+        raise SystemExit("Refusing a symlink at the test platform plugin path")
+    if not plugin.exists():
+        return []
+    if not plugin.is_file() or not plugin.resolve(strict=True).is_relative_to(root):
+        raise SystemExit("Refusing test plugin removal outside the owned bundle")
+    removed = [(str(plugin.relative_to(output)), plugin.stat().st_size)]
+    plugin.unlink()
+    return removed
 
 
 def prune_language_resources(output):
@@ -95,6 +111,7 @@ def main():
     output_arg.parent.mkdir(parents=True, exist_ok=True)
     run("ditto", str(source), str(output_arg))
     output = output_arg.resolve(strict=True)
+    resource_removed = prune_test_platform_plugin(output)
     magic = {bytes.fromhex(value) for value in ("feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")}
     binaries, seen = [], set()
     before = after = thinned = 0
@@ -133,7 +150,7 @@ def main():
     # App Info.plist declares English and Simplified Chinese. This is NOT a
     # blanket removal of files with unfamiliar suffixes: fonts, math, PDF,
     # spellchecking dictionaries, devtools and image plugins are all retained.
-    resource_removed = prune_language_resources(output)
+    resource_removed += prune_language_resources(output)
     engine = output / "Contents/Frameworks/QtWebEngineCore.framework/Versions/A/Resources"
     intel_snapshot = engine / "v8_context_snapshot.x86_64.bin"
     if intel_snapshot.is_file() and not intel_snapshot.is_symlink():
