@@ -93,8 +93,10 @@ bool WizMainTabBrowser::eventFilter(QObject* watched, QEvent* event)
     if (watched == tabBar() || qobject_cast<TabButton*>(watched)) {
         switch (event->type()) {
         case QEvent::Paint:
-            // Re-evaluate after layout/scrolling even if the pointer did not move.
-            updateTabCloseButtons(); break;
+            // The tab bar paint observes layout/scrolling. Child button paints
+            // do not change tab geometry and need no additional full scan.
+            if (watched == tabBar()) updateTabCloseButtons();
+            break;
         case QEvent::Enter: case QEvent::Leave: case QEvent::MouseMove:
         case QEvent::HoverMove: case QEvent::HoverEnter: case QEvent::HoverLeave:
         case QEvent::Resize: case QEvent::Move: case QEvent::LayoutRequest:
