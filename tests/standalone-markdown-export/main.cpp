@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include "WizDocumentAsync.h"
+#include "share/WizDocumentReadPermit.h"
 #include "share/WizMarkdownExportTransaction.h"
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
 #include "widgets/WizMarkdownExportRecoveryApp.h"
@@ -98,6 +99,15 @@ struct ExportHarness :
     DocumentView document;
     DatabaseManager m_dbMgr;
     WizDocumentCallbackEpoch m_documentCallbacks;
+    bool readAllowed = true;
+    WizDocumentReadPermit noteReadPermit() const
+    {
+        const QPointer<ExportHarness> self(const_cast<ExportHarness*>(this));
+        const QPointer<QWebEnginePage> source(browser);
+        return {self, source, m_documentCallbacks.ticket(), [self, source] {
+            return self && source && self->browser == source && self->readAllowed;
+        }};
+    }
     DocumentView* view() { return &document; }
     QWebEnginePage* page() { return browser; }
     bool acceptsDocumentCallback(const WizDocumentCallbackEpoch::Ticket& ticket, const WIZDOCUMENTDATA& doc) const
@@ -284,7 +294,7 @@ int main(int argc, char** argv)
     if (requireSafe) check(readBytes(target) == "EXISTING SYNTHETIC EXPORT\n", "SAFETY: modeled DB failure preserves existing file");
 #if defined(EXPORT_CANDIDATE) || defined(EXPORT_ACTUAL_REPLY_FIRST)
     harness.m_dbMgr.database.failAfterHtml = false;
-    for (const QString& boundary : {QStringLiteral("destroy"), QStringLiteral("epoch"), QStringLiteral("document"), QStringLiteral("page")}) {
+    for (const QString& boundary : {QStringLiteral("destroy"), QStringLiteral("epoch"), QStringLiteral("document"), QStringLiteral("page"), QStringLiteral("relock")}) {
         auto owner = std::make_unique<ExportHarness>(&page);
         QString boundaryTarget = temporary.path() + "/boundary-" + boundary + ".md";
         rawWriteUtf8UnderTest(boundaryTarget, QStringLiteral("UNCHANGED BOUNDARY\n"), false);
@@ -293,6 +303,7 @@ int main(int argc, char** argv)
         if (boundary == "destroy") owner.reset();
         else if (boundary == "epoch") owner->m_documentCallbacks.invalidate();
         else if (boundary == "document") owner->document.document.strGUID = "other-synthetic-document";
+        else if (boundary == "relock") owner->readAllowed = false;
         else owner->browser = nullptr;
         check(evaluate(page, "'lifetime barrier'"), boundary + " actual JS barrier completed");
         QCoreApplication::processEvents();

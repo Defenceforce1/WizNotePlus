@@ -22,6 +22,7 @@
 #include <QMargins>
 #include <QInputDialog>
 #include <QScopeGuard>
+#include "WizMacWebInput.h"
 
 #ifdef Q_OS_MAC
 #include "mac/WizMacHelper.h"
@@ -844,6 +845,17 @@ void WizWebEngineView::childEvent(QChildEvent *ev)
 
 bool WizWebEngineView::eventFilter(QObject *obj, QEvent *ev)
 {
+#ifdef Q_OS_MAC
+    // Caps used for an input-source switch must not enter WebEngine's
+    // shortcut forwarding path and leave a partial shortcut match behind.
+    // macOS still receives the native event and performs the source switch.
+    const auto receiver = qobject_cast<QWidget *>(obj);
+    if (wizFilterMacWebCapsNotification(ev, receiver
+            && receiver == QApplication::focusWidget()
+            && (receiver == this || isAncestorOf(receiver))))
+        return true;
+#endif
+
     // work around QTBUG-43602
 
 #ifndef Q_OS_MAC

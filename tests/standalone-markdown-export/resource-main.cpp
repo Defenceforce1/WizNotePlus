@@ -283,8 +283,10 @@ int main(int argc, char** argv)
     check(database.exportToHtmlFile(document, good), "actual export method returns success for synthetic extracted note");
     const QString resourceName = Utils::WizMisc::extractFileTitle(good).toHtmlEscaped() + "_files/";
     QByteArray expected = QByteArray::fromHex("efbbbf") + html;
-    expected.replace("index_files/", resourceName.toUtf8());
-    check(read(good) == expected, "actual HTML intermediate preserves UTF-8 BOM and legacy escaped resource paths");
+    // The disk name stays HTML-escaped; HTML URLs must encode that literal name.
+    // Freeze the expected URL independently of the production URL helper.
+    expected.replace("index_files/", "%E5%AF%BC%E5%87%BA%20A%26amp%3BB_files/");
+    check(read(good) == expected, "actual HTML intermediate preserves UTF-8 BOM and URL-encodes the literal resource directory");
     check(read(path("out/") + resourceName + "a-first.png") == "NEW A"
         && read(path("out/") + resourceName + "z-fails.png") == "NEW Z", "actual recursive helper copies both resource bytes");
     const QString early = path("out/early.md");
