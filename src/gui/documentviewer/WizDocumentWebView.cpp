@@ -1,4 +1,4 @@
-#include "WizDocumentWebView.h"
+﻿#include "WizDocumentWebView.h"
 #include "share/WizReaderOpeningPresentation.h"
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
 #include "widgets/WizMarkdownExportRecoveryApp.h"
@@ -698,9 +698,11 @@ bool WizDocumentWebView::acceptUrlAsAttachment(const QUrl &url)
 {
     const QPointer<WizDocumentWebView> self(this);
     const auto read = noteReadPermit();
-    if (!read.current()) return false;
+    // Web URLs also arrive as text/uri-list. Leave them to normal text/HTML paste.
+    if (!read.current() || !url.isLocalFile()) return false;
     //paste image file as images, add attachment for other file
     QString strFileName = url.toLocalFile();
+    if (strFileName.isEmpty()) return false;
 
 #ifdef Q_OS_MAC
     if (wizIsYosemiteFilePath(strFileName))
