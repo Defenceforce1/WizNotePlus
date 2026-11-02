@@ -13,6 +13,7 @@
 #include <QMap>
 #include <QShortcut>
 #include <QPushButton>
+#include <memory>
 
 #include "share/jsoncpp/json/json.h"
 
@@ -427,7 +428,7 @@ QMenu* WizTitleBar::createEditorMenu()
     }
 
     // Reading External editor settings
-    QSettings* extEditorSettings = new QSettings(
+    const auto extEditorSettings = std::make_unique<QSettings>(
                 Utils::WizPathResolve::dataStorePath() + "externalEditor.ini", QSettings::IniFormat);
     QStringList groups = extEditorSettings->childGroups();
     for (QString& editorIndex : groups) {

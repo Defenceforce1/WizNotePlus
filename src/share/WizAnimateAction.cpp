@@ -13,7 +13,7 @@ WizAnimateAction::WizAnimateAction(QObject* parent)
     : QObject(parent)
     , m_target(NULL)
     , m_nIconIndex(-1)
-    , m_timer(new QTimer())
+    , m_timer(new QTimer(this))
 {
     connect(m_timer, SIGNAL(timeout()), SLOT(on_timer_timeout()));
     m_timer->setInterval(100);
