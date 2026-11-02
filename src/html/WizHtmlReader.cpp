@@ -835,7 +835,7 @@ bool WizHtmlAttributes::removeAttribute(int nIndex)
 {
     if (!(nIndex >= 0 && nIndex < getCount()))
         return (false);
-    WizHtmlElemAttr	*pItem = NULL;
+    WizHtmlElemAttr	*pItem = (*m_parrAttrib)[nIndex];
 
     WIZ_SAFE_DELETE_POINTER(pItem);
     //
@@ -853,7 +853,7 @@ bool WizHtmlAttributes::removeAll(void)
     WizHtmlElemAttr	*pItem = NULL;
     for (int iElem = 0; iElem < getCount(); iElem++)
     {
-
+        pItem = (*m_parrAttrib)[iElem];
         WIZ_SAFE_DELETE_POINTER(pItem);
     }
     WIZ_SAFE_DELETE_POINTER(m_parrAttrib);
