@@ -23,6 +23,35 @@
   }
   var engine, nextId = 0, queue = Promise.resolve(), ready;
   var records = [], placeholders = new WeakMap();
+  var wizRenewalStyles = [];
+  function captureRenewalStyles() {
+    var ids = ['MJX-SVG-styles','wiz_mathjax4_compat_style'];
+    var next = [];
+    for (var id of ids) {
+      var node = document.getElementById(id);
+      if (!node || node.tagName !== 'STYLE' || node.parentNode !== document.head
+          || document.querySelectorAll('[id="'+id+'"]').length !== 1) return;
+      next.push({id:id,attributes:Array.from(node.attributes,function(a){return [a.name,a.value];}),text:node.textContent});
+    }
+    wizRenewalStyles = next;
+  }
+  function restoreRenewalStyles() {
+    if (!document.head || wizRenewalStyles.length !== 2) return false;
+    for (var saved of wizRenewalStyles) {
+      var node = document.getElementById(saved.id);
+      if (document.querySelectorAll('[id="'+saved.id+'"]').length > 1) return false;
+      if (node && (node.tagName !== 'STYLE' || node.parentNode !== document.head
+          || node.textContent !== saved.text || node.attributes.length !== saved.attributes.length
+          || saved.attributes.some(function (a) { return node.getAttribute(a[0]) !== a[1]; }))) return false;
+    }
+    for (var saved of wizRenewalStyles) if (!document.getElementById(saved.id)) {
+      var node = document.createElement('style');
+      saved.attributes.forEach(function(a){node.setAttribute(a[0],a[1]);});
+      node.textContent = saved.text; document.head.appendChild(node);
+    }
+    return true;
+  }
+
   function scopeNodes(nodes) {
     if (!nodes) return [document.body];
     return (Array.isArray(nodes) ? nodes : [nodes]).map(function (n) {
@@ -103,6 +132,7 @@
         svg.setAttribute('data-wiz-mjx4-ink-fit','');
       });
     });
+    captureRenewalStyles();
     // Keep the established document-local target namespace. MathJax's label
     // table remains untouched; normalize only actual output nodes and links.
     document.querySelectorAll('[id^="mjx-eqn:"]').forEach(function (node) { node.id = normalizedId(node.id); });
@@ -175,7 +205,25 @@
   }
   var hub = {config:legacy,processSectionDelay:8,Queue:enqueue,
     Config:function (config) { traceOperation('Config'); Object.assign(hub.config,config); },
-    getAllJax:liveRecords,Typeset:function (nodes,callback) { return enqueue(['Typeset',hub,nodes,callback]); },
+    getAllJax:liveRecords,
+    WizPrepareNewBody:function (body) {
+      return enqueue(function () {
+        if (body !== document.body || body.isContentEditable) return false;
+        retireDisconnectedOutput();
+        // Only replace an empty retired document. Connected or unknown items
+        // keep the established full-load path, never lose live output.
+        if (records.length || Array.from(engine.startup.document.math).length
+            || typeof engine.startup.getInputJax !== 'function'
+            || typeof engine.startup.getDocument !== 'function'
+            || typeof engine.startup.makeMethods !== 'function') return false;
+        if (!restoreRenewalStyles()) return false;
+        engine.startup.input = engine.startup.getInputJax();
+        engine.startup.document = engine.startup.getDocument();
+        engine.startup.makeMethods();
+        placeholders = new WeakMap();
+        return true;
+      });
+    },Typeset:function (nodes,callback) { return enqueue(['Typeset',hub,nodes,callback]); },
     WizRetireDisconnected:function () { return enqueue(function () { retireDisconnectedOutput(); }); },
     Register:{StartupHook:function (name,callback) { traceOperation('StartupHook:'+name); return enqueue(callback); },MessageHook:function () {}},
     signal:{Post:function () {}},Startup:{signal:{Post:function () {}}}};

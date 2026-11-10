@@ -202,7 +202,7 @@ function WizPrepareMarkdownMathJaxScheduling() {
 }
 
 var WizMarkdownEnvironmentLoader = null;
-function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
+function WizLoadMarkdownEnvironmentMathJax(dependencyUrl, forceFresh) {
   if (WizMarkdownEnvironmentLoader) return WizMarkdownEnvironmentLoader;
   // A reading pass with ordinary $...$/$$...$$ has already created the
   // current engine and live jax. Replacing it discards its equation labels.
@@ -210,6 +210,28 @@ function WizLoadMarkdownEnvironmentMathJax(dependencyUrl) {
   if (window.MathJax && MathJax.Hub && MathJax.Hub.getAllJax
       && MathJax.Hub.getAllJax(document.body).length)
     return new Promise(function (resolve) { MathJax.Hub.Queue(resolve); });
+  // Rebuild a fresh parser/document only via our ready V4 bridge after every
+  // old item is retired. Unlike direct engine reuse, no user macros survive.
+  if (!forceFresh && window.MathJax && MathJax.Hub
+      && typeof MathJax.Hub.WizPrepareNewBody === 'function') {
+    var bridge = MathJax.Hub;
+    function freshAfterRenewal() {
+      if (WizMarkdownEnvironmentLoader === trackedRenewal) WizMarkdownEnvironmentLoader = null;
+      return WizLoadMarkdownEnvironmentMathJax(dependencyUrl, true);
+    }
+    // Renewal is an optional optimization. Its own throw/rejection must not
+    // strand the reader, and a failed full initialization still propagates.
+    var renewed = Promise.resolve().then(function () {
+      return bridge.WizPrepareNewBody(document.body);
+    }).then(function (ok) {
+      if (!ok) return freshAfterRenewal();
+    }, freshAfterRenewal);
+    var trackedRenewal = renewed.finally(function () {
+      if (WizMarkdownEnvironmentLoader === trackedRenewal) WizMarkdownEnvironmentLoader = null;
+    });
+    WizMarkdownEnvironmentLoader = trackedRenewal;
+    return trackedRenewal;
+  }
   var request = new Promise(function (resolve, reject) {
     var settled = false, script;
     var deadline = setTimeout(function () { finish(new Error('Bundled MathJax initialization timed out')); }, 30000);
