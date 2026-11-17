@@ -21,6 +21,9 @@
 #include <QActionGroup>
 #include <QShortcut>
 #include <QPixmap>
+#include <QScreen>
+#include <QtMath>
+#include <algorithm>
 
 #include "share/WizMisc.h"
 #include "share/WizEditorFontQuery.h"
@@ -1204,6 +1207,81 @@ void setColorToSettings(WizExplorerApp& app, QString name, QColor color)
 }
 
 
+namespace {
+
+#ifdef Q_OS_MAC
+// Share immutable icons from the bundled default skin. Qt decides when to
+// rasterize and evict each size, state and display scale.
+class ToolbarIconCache : public QObject
+{
+public:
+    explicit ToolbarIconCache(QObject *parent) : QObject(parent) {}
+
+    QPointer<QStyle> style;
+    qint64 paletteKey = 0;
+    QList<int> screenScales;
+    QHash<QPair<QString, QSize>, QIcon> icons;
+};
+#endif
+
+class ToolbarIcons
+{
+public:
+    explicit ToolbarIcons(const QString &skin) : m_skin(skin)
+    {
+#ifdef Q_OS_MAC
+        if (skin != QStringLiteral("default"))
+            return;
+
+        static QPointer<ToolbarIconCache> cache;
+        if (!cache)
+            cache = new ToolbarIconCache(qApp);
+
+        // addFile also looks for high-DPI variants on the connected displays.
+        QList<int> scales;
+        for (const auto *screen : qApp->screens())
+            scales.append(qCeil(screen->devicePixelRatio()));
+        std::sort(scales.begin(), scales.end());
+        const auto paletteKey = qApp->palette().cacheKey();
+        if (cache->style != qApp->style() || cache->paletteKey != paletteKey
+                || cache->screenScales != scales) {
+            cache->icons.clear();
+            cache->style = qApp->style();
+            cache->paletteKey = paletteKey;
+            cache->screenScales = scales;
+        }
+        m_cache = cache;
+#endif
+    }
+
+    QIcon load(const QString &name, const QSize &size = {}) const
+    {
+#ifdef Q_OS_MAC
+        if (m_cache) {
+            const auto key = qMakePair(name, size.isValid() ? size
+                    : QSize(WizSmartScaleUIEx(16), WizSmartScaleUIEx(16)));
+            const auto cached = m_cache->icons.constFind(key);
+            if (cached != m_cache->icons.cend())
+                return *cached;
+
+            const QIcon icon = WizLoadSkinIcon(m_skin, name, size);
+            if (!icon.isNull())
+                m_cache->icons.insert(key, icon);
+            return icon;
+        }
+#endif
+        return WizLoadSkinIcon(m_skin, name, size);
+    }
+
+private:
+    QString m_skin;
+#ifdef Q_OS_MAC
+    ToolbarIconCache *m_cache = nullptr;
+#endif
+};
+
+} // namespace
+
 WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     : QWidget(parent)
     , m_app(app)
@@ -1212,7 +1290,8 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 {
     setContentsMargins(0, 4, 0, 0);
 
-    QString skin = Utils::WizStyleHelper::themeName();
+    const QString skin = Utils::WizStyleHelper::themeName();
+    const ToolbarIcons icons(skin);
 
     m_comboParagraph = new CWizToolComboBox(this);    
     m_comboParagraph->setMaximumWidth(90);
@@ -1293,7 +1372,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     QSize editIconSize = QSize(Utils::WizStyleHelper::editIconHeight(), Utils::WizStyleHelper::editIconHeight());
 
     m_btnFormatPainter = new CWizToolButton(this);
-    m_btnFormatPainter->setIcon(::WizLoadSkinIcon(skin, "formatter", editIconSize));
+    m_btnFormatPainter->setIcon(icons.load("formatter", editIconSize));
     //m_btnFormatPainter->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatRemoveFormat")).size());
     m_btnFormatPainter->setToolTip(tr("Format Painter"));
     m_btnFormatPainter->setCheckable(true);
@@ -1303,7 +1382,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     connect(m_btnFormatPainter, SIGNAL(dblClicked()), SLOT(on_btnFormatPainter_dblClicked()));
     //
     m_btnRemoveFormat = new CWizToolButton(this);
-    m_btnRemoveFormat->setIcon(::WizLoadSkinIcon(skin, "actionFormatRemoveFormat", editIconSize));
+    m_btnRemoveFormat->setIcon(icons.load("actionFormatRemoveFormat", editIconSize));
     //m_btnRemoveFormat->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatRemoveFormat")).size());
     m_btnRemoveFormat->setToolTip(tr("Remove Format"));
     m_btnRemoveFormat->setCheckable(false);
@@ -1311,7 +1390,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     connect(m_btnRemoveFormat, SIGNAL(clicked()), SLOT(on_btnRemoveFormat_clicked()));
 
     m_btnForeColor = new CWizToolButtonColor(this);
-    m_btnForeColor->setIcon(::WizLoadSkinIcon(skin, "actionFormatForeColor", editIconSize));
+    m_btnForeColor->setIcon(icons.load("actionFormatForeColor", editIconSize));
     m_btnForeColor->setColor(QColor("#ff0000"));
     //m_btnForeColor->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatForeColor")).size());
     m_btnForeColor->setToolTip(tr("ForeColor"));
@@ -1323,7 +1402,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnForeColor->setMenu(foreColorMenu);
 
     m_btnBackColor = new CWizToolButtonColor(this);
-    m_btnBackColor->setIcon(::WizLoadSkinIcon(skin, "actionFormatBackColor", editIconSize));
+    m_btnBackColor->setIcon(icons.load("actionFormatBackColor", editIconSize));
     m_btnBackColor->setColor(QColor("#ffff00"));
     //m_btnBackColor->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatBackColor")).size());
     m_btnBackColor->setToolTip(tr("BackColor"));
@@ -1335,56 +1414,56 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnBackColor->setMenu(backColorMenu);
 
     m_btnBold = new CWizToolButton(this);
-    m_btnBold->setIcon(::WizLoadSkinIcon(skin, "actionFormatBold", editIconSize));
+    m_btnBold->setIcon(icons.load("actionFormatBold", editIconSize));
     //m_btnBold->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatBold")).size());
     m_btnBold->setToolTip(tr("Bold %1B").arg(commandKey()));
     m_btnBold->setPosition(ButtonPosition::Left);
     connect(m_btnBold, SIGNAL(clicked()), SLOT(on_btnBold_clicked()));
 
     m_btnItalic = new CWizToolButton(this);
-    m_btnItalic->setIcon(::WizLoadSkinIcon(skin, "actionFormatItalic", editIconSize));
+    m_btnItalic->setIcon(icons.load("actionFormatItalic", editIconSize));
     //m_btnItalic->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatItalic")).size());
     m_btnItalic->setToolTip(tr("Italic %1I").arg(commandKey()));
     m_btnItalic->setPosition(ButtonPosition::Center);
     connect(m_btnItalic, SIGNAL(clicked()), SLOT(on_btnItalic_clicked()));
 
     m_btnShowExtra = new CWizToolButton(this);
-    m_btnShowExtra->setIcon(::WizLoadSkinIcon(skin, "actionFormatExtra", editIconSize));
+    m_btnShowExtra->setIcon(icons.load("actionFormatExtra", editIconSize));
     //m_btnShowExtra->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatExtra")).size());
     m_btnShowExtra->setToolTip(tr("Extra"));
     m_btnShowExtra->setPosition(ButtonPosition::NoPosition);
     connect(m_btnShowExtra, SIGNAL(clicked()), SLOT(on_btnShowExtra_clicked()));
 
     m_btnUnderLine = new CWizToolButton(this);
-    m_btnUnderLine->setIcon(::WizLoadSkinIcon(skin, "actionFormatUnderLine", editIconSize));
+    m_btnUnderLine->setIcon(icons.load("actionFormatUnderLine", editIconSize));
     //m_btnUnderLine->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatUnderLine")).size());
     m_btnUnderLine->setToolTip(tr("Underline %1U").arg(commandKey()));
     m_btnUnderLine->setPosition(ButtonPosition::Center);
     connect(m_btnUnderLine, SIGNAL(clicked()), SLOT(on_btnUnderLine_clicked()));
 
     m_btnStrikeThrough = new CWizToolButton(this);
-    m_btnStrikeThrough->setIcon(::WizLoadSkinIcon(skin, "actionFormatStrikeThrough", editIconSize));
+    m_btnStrikeThrough->setIcon(icons.load("actionFormatStrikeThrough", editIconSize));
     //m_btnStrikeThrough->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatStrikeThrough")).size());
     m_btnStrikeThrough->setToolTip(tr("Strike Through %1%2K").arg(optionKey()).arg(commandKey()));
     m_btnStrikeThrough->setPosition(ButtonPosition::Center);
     connect(m_btnStrikeThrough, SIGNAL(clicked()), SLOT(on_btnStrikeThrough_clicked()));
 
     m_btnSubscript = new CWizToolButton(this);
-    m_btnSubscript->setIcon(::WizLoadSkinIcon(skin, "actionFormatSubscript", editIconSize));
+    m_btnSubscript->setIcon(icons.load("actionFormatSubscript", editIconSize));
     //m_btnSubscript->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatSubscript")).size());
     m_btnSubscript->setToolTip(tr("Sub script"));
     m_btnSubscript->setPosition(ButtonPosition::Center);
     connect(m_btnSubscript, SIGNAL(clicked()), SLOT(on_btnSubscript_clicked()));
 
     m_btnSuperscript = new CWizToolButton(this);
-    m_btnSuperscript->setIcon(::WizLoadSkinIcon(skin, "actionFormatSuperscript", editIconSize));
+    m_btnSuperscript->setIcon(icons.load("actionFormatSuperscript", editIconSize));
     //m_btnSubscript->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatSuperscript")).size());
     m_btnSuperscript->setToolTip(tr("Super script"));
     m_btnSuperscript->setPosition(ButtonPosition::Right);
     connect(m_btnSuperscript, SIGNAL(clicked()), SLOT(on_btnSuperscript_clicked()));
 
     m_btnJustify = new CWizToolButton(this);
-    m_btnJustify->setIcon(::WizLoadSkinIcon(skin, "actionFormatJustifyLeft", editIconSize));
+    m_btnJustify->setIcon(icons.load("actionFormatJustifyLeft", editIconSize));
     //m_btnJustify->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatJustifyLeft")).size());
     m_btnJustify->setCheckable(false);
     m_btnJustify->setArrowType(Qt::RightArrow);
@@ -1393,13 +1472,13 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnJustify->setPosition(ButtonPosition::NoPosition);
     connect(m_btnJustify, SIGNAL(clicked()), SLOT(on_btnJustify_clicked()));
     m_menuJustify = new QMenu(m_btnJustify);
-    m_actionJustifyLeft = m_menuJustify->addAction(::WizLoadSkinIcon(skin, "actionFormatJustifyLeft"),
+    m_actionJustifyLeft = m_menuJustify->addAction(icons.load("actionFormatJustifyLeft"),
                              tr("Justify Left"), this, SLOT(on_btnJustifyLeft_clicked()));
     m_actionJustifyLeft->setCheckable(true);
-    m_actionJustifyCenter = m_menuJustify->addAction(::WizLoadSkinIcon(skin, "actionFormatJustifyCenter"),
+    m_actionJustifyCenter = m_menuJustify->addAction(icons.load("actionFormatJustifyCenter"),
                              tr("Justify Center"), this, SLOT(on_btnJustifyCenter_clicked()));
     m_actionJustifyCenter->setCheckable(true);
-    m_actionJustifyRight = m_menuJustify->addAction(::WizLoadSkinIcon(skin, "actionFormatJustifyRight"),
+    m_actionJustifyRight = m_menuJustify->addAction(icons.load("actionFormatJustifyRight"),
                              tr("Justify Right"), this, SLOT(on_btnJustifyRight_clicked()));
     m_actionJustifyRight->setCheckable(true);
     m_btnJustify->setMenu(m_menuJustify);
@@ -1411,21 +1490,21 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     alignGroup->addAction(m_actionJustifyRight);
 
     m_btnUnorderedList = new CWizToolButton(this);
-    m_btnUnorderedList->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertUnorderedList", editIconSize));
+    m_btnUnorderedList->setIcon(icons.load("actionFormatInsertUnorderedList", editIconSize));
     //m_btnUnorderedList->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertUnorderedList")).size());
     m_btnUnorderedList->setToolTip(tr("UnorderedList %1%2U").arg(optionKey()).arg(commandKey()));
     m_btnUnorderedList->setPosition(ButtonPosition::Left);
     connect(m_btnUnorderedList, SIGNAL(clicked()), SLOT(on_btnUnorderedList_clicked()));
 
     m_btnOrderedList = new CWizToolButton(this);
-    m_btnOrderedList->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertOrderedList", editIconSize));
+    m_btnOrderedList->setIcon(icons.load("actionFormatInsertOrderedList", editIconSize));
     //m_btnOrderedList->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertOrderedList")).size());
     m_btnOrderedList->setToolTip(tr("OrderedList %1%2O").arg(optionKey()).arg(commandKey()));
     m_btnOrderedList->setPosition(ButtonPosition::Right);
     connect(m_btnOrderedList, SIGNAL(clicked()), SLOT(on_btnOrderedList_clicked()));
 
     QWidgetAction* tableAction = new QWidgetAction(this);
-    tableAction->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertTable", editIconSize));
+    tableAction->setIcon(icons.load("actionFormatInsertTable", editIconSize));
     tableAction->setText(tr("Insert Table"));
     WizTableSelectorWidget* tableWidget = new WizTableSelectorWidget(this);
     tableAction->setDefaultWidget(tableWidget);
@@ -1439,7 +1518,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnTable = new CWizToolButton(this);
     m_btnTable->setCheckable(false);
 //    m_btnTable->setHorizontalPadding(8);
-    m_btnTable->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertTable", editIconSize));
+    m_btnTable->setIcon(icons.load("actionFormatInsertTable", editIconSize));
     //m_btnTable->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertTable")).size());
     m_btnTable->setToolTip(tr("Insert Table"));
     m_btnTable->setPosition(ButtonPosition::Center);
@@ -1450,7 +1529,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnHorizontal = new CWizToolButton(this);
     m_btnHorizontal->setCheckable(false);
     m_btnHorizontal->setHorizontalPadding(9);
-    m_btnHorizontal->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertHorizontal", editIconSize));
+    m_btnHorizontal->setIcon(icons.load("actionFormatInsertHorizontal", editIconSize));
     //m_btnHorizontal->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertHorizontal")).size());
     m_btnHorizontal->setToolTip(tr("Insert Horizontal %1%2H").arg(shiftKey()).arg(commandKey()));
     m_btnHorizontal->setPosition(ButtonPosition::Center);
@@ -1459,7 +1538,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnStartMarkup = new CWizToolButton(this);
     m_btnStartMarkup->setCheckable(false);
     m_btnStartMarkup->setHorizontalPadding(8);
-    m_btnStartMarkup->setIcon(::WizLoadSkinIcon(skin, "actionFormatStartMarkup", editIconSize));
+    m_btnStartMarkup->setIcon(icons.load("actionFormatStartMarkup", editIconSize));
     m_btnStartMarkup->setToolTip(tr("Start Markup"));
     m_btnStartMarkup->setPosition(ButtonPosition::Left);
     connect(m_btnStartMarkup, SIGNAL(clicked()), SLOT(on_btnStartMarkup_clicked()));
@@ -1467,14 +1546,14 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnInsertPainter = new CWizToolButton(this);
     m_btnInsertPainter->setCheckable(false);
     m_btnInsertPainter->setHorizontalPadding(8);
-    m_btnInsertPainter->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertPainter", editIconSize));
+    m_btnInsertPainter->setIcon(icons.load("actionFormatInsertPainter", editIconSize));
     m_btnInsertPainter->setToolTip(tr("Insert Handwriting"));
     m_btnInsertPainter->setPosition(ButtonPosition::Center);
     connect(m_btnInsertPainter, SIGNAL(clicked()), SLOT(on_btnInsertPainter_clicked()));
 
     m_btnCheckList = new CWizToolButton(this);
     m_btnCheckList->setCheckable(false);
-    m_btnCheckList->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertCheckList", editIconSize));
+    m_btnCheckList->setIcon(icons.load("actionFormatInsertCheckList", editIconSize));
     //m_btnCheckList->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertCheckList")).size());
     m_btnCheckList->setToolTip(tr("Insert Checklist %1O").arg(commandKey()));
     m_btnCheckList->setPosition(ButtonPosition::Center);
@@ -1483,7 +1562,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnInsertLink = new CWizToolButton(this);
     m_btnInsertLink->setCheckable(false);
     m_btnInsertLink->setHorizontalPadding(6, 10);
-    m_btnInsertLink->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertLink", editIconSize));
+    m_btnInsertLink->setIcon(icons.load("actionFormatInsertLink", editIconSize));
     //m_btnInsertLink->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertLink")).size());
     m_btnInsertLink->setToolTip(tr("Insert Link %1K").arg(commandKey()));
     m_btnInsertLink->setPosition(ButtonPosition::Center);
@@ -1492,7 +1571,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnInsertImage = new CWizToolButton(this);
     m_btnInsertImage->setCheckable(false);
     m_btnInsertImage->setHorizontalPadding(8);
-    m_btnInsertImage->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertImage", editIconSize));
+    m_btnInsertImage->setIcon(icons.load("actionFormatInsertImage", editIconSize));
     //m_btnInsertImage->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertImage")).size());
     m_btnInsertImage->setToolTip(tr("Insert Image %1%2I").arg(shiftKey()).arg(commandKey()));
     m_btnInsertImage->setPosition(ButtonPosition::Center);
@@ -1501,7 +1580,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     m_btnInsertDate = new CWizToolButton(this);
     m_btnInsertDate->setCheckable(false);
     m_btnInsertDate->setHorizontalPadding(8, 10);
-    m_btnInsertDate->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertDate", editIconSize));
+    m_btnInsertDate->setIcon(icons.load("actionFormatInsertDate", editIconSize));
     //m_btnInsertDate->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatInsertDate")).size());
     m_btnInsertDate->setToolTip(tr("Insert Date %1%2D").arg(shiftKey()).arg(commandKey()));
     m_btnInsertDate->setPosition(ButtonPosition::Right);
@@ -1509,7 +1588,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnMobileImage = new CWizToolButton(this);
 //    m_btnMobileImage->setHorizontalPadding(6);
-    m_btnMobileImage->setIcon(::WizLoadSkinIcon(skin, "actionMobileImage", editIconSize));
+    m_btnMobileImage->setIcon(icons.load("actionMobileImage", editIconSize));
     //m_btnMobileImage->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionMobileImage")).size());
     m_btnMobileImage->setToolTip(tr("Receive mobile image"));
     m_btnMobileImage->setPosition(ButtonPosition::Center);
@@ -1517,7 +1596,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnSearchReplace = new CWizToolButton(this);
     m_btnSearchReplace->setCheckable(false);
-    m_btnSearchReplace->setIcon(::WizLoadSkinIcon(skin, "actionFormatSearchReplace", editIconSize));
+    m_btnSearchReplace->setIcon(icons.load("actionFormatSearchReplace", editIconSize));
     //m_btnSearchReplace->setIconSize(QPixmap(WizGetSkinResourceFileName(skin, "actionFormatSearchReplace")).size());
     m_btnSearchReplace->setToolTip(tr("Find & Replace %1F").arg(commandKey()));
     m_btnSearchReplace->setPosition(ButtonPosition::Right);
@@ -1526,7 +1605,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 #ifndef Q_OS_MAC
     m_btnScreenShot = new CWizToolButton(this);
     m_btnScreenShot->setCheckable(false);
-    m_btnScreenShot->setIcon(::WizLoadSkinIcon(skin, "actionFormatScreenShot"));
+    m_btnScreenShot->setIcon(icons.load("actionFormatScreenShot"));
     m_btnScreenShot->setToolTip(tr("Screen shot"));
     m_btnScreenShot->setPosition(ButtonPosition::Center);
     connect(m_btnScreenShot, SIGNAL(clicked()), SLOT(on_btnScreenShot_clicked()));
@@ -1536,14 +1615,14 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnInsertCode = new CWizToolButton(this);
     m_btnInsertCode->setCheckable(false);
-    m_btnInsertCode->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertCode", editIconSize));
+    m_btnInsertCode->setIcon(icons.load("actionFormatInsertCode", editIconSize));
     m_btnInsertCode->setToolTip(tr("Insert code %1%2C").arg(shiftKey()).arg(commandKey()));
     m_btnInsertCode->setPosition(ButtonPosition::Left);
     connect(m_btnInsertCode, SIGNAL(clicked()), SLOT(on_btnInsertCode_clicked()));
 
     m_btnPencil = new CWizToolButtonColor(this);
     m_btnPencil->setCheckable(true);
-    m_btnPencil->setIcon(::WizLoadSkinIcon(skin, "actionMarkupPencil", editIconSize));
+    m_btnPencil->setIcon(icons.load("actionMarkupPencil", editIconSize));
     m_btnPencil->setPosition(ButtonPosition::Left);
     QMenu* colorPencilMenu = createColorMenu(SLOT(on_btnPencilColor_changed()));
     m_btnPencil->setMenu(colorPencilMenu);
@@ -1565,7 +1644,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnHighlighter = new CWizToolButtonColor(this);
     m_btnHighlighter->setCheckable(true);
-    m_btnHighlighter->setIcon(::WizLoadSkinIcon(skin, "actionMarkupHighlighter", editIconSize));
+    m_btnHighlighter->setIcon(icons.load("actionMarkupHighlighter", editIconSize));
     m_btnHighlighter->setPosition(ButtonPosition::Left);
     QMenu* colorHighlighterMenu = createColorMenu(SLOT(on_btnHighlighterColor_changed()));
     m_btnHighlighter->setMenu(colorHighlighterMenu);
@@ -1587,7 +1666,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnEraser = new CWizToolButton(this);
     m_btnEraser->setCheckable(true);
-    m_btnEraser->setIcon(::WizLoadSkinIcon(skin, "actionMarkupEraser", editIconSize));
+    m_btnEraser->setIcon(icons.load("actionMarkupEraser", editIconSize));
     m_btnEraser->setPosition(ButtonPosition::Left);
     connect(m_btnEraser, SIGNAL(clicked()), SLOT(on_btnEraser_clicked()));
     CWizToolLineWidthComboBox* eraserSize = new CWizToolLineWidthComboBox(this);
@@ -1605,7 +1684,7 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnShape = new CWizToolButtonColor(this);
     m_btnShape->setCheckable(true);
-    m_btnShape->setIcon(::WizLoadSkinIcon(skin, "actionMarkupShape", editIconSize));
+    m_btnShape->setIcon(icons.load("actionMarkupShape", editIconSize));
     m_btnShape->setPosition(ButtonPosition::Left);
     QMenu* colorShapeMenu = createColorMenu(SLOT(on_btnShapeColor_changed()));
     m_btnShape->setMenu(colorShapeMenu);
@@ -1636,13 +1715,13 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
 
     m_btnUndo = new CWizToolButton(this);
     m_btnUndo->setCheckable(false);
-    m_btnUndo->setIcon(::WizLoadSkinIcon(skin, "actionMarkupUndo", editIconSize));
+    m_btnUndo->setIcon(icons.load("actionMarkupUndo", editIconSize));
     m_btnUndo->setPosition(ButtonPosition::Left);
     connect(m_btnUndo, SIGNAL(clicked()), SLOT(on_btnUndo_clicked()));
 
     m_btnRedo = new CWizToolButton(this);
     m_btnRedo->setCheckable(false);
-    m_btnRedo->setIcon(::WizLoadSkinIcon(skin, "actionMarkupRedo", editIconSize));
+    m_btnRedo->setIcon(icons.load("actionMarkupRedo", editIconSize));
     m_btnRedo->setPosition(ButtonPosition::Right);
     connect(m_btnRedo, SIGNAL(clicked()), SLOT(on_btnRedo_clicked()));
 
@@ -1705,45 +1784,45 @@ WizEditorToolBar::WizEditorToolBar(WizExplorerApp& app, QWidget *parent)
     //outline tool bar
     m_btnUndoOutline = new CWizToolButton(this);
     m_btnUndoOutline->setCheckable(false);
-    m_btnUndoOutline->setIcon(::WizLoadSkinIcon(skin, "actionMarkupUndo", editIconSize));
+    m_btnUndoOutline->setIcon(icons.load("actionMarkupUndo", editIconSize));
     m_btnUndoOutline->setPosition(ButtonPosition::Left);
     connect(m_btnUndoOutline, SIGNAL(clicked()), SLOT(on_btnUndoOutline_clicked()));
 
     m_btnRedoOutline = new CWizToolButton(this);
     m_btnRedoOutline->setCheckable(false);
-    m_btnRedoOutline->setIcon(::WizLoadSkinIcon(skin, "actionMarkupRedo", editIconSize));
+    m_btnRedoOutline->setIcon(icons.load("actionMarkupRedo", editIconSize));
     m_btnRedoOutline->setPosition(ButtonPosition::Right);
     connect(m_btnRedoOutline, SIGNAL(clicked()), SLOT(on_btnRedoOutline_clicked()));
 
     m_btnOutdentOutline = new CWizToolButton(this);
     m_btnOutdentOutline->setCheckable(false);
-    m_btnOutdentOutline->setIcon(::WizLoadSkinIcon(skin, "outline_outdent", editIconSize));
+    m_btnOutdentOutline->setIcon(icons.load("outline_outdent", editIconSize));
     m_btnOutdentOutline->setPosition(ButtonPosition::Left);
     connect(m_btnOutdentOutline, SIGNAL(clicked()), SLOT(on_btnOutdentOutline_clicked()));
 
     m_btnIndentOutline = new CWizToolButton(this);
     m_btnIndentOutline->setCheckable(false);
-    m_btnIndentOutline->setIcon(::WizLoadSkinIcon(skin, "outline_indent", editIconSize));
+    m_btnIndentOutline->setIcon(icons.load("outline_indent", editIconSize));
     m_btnIndentOutline->setPosition(ButtonPosition::Right);
     connect(m_btnIndentOutline, SIGNAL(clicked()), SLOT(on_btnIndentOutline_clicked()));
 
     m_btnNotesOutline = new CWizToolButton(this);
     m_btnNotesOutline->setCheckable(false);
-    m_btnNotesOutline->setIcon(::WizLoadSkinIcon(skin, "outline_notes", editIconSize));
+    m_btnNotesOutline->setIcon(icons.load("outline_notes", editIconSize));
     m_btnNotesOutline->setPosition(ButtonPosition::Left);
     connect(m_btnNotesOutline, SIGNAL(clicked()), SLOT(on_btnNotesOutline_clicked()));
 
     m_btnInsertImagesOutline = new CWizToolButton(this);
     m_btnInsertImagesOutline->setCheckable(false);
     m_btnInsertImagesOutline->setHorizontalPadding(8);
-    m_btnInsertImagesOutline->setIcon(::WizLoadSkinIcon(skin, "actionFormatInsertImage", editIconSize));
+    m_btnInsertImagesOutline->setIcon(icons.load("actionFormatInsertImage", editIconSize));
     m_btnInsertImagesOutline->setToolTip(tr("Insert Image %1%2I").arg(shiftKey()).arg(commandKey()));
     m_btnInsertImagesOutline->setPosition(ButtonPosition::Right);
     connect(m_btnInsertImagesOutline, SIGNAL(clicked()), SLOT(on_btnInsertImage_clicked()));
 
     m_btnCompleteOutline = new CWizToolButton(this);
     m_btnCompleteOutline->setCheckable(false);
-    m_btnCompleteOutline->setIcon(::WizLoadSkinIcon(skin, "outline_complete", editIconSize));
+    m_btnCompleteOutline->setIcon(icons.load("outline_complete", editIconSize));
     m_btnCompleteOutline->setPosition(ButtonPosition::NoPosition);
     connect(m_btnCompleteOutline, SIGNAL(clicked()), SLOT(on_btnCompleteOutline_clicked()));
 

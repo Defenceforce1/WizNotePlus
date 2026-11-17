@@ -1,0 +1,19 @@
+--- a/src/widgets/styles/qstylesheetstyle.cpp
++++ b/src/widgets/styles/qstylesheetstyle.cpp
+@@ -1821,13 +1821,13 @@
+ QRenderRule QStyleSheetStyle::renderRule(const QWidget *w, int element, quint64 state) const
+ {
+     qt_check_if_internal_widget(&w, &element);
++    if (!initWidget(w))
++        return QRenderRule();
++
+     QHash<quint64, QRenderRule> &cache = styleSheetCaches->renderRulesCache[w][element];
+     QHash<quint64, QRenderRule>::const_iterator cacheIt = cache.constFind(state);
+     if (cacheIt != cache.constEnd())
+         return cacheIt.value();
+-
+-    if (!initWidget(w))
+-        return QRenderRule();
+ 
+     quint64 stateMask = 0;
+     const QList<StyleRule> rules = styleRules(w);

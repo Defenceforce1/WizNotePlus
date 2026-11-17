@@ -1,0 +1,86 @@
+--- a/chromium/mojo/public/cpp/bindings/connector.h
++++ b/chromium/mojo/public/cpp/bindings/connector.h
+@@ -34,6 +34,7 @@
+ namespace mojo {
+ 
+ class SyncHandleWatcher;
++class WaitSet;
+ 
+ // The Connector class is responsible for performing read/write operations on a
+ // MessagePipe. It writes messages it receives through the MessageReceiver
+@@ -311,6 +312,10 @@
+   base::OnceClosure connection_error_handler_;
+ 
+   ScopedMessagePipeHandle message_pipe_;
++  // Reuse one registration for synchronous waits on this exact message pipe.
++  // Keep it across pause/resume; reset before passing or replacing the pipe.
++  // Declared after message_pipe_ so it is destroyed before the pipe.
++  std::unique_ptr<WaitSet> incoming_wait_set_;
+   // `incoming_receiver_` is not a raw_ptr<...> for performance reasons (based
+   // on analysis of sampling profiler data).
+   RAW_PTR_EXCLUSION MessageReceiver* incoming_receiver_ = nullptr;
+--- a/chromium/mojo/public/cpp/bindings/lib/connector.cc
++++ b/chromium/mojo/public/cpp/bindings/lib/connector.cc
+@@ -32,7 +32,7 @@
+ #include "mojo/public/cpp/bindings/mojo_buildflags.h"
+ #include "mojo/public/cpp/bindings/sync_handle_watcher.h"
+ #include "mojo/public/cpp/bindings/tracing_helpers.h"
+-#include "mojo/public/cpp/system/wait.h"
++#include "mojo/public/cpp/system/wait_set.h"
+ #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_mojo_event_info.pbzero.h"
+ 
+ #if defined(ENABLE_IPC_FUZZER)
+@@ -186,6 +186,7 @@
+     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+     CancelWait();
+   }
++  incoming_wait_set_.reset();
+ }
+ 
+ void Connector::SetOutgoingSerializationMode(OutgoingSerializationMode mode) {
+@@ -224,6 +225,7 @@
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+ 
+   CancelWait();
++  incoming_wait_set_.reset();
+   internal::MayAutoLock locker(&lock_);
+   ScopedMessagePipeHandle message_pipe = std::move(message_pipe_);
+   weak_factory_.InvalidateWeakPtrs();
+@@ -254,7 +256,25 @@
+ 
+   ResumeIncomingMethodCallProcessing();
+ 
+-  MojoResult rv = Wait(message_pipe_.get(), MOJO_HANDLE_SIGNAL_READABLE);
++  MojoResult rv = MOJO_RESULT_OK;
++  if (!incoming_wait_set_) {
++    auto wait_set = std::make_unique<WaitSet>();
++    rv = wait_set->AddHandle(message_pipe_.get(), MOJO_HANDLE_SIGNAL_READABLE);
++    if (rv == MOJO_RESULT_OK) {
++      incoming_wait_set_ = std::move(wait_set);
++    }
++  }
++  if (rv == MOJO_RESULT_OK) {
++    Handle ready_handles[1];
++    MojoResult ready_results[1];
++    size_t num_ready_handles = 1;
++    incoming_wait_set_->Wait(nullptr, &num_ready_handles, ready_handles,
++                             ready_results);
++    // No user events are added. An empty result can only mean the watched
++    // handle is no longer registered; preserve the existing error path.
++    rv = num_ready_handles == 1 ? ready_results[0] : MOJO_RESULT_CANCELLED;
++    DCHECK(num_ready_handles == 0 || ready_handles[0] == message_pipe_.get());
++  }
+   if (rv != MOJO_RESULT_OK) {
+     // Users that call WaitForIncomingMessage() should expect their code to be
+     // re-entered, so we call the error handler synchronously.
+@@ -660,6 +680,10 @@
+   if (error_ || !message_pipe_.is_valid())
+     return;
+ 
++  // Release the registration while the old pipe still has its original
++  // identity, before replacing it or running a user error callback.
++  incoming_wait_set_.reset();
++
+   if (paused_) {
+     // Enforce calling the error handler asynchronously if the user has paused
+     // receiving messages. We need to wait until the user starts receiving

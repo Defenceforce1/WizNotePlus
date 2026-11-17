@@ -1,0 +1,66 @@
+--- a/src/core/browser_main_parts_qt.cpp
++++ b/src/core/browser_main_parts_qt.cpp
+@@ -56,6 +56,7 @@
+ #endif // BUILDFLAG(ENABLE_PLUGINS)
+ 
+ #include "web_engine_context.h"
++#include "net/system_network_context_manager.h"
+ #include "web_usb_detector_qt.h"
+ 
+ #include <QDeadlineTimer>
+@@ -281,6 +282,10 @@
+     // The ProfileQt's destructor uses the MessageLoop so it should be deleted
+     // right before the RenderProcessHostImpl's destructor destroys it.
+     WebEngineContext::current()->destroyProfileAdapter();
++
++    // Profiles are gone; the UI and network task runners are still alive.
++    // Retire the process-wide proxy watcher before Chromium stops those threads.
++    SystemNetworkContextManager::DeleteInstance();
+ }
+ 
+ #if defined(Q_OS_WIN)
+--- a/src/core/content_browser_client_qt.cpp
++++ b/src/core/content_browser_client_qt.cpp
+@@ -85,6 +85,7 @@
+ #include "web_contents_view_qt.h"
+ #include "web_engine_library_info.h"
+ #include "web_engine_settings.h"
++#include "web_engine_context.h"
+ #include "api/qwebenginecookiestore.h"
+ #include "api/qwebenginecookiestore_p.h"
+ #include "api/qwebengineurlrequestinfo_p.h"
+@@ -1091,6 +1092,11 @@
+ 
+ void ContentBrowserClientQt::OnNetworkServiceCreated(network::mojom::NetworkService *network_service)
+ {
++    // A late service notification must not recreate the global context after
++    // shutdown has retired it. Existing contexts can finish their teardown.
++    if (WebEngineContext::closingDown() && !SystemNetworkContextManager::GetInstance())
++        return;
++
+     if (!SystemNetworkContextManager::GetInstance())
+         SystemNetworkContextManager::CreateInstance();
+ 
+--- a/src/core/net/system_network_context_manager.cpp
++++ b/src/core/net/system_network_context_manager.cpp
+@@ -8,6 +8,8 @@
+ // found in the LICENSE file.
+ 
+ #include "net/system_network_context_manager.h"
++
++#include <utility>
+ 
+ #include "base/command_line.h"
+ #include "base/functional/bind.h"
+@@ -202,8 +204,9 @@
+ // static
+ void SystemNetworkContextManager::DeleteInstance()
+ {
+-    DCHECK(g_system_network_context_manager);
+-    delete g_system_network_context_manager;
++    // Clear the public handle before destructors can run callbacks.
++    // Shutdown also covers configurations that never created a system context.
++    delete std::exchange(g_system_network_context_manager, nullptr);
+ }
+ 
+ SystemNetworkContextManager::SystemNetworkContextManager()
