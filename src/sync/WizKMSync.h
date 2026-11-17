@@ -81,6 +81,8 @@ public:
     // Atomically pause only an idle worker; used by native data transfers.
     bool pauseIfIdle(bool& previous);
     void restorePause(bool previous);
+    // Wake existing queued work without scheduling a new synchronization.
+    void wakePendingSync() { on_timerOut(); }
 
 signals:
     void startTimer(int interval);

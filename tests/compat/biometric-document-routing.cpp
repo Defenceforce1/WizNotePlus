@@ -795,6 +795,7 @@ public:
     bool running=false,idle=true;int attempts=0,stops=0;
     bool isRunning()const{return running;}bool isIdle()const{return idle;}
     bool hasNetworkStarted()const{return true;}quint64 networkActivity()const{return 0;}
+    void wakePendingSync() {}
     void startSyncAll(bool){++attempts;emit fullSyncAttemptFinished();}
     void stopSync(){++stops;running=false;}
 Q_SIGNALS:
@@ -4039,9 +4040,9 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         owner.m_web->reply=false;const int saves=owner.m_web->saves;
         check(!quit.prepareForQuit()&&!quit.m_quiting&&!quit.m_quitPrepared&&action->isEnabled()&&owner.isEnabled()&&quit.centralWidget()->isEnabled()&&QuitMessage::failures==1&&owner.m_web->saves==saves+1,"actual prepareForQuit snapshot failure restores input/actions and refuses exit before network shutdown");
         owner.m_web->reply=true;QuitSync full,quick;full.running=true;quick.running=true;quit.m_syncFull=&full;quit.m_syncQuick=&quick;
-        const int before=owner.m_web->saves;check(quit.prepareForQuit()&&quit.m_quiting&&quit.m_quitPrepared&&owner.m_web->saves==before+2&&full.attempts==1&&full.stops==1&&quick.stops==1&&QuitNetwork::shutdowns==1,"actual coordinator performs both local-save passes and one simulated final sync before committing exit");
+        const int before=owner.m_web->saves;check(quit.prepareForQuit()&&quit.m_quiting&&quit.m_quitPrepared&&owner.m_web->saves==before+2&&full.attempts==0&&full.stops==1&&quick.stops==1&&QuitNetwork::shutdowns==1,"actual coordinator performs both local-save passes without an extra full sync before committing exit");
         check(!action->isEnabled()&&!owner.isEnabled()&&owner.m_web->body=="quit dirty body"&&db.getCertPassword()==password,"committed quit guard keeps input frozen without clearing retained DOM or save credential");
-        const int committed=owner.m_web->saves;check(quit.prepareForQuit()&&owner.m_web->saves==committed&&full.attempts==1,"already committed quit is idempotent without new saves or another sync attempt");
+        const int committed=owner.m_web->saves;check(quit.prepareForQuit()&&owner.m_web->saves==committed&&full.attempts==0,"already committed quit is idempotent without new saves or another sync attempt");
         owner.setEnabled(true);
         for(const bool busy:{false,true}){QuitShell blocked;blocked.m_preparingQuit=!busy;blocked.m_noteTransferBusy=busy;const int prior=owner.m_web->saves;blocked.views.append(&owner);check(!blocked.prepareForQuit()&&owner.m_web->saves==prior,"reentrant or note-transfer-busy quit refuses before snapshot work");}
     }

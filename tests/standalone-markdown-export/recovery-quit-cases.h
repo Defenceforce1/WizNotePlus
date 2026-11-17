@@ -32,6 +32,7 @@ public:
     bool isIdle() const { return true; }
     bool hasNetworkStarted() const { return true; }
     quint64 networkActivity() const { return 1; }
+    void wakePendingSync() {}
     void startSyncAll(bool) { ++attempts; QMetaObject::invokeMethod(this, "finished", Qt::DirectConnection); }
     void stopSync() { ++stops; }
 };
@@ -109,7 +110,7 @@ inline int child(QApplication& application, const QString& sandbox, const QStrin
         // document persistence acknowledgements.
         QTimer::singleShot(0, qApp, [&] { ++receipts; window.saver.idle = true; });
         window.saver.idle = false;
-        return !(mode == "save-fails" || (mode == "late-save-fails" && !force));
+        return !(mode == "save-fails" || (mode == "late-save-fails" && saves == 2));
     };
     window.cleanup = [&] {
         ++cleanups;
@@ -144,7 +145,7 @@ inline int child(QApplication& application, const QString& sandbox, const QStrin
             check(!window.m_quitPrepared && !window.m_quiting && !App::isQuitting()
                 && cleanups == 0 && QuitMessageBox::errors == 1 && receipts == saves,
                 "actual failed save cancels quit, delivers save receipts and restores future request gate");
-            check(window.full.attempts == (mode == "late-save-fails" ? 1 : 0)
+            check(window.full.attempts == 0
                 && f.retained() && f.noAudit() && settled == 1,
                 "failed save preserves files, performs no recovery or retry, and never revives old prompt");
             // End only this isolated event loop after observing the cancelled
@@ -171,8 +172,8 @@ inline int child(QApplication& application, const QString& sandbox, const QStrin
     }
     const bool preparedRoute = mode == "menu" || mode == "quit-event" || mode == "close-event";
     if (preparedRoute) check(window.m_quitPrepared && window.m_quiting && saves == 2 && receipts == 2
-        && window.full.attempts == 1 && window.full.stops == 1 && window.quick.stops == 1,
-        "actual prepared exit keeps two save barriers and exactly one synthetic final sync");
+        && window.full.attempts == 0 && window.full.stops == 1 && window.quick.stops == 1,
+        "actual prepared exit keeps two save barriers without an extra full sync");
     else if (!saveFails) check(saves == 0 && window.full.attempts == 0,
         "direct fallback adds no local save or final sync attempt");
     QTextStream(stdout) << "QUIT_CHILD_MODE=" << mode << '\n' << "QUIT_CHILD_CHECKS=" << checks << '\n'

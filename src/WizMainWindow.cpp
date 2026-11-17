@@ -447,47 +447,53 @@ bool WizMainWindow::prepareForQuit()
         QMessageBox::critical(this, QStringLiteral("未退出"),
             QStringLiteral("本地笔记尚未确认保存成功，已取消退出。请保留当前窗口，检查磁盘空间并重试保存。"));
     };
-    if (!saveLocally(true)) { reportLocalFailure(); return false; }
+    // Preserve the normal dirty-state check; do not rewrite unchanged editors.
+    if (!saveLocally(false)) { reportLocalFailure(); return false; }
 
-    // Connection/start has a short budget. Once network work is established,
-    // wait for completion while real transfer/stage progress continues. Only
-    // a failed attempt or prolonged inactivity ends that wait; never retry.
-    if (!qApp->property("wiznoteIsolatedWindowControlsTest").toBool()
-        && m_syncFull && m_syncFull->isRunning()) {
-        QObject syncContext;
-        const auto waitForSync = [](WizKMSyncThread* worker, const std::function<bool()>& finished) {
-            if (!worker) return true;
+    // Save completion already queues quick sync for changed notebooks. Finish
+    // that work, without starting another full-account sync just for quitting.
+    // A second explicit Quit skips the network wait, never the local-save gate.
+    WizQuitSyncPolicy::CancelOnRepeatQuit repeatQuit(qApp);
+    const auto waitForExistingSync = [&] {
+        if (qApp->property("wiznoteIsolatedWindowControlsTest").toBool()) return true;
+        const auto waitForSync = [&](WizKMSyncThread* worker) {
+            if (!worker || !worker->isRunning()) return true;
+            // Wake already-pending work now rather than waiting for its normal
+            // debounce timer. This does not add any notebook or full-sync job.
+            if (!worker->isIdle()) worker->wakePendingSync();
             WizQuitSyncPolicy::Wait policy;
             QElapsedTimer elapsed; elapsed.start();
             while (true) {
+                if (repeatQuit.requested()) return false;
                 const auto decision = policy.observe(elapsed.elapsed(), worker->hasNetworkStarted(),
-                    worker->networkActivity(), finished());
+                    worker->networkActivity(), worker->isIdle() || !worker->isRunning());
                 if (decision == WizQuitSyncPolicy::Decision::Finished) return true;
                 if (decision != WizQuitSyncPolicy::Decision::Wait) {
-                    qInfo() << "[Quit] final sync stopped:" << (decision == WizQuitSyncPolicy::Decision::StartTimedOut
-                        ? "connection/start timed out" : "no sync progress for 3 seconds; skip this quit attempt without retry");
+                    qInfo() << "[Quit] sync stalled; unsynced changes remain saved locally";
                     return false;
                 }
                 QApplication::processEvents(); QThread::msleep(10);
             }
         };
-        const bool existingFinished = waitForSync(m_syncFull, [this] { return m_syncFull->isIdle() || !m_syncFull->isRunning(); })
-            && waitForSync(m_syncQuick, [this] { return !m_syncQuick || m_syncQuick->isIdle() || !m_syncQuick->isRunning(); });
-        if (existingFinished && m_syncFull->isRunning()) {
-            bool finished = false;
-            // UI errors may deliberately be suppressed after repeated offline
-            // attempts. Observe completion of the attempt, not the UI message.
-            const auto connection = connect(m_syncFull, &WizKMSyncThread::fullSyncAttemptFinished,
-                &syncContext, [&] { finished = true; });
-            m_syncFull->startSyncAll(true);
-            waitForSync(m_syncFull, [&] { return finished || !m_syncFull->isRunning(); });
-            disconnect(connection);
-        }
-    }
+        return waitForSync(m_syncFull) && waitForSync(m_syncQuick);
+    };
+    const bool networkResponsive = waitForExistingSync();
     // Catch a late async/native edit or a newly loaded page before committing
-    // to exit. Do not start a second cloud attempt; any late local update can
-    // sync next time. A failure still cancels quit and restores ordinary input.
+    // to exit. A failure still cancels quit and restores ordinary input.
+    // Only existing queued work is drained; failed/stalled sync is not retried.
     if (!saveLocally(false)) { reportLocalFailure(); return false; }
+    // A late local save may have queued one more quick sync. Do not abandon it
+    // on a healthy connection, or restart waiting after a timeout/manual skip.
+    const auto hasPendingSync = [](WizKMSyncThread* worker) {
+        return worker && worker->isRunning() && !worker->isIdle();
+    };
+    if (networkResponsive && !repeatQuit.requested()
+        && (hasPendingSync(m_syncFull) || hasPendingSync(m_syncQuick))) {
+        waitForExistingSync();
+        // Event pumping must never leave a newer local edit unsaved. Do not
+        // loop indefinitely if another asynchronous edit arrives during sync.
+        if (!saveLocally(false)) { reportLocalFailure(); return false; }
+    }
     if (m_externalEditorLauncher && !m_externalEditorLauncher->verifyExternalChangesForQuit()) return false;
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY
     markdownRecoveryQuit.commit();

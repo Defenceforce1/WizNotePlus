@@ -30,6 +30,27 @@ foreach(name document-async pdf-export-lifecycle pdf-paper-page)
 endforeach()
 wiz_unit(login-window-recovery login-window-recovery.cpp)
 
+# Test the current quit coordinator itself, with isolated surrounding services.
+set(quit_source "${root}/src/WizMainWindow.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${quit_source}")
+file(READ "${quit_source}" quit_text)
+string(REPLACE "\r\n" "\n" quit_text "${quit_text}")
+string(FIND "${quit_text}" "bool WizMainWindow::prepareForQuit()" quit_begin)
+string(FIND "${quit_text}" "void WizMainWindow::cleanOnQuit()" quit_end)
+if(quit_begin LESS 0 OR quit_end LESS quit_begin)
+  message(FATAL_ERROR "Cannot locate current quit coordinator")
+endif()
+math(EXPR quit_length "${quit_end} - ${quit_begin}")
+string(SUBSTRING "${quit_text}" ${quit_begin} ${quit_length} quit_body)
+foreach(pair "WizMainWindow;QuitShell" "WizDocumentView;View" "WizKMSyncThread;Sync" "WizNetworkSecurity;QuitNetwork" "QMessageBox;Message")
+  list(GET pair 0 original)
+  list(GET pair 1 substitute)
+  string(REPLACE "${original}" "${substitute}" quit_body "${quit_body}")
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/quit-flow-under-test.inc" "${quit_body}")
+wiz_unit(quit-flow quit-flow.cpp)
+target_include_directories(quit-flow PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+
 # Narrow initial-load check: compile the actual producer/orchestrator bodies,
 # with real temporary I/O and small recording collaborators; no client linkage.
 function(wiz_initial_load_target name source expected_reads)
