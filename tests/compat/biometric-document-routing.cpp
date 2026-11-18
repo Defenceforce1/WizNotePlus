@@ -1005,6 +1005,7 @@ public:
     void on_actionSaveAsPDF_triggered();void saveAsPDF(WizPdfExport::Mode);
     void on_actionSaveAsHtml_triggered();void on_actionSaveAsMarkdown_triggered();
     void bind(ReceiptWeb* newWebView,WizDocumentSaverThread* m_docSaver){
+        connect(m_docSaver,&WizDocumentSaverThread::noteStoredForSync,this,&SyncOutputHost::quickSyncKb);
 #include WIZNOTE_HOST_SAVE_BINDINGS
     }
 };
@@ -4115,17 +4116,17 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         web->body="unsaved receipt DOM";owner.hide();web->onDocumentSaved(a.strKbGUID,a.strGUID,false,web);
         check(web->m_bContentsChanged&&web->body=="unsaved receipt DOM"&&!owner.canReadCurrentNote()&&notices==0&&host.synced.isEmpty(),"failed save after lock marks retained content dirty without granting access publishing success or requesting sync");
         web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);
-        check(notices==1&&titles==1&&host.synced==QStringList{a.strKbGUID}&&web->m_bContentsChanged&&!owner.canReadCurrentNote(),"successful save while locked may publish metadata and request original-kb sync without clearing dirty edits or restoring read access");
+        check(notices==1&&titles==1&&host.synced.isEmpty()&&web->m_bContentsChanged&&!owner.canReadCurrentNote(),"successful save while locked publishes metadata without clearing dirty edits; UI callback does not own sync");
         owner.sendDocumentSavedSignal(b.strGUID,b.strKbGUID);check(notices==1&&titles==1,"direct publication cannot describe a different current note");
         owner.show();submit(owner);titles=0;
         const auto switched=QObject::connect(&owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){owner.m_note=b;});web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);
         check(titles==0&&owner.note().strGUID==b.strGUID,"note switch inside documentSaved suppresses a stale title update for the newly selected note");QObject::disconnect(switched);
     }
-    for(const bool duringMainWindow:{false,true}){
+    {
         SyncOutputHost host;auto* owner=new RoutingView(explorer);auto* web=installReceipt(*owner,host);owner->show();owner->viewNote(a,false);submit(*owner);QPointer<RoutingView> weak(owner);
-        if(duringMainWindow)web->m_app.duringMainWindow=[&]{delete owner;};else QObject::connect(owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){delete owner;});
+        QObject::connect(owner,&RoutingView::documentSaved,&app,[&](const QString&,RoutingView*){delete owner;});
         web->onDocumentSaved(a.strKbGUID,a.strGUID,true,web);
-        check(!weak&&host.synced.isEmpty(),"owner destruction during saved publication or main-window lookup safely stops the completion before sync");
+        check(!weak&&host.synced.isEmpty(),"owner destruction during saved publication is safe and does not own sync");
     }
     {
         SyncOutputHost host;RoutingView owner(explorer);auto* web=installReceipt(owner,host);owner.show();owner.viewNote(a,false);submit(owner);QWidget notMain;web->m_app.window=&notMain;
@@ -4145,7 +4146,7 @@ int wizBiometricDocumentRoutingSelfTest(int argc,char** argv)
         const bool failed=until([&]{return web->m_bContentsChanged&&saver.isIdleForTransfer();});
         check(retained&&failed&&successes==0&&host.synced.isEmpty()&&outputBytes(backup)==original,"actual main-window save connections deliver worker failure to the original editor and retain the complete encrypted archive backup");
         const bool restored=QDir().rmdir(archive)&&QFile::rename(backup,archive);web->saveDocumentRequested(a,"<html><body>actual receipt retry</body></html>",{},0,false);
-        check(restored&&until([&]{return successes==1;})&&!saver.hasUnresolvedSaveFailure()&&host.synced.size()==1,"actual queued success receipt reconciles same-note persistence and reaches metadata publication after an explicit retry");
+        check(restored&&until([&]{return successes==1&&saver.isIdleForQuit();})&&!saver.hasUnresolvedSaveFailure()&&host.synced.size()==1,"actual queued success receipt reconciles persistence, metadata and sync after an explicit retry");
         QString source;const bool extracted=db.documentToTempHtmlFile(a,source);web->m_mapFile[a.strGUID]=source;web->m_strNoteHtmlFileName=root.filePath("phase166-edited.html");
         web->m_currentEditorMode=1; // Existing extracted Web editing-mode convention.
         const QString output=root.filePath("phase166-main-output.html");WizSaveUnicodeTextToUtf8File(output,"previous main output",false);QFileDialog::destination=output;host.on_actionSaveAsHtml_triggered();

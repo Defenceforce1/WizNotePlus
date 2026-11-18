@@ -318,6 +318,8 @@ WizMainWindow::WizMainWindow(WizDatabaseManager& dbMgr, QWidget *parent)
             this, &WizMainWindow::showBubbleNotification);
 
     m_docSaver = new WizDocumentSaverThread(dbMgr, this);
+    connect(m_docSaver, &WizDocumentSaverThread::noteStoredForSync,
+            this, &WizMainWindow::quickSyncKb);
     m_docLoader = new WizDocumentLoaderThread(dbMgr, this);
 
     insertScrollbarStyleSheet(WizWebEngineProfile());
@@ -418,6 +420,9 @@ bool WizMainWindow::prepareForQuit()
     WizQuitUiGuard actions(this, m_quiting);
     // Read-only external-file preflight; never flush stale caches over notes.
     if (m_externalEditorLauncher && !m_externalEditorLauncher->verifyExternalChangesForQuit()) return false;
+    // Remember a second explicit Quit even during a local save, but never let
+    // it bypass the local-save/receipt checks.
+    WizQuitSyncPolicy::CancelOnRepeatQuit repeatQuit(qApp);
     const auto saveLocally = [&](bool force) {
         QList<QPointer<WizDocumentView>> views;
         processAllDocumentViews([&](WizDocumentView* view) { views.append(view); });
@@ -425,20 +430,20 @@ bool WizMainWindow::prepareForQuit()
             if (viewer) views.append(viewer->docView());
         for (const auto& view : views) if (view) actions.freeze(view);
         actions.freeze(centralWidget());
-        // Do not stop/discard the saver. Verify actual disk writes, not just
-        // the JavaScript callback that hands a snapshot to its queue.
+        // Verify disk writes and the GUI receipts that queue quick sync, not
+        // just the JavaScript callback that hands a snapshot to the saver.
         QElapsedTimer deadline; deadline.start();
-        while (m_docSaver && !m_docSaver->isIdleForTransfer() && deadline.elapsed()<30000) {
+        while (m_docSaver && !m_docSaver->isIdleForQuit() && deadline.elapsed()<30000) {
             QApplication::processEvents(); QThread::msleep(5);
         }
-        bool saved=!m_docSaver || m_docSaver->isIdleForTransfer();
+        bool saved=!m_docSaver || m_docSaver->isIdleForQuit();
         if (saved && m_docSaver) m_docSaver->clearTransferError();
         for (const auto& view : views) if (saved && view) saved=view->waitForSave(force);
         deadline.restart();
-        while (m_docSaver && !m_docSaver->isIdleForTransfer() && deadline.elapsed()<30000) {
+        while (m_docSaver && !m_docSaver->isIdleForQuit() && deadline.elapsed()<30000) {
             QApplication::processEvents(); QThread::msleep(5);
         }
-        return saved && (!m_docSaver || (m_docSaver->isIdleForTransfer() && !m_docSaver->hasTransferError()));
+        return saved && (!m_docSaver || (m_docSaver->isIdleForQuit() && !m_docSaver->hasTransferError()));
     };
     const auto reportLocalFailure = [&] {
         // Only an actionable local-save error is interactive.
@@ -450,13 +455,13 @@ bool WizMainWindow::prepareForQuit()
     // Preserve the normal dirty-state check; do not rewrite unchanged editors.
     if (!saveLocally(false)) { reportLocalFailure(); return false; }
 
-    // Save completion already queues quick sync for changed notebooks. Finish
-    // that work, without starting another full-account sync just for quitting.
-    // A second explicit Quit skips the network wait, never the local-save gate.
-    WizQuitSyncPolicy::CancelOnRepeatQuit repeatQuit(qApp);
+    // Finish existing work without starting a new full-account sync just
+    // for quitting. The isolated fixture has no network to wait for.
+    const bool waitForNetwork = !qApp->property("wiznoteIsolatedWindowControlsTest").toBool();
     const auto waitForExistingSync = [&] {
-        if (qApp->property("wiznoteIsolatedWindowControlsTest").toBool()) return true;
+        if (repeatQuit.requested()) return false;
         const auto waitForSync = [&](WizKMSyncThread* worker) {
+            if (repeatQuit.requested()) return false;
             if (!worker || !worker->isRunning()) return true;
             // Wake already-pending work now rather than waiting for its normal
             // debounce timer. This does not add any notebook or full-sync job.
@@ -477,22 +482,17 @@ bool WizMainWindow::prepareForQuit()
         };
         return waitForSync(m_syncFull) && waitForSync(m_syncQuick);
     };
-    const bool networkResponsive = waitForExistingSync();
-    // Catch a late async/native edit or a newly loaded page before committing
-    // to exit. A failure still cancels quit and restores ordinary input.
-    // Only existing queued work is drained; failed/stalled sync is not retried.
-    if (!saveLocally(false)) { reportLocalFailure(); return false; }
-    // A late local save may have queued one more quick sync. Do not abandon it
-    // on a healthy connection, or restart waiting after a timeout/manual skip.
     const auto hasPendingSync = [](WizKMSyncThread* worker) {
         return worker && worker->isRunning() && !worker->isIdle();
     };
-    if (networkResponsive && !repeatQuit.requested()
-        && (hasPendingSync(m_syncFull) || hasPendingSync(m_syncQuick))) {
-        waitForExistingSync();
-        // Event pumping must never leave a newer local edit unsaved. Do not
-        // loop indefinitely if another asynchronous edit arrives during sync.
+    bool networkResponsive = waitForNetwork && waitForExistingSync();
+    for (;;) {
+        // Event delivery during any network wait may admit one more edit.
+        // Save it and check its receipt before deciding there is no work left.
         if (!saveLocally(false)) { reportLocalFailure(); return false; }
+        if (!networkResponsive || repeatQuit.requested()
+            || (!hasPendingSync(m_syncFull) && !hasPendingSync(m_syncQuick))) break;
+        networkResponsive = waitForExistingSync();
     }
     if (m_externalEditorLauncher && !m_externalEditorLauncher->verifyExternalChangesForQuit()) return false;
 #ifdef WIZNOTE_ENABLE_MARKDOWN_RECOVERY

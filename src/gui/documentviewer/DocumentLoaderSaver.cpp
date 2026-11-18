@@ -221,15 +221,16 @@ WizDocumentSaverThread::SAVEDATA WizDocumentSaverThread::peekFirst()
     SAVEDATA data = m_arrayData[0];
     m_arrayData.erase(m_arrayData.begin());
     m_savingForTransfer = true;
+    if (!data.fence) ++m_pendingSaveReceipts;
     return data;
 }
 
-void WizDocumentSaverThread::peekData(SAVEDATA& data)
+bool WizDocumentSaverThread::peekData(SAVEDATA& data)
 {
     while (1)
     {
         if (m_stop && isEmpty())
-            return;
+            return false;
 
         if (isEmpty())
         {
@@ -239,14 +240,26 @@ void WizDocumentSaverThread::peekData(SAVEDATA& data)
         if (isEmpty())
         {
             if (m_stop)
-                return;
+                return false;
             continue;
         }
 
         data = peekFirst();
-
-        break;
+        return true;
     }
+}
+
+void WizDocumentSaverThread::finishSave(const QString& kbGuid, const QString& docGuid, bool ok,
+                                       QPointer<QObject> requester)
+{
+    emit saved(kbGuid, docGuid, ok, requester);
+    // The worker must not wait for the GUI. Retire the receipt only after the
+    // GUI has handled the persisted write, regardless of the view's lifetime.
+    QMetaObject::invokeMethod(this, [this, kbGuid, ok] {
+        if (ok) emit noteStoredForSync(kbGuid);
+        QMutexLocker locker(&m_mutex);
+        --m_pendingSaveReceipts;
+    }, Qt::QueuedConnection);
 }
 
 void WizDocumentSaverThread::run()
@@ -254,7 +267,7 @@ void WizDocumentSaverThread::run()
     while (true)
     {
         SAVEDATA data;
-        peekData(data);
+        if (!peekData(data)) return;
 
         if (data.fence) {
             bool ok;
@@ -269,35 +282,28 @@ void WizDocumentSaverThread::run()
             continue;
         }
 
-        if (data.doc.strGUID.isEmpty())
-        {
-            if (m_stop)
-                return;
-            continue;
-        }
-
-        WizDatabase& db = m_dbMgr.db(data.doc.strKbGUID);
-
         WIZDOCUMENTDATA doc;
-        if (!db.documentFromGuid(data.doc.strGUID, doc))
+        auto* db = data.doc.strGUID.isEmpty() ? nullptr : &m_dbMgr.db(data.doc.strKbGUID);
+        if (!db || !db->documentFromGuid(data.doc.strGUID, doc))
         {
             {
                 QMutexLocker locker(&m_mutex);
                 m_savingForTransfer = false;
                 m_transferError = true;
-                m_failedSaveNotes.insert(data.doc.strKbGUID + "/" + data.doc.strGUID);
+                if (!data.doc.strGUID.isEmpty())
+                    m_failedSaveNotes.insert(data.doc.strKbGUID + "/" + data.doc.strGUID);
             }
             qDebug() << "fault error: can't find doc in database: " << data.doc.strGUID;
             // Every dequeued save must complete, including a deleted/missing
             // note. Emit outside the mutex so observers cannot deadlock it.
             emit saveFailed(data.doc.strKbGUID, data.doc.strGUID, data.doc.strTitle);
-            emit saved(data.doc.strKbGUID, data.doc.strGUID, false, data.requester);
+            finishSave(data.doc.strKbGUID, data.doc.strGUID, false, data.requester);
             continue;
         }
 
         qDebug() << "Saving note: " << doc.strTitle;
 
-        bool ok = db.updateDocumentData(doc, data.html, data.htmlFile, data.flags, data.notify);
+        bool ok = db->updateDocumentData(doc, data.html, data.htmlFile, data.flags, data.notify);
         {
             QMutexLocker locker(&m_mutex);
             m_savingForTransfer = false;
@@ -314,10 +320,10 @@ void WizDocumentSaverThread::run()
         else
         {
             qDebug() << "Save note failed: " << doc.strTitle;
-            emit saveFailed(db.kbGUID(), doc.strGUID, doc.strTitle);
+            emit saveFailed(db->kbGUID(), doc.strGUID, doc.strTitle);
         }
 
-        emit saved(db.kbGUID(), doc.strGUID, ok, data.requester);
+        finishSave(db->kbGUID(), doc.strGUID, ok, data.requester);
     }
 }
 
@@ -325,6 +331,12 @@ bool WizDocumentSaverThread::isIdleForTransfer()
 {
     QMutexLocker locker(&m_mutex);
     return m_arrayData.empty() && !m_savingForTransfer;
+}
+
+bool WizDocumentSaverThread::isIdleForQuit()
+{
+    QMutexLocker locker(&m_mutex);
+    return m_arrayData.empty() && !m_savingForTransfer && m_pendingSaveReceipts == 0;
 }
 
 void WizDocumentSaverThread::clearTransferError()

@@ -998,7 +998,6 @@ bool WizDocumentWebView::continuePendingLoadAfterFailedOpen(quint64 sequence)
 
 void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester)
 {
-    const QPointer<WizDocumentWebView> self(this);
     const QPointer<WizDocumentView> host(view());
     if (!host) return;
     const auto &note = host->note();
@@ -1014,10 +1013,6 @@ void WizDocumentWebView::onDocumentSaved(const QString kbGUID, const QString str
 
     m_snapshotSaveFailureReported=false;
     host->sendDocumentSavedSignal(strGUID, kbGUID);
-    if (!self) return;
-
-    const QPointer<WizMainWindow> mainWindow(qobject_cast<WizMainWindow*>(m_app.mainWindow()));
-    if (self && mainWindow) mainWindow->quickSyncKb(kbGUID);
 }
 
 void WizDocumentWebView::viewDocument(const WIZDOCUMENTDATA& doc, WizEditorMode editorMode)

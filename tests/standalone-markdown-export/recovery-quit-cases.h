@@ -10,7 +10,7 @@
 // from the current MainWindow, not a handwritten copy of its quit algorithm.
 struct QuitSaver {
     bool idle = true, error = false;
-    bool isIdleForTransfer() const { return idle; }
+    bool isIdleForQuit() const { return idle; }
     bool hasTransferError() const { return error; }
     void clearTransferError() { error = false; }
 };

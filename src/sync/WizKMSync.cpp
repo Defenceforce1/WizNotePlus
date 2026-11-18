@@ -135,6 +135,7 @@ WizKMSyncThread::WizKMSyncThread(WizDatabase& db, bool quickOnly, QObject* paren
     m_tLastSyncAll = QDateTime::currentDateTime();
 
     m_pEvents = new WizKMSyncEvents();
+    m_pEvents->setParent(this);
     connect(m_pEvents, &WizKMSyncEvents::progressChanged, this,
         [this](int position) {
             if (position != m_lastSyncProgress.exchange(position) && m_networkStarted) ++m_networkActivity;

@@ -17,6 +17,7 @@
 #include <QTimer>
 #include <QFile>
 #include <QSemaphore>
+#include <QPointer>
 #include <atomic>
 #include <memory>
 #include <functional>
@@ -330,7 +331,9 @@ int wizShutdownSelfTest(int argc, char** argv)
     }
     WizDocumentSaverThread failingSaver(manager, nullptr);
     WIZDOCUMENTDATA missing = notes[0]; missing.strGUID = "missing-synthetic-note";
-    int missingCompletions=0;bool missingResult=false;
+    int missingCompletions=0, failedSyncReceipts=0;bool missingResult=false;
+    QObject::connect(&failingSaver,&WizDocumentSaverThread::noteStoredForSync,&app,
+        [&](const QString&){ ++failedSyncReceipts; });
     QObject::connect(&failingSaver,&WizDocumentSaverThread::saved,&app,
         [&](const QString& kb,const QString& guid,bool ok,QPointer<QObject> requester){
             ++missingCompletions;missingResult=kb==missing.strKbGUID&&guid==missing.strGUID&&!ok&&requester.isNull();
@@ -339,6 +342,7 @@ int wizShutdownSelfTest(int argc, char** argv)
     failingSaver.waitForDone();
     app.processEvents();
     check(missingCompletions==1&&missingResult,"missing-note save completes exactly once with failure and original note identity");
+    check(failingSaver.isIdleForQuit()&&failedSyncReceipts==0,"failed save retires its quit receipt without scheduling sync");
     check(failingSaver.hasTransferError(), "failed disk/database save is not treated as success");
     failingSaver.clearTransferError();
     check(failingSaver.hasTransferError(), "clearing a transfer status cannot conceal an unresolved failed note");
@@ -349,7 +353,13 @@ int wizShutdownSelfTest(int argc, char** argv)
             QObject* currentSender() const { return sender(); }
         } ownerSaver(manager,nullptr);
         auto requester=std::make_unique<QTimer>();
-        bool senderObserved=false,receiptNull=false;int receipts=0;
+        bool senderObserved=false,receiptNull=false,queuedBeforeRetirement=false;int receipts=0;
+        WizKMSyncThread quickAfterClose(manager.db(),true);
+        QObject::connect(&ownerSaver,&WizDocumentSaverThread::noteStoredForSync,&app,
+            [&](const QString& kb){
+                quickAfterClose.addQuickSyncKb(kb);
+                queuedBeforeRetirement=kb==notes[0].strKbGUID&&!quickAfterClose.isIdle()&&!ownerSaver.isIdleForQuit();
+            });
         QObject::connect(requester.get(),&QTimer::timeout,&ownerSaver,[&]{
             senderObserved=ownerSaver.currentSender()==requester.get();
             ownerSaver.save(notes[0],"<html><body>save-survives-page-close</body></html>","",0);
@@ -359,7 +369,11 @@ int wizShutdownSelfTest(int argc, char** argv)
                 ++receipts;receiptNull=ok&&owner.isNull();
             },Qt::QueuedConnection);
         QMetaObject::invokeMethod(requester.get(),"timeout",Qt::DirectConnection);
-        requester.reset();ownerSaver.waitForDone();app.processEvents();
+        requester.reset();
+        QElapsedTimer receiptWait; receiptWait.start();
+        while(!ownerSaver.isIdleForQuit()&&receiptWait.elapsed()<5000){app.processEvents();QThread::msleep(1);}
+        check(queuedBeforeRetirement&&ownerSaver.isIdleForQuit(),"destroyed view's persisted save still queues quick sync before quit receipt retires");
+        ownerSaver.waitForDone();app.processEvents();
         check(senderObserved&&receipts==1&&receiptNull,"queued save completion cannot retain or address-reuse a destroyed requester");
         QString path;bool persisted=manager.db().documentToTempHtmlFile(notes[0],path);QFile file(path);
         check(persisted&&file.open(QIODevice::ReadOnly)&&file.readAll().contains("save-survives-page-close"),
@@ -376,25 +390,33 @@ int wizShutdownSelfTest(int argc, char** argv)
     check(WizKMSyncThread::quitSyncTimeoutMs == 3000, "final sync start budget is three seconds, independent of local-save confirmation and active uploads");
     // Empty server means explicit offline, without DNS or any cloud request.
     check(WizCommonApiEntry::server().isEmpty(), "offline completion fixture has no server or credentials");
-    WizKMSyncThread offline(manager.db(), false);
-    offline.setFullSyncInterval(60);
     int attempts = 0, uiErrors = 0;
-    QObject::connect(&offline, &WizKMSyncThread::fullSyncAttemptFinished, &app, [&] { ++attempts; });
-    QObject::connect(&offline, &WizKMSyncThread::syncFinished, &app,
-        [&](int, bool, const QString&, bool) { ++uiErrors; });
-    offline.start();
-    for (int target = 1; target <= 2; ++target) {
-        offline.startSyncAll();
-        QElapsedTimer attempt; attempt.start();
-        while ((attempts < target || !offline.isIdle()) && attempt.elapsed() < 2500) {
-            app.processEvents(); QThread::msleep(5);
+    QPointer<WizKMSyncEvents> events;
+    {
+        WizKMSyncThread offline(manager.db(), false);
+        events = offline.findChild<WizKMSyncEvents*>();
+        check(events && events->parent() == &offline && events->thread() == offline.thread(),
+              "sync events belong to the worker object on its owning thread");
+        offline.setFullSyncInterval(60);
+        QObject::connect(&offline, &WizKMSyncThread::fullSyncAttemptFinished, &app, [&] { ++attempts; });
+        QObject::connect(&offline, &WizKMSyncThread::syncFinished, &app,
+            [&](int, bool, const QString&, bool) { ++uiErrors; });
+        offline.start();
+        for (int target = 1; target <= 2; ++target) {
+            offline.startSyncAll();
+            QElapsedTimer attempt; attempt.start();
+            while ((attempts < target || !offline.isIdle()) && attempt.elapsed() < 2500) {
+                app.processEvents(); QThread::msleep(5);
+            }
+            check(attempts == target && attempt.elapsed() < 2500,
+                  "each offline final attempt reports completion without exhausting quit budget");
         }
-        check(attempts == target && attempt.elapsed() < 2500,
-              "each offline final attempt reports completion without exhausting quit budget");
+        check(uiErrors == 1 && attempts == 2, "suppressed repeated offline UI errors cannot conceal attempt completion");
+        offline.stopSync();
+        check(offline.wait(1000), "offline fixture closes its worker normally");
+        check(events, "sync events remain alive until the stopped worker object is destroyed");
     }
-    check(uiErrors == 1 && attempts == 2, "suppressed repeated offline UI errors cannot conceal attempt completion");
-    offline.stopSync();
-    check(offline.wait(1000), "offline fixture closes its worker normally");
+    check(events.isNull(), "destroying the stopped worker releases its sync events immediately");
 
     QTcpServer server;
     bool respond = true;

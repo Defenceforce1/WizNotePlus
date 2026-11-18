@@ -95,6 +95,8 @@ public:
     WizDocumentSaverThread(WizDatabaseManager& dbMgr, QObject* parent);
     void waitForDone();
     bool isIdleForTransfer();
+    // Disk idle alone does not mean the GUI has queued sync for the last save.
+    bool isIdleForQuit();
     void clearTransferError();
     bool hasTransferError();
     // Current per-note failures; unlike the historical transfer error this
@@ -125,21 +127,27 @@ private:
 
     std::vector<SAVEDATA> m_arrayData;
     bool m_savingForTransfer = false;
+    qsizetype m_pendingSaveReceipts = 0; // protected by m_mutex
     bool m_transferError = false;
     QSet<QString> m_failedSaveNotes;
     quint64 m_nextFence = 0; // protected by m_mutex; zero is never queued
 
     bool isEmpty();
     SAVEDATA peekFirst();
+    void finishSave(const QString& kbGuid, const QString& docGuid, bool ok,
+                    QPointer<QObject> requester);
 
 protected:
     virtual void run();
     void stop();
-    void peekData(SAVEDATA& data);
+    bool peekData(SAVEDATA& data);
 
 Q_SIGNALS:
     void saveFenceReached(quint64 fence, bool ok);
     void saved(const QString kbGUID, const QString strGUID, bool ok, QPointer<QObject> requester);
+    // Emitted on the saver QObject's owning thread. The main window queues
+    // sync directly during this signal, before the receipt is retired.
+    void noteStoredForSync(const QString& kbGuid);
     void saveFailed(const QString kbGUID, const QString strGUID, const QString strTitle);
 
 private:

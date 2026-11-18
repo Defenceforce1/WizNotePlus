@@ -25,8 +25,8 @@ struct View : QWidget {
     }
 };
 struct Saver {
-    bool idle=true, failed=false; int resets=0;
-    bool isIdleForTransfer() const {return idle;}
+    bool idle=true, receiptPending=false, failed=false; int resets=0;
+    bool isIdleForQuit() const {return idle && !receiptPending;}
     void clearTransferError() {++resets;}
     bool hasTransferError() const {return failed;}
 };
@@ -92,11 +92,41 @@ int main(int argc,char** argv) {
         check(v.writes==1&&full.starts==0&&quick.wakes==1&&quick.stops==1,
               "pending quick sync is awakened without starting a full-account sync");
     }
+    for (const bool repeatDuringLocalSave : {false, true}) {
+        QuitShell q; View v; v.dirty=true; q.views={&v};
+        Saver saver; q.m_docSaver=&saver; Sync quick; q.m_syncQuick=&quick;
+        bool enqueued=false, synced=false, toggled=false;
+        QWindow nativeInput;
+        v.onSave=[&]{if (v.calls==1) {
+            // Disk has gone idle, but its receipt hasn't entered the GUI yet.
+            saver.receiptPending=true;
+            if (repeatDuringLocalSave) QTimer::singleShot(15,&q,[&]{
+                const auto key=QKeySequence("Ctrl+Q")[0];
+                QKeyEvent press(QEvent::KeyPress,key.key(),key.keyboardModifiers());
+                QCoreApplication::sendEvent(&nativeInput,&press);
+                toggled=true;
+            });
+            QTimer::singleShot(40,&q,[&]{
+                enqueued=true; quick.idle=false; saver.receiptPending=false;
+                if (!repeatDuringLocalSave) QTimer::singleShot(60,&q,[&]{synced=true;quick.idle=true;});
+            });
+        }};
+        check(q.prepareForQuit()&&enqueued&&!saver.receiptPending&&v.writes==1&&quick.stops==1,
+              "disk idle alone cannot commit quit before the final save receipt queues quick sync");
+        check(repeatDuringLocalSave ? (toggled&&!synced&&quick.wakes==0) : (synced&&quick.wakes==1),
+              repeatDuringLocalSave ? "second Quit during the local receipt wait skips only the network"
+                                    : "healthy network drains a quick sync queued by a delayed receipt");
+    }
     {
         QuitShell q;View v;v.dirty=true;q.views={&v};Sync quick;quick.idle=false;quick.started=false;q.m_syncQuick=&quick;
+        Saver saver;q.m_docSaver=&saver;bool lateReceipt=false;
+        v.onSave=[&]{if(v.calls==2){
+            v.dirty=true;saver.receiptPending=true;
+            QTimer::singleShot(25,&q,[&]{lateReceipt=true;saver.receiptPending=false;});
+        }};
         QElapsedTimer elapsed;elapsed.start();
-        check(q.prepareForQuit()&&elapsed.elapsed()>=3000&&elapsed.elapsed()<4500&&v.writes==1,
-              "unresponsive network ends waiting after local save with no retry");
+        check(q.prepareForQuit()&&elapsed.elapsed()>=3000&&elapsed.elapsed()<4500&&v.writes==2&&lateReceipt,
+              "unresponsive network ends waiting but the late save and receipt still finish");
         check(quick.wakes==1&&quick.starts==0&&quick.stops==1,"stalled network does not restart during final save check");
     }
     {
@@ -120,6 +150,20 @@ int main(int argc,char** argv) {
         QTimer::singleShot(40,&q,[&]{v.dirty=true;quick.idle=true;});
         check(q.prepareForQuit()&&v.writes==2&&quick.wakes==2&&quick.idle&&quick.starts==0,
               "late dirty content is persisted and its queued quick sync completes on healthy network");
+    }
+    {
+        QuitShell q; View v; v.dirty=true; q.views={&v}; Sync quick; q.m_syncQuick=&quick;
+        Saver saver; q.m_docSaver=&saver;
+        int receipts=0, syncs=0;
+        v.onSave=[&]{if (v.dirty) {
+            saver.receiptPending=true;
+            QTimer::singleShot(20,&q,[&]{
+                ++receipts; quick.idle=false; saver.receiptPending=false;
+                QTimer::singleShot(25,&q,[&]{quick.idle=true;if (++syncs<3) v.dirty=true;});
+            });
+        }};
+        check(q.prepareForQuit()&&v.writes==3&&receipts==3&&syncs==3&&quick.wakes==3&&quick.stops==1,
+              "third local save also reaches quick sync before healthy shutdown");
     }
     {
         QObject receiver;WizQuitSyncPolicy::CancelOnRepeatQuit filter(qApp);
@@ -146,10 +190,16 @@ int main(int argc,char** argv) {
     for(bool diskFailure:{false,true}) {
         QuitShell q;q.setCentralWidget(new QWidget);View v;v.dirty=true;q.views={&v};
         QAction action(&q);Sync full;q.m_syncFull=&full;Saver saver;q.m_docSaver=&saver;
-        v.fail=!diskFailure;v.onSave=[&]{if(diskFailure)saver.failed=true;};
+        v.fail=!diskFailure;v.onSave=[&]{if(diskFailure){
+            saver.receiptPending=true;
+            QTimer::singleShot(20,&q,[&]{
+                QEvent secondQuit(QEvent::Quit);QCoreApplication::sendEvent(qApp,&secondQuit);
+                saver.failed=true;saver.receiptPending=false;
+            });
+        }};
         const int messages=Message::failures,shutdowns=QuitNetwork::shutdowns;
         check(!q.prepareForQuit()&&!q.m_quitPrepared&&!q.m_quiting&&v.isEnabled()&&action.isEnabled(),
-              diskFailure?"disk failure cancels exit and restores input":"snapshot failure cancels exit and restores input");
+              diskFailure?"disk failure cancels exit and restores input even after another Quit":"snapshot failure cancels exit and restores input");
         check(full.stops==0&&QuitNetwork::shutdowns==shutdowns&&Message::failures==messages+1,
               "save failure does not commit network shutdown");
         saver.failed=false;v.fail=false;v.dirty=true;v.onSave={};
