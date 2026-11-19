@@ -16,6 +16,7 @@
 #include "share/WizMisc.h"
 #include "share/WizLocalFileUrl.h"
 #include "share/WizZiwReader.h"
+#include "share/WizNoteHtmlEncoding.h"
 #include "database/WizDatabase.h"
 #include "database/WizDatabaseManager.h"
 #include "sync/WizApiEntry.h"
@@ -108,7 +109,7 @@ struct InitialOps {
     static inline int reads=0,writes=0;static inline bool failWrite=false;
     static inline std::function<void()> duringRead,duringWrite;
     static void reset(){reads=writes=0;failWrite=false;duringRead={};duringWrite={};}
-    static bool read(const QString& path,QString& text){++reads;const bool ok=WizLoadUnicodeTextFromFile(path,text);const auto hook=duringRead;if(hook)hook();return ok;}
+    static bool read(const QString& path,QString& text){++reads;const bool ok=WizNoteHtmlEncoding::readFile(path,text);const auto hook=duringRead;if(hook)hook();return ok;}
     static bool legacyWrite(const QString& path,const QString& text,bool bom){++writes;const bool ok=!failWrite&&WizSaveUnicodeTextToUtf8File(path,text,bom);const auto hook=duringWrite;if(hook)hook();return ok;}
     static bool write(const WizDocumentReadPermit& permit,const QString& path,const QString& text,bool bom){++writes;const bool ok=!failWrite&&WizDocumentReadOutput::writeUtf8(permit,path,text,bom);const auto hook=duringWrite;if(hook)hook();return ok;}
 };

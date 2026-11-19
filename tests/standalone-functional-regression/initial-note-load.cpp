@@ -4,6 +4,7 @@
 #include "share/WizDocumentReadOutput.h"
 #undef writeUtf8
 #include "share/WizReaderOpeningPresentation.h"
+#include "share/WizNoteHtmlEncoding.h"
 #include <QCoreApplication>
 #include <QTemporaryDir>
 #include <QFile>
@@ -25,6 +26,13 @@ struct Io {
 bool WizLoadUnicodeTextFromFile(const QString& path,QString& text){
     ++Io::reads;QFile f(path);const bool ok=f.open(QIODevice::ReadOnly);
     if(ok){auto bytes=f.readAll();Io::bytesRead+=bytes.size();if(bytes.startsWith(QByteArray::fromHex("efbbbf")))bytes.remove(0,3);text=QString::fromUtf8(bytes);}
+    const auto action=Io::duringRead;if(action)action();return ok;
+}
+bool CountedNoteHtmlRead(const QString& path,QString& text){
+    ++Io::reads;QFile f(path);
+    const bool opened=f.open(QIODevice::ReadOnly);
+    bool ok=false;
+    if(opened){const auto bytes=f.readAll();Io::bytesRead+=bytes.size();ok=WizNoteHtmlEncoding::decode(bytes,text);}
     const auto action=Io::duringRead;if(action)action();return ok;
 }
 namespace WizDocumentReadOutput {

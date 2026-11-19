@@ -493,6 +493,7 @@ foreach(pair "void WizDocumentWebView::addDefaultScriptsToDocumentHtml(|void Wiz
     string(REPLACE "WizDocumentView" "RoutingView" body "${body}")
     string(REPLACE "WizEditorMode" "int" body "${body}")
     string(REPLACE "WizLoadUnicodeTextFromFile(" "InitialOps::read(" body "${body}")
+    string(REPLACE "WizNoteHtmlEncoding::readFile(" "InitialOps::read(" body "${body}")
     string(REPLACE "::WizSaveUnicodeTextToUtf8File(" "InitialOps::legacyWrite(" body "${body}")
     string(REPLACE "WizDocumentReadOutput::writeUtf8(" "InitialOps::write(" body "${body}")
     string(APPEND initial_bodies "${body}")

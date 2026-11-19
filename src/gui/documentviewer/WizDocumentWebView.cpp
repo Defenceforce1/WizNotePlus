@@ -41,6 +41,7 @@
 
 #include "share/WizGlobal.h"
 #include "share/WizMisc.h"
+#include "share/WizNoteHtmlEncoding.h"
 #include "share/WizAnalyzer.h"
 #include "share/WizMessageBox.h"
 #include "share/WizObjectDataDownloader.h"
@@ -1992,7 +1993,7 @@ bool WizDocumentWebView::addDefaultScriptsToDocumentHtml(QString htmlFileName, b
     if (!read.current()) return false;
     const WIZDOCUMENTDATA document = view()->note();
     QString strHtml;
-    bool ret = WizLoadUnicodeTextFromFile(htmlFileName, strHtml);
+    bool ret = WizNoteHtmlEncoding::readFile(htmlFileName, strHtml);
     if (!self || !read.current() || !ret) return false;
 
     WizReaderOpeningPresentation::removeBootstrap(strHtml);
