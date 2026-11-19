@@ -45,6 +45,7 @@
 #include "WizConsoleDialog.h"
 #include "gui/categoryviewer/WizCategoryView.h"
 #include "gui/doclistviewer/WizDocumentListView.h"
+#include "gui/doclistviewer/WizDocumentListViewDocumentItem.h"
 #include "WizUserCipherForm.h"
 
 #include "WizActions.h"
@@ -511,6 +512,7 @@ bool WizMainWindow::prepareForQuit()
  */
 void WizMainWindow::cleanOnQuit()
 {
+    cancelProgressiveSearch();
     m_quiting = true;
     WizNetworkSecurity::beginShutdown();
     if (m_syncQuick) m_syncQuick->stopSync();
@@ -1089,6 +1091,7 @@ void WizMainWindow::on_upgradeThread_finished()
 
 WizMainWindow::~WizMainWindow()
 {
+    m_progressiveSearch.cancelAndWait();
     delete m_history;
 }
 
@@ -2182,6 +2185,11 @@ void WizMainWindow::initToolBar()
     updateHistoryButtonStatus();
 
     connect(m_searchWidget, SIGNAL(doSearch(const QString&)), SLOT(on_search_doSearch(const QString&)));
+    connect(m_searchWidget, &WizSearchView::searchInputCleared, this, [this]{
+        if (!m_documents || !m_documents->acceptAllSearchItems()) return;
+        if (m_searchWidget->hasFilters()) on_search_doSearch(QString());
+        else resetSearchStatus();
+    });
 }
 
 
@@ -2391,6 +2399,12 @@ QWidget* WizMainWindow::createNoteListView()
     m_btnMarkDocumentsReaded->setVisible(false);
 
     layoutList->addWidget(noteButtonsContainer);
+    m_searchProgressLabel = new QLabel(m_noteListWidget);
+    m_searchProgressLabel->setObjectName("search-progress");
+    m_searchProgressLabel->setWordWrap(true);
+    m_searchProgressLabel->setMargin(6);
+    m_searchProgressLabel->hide();
+    layoutList->addWidget(m_searchProgressLabel);
     layoutList->addWidget(m_documents);
 
     return m_noteListWidget;
@@ -3752,6 +3766,8 @@ void WizMainWindow::refreshSearchChoices()
 
 void WizMainWindow::on_search_doSearch(const QString& keywords)
 {
+    if (m_quiting || m_preparingQuit) return;
+    cancelProgressiveSearch();
     if (m_searchWidget->hasFilters()) {
         QString where, keyword, name; int scope = Scope_PersonalNotes;
         if (!WizAdvancedSearchDialog::paramToSQL(m_searchWidget->queryParams(), where, keyword, name, scope)) {
@@ -3788,29 +3804,13 @@ void WizMainWindow::on_search_doSearch(const QString& keywords)
     m_msgListWidget->hide();
     //
     m_settings->appendRecentSearch(keywords);
-    //m_searcher->search(keywords, 500);
-    startSearchStatus();
-    //
-    QString key = keywords;
-    //
-    ::WizExecutingActionDialog::executeAction(tr("Searching..."), WIZ_THREAD_SEARCH, [=]{
-
-        CWizDocumentDataArray arrayDocument;
-        m_searcher->onlineSearch(kbGuid, key, arrayDocument);
-        //
-        ::WizExecuteOnThread(WIZ_THREAD_MAIN, [=]{
-
-            m_documents->clearAllItems();
-            m_documents->setDocuments(arrayDocument, true);
-            //
-        });
-    });
-    //
+    startProgressiveSearch(kbGuid,keywords,{},false);
 }
 
 
 void WizMainWindow::on_searchProcess(const QString& strKeywords, const CWizDocumentDataArray& arrayDocument, bool bStart, bool bEnd)
 {
+    if (m_progressiveSearch.active()) return;
     if (bStart) {
         m_documents->setLeadInfoState(DocumentLeadInfo_SearchResult);
         m_documents->setDocuments(arrayDocument);
@@ -4838,6 +4838,7 @@ void WizMainWindow::startSearchStatus()
 
 void WizMainWindow::quitSearchStatus()
 {
+    cancelProgressiveSearch();
     // 如果当前是搜索模式，在退出搜索模式时清除搜索框中的内容
     if (m_documents->acceptAllSearchItems())
     {
@@ -4852,6 +4853,71 @@ void WizMainWindow::quitSearchStatus()
         m_category->setFocus();
         m_category->setCurrentItem(m_category->selectedItems().first());
     }
+}
+
+void WizMainWindow::cancelProgressiveSearch()
+{
+    m_progressiveSearch.cancel();
+    if (m_searchProgressLabel) m_searchProgressLabel->hide();
+}
+
+void WizMainWindow::startProgressiveSearch(const QString& kbGuid,const QString& keywords,
+                                          const QString& where,bool filtered)
+{
+    const bool fullText = !keywords.trimmed().isEmpty();
+    if (m_quiting || m_preparingQuit) return;
+    startSearchStatus();
+    m_searchProgressLabel->setText(fullText ? tr("正在查找标题和全文…") : tr("正在筛选笔记…"));
+    m_searchProgressLabel->show();
+    m_documents->setLeadInfoState(DocumentLeadInfo_SearchResult);
+    m_documents->setDocuments(CWizDocumentDataArray{},true);
+
+    using Pipeline=WizProgressiveSearch<CWizDocumentDataArray>;
+    auto* searcher=m_searcher; // Workers are joined before destruction of this child.
+    Pipeline::Query titles=[searcher,kbGuid,keywords,where,filtered](auto& out,const auto&){
+        return filtered ? searcher->searchPersonalLocal(keywords,where,500,out)
+                        : searcher->searchLocalTitles(kbGuid,keywords,out);
+    };
+    Pipeline::Query cloud;
+    if (fullText) cloud=[searcher,kbGuid,keywords,where,filtered](auto& out,const auto& canceled){
+        const WizNetworkSecurity::CancellationScope scope(canceled);
+        return searcher->searchFullText(kbGuid,keywords,where,filtered,filtered?500:-1,out);
+    };
+    const auto localOK=std::make_shared<bool>(false); // GUI completions only.
+    m_progressiveSearch.start(std::move(titles),std::move(cloud),
+        [this,fullText,localOK](bool ok,CWizDocumentDataArray notes){
+            if (m_quiting) return;
+            *localOK=ok;
+            m_searchProgressLabel->setText(fullText
+                ? (ok ? (notes.empty() ? tr("本地标题未匹配，正在查找全文…")
+                                      : tr("已显示本地标题结果，正在查找全文…"))
+                      : tr("本地标题查询失败，正在查找全文…"))
+                : (ok ? tr("筛选完成") : tr("筛选失败，请重试")));
+            if (ok) m_documents->setDocuments(notes,true);
+        },
+        [this,localOK](bool ok,CWizDocumentDataArray notes){
+            if (m_quiting) return;
+            m_searchProgressLabel->setText(ok ? tr("全文搜索完成") :
+                (*localOK ? tr("全文暂不可用，仅显示本地标题结果") : tr("搜索失败，请重试")));
+            if (!ok) return;
+            QHash<QPair<QString,QString>,WizDocumentListViewDocumentItem*> existing;
+            for(int i=0;i<m_documents->count();++i)
+                if(auto* item=m_documents->documentItemAt(i)) {
+                    const auto& doc=item->document();
+                    existing.insert({doc.strKbGUID,doc.strGUID},item);
+                }
+            CWizDocumentDataArray additions;
+            for(const auto& doc:notes) {
+                auto it=existing.find({doc.strKbGUID,doc.strGUID});
+                if(it==existing.end()) {
+                    existing.insert({doc.strKbGUID,doc.strGUID},nullptr);
+                    additions.push_back(doc);
+                } else if(auto* item=it.value()) item->setSearchHighlights(doc);
+            }
+            // Keep local rows and selection in place as full-text hits arrive.
+            if(!additions.empty()) m_documents->appendDocumentsNoSort(additions);
+            m_documents->viewport()->update();
+        });
 }
 
 void WizMainWindow::initVariableBeforCreateNote()
@@ -5069,6 +5135,7 @@ void WizMainWindow::viewDocumentByShortcut(WizCategoryViewShortcutItem* pShortcu
 
 void WizMainWindow::searchNotesBySQL(const QString& strSQLWhere)
 {
+    cancelProgressiveSearch();
     if (strSQLWhere.isEmpty())
         return;
     m_searcher->searchBySQLWhere(strSQLWhere, 500);
@@ -5076,6 +5143,7 @@ void WizMainWindow::searchNotesBySQL(const QString& strSQLWhere)
 
 void WizMainWindow::searchNotesBySQLAndKeyword(const QString& strSQLWhere, const QString& strKeyword, int searchScope)
 {
+    cancelProgressiveSearch();
     if (searchScope == Scope_PersonalNotes)
     {
         m_category->saveSelection();
@@ -5083,21 +5151,7 @@ void WizMainWindow::searchNotesBySQLAndKeyword(const QString& strSQLWhere, const
         m_strSearchKeywords = strKeyword;
         m_noteListWidget->show();
         m_msgListWidget->hide();
-        startSearchStatus();
-        CWizDocumentDataArray results;
-        bool ok = false, titleOnly = false;
-        WizExecutingActionDialog::executeAction(tr("Searching..."), WIZ_THREAD_SEARCH, [&] {
-            ok = m_searcher->searchPersonalWithFilters(strKeyword, strSQLWhere, 500, results, titleOnly);
-        });
-        m_documents->clearAllItems();
-        m_documents->setLeadInfoState(DocumentLeadInfo_SearchResult);
-        m_documents->setDocuments(results, true);
-        on_documents_itemSelectionChanged();
-        if (!ok)
-            QMessageBox::warning(this, tr("Info"), QStringLiteral("高级搜索失败，请重试。"));
-        else if (titleOnly)
-            QMessageBox::information(this, tr("Info"), QStringLiteral(
-                "联网全文搜索暂不可用。本次仅搜索本地笔记标题，并应用所选条件；正文中的匹配不会显示。"));
+        startProgressiveSearch(m_dbMgr.db().kbGUID(),strKeyword,strSQLWhere,true);
         return;
     }
     if (strSQLWhere.isEmpty())

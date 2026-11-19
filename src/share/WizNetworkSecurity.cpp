@@ -10,6 +10,11 @@
 
 namespace WizNetworkSecurity {
 static thread_local std::function<void()> activityObserver;
+static thread_local std::function<bool()> cancellation;
+CancellationScope::CancellationScope(std::function<bool()> canceled) : m_previous(std::move(cancellation)) {
+    cancellation = std::move(canceled);
+}
+CancellationScope::~CancellationScope() { cancellation = std::move(m_previous); }
 ActivityScope::ActivityScope(std::function<void()> observer) : m_previous(std::move(activityObserver)) {
     activityObserver = std::move(observer);
 }
@@ -19,7 +24,8 @@ static std::atomic_bool shuttingDown{false};
 void beginShutdown() { shuttingDown.store(true); }
 bool isShuttingDown() { return shuttingDown.load(); }
 bool isNetworkCancellationRequested() {
-    return isShuttingDown() || QThread::currentThread()->isInterruptionRequested();
+    return isShuttingDown() || QThread::currentThread()->isInterruptionRequested()
+        || (cancellation && cancellation());
 }
 static QSslConfiguration secureConfiguration() {
     auto configuration = QSslConfiguration::defaultConfiguration();

@@ -48,6 +48,10 @@ public:
             , SearchScope scope = Scope_AllNotes);
     //
     bool onlineSearch(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& arrayResult);
+    bool searchLocalTitles(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& results);
+    bool searchPersonalLocal(const QString& keywords, const QString& where, int maxCount, CWizDocumentDataArray& results);
+    bool searchFullText(const QString& kbGuid, const QString& keywords, const QString& where, bool filtered,
+                        int maxCount, CWizDocumentDataArray& results);
     bool searchPersonalWithFilters(const QString& keywords, const QString& where, int maxCount,
                                    CWizDocumentDataArray& results, bool& titleOnlyFallback);
 

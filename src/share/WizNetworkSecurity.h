@@ -19,6 +19,16 @@ private:
     std::function<void()> m_previous;
 };
 void noteActivity();
+// Request cancellation belongs to the worker's current operation only.
+class CancellationScope final {
+public:
+    explicit CancellationScope(std::function<bool()> canceled);
+    ~CancellationScope();
+    CancellationScope(const CancellationScope&) = delete;
+    CancellationScope& operator=(const CancellationScope&) = delete;
+private:
+    std::function<bool()> m_previous;
+};
 // Keep the system trust store. Never bypass certificate errors or retry HTTP.
 void installSecureDefaults();
 // One-way shutdown affects network work only, never local document saves.

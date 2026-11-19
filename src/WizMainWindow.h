@@ -13,6 +13,7 @@
 #include "share/WizUIHelper.h"
 #include "share/WizSettings.h"
 #include "share/WizFramelessWindow.h"
+#include "share/WizProgressiveSearch.h"
 #include "utils/ExternalEditorLauncher.h"
 
 
@@ -195,6 +196,8 @@ private:
     WizAnimateAction* m_animateSync;
 
     WizSearcher* m_searcher;
+    WizProgressiveSearch<CWizDocumentDataArray> m_progressiveSearch;
+    QLabel* m_searchProgressLabel = nullptr;
     QString m_strSearchKeywords;
 
     WizSearchView* m_searchWidget;
@@ -545,6 +548,9 @@ private:
 
 
     void startSearchStatus();
+    void cancelProgressiveSearch();
+    void startProgressiveSearch(const QString& kbGuid,const QString& keywords,
+                                const QString& where,bool filtered);
     void quitSearchStatus();
     void resetSearchStatus();
 

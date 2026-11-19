@@ -1,6 +1,8 @@
 #include "widgets/WizAdvancedSearchDialog.h"
 #include "share/WizSearch.h"
 #include "share/WizGlobal.h"
+#include "share/WizEventLoop.h"
+#include "share/WizNetworkSecurity.h"
 #include "share/WizLegacyLightAppearance.h"
 #include "WizSearchWidget.h"
 #include "gui/documentviewer/WizTitleEdit.h"
@@ -23,6 +25,7 @@
 #include <QKeyEvent>
 #include <QInputMethodEvent>
 #include <QEventLoop>
+#include <QElapsedTimer>
 #include <QTimer>
 #include <QStyleFactory>
 
@@ -41,6 +44,19 @@ protected:
         result = candidates;
         return available;
     }
+};
+class StalledSearchReply final : public QNetworkReply {
+public:
+    StalledSearchReply(){open(QIODevice::ReadOnly);}
+    void abort() override {
+        aborted=true;
+        setError(OperationCanceledError,QStringLiteral("synthetic cancellation"));
+        setFinished(true);
+        emit finished();
+    }
+    bool aborted=false;
+protected:
+    qint64 readData(char*,qint64) override {return -1;}
 };
 QString tagParam(const WIZTAGDATA& tag)
 {
@@ -127,6 +143,28 @@ int wizAdvancedSearchSelfTest(int argc, char** argv)
     searcher.candidates = {excluded, body, body, title, trash};
     CWizDocumentDataArray result;
     bool fallback = true;
+    check(searcher.searchPersonalLocal("alpha",tagWhere,10,result)
+        && result.size()==1 && result.front().strGUID==title.strGUID && searcher.requests==0,
+        "provisional titles apply existing tags and avoid the server");
+    check(searcher.searchFullText(db.kbGUID(),"alpha",tagWhere,true,10,result)
+        && result.size()==2 && result.front().strGUID==body.strGUID
+        && result.front().strHighlightText==body.strHighlightText,
+        "independent full-text stage keeps a body-only hit, exclusions, and highlights");
+    {
+        auto* reply=new StalledSearchReply;
+        WizAutoTimeOutEventLoop loop(reply);
+        QElapsedTimer elapsed;elapsed.start();
+        bool canceled=false;
+        {
+            const WizNetworkSecurity::CancellationScope scope([&]{return canceled;});
+            QTimer::singleShot(15,&loop,[&]{canceled=true;});
+            QTimer::singleShot(500,&loop,[&]{loop.quit();});
+            loop.exec();
+        }
+        check(reply->aborted && loop.error()==QNetworkReply::OperationCanceledError
+              && elapsed.elapsed()<500 && !WizNetworkSecurity::isNetworkCancellationRequested(),
+              "retiring one search aborts an in-flight reply without affecting later requests");
+    }
     check(searcher.searchPersonalWithFilters("alpha", tagWhere, 10, result, fallback)
         && !fallback && result.size() == 2 && result.front().strGUID == body.strGUID
         && result.front().strHighlightText == body.strHighlightText, "body-only online hit retained with highlights");

@@ -23,6 +23,7 @@
 #include "sync/WizApiEntry.h"
 #include "sync/WizSync.h"
 #include "share/WizEventLoop.h"
+#include "share/WizNetworkSecurity.h"
 #include "share/jsoncpp/json/json.h"
 #include "sync/WizToken.h"
 
@@ -535,35 +536,48 @@ bool WizSearcher::searchPersonalWithFilters(const QString& keywords, const QStri
     titleOnlyFallback = false;
     if (maxCount == 0)
         return true;
-    WizDatabase& db = m_dbMgr.db();
-    const int limit = maxCount < 0 ? std::numeric_limits<int>::max() : maxCount;
-    QString conditions = "DOCUMENT_LOCATION NOT LIKE " + STR2SQL(db.getDeletedItemsLocation() + "%");
-    if (!where.trimmed().isEmpty())
-        conditions += " AND (" + where + ")";
-
-    CWizDocumentDataArray online;
     const bool hasKeyword = !keywords.trimmed().isEmpty();
-    const bool onlineOk = hasKeyword && onlineSearchOnly(db.kbGUID(), keywords, online);
-    if (hasKeyword && !onlineOk)
-    {
-        // Keep the old offline title search, but make the fallback explicit to the UI.
-        titleOnlyFallback = true;
-        for (QString term : keywords.split(getWizSearchSplitChar(), Qt::SkipEmptyParts))
-        {
-            term.replace("\\", "\\\\");
-            term.replace("%", "\\%");
-            term.replace("_", "\\_");
-            conditions += " AND DOCUMENT_TITLE LIKE " + STR2SQL("%" + term + "%") + " ESCAPE '\\'";
-        }
+    if (hasKeyword && searchFullText(m_dbMgr.db().kbGUID(),keywords,where,true,maxCount,results)) return true;
+    titleOnlyFallback = hasKeyword;
+    return searchPersonalLocal(keywords,where,maxCount,results);
+}
+
+static QString personalSearchConditions(WizDatabase& db,const QString& where)
+{
+    QString conditions = "DOCUMENT_LOCATION NOT LIKE " + STR2SQL(db.getDeletedItemsLocation() + "%");
+    if (!where.trimmed().isEmpty()) conditions += " AND (" + where + ")";
+    return conditions;
+}
+
+bool WizSearcher::searchPersonalLocal(const QString& keywords,const QString& where,int maxCount,
+                                     CWizDocumentDataArray& results)
+{
+    results.clear();
+    if (maxCount==0) return true;
+    auto& db=m_dbMgr.db();
+    QString conditions=personalSearchConditions(db,where);
+    for (QString term:keywords.split(getWizSearchSplitChar(),Qt::SkipEmptyParts)) {
+        term.replace("\\","\\\\");
+        term.replace("%","\\%");
+        term.replace("_","\\_");
+        conditions += " AND DOCUMENT_TITLE LIKE " + STR2SQL("%"+term+"%") + " ESCAPE '\\'";
     }
+    return db.searchDocumentByWhere(conditions,maxCount<0?std::numeric_limits<int>::max():maxCount,results);
+}
+
+bool WizSearcher::searchFullText(const QString& kbGuid,const QString& keywords,const QString& where,
+                                 bool filtered,int maxCount,CWizDocumentDataArray& results)
+{
+    results.clear();
+    if(maxCount==0) return true;
+    if(!filtered) return onlineSearchOnly(kbGuid,keywords,results);
+    CWizDocumentDataArray online;
+    if(!onlineSearchOnly(kbGuid,keywords,online)||WizNetworkSecurity::isNetworkCancellationRequested()) return false;
+    auto& db=m_dbMgr.db();
+    const int limit=maxCount<0?std::numeric_limits<int>::max():maxCount;
     CWizDocumentDataArray matching;
-    if (!db.searchDocumentByWhere(conditions, onlineOk ? std::numeric_limits<int>::max() : limit, matching))
+    if (!db.searchDocumentByWhere(personalSearchConditions(db,where),std::numeric_limits<int>::max(),matching))
         return false;
-    if (!onlineOk)
-    {
-        results.swap(matching);
-        return true;
-    }
     QSet<QString> allowed, emitted;
     for (const auto& doc : matching)
         allowed.insert(doc.strGUID);
@@ -585,6 +599,11 @@ bool WizSearcher::onlineSearch(const QString& kbGuid, const QString& keywords, C
 {
     if (onlineSearchOnly(kbGuid, keywords, arrayResult))
         return true;
+    return searchLocalTitles(kbGuid,keywords,arrayResult);
+}
+
+bool WizSearcher::searchLocalTitles(const QString& kbGuid,const QString& keywords,CWizDocumentDataArray& arrayResult)
+{
     //
     WizDatabase& db = m_dbMgr.db(kbGuid);
     //
@@ -601,8 +620,9 @@ bool WizSearcher::onlineSearch(const QString& kbGuid, const QString& keywords, C
 
 bool WizSearcher::onlineSearchOnly(const QString& kbGuid, const QString& keywords, CWizDocumentDataArray& arrayResult)
 {
+    if(WizNetworkSecurity::isNetworkCancellationRequested()) return false;
     QString token = WizToken::token();
-    if (token.isEmpty()) {
+    if (token.isEmpty() || WizNetworkSecurity::isNetworkCancellationRequested()) {
         //
         return false;
     }
@@ -643,7 +663,7 @@ bool WizSearcher::onlineSearchOnly(const QString& kbGuid, const QString& keyword
     int end = WizGetTickCount();
     qDebug() << "search time: " << end - start;
 
-    if (loop.error() != QNetworkReply::NoError || loop.result().isEmpty())
+    if (WizNetworkSecurity::isNetworkCancellationRequested() || loop.error() != QNetworkReply::NoError || loop.result().isEmpty())
     {
         qDebug() << "[Search] Search failed, network error code:" << loop.error();
         return false;

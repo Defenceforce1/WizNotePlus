@@ -24,6 +24,7 @@ target_compile_definitions(async-api-lifetime PRIVATE WIZNOTE_ASYNC_API_TEST_TRA
 target_link_libraries(async-api-lifetime PRIVATE Qt6::Network)
 wiz_unit(document-async document-async.cpp)
 wiz_unit(note-html-encoding note-html-encoding.cpp)
+wiz_unit(progressive-search progressive-search.cpp)
 wiz_unit(pdf-export-lifecycle pdf-export-lifecycle.cpp)
 wiz_unit(pdf-paper-page pdf-paper-page.cpp)
 foreach(name document-async pdf-export-lifecycle pdf-paper-page)

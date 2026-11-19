@@ -152,7 +152,10 @@ WizSearchView::WizSearchView(QWidget* parent /* = 0 */)
     m_suggestionTimer.setSingleShot(true);
     m_suggestionTimer.setInterval(120);
     connect(&m_suggestionTimer, &QTimer::timeout, this, &WizSearchView::updateTagSuggestions);
-    connect(m_editSearch, &QLineEdit::textEdited, this, [this] { m_suggestionTimer.start(); });
+    connect(m_editSearch, &QLineEdit::textEdited, this, [this](const QString& text) {
+        m_suggestionTimer.start();
+        if (text.isEmpty()) emit searchInputCleared();
+    });
     m_submitTimer.setSingleShot(true);
     connect(&m_submitTimer, &QTimer::timeout, this, &WizSearchView::on_search_returnPressed);
 

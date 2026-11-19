@@ -27,6 +27,11 @@ public:
     const WizDocumentListViewItemData& itemData() { return m_data; }
     const WIZDOCUMENTDATA& document() const { return m_data.doc; }
     WIZDOCUMENTDATA& document() { return m_data.doc; }
+    void setSearchHighlights(const WIZDOCUMENTDATAEX& result) {
+        if (!result.strHighlightTitle.isEmpty()) m_data.doc.strHighlightTitle=result.strHighlightTitle;
+        m_data.doc.strHighlightText=result.strHighlightText;
+        setNeedUpdate();
+    }
     int itemType() const { return m_data.nType; }
     int documentSize() const;
     QString documentLocation() const;
